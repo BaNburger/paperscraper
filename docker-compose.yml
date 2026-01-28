@@ -1,0 +1,123 @@
+version: '3.8'
+
+services:
+  # =============================================================================
+  # PostgreSQL with pgvector extension
+  # =============================================================================
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: paperscraper_db
+    environment:
+      POSTGRES_DB: paperscraper
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =============================================================================
+  # Redis for arq job queue and caching
+  # =============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: paperscraper_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =============================================================================
+  # MinIO (S3-compatible object storage for PDFs)
+  # =============================================================================
+  minio:
+    image: minio/minio
+    container_name: paperscraper_minio
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # =============================================================================
+  # FastAPI Application
+  # =============================================================================
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: paperscraper_api
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/paperscraper
+      - DATABASE_URL_SYNC=postgresql://postgres:postgres@db:5432/paperscraper
+      - REDIS_URL=redis://redis:6379/0
+      - S3_ENDPOINT=http://minio:9000
+      - S3_ACCESS_KEY=minio
+      - S3_SECRET_KEY=minio123
+      - S3_BUCKET_NAME=paperscraper
+      - APP_ENV=development
+      - DEBUG=true
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./paper_scraper:/app/paper_scraper:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn paper_scraper.api.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+
+  # =============================================================================
+  # arq Worker for background jobs
+  # =============================================================================
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: paperscraper_worker
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/paperscraper
+      - REDIS_URL=redis://redis:6379/0
+      - S3_ENDPOINT=http://minio:9000
+      - S3_ACCESS_KEY=minio
+      - S3_SECRET_KEY=minio123
+    env_file:
+      - .env
+    volumes:
+      - ./paper_scraper:/app/paper_scraper:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: arq paper_scraper.jobs.WorkerSettings
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:

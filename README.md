@@ -1,0 +1,1 @@
+The PaperScraper is a tool for discovering technology to found deep tech companies on.
