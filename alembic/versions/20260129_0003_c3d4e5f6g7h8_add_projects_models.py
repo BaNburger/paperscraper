@@ -19,6 +19,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 # Define the rejection reason enum
+# create_type=False prevents SQLAlchemy from auto-creating it when used in create_table
 rejection_reason_enum = postgresql.ENUM(
     "out_of_scope",
     "low_novelty",
@@ -31,6 +32,7 @@ rejection_reason_enum = postgresql.ENUM(
     "duplicate",
     "other",
     name="rejectionreason",
+    create_type=False,
 )
 
 

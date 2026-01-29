@@ -54,9 +54,13 @@ poetry run pytest tests/ -v
 
 # 7. Start API server
 poetry run uvicorn paper_scraper.api.main:app --reload --port 8000
+
+# 8. Start Frontend (in a new terminal)
+cd frontend && npm install && npm run dev
 ```
 
-API is now available at: http://localhost:8000/docs
+- **API Docs:** http://localhost:8000/docs
+- **Frontend:** http://localhost:3000
 
 ---
 
@@ -189,6 +193,28 @@ poetry run uvicorn paper_scraper.api.main:app --reload --port 8000
 
 ---
 
+### Step 7: Start the Frontend
+
+```bash
+# Navigate to frontend directory
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+```
+
+**What it does:**
+- Starts the Vite development server on port 3000
+- Proxies API requests to `http://localhost:8000`
+- Hot-reloads on code changes
+
+**Verify:** Open http://localhost:3000 - you should see the login page.
+
+---
+
 ## Quick Verification
 
 ### Test the Auth Flow
@@ -235,11 +261,23 @@ curl http://localhost:8000/api/v1/auth/me \
 
 | Service | URL | Credentials |
 |---------|-----|-------------|
+| **Frontend** | http://localhost:3000 | See below |
 | **API Docs** | http://localhost:8000/docs | - |
 | **API ReDoc** | http://localhost:8000/redoc | - |
 | **MinIO Console** | http://localhost:9001 | `minio` / `minio123` |
 | **PostgreSQL** | `localhost:5432` | `postgres` / `postgres` |
 | **Redis** | `localhost:6379` | - |
+
+### Test Account
+
+After registering via the API or frontend, use these credentials:
+
+| Field | Value |
+|-------|-------|
+| **Email** | `test@example.com` |
+| **Password** | `TestPass123!` |
+
+Or register a new account through the frontend at http://localhost:3000/register
 
 ---
 
@@ -276,6 +314,11 @@ poetry run mypy paper_scraper              # Type checking
 
 # Start arq worker (for background jobs)
 poetry run arq paper_scraper.jobs.worker.WorkerSettings
+
+# Frontend
+cd frontend && npm run dev                 # Start dev server
+cd frontend && npm run build               # Production build
+cd frontend && npm run preview             # Preview production build
 ```
 
 ---
@@ -485,7 +528,8 @@ poetry run pytest -v
 
 After setup is verified:
 
-1. **Explore the API:** http://localhost:8000/docs
-2. **Read the architecture:** [01_TECHNISCHE_ARCHITEKTUR.md](01_TECHNISCHE_ARCHITEKTUR.md)
-3. **Check implementation status:** [05_IMPLEMENTATION_PLAN.md](05_IMPLEMENTATION_PLAN.md)
-4. **Start Sprint 4:** Projects & KanBan module
+1. **Open the Frontend:** http://localhost:3000
+2. **Register an account** or use: `test@example.com` / `TestPass123!`
+3. **Explore the API:** http://localhost:8000/docs
+4. **Read the architecture:** [01_TECHNISCHE_ARCHITEKTUR.md](01_TECHNISCHE_ARCHITEKTUR.md)
+5. **Check implementation status:** [05_IMPLEMENTATION_PLAN.md](05_IMPLEMENTATION_PLAN.md)

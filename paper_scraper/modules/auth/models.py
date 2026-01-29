@@ -53,12 +53,12 @@ class Organization(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     type: Mapped[OrganizationType] = mapped_column(
-        Enum(OrganizationType),
+        Enum(OrganizationType, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=OrganizationType.UNIVERSITY,
     )
     subscription_tier: Mapped[SubscriptionTier] = mapped_column(
-        Enum(SubscriptionTier),
+        Enum(SubscriptionTier, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=SubscriptionTier.FREE,
     )
@@ -112,7 +112,7 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     role: Mapped[UserRole] = mapped_column(
-        Enum(UserRole),
+        Enum(UserRole, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=UserRole.MEMBER,
     )

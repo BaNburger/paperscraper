@@ -83,6 +83,7 @@ services:
       - "8000:8000"
     volumes:
       - ./paper_scraper:/app/paper_scraper:ro
+      - ./alembic:/app/alembic
     depends_on:
       db:
         condition: service_healthy
@@ -90,6 +91,19 @@ services:
         condition: service_healthy
     command: uvicorn paper_scraper.api.main:app --host 0.0.0.0 --port 8000 --reload
     restart: unless-stopped
+    develop:
+      watch:
+        # Sync Python source code changes
+        - action: sync
+          path: ./paper_scraper
+          target: /app/paper_scraper
+        # Sync Alembic migrations
+        - action: sync
+          path: ./alembic
+          target: /app/alembic
+        # Rebuild on dependency changes
+        - action: rebuild
+          path: ./pyproject.toml
 
   # =============================================================================
   # arq Worker for background jobs
@@ -116,6 +130,15 @@ services:
         condition: service_healthy
     command: arq paper_scraper.jobs.WorkerSettings
     restart: unless-stopped
+    develop:
+      watch:
+        # Sync Python source code changes
+        - action: sync
+          path: ./paper_scraper
+          target: /app/paper_scraper
+        # Rebuild on dependency changes
+        - action: rebuild
+          path: ./pyproject.toml
 
 volumes:
   postgres_data:

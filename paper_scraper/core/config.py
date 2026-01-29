@@ -138,7 +138,8 @@ class Settings(BaseSettings):
                 return json.loads(v)
             # Handle comma-separated string
             return [origin.strip() for origin in v.split(",")]
-        return v
+        return v + ["http://127.0.0.1:3000"]
+
 
     @property
     def is_production(self) -> bool:
