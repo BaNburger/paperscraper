@@ -15,6 +15,11 @@ from paper_scraper.core.database import Base, get_db
 from paper_scraper.core.security import create_access_token
 from paper_scraper.modules.auth.models import Organization, User, UserRole
 from paper_scraper.modules.papers.models import Author, Paper, PaperAuthor  # noqa: F401
+from paper_scraper.modules.projects.models import (  # noqa: F401
+    PaperProjectStatus,
+    PaperStageHistory,
+    Project,
+)
 from paper_scraper.modules.scoring.models import PaperScore, ScoringJob  # noqa: F401
 from paper_scraper.core.security import get_password_hash
 

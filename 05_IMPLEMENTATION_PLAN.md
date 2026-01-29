@@ -11,8 +11,8 @@
 | 1 | Foundation & Auth | 2 weeks | ✅ Complete |
 | 2 | Papers & Ingestion | 2 weeks | ✅ Complete |
 | 3 | AI Scoring Pipeline | 2 weeks | ✅ Complete |
-| 4 | Projects & KanBan | 2 weeks | 🔲 Not Started |
-| 5 | Search & Discovery | 2 weeks | 🔲 Not Started |
+| 4 | Projects & KanBan | 2 weeks | ✅ Complete |
+| 5 | Search & Discovery | 2 weeks | ✅ Complete |
 | 6 | Frontend MVP | 2 weeks | 🔲 Not Started |
 
 ---
@@ -1569,60 +1569,122 @@ paper_scraper/modules/scoring/
 
 ---
 
-## Sprint 4: Projects & KanBan
+## Sprint 4: Projects & KanBan ✅ COMPLETE
 
-### Goal
-Implement project management with KanBan pipeline for papers.
+### Completed Items
 
-### Key Files to Create
+All Sprint 4 tasks have been implemented:
 
-```
-paper_scraper/modules/projects/
-├── __init__.py
-├── models.py               # Project, PaperProjectStatus
-├── schemas.py
-├── service.py
-└── router.py
-```
+1. **Projects Module**
+   - [paper_scraper/modules/projects/__init__.py](paper_scraper/modules/projects/__init__.py) - Module init
+   - [paper_scraper/modules/projects/models.py](paper_scraper/modules/projects/models.py) - Project, PaperProjectStatus, PaperStageHistory
+   - [paper_scraper/modules/projects/schemas.py](paper_scraper/modules/projects/schemas.py) - Pydantic schemas
+   - [paper_scraper/modules/projects/service.py](paper_scraper/modules/projects/service.py) - Business logic
+   - [paper_scraper/modules/projects/router.py](paper_scraper/modules/projects/router.py) - FastAPI endpoints
 
-### Key Models
+2. **Migration**
+   - [alembic/versions/20260129_0003_c3d4e5f6g7h8_add_projects_models.py](alembic/versions/20260129_0003_c3d4e5f6g7h8_add_projects_models.py) - Projects migration
 
-- **Project**: Configurable stages, scoring weights, organization-scoped
-- **PaperProjectStatus**: Paper position in pipeline, stage, assignee, notes
+3. **Tests** - 22 new tests (80 total)
+   - [tests/test_projects.py](tests/test_projects.py) - Project module tests
+
+### API Endpoints Implemented
+- `GET /api/v1/projects/` - List projects
+- `POST /api/v1/projects/` - Create project
+- `GET /api/v1/projects/{id}` - Get project detail
+- `PATCH /api/v1/projects/{id}` - Update project
+- `DELETE /api/v1/projects/{id}` - Delete project
+- `GET /api/v1/projects/{id}/kanban` - KanBan board view
+- `GET /api/v1/projects/{id}/statistics` - Project statistics
+- `POST /api/v1/projects/{id}/papers` - Add paper to project
+- `POST /api/v1/projects/{id}/papers/batch` - Batch add papers
+- `GET /api/v1/projects/{id}/papers/{paper_id}` - Get paper in project
+- `DELETE /api/v1/projects/{id}/papers/{paper_id}` - Remove paper from project
+- `PATCH /api/v1/projects/{id}/papers/{paper_id}/move` - Move paper to stage
+- `POST /api/v1/projects/{id}/papers/{paper_id}/reject` - Reject paper with reason
+- `PATCH /api/v1/projects/{id}/papers/{paper_id}/status` - Update paper status
+- `GET /api/v1/projects/{id}/papers/{paper_id}/history` - Get paper stage history
+
+### Key Features
+- **Customizable Pipeline Stages**: Projects can define custom stages or use defaults (inbox, screening, evaluation, shortlisted, contacted, rejected, archived)
+- **Scoring Weights per Project**: Each project can have custom scoring weights
+- **Paper Assignment**: Papers can be assigned to team members
+- **Priority & Tags**: Papers have priority levels (1-5) and custom tags
+- **Rejection Tracking**: Predefined rejection reasons with notes
+- **Stage History**: Full audit trail of paper movements between stages
+- **Statistics**: Paper counts by stage, priority distribution, rejection reasons
 
 ### Sprint 4 Definition of Done
 
-- [ ] Project model with customizable stages
-- [ ] PaperProjectStatus for pipeline tracking
-- [ ] API endpoints:
-  - [ ] `GET /api/v1/projects/` - list projects
-  - [ ] `POST /api/v1/projects/` - create project
-  - [ ] `GET /api/v1/projects/{id}/kanban` - KanBan view
-  - [ ] `PATCH /api/v1/projects/{id}/papers/{paper_id}/move` - move paper
-- [ ] Rejection tracking with reasons
-- [ ] Tests for project workflows
+- [x] Project model with customizable stages
+- [x] PaperProjectStatus for pipeline tracking
+- [x] PaperStageHistory for audit trail
+- [x] API endpoints:
+  - [x] `GET /api/v1/projects/` - list projects
+  - [x] `POST /api/v1/projects/` - create project
+  - [x] `GET /api/v1/projects/{id}/kanban` - KanBan view
+  - [x] `PATCH /api/v1/projects/{id}/papers/{paper_id}/move` - move paper
+- [x] Rejection tracking with reasons
+- [x] Tests for project workflows (22 tests)
 
 ---
 
-## Sprint 5: Search & Discovery
+## Sprint 5: Search & Discovery ✅ COMPLETE
 
-### Goal
-Implement full-text and semantic search.
+### Completed Items
 
-### Key Implementation
+All Sprint 5 tasks have been implemented:
 
-1. **Full-text search**: PostgreSQL `pg_trgm` with GIN indexes
-2. **Semantic search**: pgvector cosine similarity
-3. **Hybrid search**: Combine both with RRF (Reciprocal Rank Fusion)
+1. **Search Module**
+   - [paper_scraper/modules/search/__init__.py](paper_scraper/modules/search/__init__.py) - Module init
+   - [paper_scraper/modules/search/schemas.py](paper_scraper/modules/search/schemas.py) - Search request/response schemas
+   - [paper_scraper/modules/search/service.py](paper_scraper/modules/search/service.py) - Search service with full-text, semantic, and hybrid search
+   - [paper_scraper/modules/search/router.py](paper_scraper/modules/search/router.py) - FastAPI endpoints
+
+2. **Search Types**
+   - **Full-text search**: PostgreSQL `pg_trgm` trigram similarity on title and abstract
+   - **Semantic search**: pgvector cosine distance for embedding similarity
+   - **Hybrid search**: Reciprocal Rank Fusion (RRF) combining text and semantic results
+
+3. **Background Jobs**
+   - [paper_scraper/jobs/search.py](paper_scraper/jobs/search.py) - arq task for embedding backfill
+   - Updated [paper_scraper/jobs/worker.py](paper_scraper/jobs/worker.py) with backfill_embeddings_task
+
+4. **Tests** - 22 new tests (102 total)
+   - [tests/test_search.py](tests/test_search.py) - Search module tests
+
+### API Endpoints Implemented
+- `POST /api/v1/search/` - Unified search (fulltext, semantic, or hybrid mode)
+- `GET /api/v1/search/fulltext` - Full-text search with trigram similarity
+- `GET /api/v1/search/semantic` - Semantic search using embeddings
+- `POST /api/v1/search/similar` - Find similar papers by paper ID
+- `GET /api/v1/search/similar/{paper_id}` - Find similar papers (GET version)
+- `GET /api/v1/search/embeddings/stats` - Get embedding statistics
+- `POST /api/v1/search/embeddings/backfill` - Start async embedding backfill job
+- `POST /api/v1/search/embeddings/backfill/sync` - Synchronous embedding backfill
+
+### Search Features
+- **Search Modes**: fulltext, semantic, hybrid (default)
+- **Filters**: sources, min/max score, date range, journals, keywords, has_embedding, has_score
+- **Highlights**: Text snippets showing query matches in title and abstract
+- **Scoring**: Results include relevance scores and paper scoring data
+- **Pagination**: Full pagination support with configurable page size
+- **Tenant Isolation**: All searches scoped to organization
+
+### Hybrid Search with RRF
+The hybrid search uses Reciprocal Rank Fusion (RRF) to combine full-text and semantic results:
+- RRF formula: `score = weight_text * 1/(k+rank_text) + weight_semantic * 1/(k+rank_semantic)`
+- Default k=60 (RRF constant)
+- Configurable semantic_weight (0.0 = text only, 1.0 = semantic only, 0.5 = balanced)
 
 ### Sprint 5 Definition of Done
 
-- [ ] Full-text search with highlighting
-- [ ] Semantic search using paper embeddings
-- [ ] Hybrid search endpoint
-- [ ] Embedding backfill job
-- [ ] Filter by score ranges, date, source
-- [ ] Tests for search accuracy
+- [x] Full-text search with highlighting
+- [x] Semantic search using paper embeddings
+- [x] Hybrid search endpoint with RRF
+- [x] Embedding backfill job (sync and async)
+- [x] Filter by score ranges, date, source
+- [x] Tests for search functionality (22 tests)
 
 ---
 

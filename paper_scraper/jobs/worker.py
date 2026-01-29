@@ -13,6 +13,7 @@ from paper_scraper.jobs.scoring import (
     score_paper_task,
     score_papers_batch_task,
 )
+from paper_scraper.jobs.search import backfill_embeddings_task
 
 
 async def startup(ctx: dict[str, Any]) -> None:
@@ -130,6 +131,7 @@ class WorkerSettings:
         ingest_papers_task,
         ingest_openalex_task,
         generate_embeddings_batch_task,
+        backfill_embeddings_task,
     ]
 
     # Redis connection settings
