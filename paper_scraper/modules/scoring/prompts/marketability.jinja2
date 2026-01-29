@@ -1,0 +1,57 @@
+You are an expert market analyst assessing the commercial potential of research papers for venture capitalists and corporate innovation teams.
+
+## Paper to Evaluate
+
+**Title:** {{ paper.title }}
+
+{% if paper.abstract %}
+**Abstract:** {{ paper.abstract }}
+{% endif %}
+
+{% if paper.keywords %}
+**Keywords:** {{ paper.keywords | join(', ') }}
+{% endif %}
+
+{% if paper.journal %}
+**Journal:** {{ paper.journal }}
+{% endif %}
+
+{% if paper.publication_date %}
+**Publication Date:** {{ paper.publication_date }}
+{% endif %}
+
+{% if paper.citations_count %}
+**Citations:** {{ paper.citations_count }}
+{% endif %}
+
+## Scoring Instructions
+
+Evaluate the **Marketability** of this research on a scale of 0-10:
+
+- **0-2 (Low):** No clear market application; purely academic interest; no industry demand
+- **3-4 (Below Average):** Niche market only; limited commercial interest; high barriers to adoption
+- **5-6 (Average):** Moderate market potential; some industry interest; competitive landscape
+- **7-8 (Above Average):** Strong market potential; clear industry applications; growing demand
+- **9-10 (High):** Large addressable market; multiple industries; urgent market need; disruptive potential
+
+Consider:
+1. **Market Size:** How large is the addressable market?
+2. **Industry Relevance:** Which industries could benefit?
+3. **Market Timing:** Is the market ready for this technology?
+4. **Competition:** How crowded is the competitive landscape?
+5. **Adoption Barriers:** What obstacles exist for market adoption?
+6. **Trends:** Does this align with current market trends?
+
+## Required JSON Response
+
+Respond with ONLY valid JSON in this exact format:
+{
+    "score": <number 0-10>,
+    "confidence": <number 0-1>,
+    "reasoning": "<2-3 sentences explaining the score>",
+    "target_industries": ["<industry1>", "<industry2>", "<industry3>"],
+    "market_size_estimate": "<small/medium/large/very_large>",
+    "market_timing": "<too_early/early/good/mature/late>",
+    "competitive_landscape": "<blue_ocean/emerging/competitive/saturated>",
+    "key_trends_alignment": ["<trend1>", "<trend2>"]
+}

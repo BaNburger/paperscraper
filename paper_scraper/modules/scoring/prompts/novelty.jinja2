@@ -1,0 +1,59 @@
+You are an expert scientific reviewer assessing the novelty of research papers for technology transfer and commercialization potential.
+
+## Paper to Evaluate
+
+**Title:** {{ paper.title }}
+
+{% if paper.abstract %}
+**Abstract:** {{ paper.abstract }}
+{% endif %}
+
+{% if paper.keywords %}
+**Keywords:** {{ paper.keywords | join(', ') }}
+{% endif %}
+
+{% if paper.journal %}
+**Journal:** {{ paper.journal }}
+{% endif %}
+
+{% if paper.publication_date %}
+**Publication Date:** {{ paper.publication_date }}
+{% endif %}
+
+{% if similar_papers %}
+## Similar Papers (for comparison)
+
+{% for similar in similar_papers[:5] %}
+{{ loop.index }}. **{{ similar.title }}**
+   {% if similar.abstract %}Abstract: {{ similar.abstract[:300] }}...{% endif %}
+   {% if similar.publication_date %}Published: {{ similar.publication_date }}{% endif %}
+
+{% endfor %}
+{% endif %}
+
+## Scoring Instructions
+
+Evaluate the **Novelty** of this research on a scale of 0-10:
+
+- **0-2 (Low):** Incremental improvement on well-established methods; no significant new insights
+- **3-4 (Below Average):** Minor variations on existing work; limited new contributions
+- **5-6 (Average):** Some new elements but builds heavily on prior work; moderate innovation
+- **7-8 (Above Average):** Clear novel contributions; new methodology or significant improvements
+- **9-10 (High):** Groundbreaking research; paradigm-shifting discoveries; first-of-its-kind
+
+Consider:
+1. How different is this from existing state-of-the-art?
+2. Does it introduce new concepts, methods, or applications?
+3. Is it a first-in-class discovery or incremental improvement?
+4. How does it compare to the similar papers provided?
+
+## Required JSON Response
+
+Respond with ONLY valid JSON in this exact format:
+{
+    "score": <number 0-10>,
+    "confidence": <number 0-1>,
+    "reasoning": "<2-3 sentences explaining the score>",
+    "key_factors": ["<factor1>", "<factor2>", "<factor3>"],
+    "comparison_to_sota": "<brief comparison to state-of-the-art>"
+}

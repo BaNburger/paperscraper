@@ -7,6 +7,12 @@ import arq
 from arq.connections import ArqRedis, RedisSettings
 
 from paper_scraper.core.config import settings
+from paper_scraper.jobs.ingestion import ingest_openalex_task
+from paper_scraper.jobs.scoring import (
+    generate_embeddings_batch_task,
+    score_paper_task,
+    score_papers_batch_task,
+)
 
 
 async def startup(ctx: dict[str, Any]) -> None:
@@ -18,8 +24,6 @@ async def startup(ctx: dict[str, Any]) -> None:
     Args:
         ctx: Worker context dictionary for storing shared resources.
     """
-    # TODO: Initialize database connection pool
-    # TODO: Initialize LLM client
     pass
 
 
@@ -32,27 +36,12 @@ async def shutdown(ctx: dict[str, Any]) -> None:
     Args:
         ctx: Worker context dictionary.
     """
-    # TODO: Close database connections
     pass
 
 
 # =============================================================================
 # Job Definitions
 # =============================================================================
-
-
-async def score_paper_task(ctx: dict[str, Any], paper_id: UUID) -> dict[str, Any]:
-    """Score a paper using the AI scoring pipeline.
-
-    Args:
-        ctx: Worker context with shared resources.
-        paper_id: UUID of the paper to score.
-
-    Returns:
-        Dict with scoring results.
-    """
-    # TODO: Implement paper scoring
-    return {"status": "completed", "paper_id": str(paper_id)}
 
 
 async def ingest_papers_task(
@@ -74,31 +63,11 @@ async def ingest_papers_task(
     Returns:
         Dict with ingestion results.
     """
-    # TODO: Implement paper ingestion
+    # TODO: Implement paper ingestion for other sources
     return {
         "status": "completed",
         "source": source,
         "papers_ingested": 0,
-    }
-
-
-async def generate_embeddings_task(
-    ctx: dict[str, Any],
-    paper_ids: list[UUID],
-) -> dict[str, Any]:
-    """Generate embeddings for papers.
-
-    Args:
-        ctx: Worker context.
-        paper_ids: List of paper UUIDs to generate embeddings for.
-
-    Returns:
-        Dict with generation results.
-    """
-    # TODO: Implement embedding generation
-    return {
-        "status": "completed",
-        "papers_processed": len(paper_ids),
     }
 
 
@@ -157,8 +126,10 @@ class WorkerSettings:
     # Job functions available to this worker
     functions = [
         score_paper_task,
+        score_papers_batch_task,
         ingest_papers_task,
-        generate_embeddings_task,
+        ingest_openalex_task,
+        generate_embeddings_batch_task,
     ]
 
     # Redis connection settings
@@ -170,7 +141,7 @@ class WorkerSettings:
 
     # Worker configuration
     max_jobs = 10
-    job_timeout = 300  # 5 minutes
+    job_timeout = 600  # 10 minutes
     keep_result = 3600  # Keep results for 1 hour
     poll_delay = 0.5  # Poll every 500ms
     queue_name = "paperscraper:queue"

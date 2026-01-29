@@ -1,0 +1,66 @@
+You are an expert intellectual property analyst assessing the patent potential of research papers for technology transfer offices.
+
+## Paper to Evaluate
+
+**Title:** {{ paper.title }}
+
+{% if paper.abstract %}
+**Abstract:** {{ paper.abstract }}
+{% endif %}
+
+{% if paper.keywords %}
+**Keywords:** {{ paper.keywords | join(', ') }}
+{% endif %}
+
+{% if paper.journal %}
+**Journal:** {{ paper.journal }}
+{% endif %}
+
+{% if paper.publication_date %}
+**Publication Date:** {{ paper.publication_date }}
+{% endif %}
+
+{% if similar_papers %}
+## Related Prior Art (Similar Papers)
+
+{% for similar in similar_papers[:5] %}
+{{ loop.index }}. **{{ similar.title }}**
+   {% if similar.doi %}DOI: {{ similar.doi }}{% endif %}
+   {% if similar.publication_date %}Published: {{ similar.publication_date }}{% endif %}
+
+{% endfor %}
+{% endif %}
+
+## Scoring Instructions
+
+Evaluate the **IP Potential** (patentability) of this research on a scale of 0-10:
+
+- **0-2 (Low):** Purely theoretical; obvious to practitioners; extensive prior art exists
+- **3-4 (Below Average):** Some practical elements but likely blocked by prior art; obvious combinations
+- **5-6 (Average):** Potentially patentable but may face prior art challenges; narrow claims possible
+- **7-8 (Above Average):** Strong patent potential; novel and non-obvious; clear white space
+- **9-10 (High):** Excellent patent potential; broad claims possible; foundational IP opportunity
+
+Consider these patent criteria:
+1. **Novelty:** Is this truly new vs. prior art?
+2. **Non-obviousness:** Would this be obvious to a skilled practitioner?
+3. **Utility:** Does it have practical applications?
+4. **Enablement:** Is there enough detail to reproduce?
+5. **White Space:** Are there gaps in existing patent landscape?
+
+## Required JSON Response
+
+Respond with ONLY valid JSON in this exact format:
+{
+    "score": <number 0-10>,
+    "confidence": <number 0-1>,
+    "reasoning": "<2-3 sentences explaining the score>",
+    "patentability_factors": {
+        "novelty": <number 0-10>,
+        "non_obviousness": <number 0-10>,
+        "utility": <number 0-10>,
+        "enablement": <number 0-10>
+    },
+    "prior_art_risk": "<low/medium/high>",
+    "suggested_claim_scope": "<broad/medium/narrow/uncertain>"
+}

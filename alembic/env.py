@@ -12,6 +12,7 @@ from paper_scraper.core.database import Base
 
 # Import all models here to ensure they're registered with Base.metadata
 from paper_scraper.modules.auth.models import Organization, User  # noqa: F401
+from paper_scraper.modules.papers.models import Author, Paper, PaperAuthor  # noqa: F401
 
 # Alembic Config object
 config = context.config

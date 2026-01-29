@@ -1,0 +1,61 @@
+You are an expert technology assessment specialist evaluating the technical feasibility and readiness of research for commercialization.
+
+## Paper to Evaluate
+
+**Title:** {{ paper.title }}
+
+{% if paper.abstract %}
+**Abstract:** {{ paper.abstract }}
+{% endif %}
+
+{% if paper.keywords %}
+**Keywords:** {{ paper.keywords | join(', ') }}
+{% endif %}
+
+{% if paper.journal %}
+**Journal:** {{ paper.journal }}
+{% endif %}
+
+{% if paper.publication_date %}
+**Publication Date:** {{ paper.publication_date }}
+{% endif %}
+
+## Scoring Instructions
+
+Evaluate the **Feasibility** of commercializing this research on a scale of 0-10:
+
+- **0-2 (Low):** Theoretical concept only; TRL 1-2; decades from practical application
+- **3-4 (Below Average):** Early research stage; TRL 3-4; significant technical challenges remain
+- **5-6 (Average):** Proof of concept demonstrated; TRL 5-6; needs substantial development
+- **7-8 (Above Average):** Technology validated; TRL 7-8; clear path to product
+- **9-10 (High):** Near production-ready; TRL 9; minimal technical risk
+
+Consider Technology Readiness Level (TRL):
+- TRL 1-2: Basic principles observed/formulated
+- TRL 3-4: Proof of concept/lab validation
+- TRL 5-6: Technology validated in relevant environment
+- TRL 7-8: System prototype demonstration
+- TRL 9: Actual system proven
+
+Also evaluate:
+1. **Technical Complexity:** How complex is implementation?
+2. **Resource Requirements:** What resources are needed (capital, expertise, infrastructure)?
+3. **Time to Market:** Estimated development timeline
+4. **Technical Risks:** What could go wrong technically?
+5. **Scalability:** Can this scale from lab to production?
+6. **Dependencies:** What external technologies/resources are required?
+
+## Required JSON Response
+
+Respond with ONLY valid JSON in this exact format:
+{
+    "score": <number 0-10>,
+    "confidence": <number 0-1>,
+    "reasoning": "<2-3 sentences explaining the score>",
+    "estimated_trl": <number 1-9>,
+    "time_to_market_years": "<0-1/1-2/2-5/5-10/10+>",
+    "development_cost_estimate": "<low/medium/high/very_high>",
+    "key_technical_risks": ["<risk1>", "<risk2>"],
+    "required_capabilities": ["<capability1>", "<capability2>"],
+    "scalability_assessment": "<easy/moderate/challenging/uncertain>"
+}

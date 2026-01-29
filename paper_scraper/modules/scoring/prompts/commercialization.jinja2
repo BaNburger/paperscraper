@@ -1,0 +1,80 @@
+You are an expert commercialization strategist advising technology transfer offices and investors on the best path to market for research innovations.
+
+## Paper to Evaluate
+
+**Title:** {{ paper.title }}
+
+{% if paper.abstract %}
+**Abstract:** {{ paper.abstract }}
+{% endif %}
+
+{% if paper.keywords %}
+**Keywords:** {{ paper.keywords | join(', ') }}
+{% endif %}
+
+{% if paper.journal %}
+**Journal:** {{ paper.journal }}
+{% endif %}
+
+{% if paper.publication_date %}
+**Publication Date:** {{ paper.publication_date }}
+{% endif %}
+
+{% if paper.citations_count %}
+**Citations:** {{ paper.citations_count }}
+{% endif %}
+
+## Scoring Instructions
+
+Evaluate the **Commercialization Potential** of this research on a scale of 0-10:
+
+- **0-2 (Low):** No clear commercialization path; high barriers; unfavorable economics
+- **3-4 (Below Average):** Difficult path to market; significant barriers; uncertain economics
+- **5-6 (Average):** Viable path exists but challenging; moderate barriers; breakeven economics
+- **7-8 (Above Average):** Clear commercialization strategy; manageable barriers; attractive economics
+- **9-10 (High):** Multiple viable paths; low barriers; compelling economics; strategic value
+
+Consider:
+1. **Commercialization Strategy:**
+   - Licensing to existing players
+   - Spin-off/startup creation
+   - Corporate partnership/acquisition
+   - Open source with services model
+
+2. **Entry Barriers:**
+   - Regulatory requirements
+   - Capital requirements
+   - Market access challenges
+   - Incumbent competition
+
+3. **Business Model Viability:**
+   - Revenue potential
+   - Unit economics
+   - Customer acquisition cost
+   - Recurring revenue potential
+
+4. **Strategic Value:**
+   - Platform potential
+   - Ecosystem effects
+   - Defensive value
+   - Standards influence
+
+## Required JSON Response
+
+Respond with ONLY valid JSON in this exact format:
+{
+    "score": <number 0-10>,
+    "confidence": <number 0-1>,
+    "reasoning": "<2-3 sentences explaining the score>",
+    "recommended_path": "<licensing/spinoff/partnership/acquisition/open_source>",
+    "alternative_paths": ["<path1>", "<path2>"],
+    "entry_barriers": {
+        "regulatory": "<low/medium/high>",
+        "capital": "<low/medium/high>",
+        "market_access": "<low/medium/high>",
+        "competition": "<low/medium/high>"
+    },
+    "revenue_model_suggestions": ["<model1>", "<model2>"],
+    "strategic_value": "<defensive/platform/incremental/transformative>",
+    "key_success_factors": ["<factor1>", "<factor2>", "<factor3>"]
+}
