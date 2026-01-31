@@ -4,6 +4,7 @@ import { AuthProvider } from '@/contexts/AuthContext'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { Layout } from '@/components/layout'
 import {
+  AnalyticsPage,
   LoginPage,
   RegisterPage,
   DashboardPage,
@@ -42,6 +43,7 @@ function App() {
               }
             >
               <Route path="/" element={<DashboardPage />} />
+              <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/papers" element={<PapersPage />} />
               <Route path="/papers/:id" element={<PaperDetailPage />} />
               <Route path="/projects" element={<ProjectsPage />} />

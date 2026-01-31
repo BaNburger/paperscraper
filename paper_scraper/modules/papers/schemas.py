@@ -85,6 +85,8 @@ class PaperResponse(BaseModel):
     keywords: list[str] = Field(default_factory=list)
     references_count: int | None = None
     citations_count: int | None = None
+    one_line_pitch: str | None = None
+    simplified_abstract: str | None = None
     has_pdf: bool = False
     has_embedding: bool = False
     created_at: datetime
@@ -127,6 +129,24 @@ class IngestOpenAlexRequest(BaseModel):
     filters: dict = Field(default_factory=dict)
 
 
+class IngestPubMedRequest(BaseModel):
+    """Request to batch ingest from PubMed."""
+
+    query: str = Field(..., description="PubMed search query")
+    max_results: int = Field(default=100, ge=1, le=1000)
+
+
+class IngestArxivRequest(BaseModel):
+    """Request to batch ingest from arXiv."""
+
+    query: str = Field(..., description="arXiv search query")
+    max_results: int = Field(default=100, ge=1, le=1000)
+    category: str | None = Field(
+        default=None,
+        description="Optional arXiv category filter (e.g., 'cs.AI', 'physics.med-ph')",
+    )
+
+
 class IngestJobResponse(BaseModel):
     """Response for async ingestion job."""
 
@@ -142,3 +162,62 @@ class IngestResult(BaseModel):
     papers_updated: int
     papers_skipped: int
     errors: list[str] = Field(default_factory=list)
+
+
+# =============================================================================
+# Note Schemas
+# =============================================================================
+
+
+class NoteUserResponse(BaseModel):
+    """User info for note responses."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    full_name: str | None
+    email: str
+
+
+class NoteCreate(BaseModel):
+    """Request to create a note."""
+
+    content: str = Field(
+        ...,
+        min_length=1,
+        max_length=10000,
+        description="Note content. Supports @mentions in format @{user_id}",
+    )
+
+
+class NoteUpdate(BaseModel):
+    """Request to update a note."""
+
+    content: str = Field(
+        ...,
+        min_length=1,
+        max_length=10000,
+        description="Updated note content",
+    )
+
+
+class NoteResponse(BaseModel):
+    """Response schema for a note."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    paper_id: UUID
+    user_id: UUID
+    content: str
+    mentions: list[UUID] = Field(default_factory=list)
+    created_at: datetime
+    updated_at: datetime
+    user: NoteUserResponse | None = None
+
+
+class NoteListResponse(BaseModel):
+    """List of notes for a paper."""
+
+    items: list[NoteResponse]
+    total: int

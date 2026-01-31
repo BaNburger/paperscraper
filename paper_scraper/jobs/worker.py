@@ -7,6 +7,11 @@ import arq
 from arq.connections import ArqRedis, RedisSettings
 
 from paper_scraper.core.config import settings
+from paper_scraper.jobs.alerts import (
+    process_daily_alerts_task,
+    process_immediate_alert_task,
+    process_weekly_alerts_task,
+)
 from paper_scraper.jobs.ingestion import ingest_openalex_task
 from paper_scraper.jobs.scoring import (
     generate_embeddings_batch_task,
@@ -132,6 +137,17 @@ class WorkerSettings:
         ingest_openalex_task,
         generate_embeddings_batch_task,
         backfill_embeddings_task,
+        process_daily_alerts_task,
+        process_weekly_alerts_task,
+        process_immediate_alert_task,
+    ]
+
+    # Cron jobs for scheduled tasks
+    cron_jobs = [
+        # Daily alerts at 6:00 AM UTC
+        arq.cron(process_daily_alerts_task, hour=6, minute=0),
+        # Weekly alerts on Monday at 6:00 AM UTC
+        arq.cron(process_weekly_alerts_task, weekday=0, hour=6, minute=0),
     ]
 
     # Redis connection settings

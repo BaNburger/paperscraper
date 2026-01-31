@@ -4,18 +4,25 @@ from typing import Annotated
 from uuid import UUID
 
 import arq
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.api.dependencies import CurrentUser
 from paper_scraper.core.config import settings
 from paper_scraper.core.database import get_db
 from paper_scraper.core.exceptions import NotFoundError
+from paper_scraper.modules.papers.note_service import NoteService
 from paper_scraper.modules.papers.schemas import (
+    IngestArxivRequest,
     IngestDOIRequest,
     IngestJobResponse,
     IngestOpenAlexRequest,
+    IngestPubMedRequest,
     IngestResult,
+    NoteCreate,
+    NoteListResponse,
+    NoteResponse,
+    NoteUpdate,
     PaperDetail,
     PaperListResponse,
     PaperResponse,
@@ -30,6 +37,13 @@ def get_paper_service(
 ) -> PaperService:
     """Dependency to get paper service instance."""
     return PaperService(db)
+
+
+def get_note_service(
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> NoteService:
+    """Dependency to get note service instance."""
+    return NoteService(db)
 
 
 @router.get(
@@ -158,4 +172,225 @@ async def ingest_from_openalex_async(
         job_id=job.job_id,
         status="queued",
         message=f"Ingestion job queued for query: {request.query}",
+    )
+
+
+@router.post(
+    "/ingest/pubmed",
+    response_model=IngestResult,
+    summary="Batch import from PubMed",
+)
+async def ingest_from_pubmed(
+    request: IngestPubMedRequest,
+    current_user: CurrentUser,
+    paper_service: Annotated[PaperService, Depends(get_paper_service)],
+) -> IngestResult:
+    """Batch import papers from PubMed search."""
+    return await paper_service.ingest_from_pubmed(
+        query=request.query,
+        organization_id=current_user.organization_id,
+        max_results=request.max_results,
+    )
+
+
+@router.post(
+    "/ingest/arxiv",
+    response_model=IngestResult,
+    summary="Batch import from arXiv",
+)
+async def ingest_from_arxiv(
+    request: IngestArxivRequest,
+    current_user: CurrentUser,
+    paper_service: Annotated[PaperService, Depends(get_paper_service)],
+) -> IngestResult:
+    """Batch import papers from arXiv search."""
+    return await paper_service.ingest_from_arxiv(
+        query=request.query,
+        organization_id=current_user.organization_id,
+        max_results=request.max_results,
+        category=request.category,
+    )
+
+
+@router.post(
+    "/upload/pdf",
+    response_model=PaperResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Upload PDF file",
+)
+async def upload_pdf(
+    current_user: CurrentUser,
+    paper_service: Annotated[PaperService, Depends(get_paper_service)],
+    file: UploadFile = File(...),
+) -> PaperResponse:
+    """
+    Upload a PDF file and extract paper metadata.
+
+    The PDF will be stored in S3 and text extracted for search/scoring.
+    """
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File must be a PDF",
+        )
+
+    content = await file.read()
+    if len(content) > 50_000_000:  # 50MB limit
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File too large (max 50MB)",
+        )
+
+    paper = await paper_service.ingest_from_pdf(
+        file_content=content,
+        filename=file.filename,
+        organization_id=current_user.organization_id,
+    )
+    return paper  # type: ignore
+
+
+@router.post(
+    "/{paper_id}/generate-pitch",
+    response_model=PaperResponse,
+    summary="Generate one-line pitch",
+)
+async def generate_pitch(
+    paper_id: UUID,
+    current_user: CurrentUser,
+    paper_service: Annotated[PaperService, Depends(get_paper_service)],
+) -> PaperResponse:
+    """Generate AI one-line pitch for paper.
+
+    Uses LLM to create a compelling, business-friendly pitch
+    that captures the core innovation (max 15 words).
+    """
+    paper = await paper_service.generate_pitch(paper_id, current_user.organization_id)
+    return paper  # type: ignore
+
+
+@router.post(
+    "/{paper_id}/generate-simplified-abstract",
+    response_model=PaperResponse,
+    summary="Generate simplified abstract",
+)
+async def generate_simplified_abstract(
+    paper_id: UUID,
+    current_user: CurrentUser,
+    paper_service: Annotated[PaperService, Depends(get_paper_service)],
+) -> PaperResponse:
+    """Generate AI-simplified abstract for paper.
+
+    Uses LLM to create a simplified version of the abstract
+    that is accessible to general audiences (max 150 words).
+    """
+    paper = await paper_service.generate_simplified_abstract(
+        paper_id, current_user.organization_id
+    )
+    return paper  # type: ignore
+
+
+# =============================================================================
+# Notes Endpoints
+# =============================================================================
+
+
+@router.get(
+    "/{paper_id}/notes",
+    response_model=NoteListResponse,
+    summary="List notes for a paper",
+)
+async def list_notes(
+    paper_id: UUID,
+    current_user: CurrentUser,
+    note_service: Annotated[NoteService, Depends(get_note_service)],
+) -> NoteListResponse:
+    """List all notes/comments for a paper."""
+    return await note_service.list_notes(
+        paper_id=paper_id,
+        organization_id=current_user.organization_id,
+    )
+
+
+@router.post(
+    "/{paper_id}/notes",
+    response_model=NoteResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Add note to paper",
+)
+async def create_note(
+    paper_id: UUID,
+    request: NoteCreate,
+    current_user: CurrentUser,
+    note_service: Annotated[NoteService, Depends(get_note_service)],
+) -> NoteResponse:
+    """Add a new note/comment to a paper.
+
+    Supports @mentions in format @{user-uuid}.
+    """
+    return await note_service.create_note(
+        paper_id=paper_id,
+        user_id=current_user.id,
+        organization_id=current_user.organization_id,
+        content=request.content,
+    )
+
+
+@router.get(
+    "/{paper_id}/notes/{note_id}",
+    response_model=NoteResponse,
+    summary="Get a specific note",
+)
+async def get_note(
+    paper_id: UUID,
+    note_id: UUID,
+    current_user: CurrentUser,
+    note_service: Annotated[NoteService, Depends(get_note_service)],
+) -> NoteResponse:
+    """Get a specific note by ID."""
+    return await note_service.get_note(
+        paper_id=paper_id,
+        note_id=note_id,
+        organization_id=current_user.organization_id,
+    )
+
+
+@router.put(
+    "/{paper_id}/notes/{note_id}",
+    response_model=NoteResponse,
+    summary="Update a note",
+)
+async def update_note(
+    paper_id: UUID,
+    note_id: UUID,
+    request: NoteUpdate,
+    current_user: CurrentUser,
+    note_service: Annotated[NoteService, Depends(get_note_service)],
+) -> NoteResponse:
+    """Update a note (own notes only)."""
+    return await note_service.update_note(
+        paper_id=paper_id,
+        note_id=note_id,
+        user_id=current_user.id,
+        organization_id=current_user.organization_id,
+        content=request.content,
+    )
+
+
+@router.delete(
+    "/{paper_id}/notes/{note_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a note",
+)
+async def delete_note(
+    paper_id: UUID,
+    note_id: UUID,
+    current_user: CurrentUser,
+    note_service: Annotated[NoteService, Depends(get_note_service)],
+) -> None:
+    """Delete a note (own notes only)."""
+    await note_service.delete_note(
+        paper_id=paper_id,
+        note_id=note_id,
+        user_id=current_user.id,
+        organization_id=current_user.organization_id,
     )

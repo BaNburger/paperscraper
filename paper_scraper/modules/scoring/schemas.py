@@ -4,6 +4,8 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -51,6 +53,56 @@ class DimensionResultSchema(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     reasoning: str
     details: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = {"from_attributes": True}
+
+
+class ScoreEvidence(BaseModel):
+    """Evidence supporting a score."""
+
+    factor: str = Field(..., description="The factor being evaluated")
+    description: str = Field(..., description="Description of how this factor affects the score")
+    impact: Literal["positive", "negative", "neutral"] = Field(
+        ..., description="Whether this factor positively or negatively impacts the score"
+    )
+    source: str | None = Field(
+        default=None, description="Quote or reference from the paper supporting this evidence"
+    )
+
+
+class DimensionScoreDetail(BaseModel):
+    """Detailed breakdown of a dimension score."""
+
+    score: float = Field(ge=0.0, le=10.0)
+    confidence: float = Field(ge=0.0, le=1.0)
+    summary: str = Field(..., description="Brief summary of the score rationale")
+    key_factors: list[str] = Field(
+        default_factory=list, description="Key factors that influenced the score"
+    )
+    evidence: list[ScoreEvidence] = Field(
+        default_factory=list, description="Evidence supporting the score"
+    )
+    comparison_to_field: str | None = Field(
+        default=None, description="How this paper compares to similar work in the field"
+    )
+
+
+class EnhancedPaperScoreResponse(BaseModel):
+    """Enhanced score response with detailed evidence and breakdowns."""
+
+    id: UUID
+    paper_id: UUID
+    overall_score: float = Field(ge=0.0, le=10.0)
+
+    # Dimension scores with details
+    novelty: DimensionScoreDetail
+    ip_potential: DimensionScoreDetail
+    marketability: DimensionScoreDetail
+    feasibility: DimensionScoreDetail
+    commercialization: DimensionScoreDetail
+
+    model_version: str
+    created_at: datetime
 
     model_config = {"from_attributes": True}
 
@@ -200,3 +252,21 @@ class EmbeddingResponse(BaseModel):
     has_embedding: bool
     embedding_dimensions: int | None = None
     message: str
+
+
+# =============================================================================
+# Classification Schemas
+# =============================================================================
+
+
+class ClassificationResponse(BaseModel):
+    """Response for paper classification."""
+
+    paper_id: str
+    paper_type: str = Field(
+        ...,
+        description="Classification category: ORIGINAL_RESEARCH, REVIEW, CASE_STUDY, METHODOLOGY, THEORETICAL, COMMENTARY, PREPRINT, OTHER",
+    )
+    confidence: float = Field(ge=0.0, le=1.0)
+    reasoning: str
+    indicators: list[str] = Field(default_factory=list)

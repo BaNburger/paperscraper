@@ -115,12 +115,25 @@ class Settings(BaseSettings):
     LANGFUSE_SECRET_KEY: SecretStr | None = None
     LANGFUSE_HOST: str = "https://cloud.langfuse.com"
     SENTRY_DSN: str | None = None
+    ENVIRONMENT: str = "development"
+    LOG_LEVEL: str = "INFO"
 
     # ==========================================================================
     # Rate Limiting
     # ==========================================================================
     RATE_LIMIT_REQUESTS_PER_MINUTE: int = 100
     RATE_LIMIT_SCORING_PER_MINUTE: int = 10
+
+    # ==========================================================================
+    # Email (Resend)
+    # ==========================================================================
+    RESEND_API_KEY: str | None = None
+    EMAIL_FROM_ADDRESS: str = "Paper Scraper <noreply@paperscraper.app>"
+
+    # ==========================================================================
+    # Frontend
+    # ==========================================================================
+    FRONTEND_URL: str = "http://localhost:3000"
 
     # ==========================================================================
     # CORS

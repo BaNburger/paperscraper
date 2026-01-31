@@ -1,12 +1,18 @@
-"""FastAPI application entry point."""
+"""FastAPI application entry point with Sentry integration and lifecycle management."""
 
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
+import redis.asyncio as aioredis
+import sentry_sdk
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+from sqlalchemy.ext.asyncio import create_async_engine
 
+from paper_scraper.api.middleware import SlowAPIMiddleware, limiter
 from paper_scraper.api.v1.router import api_router
 from paper_scraper.core.config import settings
 from paper_scraper.core.exceptions import (
@@ -18,19 +24,69 @@ from paper_scraper.core.exceptions import (
     UnauthorizedError,
     ValidationError,
 )
+from paper_scraper.core.logging import get_logger, setup_logging
+
+# Setup structured logging
+setup_logging()
+logger = get_logger(__name__)
+
+# Initialize Sentry error tracking
+if settings.SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        environment=settings.ENVIRONMENT,
+        integrations=[
+            FastApiIntegration(transaction_style="endpoint"),
+            SqlalchemyIntegration(),
+        ],
+        traces_sample_rate=0.1,  # 10% of transactions
+        profiles_sample_rate=0.1,
+    )
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Application lifespan manager for startup and shutdown events."""
+    """Application lifespan handler with proper resource management."""
     # Startup
-    # TODO: Initialize database connection pool
-    # TODO: Initialize Redis connection
-    # TODO: Create MinIO bucket if not exists
+    logger.info("Starting Paper Scraper API...")
+
+    # Initialize database connection pool
+    engine = create_async_engine(
+        settings.DATABASE_URL,
+        pool_size=settings.DB_POOL_SIZE,
+        max_overflow=settings.DB_MAX_OVERFLOW,
+        pool_pre_ping=True,
+    )
+    app.state.db_engine = engine
+    logger.info("Database connection pool initialized")
+
+    # Initialize Redis connection pool
+    app.state.redis = aioredis.from_url(
+        settings.REDIS_URL,
+        decode_responses=True,
+    )
+    try:
+        await app.state.redis.ping()
+        logger.info("Redis connected")
+    except Exception as e:
+        logger.warning(f"Redis connection failed (rate limiting may not work): {e}")
+
     yield
+
     # Shutdown
-    # TODO: Close database connections
-    # TODO: Close Redis connection
+    logger.info("Shutting down Paper Scraper API...")
+
+    # Close Redis connection
+    if hasattr(app.state, "redis") and app.state.redis:
+        await app.state.redis.close()
+        logger.info("Redis connection closed")
+
+    # Dispose database engine
+    if hasattr(app.state, "db_engine") and app.state.db_engine:
+        await app.state.db_engine.dispose()
+        logger.info("Database connection pool disposed")
+
+    logger.info("Cleanup complete")
 
 
 app = FastAPI(
@@ -55,6 +111,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Rate Limiting
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
 
 
 # =============================================================================

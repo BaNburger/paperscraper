@@ -25,6 +25,8 @@ from paper_scraper.core.database import Base
 
 if TYPE_CHECKING:
     from paper_scraper.modules.auth.models import Organization
+    from paper_scraper.modules.authors.models import AuthorContact
+    from paper_scraper.modules.papers.notes import PaperNote
 
 
 class PaperSource(str, enum.Enum):
@@ -38,6 +40,19 @@ class PaperSource(str, enum.Enum):
     SEMANTIC_SCHOLAR = "semantic_scholar"
     MANUAL = "manual"
     PDF = "pdf"
+
+
+class PaperType(str, enum.Enum):
+    """Type/category of paper."""
+
+    ORIGINAL_RESEARCH = "original_research"
+    REVIEW = "review"
+    CASE_STUDY = "case_study"
+    METHODOLOGY = "methodology"
+    THEORETICAL = "theoretical"
+    COMMENTARY = "commentary"
+    PREPRINT = "preprint"
+    OTHER = "other"
 
 
 class Paper(Base):
@@ -83,6 +98,15 @@ class Paper(Base):
     # Raw API response for debugging
     raw_metadata: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
 
+    # AI-generated content
+    one_line_pitch: Mapped[str | None] = mapped_column(Text, nullable=True)
+    simplified_abstract: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Paper classification
+    paper_type: Mapped[PaperType | None] = mapped_column(
+        Enum(PaperType), nullable=True, index=True
+    )
+
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -98,6 +122,9 @@ class Paper(Base):
     organization: Mapped["Organization"] = relationship("Organization")
     authors: Mapped[list["PaperAuthor"]] = relationship(
         "PaperAuthor", back_populates="paper", cascade="all, delete-orphan"
+    )
+    notes: Mapped[list["PaperNote"]] = relationship(
+        "PaperNote", back_populates="paper", cascade="all, delete-orphan"
     )
 
     __table_args__ = (
@@ -158,6 +185,9 @@ class Author(Base):
     # Relationships
     papers: Mapped[list["PaperAuthor"]] = relationship(
         "PaperAuthor", back_populates="author"
+    )
+    contacts: Mapped[list["AuthorContact"]] = relationship(
+        "AuthorContact", back_populates="author", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

@@ -1,3 +1,5 @@
+export * from './useAnalytics'
+export * from './useAuthors'
 export * from './usePapers'
 export * from './useProjects'
 export * from './useSearch'

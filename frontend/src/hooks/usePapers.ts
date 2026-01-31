@@ -58,6 +58,41 @@ export function useIngestFromOpenAlex() {
   })
 }
 
+export function useIngestFromPubMed() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (params: { query: string; max_results?: number }) =>
+      papersApi.ingestFromPubMed(params),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['papers'] })
+    },
+  })
+}
+
+export function useIngestFromArxiv() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (params: { query: string; max_results?: number; category?: string }) =>
+      papersApi.ingestFromArxiv(params),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['papers'] })
+    },
+  })
+}
+
+export function useUploadPdf() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (file: File) => papersApi.uploadPdf(file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['papers'] })
+    },
+  })
+}
+
 export function useScorePaper() {
   const queryClient = useQueryClient()
 
@@ -65,6 +100,29 @@ export function useScorePaper() {
     mutationFn: (paperId: string) => scoringApi.scorePaper(paperId),
     onSuccess: (_, paperId) => {
       queryClient.invalidateQueries({ queryKey: ['paperScore', paperId] })
+      queryClient.invalidateQueries({ queryKey: ['paper', paperId] })
+    },
+  })
+}
+
+export function useGeneratePitch() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (paperId: string) => papersApi.generatePitch(paperId),
+    onSuccess: (_, paperId) => {
+      queryClient.invalidateQueries({ queryKey: ['paper', paperId] })
+      queryClient.invalidateQueries({ queryKey: ['papers'] })
+    },
+  })
+}
+
+export function useGenerateSimplifiedAbstract() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (paperId: string) => papersApi.generateSimplifiedAbstract(paperId),
+    onSuccess: (_, paperId) => {
       queryClient.invalidateQueries({ queryKey: ['paper', paperId] })
     },
   })

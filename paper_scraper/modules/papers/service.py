@@ -8,10 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from paper_scraper.core.exceptions import DuplicateError, NotFoundError
+from paper_scraper.modules.papers.clients.arxiv import ArxivClient
 from paper_scraper.modules.papers.clients.crossref import CrossrefClient
 from paper_scraper.modules.papers.clients.openalex import OpenAlexClient
+from paper_scraper.modules.papers.clients.pubmed import PubMedClient
 from paper_scraper.modules.papers.models import Author, Paper, PaperAuthor, PaperSource
 from paper_scraper.modules.papers.schemas import IngestResult, PaperListResponse
+from paper_scraper.modules.scoring.pitch_generator import PitchGenerator, SimplifiedAbstractGenerator
 
 
 class PaperService:
@@ -230,6 +233,194 @@ class PaperService:
             errors=errors,
         )
 
+    async def ingest_from_pubmed(
+        self,
+        query: str,
+        organization_id: UUID,
+        max_results: int = 100,
+    ) -> IngestResult:
+        """Batch ingest papers from PubMed search.
+
+        Args:
+            query: PubMed search query.
+            organization_id: Organization UUID.
+            max_results: Maximum papers to import.
+
+        Returns:
+            IngestResult with counts of created/skipped papers.
+        """
+        created = 0
+        skipped = 0
+        errors: list[str] = []
+
+        async with PubMedClient() as client:
+            papers_data = await client.search(query, max_results)
+
+        for paper_data in papers_data:
+            try:
+                # Check by DOI first
+                doi = paper_data.get("doi")
+                if doi:
+                    existing = await self.get_paper_by_doi(doi, organization_id)
+                    if existing:
+                        skipped += 1
+                        continue
+
+                # Check by source_id
+                source_id = paper_data.get("source_id")
+                if source_id:
+                    existing = await self._get_paper_by_source(
+                        PaperSource.PUBMED, source_id, organization_id
+                    )
+                    if existing:
+                        skipped += 1
+                        continue
+
+                await self._create_paper_from_data(paper_data, organization_id)
+                created += 1
+            except Exception as e:
+                title = paper_data.get("title", "unknown")[:50]
+                errors.append(f"Error importing '{title}': {str(e)}")
+
+        await self.db.commit()
+
+        return IngestResult(
+            papers_created=created,
+            papers_updated=0,
+            papers_skipped=skipped,
+            errors=errors,
+        )
+
+    async def ingest_from_arxiv(
+        self,
+        query: str,
+        organization_id: UUID,
+        max_results: int = 100,
+        category: str | None = None,
+    ) -> IngestResult:
+        """Batch ingest papers from arXiv search.
+
+        Args:
+            query: arXiv search query.
+            organization_id: Organization UUID.
+            max_results: Maximum papers to import.
+            category: Optional arXiv category filter.
+
+        Returns:
+            IngestResult with counts of created/skipped papers.
+        """
+        created = 0
+        skipped = 0
+        errors: list[str] = []
+
+        async with ArxivClient() as client:
+            papers_data = await client.search(query, max_results, category)
+
+        for paper_data in papers_data:
+            try:
+                # Check by DOI first
+                doi = paper_data.get("doi")
+                if doi:
+                    existing = await self.get_paper_by_doi(doi, organization_id)
+                    if existing:
+                        skipped += 1
+                        continue
+
+                # Check by source_id (arXiv ID)
+                source_id = paper_data.get("source_id")
+                if source_id:
+                    existing = await self._get_paper_by_source(
+                        PaperSource.ARXIV, source_id, organization_id
+                    )
+                    if existing:
+                        skipped += 1
+                        continue
+
+                await self._create_paper_from_data(paper_data, organization_id)
+                created += 1
+            except Exception as e:
+                title = paper_data.get("title", "unknown")[:50]
+                errors.append(f"Error importing '{title}': {str(e)}")
+
+        await self.db.commit()
+
+        return IngestResult(
+            papers_created=created,
+            papers_updated=0,
+            papers_skipped=skipped,
+            errors=errors,
+        )
+
+    async def ingest_from_pdf(
+        self,
+        file_content: bytes,
+        filename: str,
+        organization_id: UUID,
+    ) -> Paper:
+        """Ingest paper from uploaded PDF.
+
+        Args:
+            file_content: PDF file bytes.
+            filename: Original filename.
+            organization_id: Organization UUID.
+
+        Returns:
+            Created Paper object.
+        """
+        # Lazy import to avoid loading PyMuPDF until needed
+        from paper_scraper.modules.papers.pdf_service import PDFService
+
+        pdf_service = PDFService()
+        extracted = await pdf_service.upload_and_extract(
+            file_content=file_content,
+            filename=filename,
+            organization_id=organization_id,
+        )
+
+        # Create paper data in normalized format
+        paper_data = {
+            "source": "pdf",
+            "source_id": extracted["pdf_path"],
+            "title": extracted["title"],
+            "abstract": extracted["abstract"],
+            "authors": extracted["authors"],
+            "keywords": extracted.get("keywords", []),
+            "full_text": extracted.get("full_text"),
+            "raw_metadata": {"filename": filename, "pdf_path": extracted["pdf_path"]},
+        }
+
+        paper = await self._create_paper_from_data(paper_data, organization_id)
+
+        # Store pdf_path on the paper
+        paper.pdf_path = extracted["pdf_path"]
+        if extracted.get("full_text"):
+            paper.full_text = extracted["full_text"]
+
+        await self.db.commit()
+        return paper
+
+    async def _get_paper_by_source(
+        self, source: PaperSource, source_id: str, organization_id: UUID
+    ) -> Paper | None:
+        """Get paper by source and source_id within organization.
+
+        Args:
+            source: Paper source (PUBMED, ARXIV, etc.).
+            source_id: Source-specific identifier.
+            organization_id: Organization UUID for tenant isolation.
+
+        Returns:
+            Paper or None if not found.
+        """
+        result = await self.db.execute(
+            select(Paper).where(
+                Paper.source == source,
+                Paper.source_id == source_id,
+                Paper.organization_id == organization_id,
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def _create_paper_from_data(
         self, data: dict, organization_id: UUID
     ) -> Paper:
@@ -324,3 +515,77 @@ class PaperService:
         self.db.add(author)
         await self.db.flush()
         return author
+
+    # =========================================================================
+    # AI-Generated Content
+    # =========================================================================
+
+    async def generate_pitch(
+        self, paper_id: UUID, organization_id: UUID
+    ) -> Paper:
+        """Generate one-line pitch for a paper.
+
+        Args:
+            paper_id: Paper UUID.
+            organization_id: Organization UUID for tenant isolation.
+
+        Returns:
+            Updated Paper object with one_line_pitch.
+
+        Raises:
+            NotFoundError: If paper not found.
+        """
+        paper = await self.get_paper(paper_id, organization_id)
+        if not paper:
+            raise NotFoundError("Paper", "id", str(paper_id))
+
+        # Generate pitch using LLM
+        pitch_generator = PitchGenerator()
+        pitch = await pitch_generator.generate(
+            title=paper.title,
+            abstract=paper.abstract,
+            keywords=paper.keywords,
+        )
+
+        # Update paper with pitch
+        paper.one_line_pitch = pitch
+        await self.db.commit()
+        await self.db.refresh(paper)
+
+        return paper
+
+    async def generate_simplified_abstract(
+        self, paper_id: UUID, organization_id: UUID
+    ) -> Paper:
+        """Generate simplified abstract for a paper.
+
+        Args:
+            paper_id: Paper UUID.
+            organization_id: Organization UUID for tenant isolation.
+
+        Returns:
+            Updated Paper object with simplified_abstract.
+
+        Raises:
+            NotFoundError: If paper not found.
+        """
+        paper = await self.get_paper(paper_id, organization_id)
+        if not paper:
+            raise NotFoundError("Paper", "id", str(paper_id))
+
+        if not paper.abstract:
+            raise ValueError("Paper has no abstract to simplify")
+
+        # Generate simplified abstract using LLM
+        generator = SimplifiedAbstractGenerator()
+        simplified = await generator.generate(
+            title=paper.title,
+            abstract=paper.abstract,
+        )
+
+        # Update paper with simplified abstract
+        paper.simplified_abstract = simplified
+        await self.db.commit()
+        await self.db.refresh(paper)
+
+        return paper

@@ -1,19 +1,25 @@
 // Auth types
-export interface User {
-  id: string
-  email: string
-  full_name: string
-  role: 'admin' | 'member' | 'viewer'
-  organization_id: string
-  is_active: boolean
-  created_at: string
-}
-
 export interface Organization {
   id: string
   name: string
   type: string
   subscription_tier: 'free' | 'pro' | 'enterprise'
+  settings: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
+export interface User {
+  id: string
+  email: string
+  full_name: string | null
+  role: 'admin' | 'member' | 'viewer'
+  organization_id: string
+  preferences: Record<string, unknown>
+  is_active: boolean
+  created_at: string
+  updated_at: string
+  organization: Organization
 }
 
 export interface AuthTokens {
@@ -50,6 +56,7 @@ export interface Author {
   id: string
   name: string
   orcid?: string
+  openalex_id?: string
   affiliations: string[]
   h_index?: number
   citation_count?: number
@@ -78,6 +85,8 @@ export interface Paper {
   keywords: string[]
   references_count?: number
   citations_count?: number
+  one_line_pitch?: string
+  simplified_abstract?: string
   has_pdf: boolean
   has_embedding: boolean
   created_at: string
@@ -141,6 +150,14 @@ export interface Project {
   is_active: boolean
   created_at: string
   updated_at: string
+}
+
+export interface ProjectListResponse {
+  items: Project[]
+  total: number
+  page: number
+  page_size: number
+  pages: number
 }
 
 export interface PaperProjectStatus {
@@ -225,6 +242,326 @@ export interface SearchResponse {
 export interface PaginationParams {
   page: number
   page_size: number
+}
+
+// Author types (extended for Sprint 10)
+export type ContactType = 'email' | 'phone' | 'linkedin' | 'meeting' | 'conference' | 'other'
+export type ContactOutcome = 'successful' | 'no_response' | 'declined' | 'follow_up_needed' | 'in_progress'
+
+export interface AuthorContact {
+  id: string
+  author_id: string
+  organization_id: string
+  contacted_by_id?: string
+  contact_type: ContactType
+  contact_date: string
+  subject?: string
+  notes?: string
+  outcome?: ContactOutcome
+  follow_up_date?: string
+  paper_id?: string
+  created_at: string
+  updated_at: string
+  contacted_by_name?: string
+  contacted_by_email?: string
+}
+
+export interface AuthorProfile extends Author {
+  created_at: string
+  updated_at: string
+  paper_count: number
+  recent_contacts_count: number
+  last_contact_date?: string
+}
+
+export interface AuthorPaperSummary {
+  id: string
+  title: string
+  doi?: string
+  publication_date?: string
+  journal?: string
+  is_corresponding: boolean
+}
+
+export interface AuthorDetail extends AuthorProfile {
+  papers: AuthorPaperSummary[]
+  contacts: AuthorContact[]
+}
+
+export interface AuthorListResponse {
+  items: AuthorProfile[]
+  total: number
+  page: number
+  page_size: number
+  pages: number
+}
+
+export interface AuthorContactStats {
+  author_id: string
+  total_contacts: number
+  contacts_by_type: Record<string, number>
+  contacts_by_outcome: Record<string, number>
+  last_contact_date?: string
+  next_follow_up?: string
+}
+
+export interface CreateContactRequest {
+  contact_type: ContactType
+  contact_date?: string
+  subject?: string
+  notes?: string
+  outcome?: ContactOutcome
+  follow_up_date?: string
+  paper_id?: string
+}
+
+export interface EnrichmentResult {
+  author_id: string
+  source: string
+  updated_fields: string[]
+  success: boolean
+  message?: string
+}
+
+// Analytics types
+export interface TimeSeriesDataPoint {
+  date: string
+  count: number
+}
+
+export interface SourceDistribution {
+  source: string
+  count: number
+  percentage: number
+}
+
+export interface ScoreDistributionBucket {
+  range_start: number
+  range_end: number
+  count: number
+}
+
+export interface UserActivityStats {
+  user_id: string
+  email: string
+  full_name: string | null
+  papers_imported: number
+  papers_scored: number
+  notes_created: number
+  last_active: string | null
+}
+
+export interface TeamOverview {
+  total_users: number
+  active_users_last_7_days: number
+  active_users_last_30_days: number
+  total_papers: number
+  total_scores: number
+  total_projects: number
+  user_activity: UserActivityStats[]
+}
+
+export interface PaperImportTrends {
+  daily: TimeSeriesDataPoint[]
+  weekly: TimeSeriesDataPoint[]
+  monthly: TimeSeriesDataPoint[]
+  by_source: SourceDistribution[]
+}
+
+export interface ScoringStats {
+  total_scored: number
+  total_unscored: number
+  average_overall_score: number | null
+  average_novelty: number | null
+  average_ip_potential: number | null
+  average_marketability: number | null
+  average_feasibility: number | null
+  average_commercialization: number | null
+  score_distribution: ScoreDistributionBucket[]
+}
+
+export interface TopPaper {
+  id: string
+  title: string
+  doi: string | null
+  source: string
+  overall_score: number | null
+  created_at: string
+}
+
+export interface PaperAnalytics {
+  import_trends: PaperImportTrends
+  scoring_stats: ScoringStats
+  top_papers: TopPaper[]
+  papers_with_embeddings: number
+  papers_without_embeddings: number
+  embedding_coverage_percent: number
+}
+
+export interface DashboardSummary {
+  total_papers: number
+  papers_this_week: number
+  papers_this_month: number
+  scored_papers: number
+  average_score: number | null
+  total_projects: number
+  active_projects: number
+  total_users: number
+  active_users: number
+  import_trend: TimeSeriesDataPoint[]
+  scoring_trend: TimeSeriesDataPoint[]
+}
+
+// Export types
+export type ExportFormat = 'csv' | 'pdf' | 'bibtex'
+
+// Saved Searches types
+export type AlertFrequency = 'immediately' | 'daily' | 'weekly'
+
+export interface SavedSearchCreator {
+  id: string
+  email: string
+  full_name: string | null
+}
+
+export interface SavedSearch {
+  id: string
+  name: string
+  description: string | null
+  query: string
+  mode: string
+  filters: Record<string, unknown>
+  is_public: boolean
+  share_token: string | null
+  share_url: string | null
+  alert_enabled: boolean
+  alert_frequency: AlertFrequency | null
+  last_alert_at: string | null
+  run_count: number
+  last_run_at: string | null
+  created_at: string
+  updated_at: string
+  created_by: SavedSearchCreator | null
+}
+
+export interface SavedSearchListResponse {
+  items: SavedSearch[]
+  total: number
+  page: number
+  page_size: number
+  pages: number
+}
+
+export interface CreateSavedSearchRequest {
+  name: string
+  description?: string
+  query: string
+  mode?: SearchMode
+  filters?: Record<string, unknown>
+  is_public?: boolean
+  alert_enabled?: boolean
+  alert_frequency?: AlertFrequency
+}
+
+export interface UpdateSavedSearchRequest {
+  name?: string
+  description?: string
+  query?: string
+  mode?: SearchMode
+  filters?: Record<string, unknown>
+  is_public?: boolean
+  alert_enabled?: boolean
+  alert_frequency?: AlertFrequency
+}
+
+// Alerts types
+export type AlertChannel = 'email' | 'in_app'
+export type AlertStatus = 'pending' | 'sent' | 'failed' | 'skipped'
+
+export interface SavedSearchBrief {
+  id: string
+  name: string
+  query: string
+}
+
+export interface Alert {
+  id: string
+  name: string
+  description: string | null
+  channel: string
+  frequency: string
+  min_results: number
+  is_active: boolean
+  last_triggered_at: string | null
+  trigger_count: number
+  saved_search: SavedSearchBrief | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AlertListResponse {
+  items: Alert[]
+  total: number
+  page: number
+  page_size: number
+  pages: number
+}
+
+export interface AlertResult {
+  id: string
+  alert_id: string
+  status: AlertStatus
+  papers_found: number
+  new_papers: number
+  paper_ids: string[]
+  delivered_at: string | null
+  error_message: string | null
+  created_at: string
+}
+
+export interface AlertResultListResponse {
+  items: AlertResult[]
+  total: number
+  page: number
+  page_size: number
+  pages: number
+}
+
+export interface CreateAlertRequest {
+  name: string
+  description?: string
+  saved_search_id: string
+  channel?: AlertChannel
+  frequency?: AlertFrequency
+  min_results?: number
+}
+
+export interface UpdateAlertRequest {
+  name?: string
+  description?: string
+  channel?: AlertChannel
+  frequency?: AlertFrequency
+  min_results?: number
+  is_active?: boolean
+}
+
+// Paper Classification
+export type PaperType =
+  | 'original_research'
+  | 'review'
+  | 'case_study'
+  | 'methodology'
+  | 'theoretical'
+  | 'commentary'
+  | 'preprint'
+  | 'other'
+
+export interface ClassificationResponse {
+  paper_id: string
+  paper_type: PaperType
+  confidence: number
+  reasoning: string
+  indicators: string[]
 }
 
 // API Error types

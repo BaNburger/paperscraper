@@ -1,12 +1,13 @@
 import { NavLink } from 'react-router-dom'
 import { cn } from '@/lib/utils'
-import { FileText, FolderKanban, Home, Search } from 'lucide-react'
+import { BarChart3, FileText, FolderKanban, Home, Search } from 'lucide-react'
 
 const navItems = [
   { to: '/', icon: Home, label: 'Dashboard' },
   { to: '/papers', icon: FileText, label: 'Papers' },
   { to: '/projects', icon: FolderKanban, label: 'Projects' },
   { to: '/search', icon: Search, label: 'Search' },
+  { to: '/analytics', icon: BarChart3, label: 'Analytics' },
 ]
 
 export function Sidebar() {

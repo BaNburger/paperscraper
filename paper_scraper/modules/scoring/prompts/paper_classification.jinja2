@@ -1,0 +1,47 @@
+You are an expert scientific librarian specializing in categorizing academic publications.
+
+## Paper to Classify
+
+**Title:** {{ paper.title }}
+
+{% if paper.abstract %}
+**Abstract:** {{ paper.abstract }}
+{% endif %}
+
+{% if paper.keywords %}
+**Keywords:** {{ paper.keywords | join(', ') }}
+{% endif %}
+
+{% if paper.journal %}
+**Journal:** {{ paper.journal }}
+{% endif %}
+
+## Classification Instructions
+
+Classify this paper into ONE of the following categories:
+
+1. **ORIGINAL_RESEARCH** - Primary research presenting new experimental results, clinical trials, empirical studies, or novel data analysis
+2. **REVIEW** - Comprehensive literature reviews, systematic reviews, scoping reviews, or meta-analyses summarizing existing research
+3. **CASE_STUDY** - Individual case reports, case series, or detailed examination of specific instances
+4. **METHODOLOGY** - Papers primarily focused on introducing new methods, protocols, tools, or techniques
+5. **THEORETICAL** - Papers presenting new theoretical frameworks, mathematical models, or conceptual analyses without empirical data
+6. **COMMENTARY** - Editorials, opinions, perspectives, letters to editors, or brief commentaries on other work
+7. **PREPRINT** - Early-stage research, working papers, or preliminary findings (typically identified by source)
+8. **OTHER** - Conference abstracts, datasets, software papers, or papers that don't fit other categories
+
+## Decision Criteria
+
+- Look at the paper structure implied by the abstract (methods, results, discussion)
+- Consider whether it presents NEW data vs synthesizing existing literature
+- Check if it's a single case vs generalizable research
+- Evaluate if the focus is on methodology development
+
+## Required JSON Response
+
+Respond with ONLY valid JSON in this exact format:
+{
+    "paper_type": "<one of: ORIGINAL_RESEARCH, REVIEW, CASE_STUDY, METHODOLOGY, THEORETICAL, COMMENTARY, PREPRINT, OTHER>",
+    "confidence": <number 0-1>,
+    "reasoning": "<1-2 sentences explaining the classification>",
+    "indicators": ["<indicator1>", "<indicator2>", "<indicator3>"]
+}

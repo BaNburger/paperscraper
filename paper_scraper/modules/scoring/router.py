@@ -1,18 +1,21 @@
-"""FastAPI router for scoring endpoints."""
+"""FastAPI router for scoring endpoints with rate limiting."""
 
 from typing import Annotated
 from uuid import UUID
 
 import arq
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.api.dependencies import CurrentUser
+from paper_scraper.api.middleware import limiter
 from paper_scraper.core.config import settings
 from paper_scraper.core.database import get_db
 from paper_scraper.core.exceptions import NotFoundError
+from paper_scraper.modules.scoring.classifier import PaperClassifier
 from paper_scraper.modules.scoring.schemas import (
     BatchScoreRequest,
+    ClassificationResponse,
     EmbeddingResponse,
     GenerateEmbeddingRequest,
     PaperScoreListResponse,
@@ -33,6 +36,13 @@ def get_scoring_service(
     return ScoringService(db)
 
 
+def get_classifier(
+    db: Annotated[AsyncSession, Depends(get_db)]
+) -> PaperClassifier:
+    """Dependency to get paper classifier instance."""
+    return PaperClassifier(db)
+
+
 # =============================================================================
 # Paper Scoring Endpoints
 # =============================================================================
@@ -44,25 +54,29 @@ def get_scoring_service(
     status_code=status.HTTP_200_OK,
     summary="Score a paper",
 )
+@limiter.limit(f"{settings.RATE_LIMIT_SCORING_PER_MINUTE}/minute")
 async def score_paper(
+    request: Request,
     paper_id: UUID,
     current_user: CurrentUser,
     scoring_service: Annotated[ScoringService, Depends(get_scoring_service)],
-    request: ScoreRequest | None = None,
+    score_request: ScoreRequest | None = None,
 ) -> PaperScoreResponse:
     """
     Score a paper across all AI dimensions.
 
     Triggers scoring for novelty, IP potential, marketability,
     feasibility, and commercialization dimensions.
+
+    Rate limited to prevent excessive LLM API calls.
     """
-    request = request or ScoreRequest()
+    score_request = score_request or ScoreRequest()
     score = await scoring_service.score_paper(
         paper_id=paper_id,
         organization_id=current_user.organization_id,
-        weights=request.weights,
-        dimensions=request.dimensions,
-        force_rescore=request.force_rescore,
+        weights=score_request.weights,
+        dimensions=score_request.dimensions,
+        force_rescore=score_request.force_rescore,
     )
     return PaperScoreResponse.model_validate(score)
 
@@ -285,4 +299,84 @@ async def backfill_embeddings(
     return {
         "embeddings_generated": count,
         "message": f"Generated {count} embeddings",
+    }
+
+
+# =============================================================================
+# Paper Classification Endpoints
+# =============================================================================
+
+
+@router.post(
+    "/papers/{paper_id}/classify",
+    response_model=ClassificationResponse,
+    summary="Classify paper type",
+)
+async def classify_paper(
+    paper_id: UUID,
+    current_user: CurrentUser,
+    classifier: Annotated[PaperClassifier, Depends(get_classifier)],
+) -> ClassificationResponse:
+    """
+    Classify a paper into a category using LLM.
+
+    Categories: Original Research, Review, Case Study, Methodology,
+    Theoretical, Commentary, Preprint, Other.
+    """
+    result = await classifier.classify_paper(
+        paper_id=paper_id,
+        organization_id=current_user.organization_id,
+    )
+    return ClassificationResponse(**result)
+
+
+@router.post(
+    "/classification/batch",
+    response_model=dict,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Batch classify papers",
+)
+async def batch_classify_papers(
+    paper_ids: list[UUID],
+    current_user: CurrentUser,
+    classifier: Annotated[PaperClassifier, Depends(get_classifier)],
+) -> dict:
+    """
+    Classify multiple papers in batch.
+
+    Returns classification results for each paper.
+    """
+    result = await classifier.classify_papers_batch(
+        paper_ids=paper_ids,
+        organization_id=current_user.organization_id,
+    )
+    return result
+
+
+@router.get(
+    "/classification/unclassified",
+    response_model=dict,
+    summary="Get unclassified papers",
+)
+async def get_unclassified_papers(
+    current_user: CurrentUser,
+    classifier: Annotated[PaperClassifier, Depends(get_classifier)],
+    limit: int = Query(default=100, ge=1, le=500),
+) -> dict:
+    """Get papers that haven't been classified yet."""
+    papers = await classifier.get_unclassified_papers(
+        organization_id=current_user.organization_id,
+        limit=limit,
+    )
+    return {
+        "count": len(papers),
+        "papers": [
+            {
+                "id": str(p.id),
+                "title": p.title,
+                "source": p.source.value,
+                "created_at": p.created_at.isoformat(),
+            }
+            for p in papers
+        ],
     }

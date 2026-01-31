@@ -93,6 +93,15 @@ Diese Architektur definiert einen pragmatischen, inkrementellen Ansatz zur Entwi
 │  feasibility    │  │  notes[]        │  │  last_contact   │
 │  commercializ.  │  │  last_action_at │  │  profile_data{} │
 └─────────────────┘  └─────────────────┘  └─────────────────┘
+
+### 2.4 AI-Generated Content
+
+Papers can have AI-generated content fields:
+
+| Field | Description | Generation |
+|-------|-------------|------------|
+| **one_line_pitch** | Max 15-word compelling pitch | On-demand via `/generate-pitch` endpoint |
+| **embedding** | 1536d vector (text-embedding-3-small) | Auto-generated for semantic search |
 ```
 
 ### 2.2 Scoring-Dimensionen (Details)
@@ -142,14 +151,15 @@ class PaperScore(BaseModel):
 
 Die Plattform nutzt primär offene APIs für Daten-Ingestion:
 
-| API | Zweck | Authentifizierung | Rate Limits |
-|-----|-------|------------------|-------------|
-| **OpenAlex** | Paper/Autor-Metadaten (primär) | Email (polite pool) | 100k/Tag |
-| **EPO OPS** | Patentdaten, Prior Art | OAuth 2.0 (Free tier: 4GB/Woche) | 5 req/s |
-| **arXiv** | Preprints (STEM) | Keine | 1 req/3s |
-| **PubMed/NCBI** | Biomedizinische Literatur | API Key (optional) | 3 req/s (ohne Key) |
-| **Crossref** | DOI-Auflösung | Email (polite pool) | Polite: 50 req/s |
-| **Semantic Scholar** | Zitationen, Influence | API Key (optional) | 100 req/s |
+| API | Zweck | Authentifizierung | Rate Limits | Status |
+|-----|-------|------------------|-------------|--------|
+| **OpenAlex** | Paper/Autor-Metadaten (primär) | Email (polite pool) | 100k/Tag | Implementiert |
+| **Crossref** | DOI-Auflösung | Email (polite pool) | Polite: 50 req/s | Implementiert |
+| **PubMed/NCBI** | Biomedizinische Literatur | API Key (optional) | 3 req/s (ohne Key) | Implementiert |
+| **arXiv** | Preprints (STEM) | Keine | 1 req/3s | Implementiert |
+| **PDF Upload** | Manuelle Paper-Uploads | — | — | Implementiert |
+| **EPO OPS** | Patentdaten, Prior Art | OAuth 2.0 (Free tier: 4GB/Woche) | 5 req/s | Geplant |
+| **Semantic Scholar** | Zitationen, Influence | API Key (optional) | 100 req/s | Geplant |
 
 ### Konfiguration
 
@@ -548,16 +558,54 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaperListResponse'
 
+  /api/v1/papers/ingest/doi:
     post:
-      summary: Ingest papers from URL or DOI
+      summary: Ingest single paper by DOI
       requestBody:
         content:
           application/json:
             schema:
-              oneOf:
-                - $ref: '#/components/schemas/IngestByDOI'
-                - $ref: '#/components/schemas/IngestByURL'
-                - $ref: '#/components/schemas/IngestByPDF'
+              $ref: '#/components/schemas/IngestByDOI'
+
+  /api/v1/papers/ingest/openalex:
+    post:
+      summary: Batch import from OpenAlex search
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngestOpenAlexRequest'
+
+  /api/v1/papers/ingest/pubmed:
+    post:
+      summary: Batch import from PubMed search
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngestPubMedRequest'
+
+  /api/v1/papers/ingest/arxiv:
+    post:
+      summary: Batch import from arXiv search
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngestArxivRequest'
+
+  /api/v1/papers/upload/pdf:
+    post:
+      summary: Upload PDF file
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
 
   /api/v1/papers/{paper_id}:
     get:
@@ -805,6 +853,33 @@ volumes:
 │                    Monitoring & Observability                   │
 │   Grafana + Prometheus | Sentry | Langfuse (LLM Monitoring)    │
 └─────────────────────────────────────────────────────────────────┘
+
+### 6.3 Production Hardening (Implemented)
+
+| Component | Implementation | Configuration |
+|-----------|----------------|---------------|
+| **LLM Observability** | Langfuse `@observe` decorator | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` |
+| **Error Tracking** | Sentry SDK (FastAPI + SQLAlchemy) | `SENTRY_DSN` |
+| **Rate Limiting** | slowapi middleware (Redis-backed) | `RATE_LIMIT_REQUESTS_PER_MINUTE` |
+| **Structured Logging** | JSON formatter (production), human-readable (dev) | `LOG_LEVEL`, `ENVIRONMENT` |
+| **Lifecycle Management** | FastAPI lifespan handler | DB pool, Redis connection |
+
+**Rate Limits:**
+- General endpoints: 100 req/min (configurable)
+- Scoring endpoints: 10 req/min (LLM-expensive)
+
+**Logging Format (Production):**
+```json
+{
+  "timestamp": "2026-01-30T12:00:00.000Z",
+  "level": "INFO",
+  "logger": "paper_scraper.api.main",
+  "message": "Starting Paper Scraper API...",
+  "module": "main",
+  "function": "lifespan",
+  "line": 49
+}
+```
 ```
 
 ---

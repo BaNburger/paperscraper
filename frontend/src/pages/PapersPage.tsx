@@ -1,6 +1,13 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { usePapers, useIngestByDoi, useIngestFromOpenAlex } from '@/hooks'
+import {
+  usePapers,
+  useIngestByDoi,
+  useIngestFromOpenAlex,
+  useIngestFromPubMed,
+  useIngestFromArxiv,
+  useUploadPdf,
+} from '@/hooks'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -14,8 +21,12 @@ import {
   ChevronRight,
   Loader2,
   Download,
+  Upload,
+  X,
 } from 'lucide-react'
 import { formatDate, truncate } from '@/lib/utils'
+
+type ImportMode = 'doi' | 'openalex' | 'pubmed' | 'arxiv' | 'pdf'
 
 export function PapersPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -25,14 +36,32 @@ export function PapersPage() {
 
   const [searchInput, setSearchInput] = useState(search)
   const [showImportModal, setShowImportModal] = useState(false)
-  const [importMode, setImportMode] = useState<'doi' | 'openalex'>('doi')
+  const [importMode, setImportMode] = useState<ImportMode>('doi')
+
+  // DOI state
   const [doiInput, setDoiInput] = useState('')
-  const [openAlexQuery, setOpenAlexQuery] = useState('')
-  const [openAlexMaxResults, setOpenAlexMaxResults] = useState(20)
+
+  // Search-based import state (OpenAlex, PubMed, arXiv)
+  const [queryInput, setQueryInput] = useState('')
+  const [maxResults, setMaxResults] = useState(20)
+  const [arxivCategory, setArxivCategory] = useState('')
+
+  // PDF state
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Import result message
+  const [importResult, setImportResult] = useState<{
+    type: 'success' | 'error'
+    message: string
+  } | null>(null)
 
   const { data, isLoading, error } = usePapers({ page, page_size: pageSize, search })
   const ingestByDoi = useIngestByDoi()
   const ingestFromOpenAlex = useIngestFromOpenAlex()
+  const ingestFromPubMed = useIngestFromPubMed()
+  const ingestFromArxiv = useIngestFromArxiv()
+  const uploadPdf = useUploadPdf()
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -43,26 +72,352 @@ export function PapersPage() {
     setSearchParams({ search, page: newPage.toString() })
   }
 
+  const resetImportState = () => {
+    setDoiInput('')
+    setQueryInput('')
+    setMaxResults(20)
+    setArxivCategory('')
+    setSelectedFile(null)
+    setImportResult(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  const closeModal = () => {
+    setShowImportModal(false)
+    resetImportState()
+  }
+
   const handleImportDoi = async () => {
     try {
       await ingestByDoi.mutateAsync(doiInput)
+      setImportResult({ type: 'success', message: 'Paper imported successfully!' })
       setDoiInput('')
-      setShowImportModal(false)
-    } catch (err) {
-      // Error handled by mutation
+    } catch {
+      setImportResult({ type: 'error', message: 'Failed to import paper. Check the DOI and try again.' })
     }
   }
 
   const handleImportOpenAlex = async () => {
     try {
-      await ingestFromOpenAlex.mutateAsync({
-        query: openAlexQuery,
-        max_results: openAlexMaxResults,
+      const result = await ingestFromOpenAlex.mutateAsync({
+        query: queryInput,
+        max_results: maxResults,
       })
-      setOpenAlexQuery('')
-      setShowImportModal(false)
-    } catch (err) {
-      // Error handled by mutation
+      setImportResult({
+        type: 'success',
+        message: `Imported ${result.papers_created} papers${
+          result.papers_skipped > 0 ? ` (skipped ${result.papers_skipped} duplicates)` : ''
+        }`,
+      })
+      setQueryInput('')
+    } catch {
+      setImportResult({ type: 'error', message: 'Failed to import from OpenAlex. Please try again.' })
+    }
+  }
+
+  const handleImportPubMed = async () => {
+    try {
+      const result = await ingestFromPubMed.mutateAsync({
+        query: queryInput,
+        max_results: maxResults,
+      })
+      setImportResult({
+        type: 'success',
+        message: `Imported ${result.papers_created} papers${
+          result.papers_skipped > 0 ? ` (skipped ${result.papers_skipped} duplicates)` : ''
+        }`,
+      })
+      setQueryInput('')
+    } catch {
+      setImportResult({ type: 'error', message: 'Failed to import from PubMed. Please try again.' })
+    }
+  }
+
+  const handleImportArxiv = async () => {
+    try {
+      const result = await ingestFromArxiv.mutateAsync({
+        query: queryInput,
+        max_results: maxResults,
+        category: arxivCategory || undefined,
+      })
+      setImportResult({
+        type: 'success',
+        message: `Imported ${result.papers_created} papers${
+          result.papers_skipped > 0 ? ` (skipped ${result.papers_skipped} duplicates)` : ''
+        }`,
+      })
+      setQueryInput('')
+    } catch {
+      setImportResult({ type: 'error', message: 'Failed to import from arXiv. Please try again.' })
+    }
+  }
+
+  const handleUploadPdf = async () => {
+    if (!selectedFile) return
+    try {
+      await uploadPdf.mutateAsync(selectedFile)
+      setImportResult({ type: 'success', message: 'PDF uploaded and processed successfully!' })
+      setSelectedFile(null)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    } catch {
+      setImportResult({ type: 'error', message: 'Failed to upload PDF. Please try again.' })
+    }
+  }
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file && file.type === 'application/pdf') {
+      setSelectedFile(file)
+      setImportResult(null)
+    } else {
+      setImportResult({ type: 'error', message: 'Please select a valid PDF file.' })
+    }
+  }
+
+  const isLoading_ =
+    ingestByDoi.isPending ||
+    ingestFromOpenAlex.isPending ||
+    ingestFromPubMed.isPending ||
+    ingestFromArxiv.isPending ||
+    uploadPdf.isPending
+
+  const renderImportForm = () => {
+    switch (importMode) {
+      case 'doi':
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="doi">DOI</Label>
+              <Input
+                id="doi"
+                placeholder="10.1234/example.123"
+                value={doiInput}
+                onChange={(e) => setDoiInput(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Enter a DOI to import a single paper
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={closeModal}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleImportDoi}
+                isLoading={ingestByDoi.isPending}
+                disabled={!doiInput || isLoading_}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Import
+              </Button>
+            </div>
+          </div>
+        )
+
+      case 'openalex':
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="query">Search Query</Label>
+              <Input
+                id="query"
+                placeholder="e.g., machine learning healthcare"
+                value={queryInput}
+                onChange={(e) => setQueryInput(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Search OpenAlex for papers matching your query
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="maxResults">Max Results</Label>
+              <Input
+                id="maxResults"
+                type="number"
+                min={1}
+                max={100}
+                value={maxResults}
+                onChange={(e) => setMaxResults(parseInt(e.target.value) || 20)}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={closeModal}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleImportOpenAlex}
+                isLoading={ingestFromOpenAlex.isPending}
+                disabled={!queryInput || isLoading_}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Import
+              </Button>
+            </div>
+          </div>
+        )
+
+      case 'pubmed':
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="query">PubMed Search Query</Label>
+              <Input
+                id="query"
+                placeholder="e.g., cancer immunotherapy[MeSH]"
+                value={queryInput}
+                onChange={(e) => setQueryInput(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Use PubMed search syntax for best results
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="maxResults">Max Results</Label>
+              <Input
+                id="maxResults"
+                type="number"
+                min={1}
+                max={100}
+                value={maxResults}
+                onChange={(e) => setMaxResults(parseInt(e.target.value) || 20)}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={closeModal}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleImportPubMed}
+                isLoading={ingestFromPubMed.isPending}
+                disabled={!queryInput || isLoading_}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Import
+              </Button>
+            </div>
+          </div>
+        )
+
+      case 'arxiv':
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="query">arXiv Search Query</Label>
+              <Input
+                id="query"
+                placeholder="e.g., quantum computing"
+                value={queryInput}
+                onChange={(e) => setQueryInput(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Search arXiv preprint repository
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="category">Category (optional)</Label>
+              <Input
+                id="category"
+                placeholder="e.g., cs.AI, physics.med-ph"
+                value={arxivCategory}
+                onChange={(e) => setArxivCategory(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Filter by arXiv category
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="maxResults">Max Results</Label>
+              <Input
+                id="maxResults"
+                type="number"
+                min={1}
+                max={100}
+                value={maxResults}
+                onChange={(e) => setMaxResults(parseInt(e.target.value) || 20)}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={closeModal}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleImportArxiv}
+                isLoading={ingestFromArxiv.isPending}
+                disabled={!queryInput || isLoading_}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Import
+              </Button>
+            </div>
+          </div>
+        )
+
+      case 'pdf':
+        return (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="pdf">PDF File</Label>
+              <div className="mt-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  id="pdf"
+                  accept=".pdf"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                >
+                  {selectedFile ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <FileText className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-sm">{selectedFile.name}</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedFile(null)
+                          if (fileInputRef.current) fileInputRef.current.value = ''
+                        }}
+                        className="ml-2 p-1 hover:bg-muted rounded"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground">
+                        Click to select a PDF file or drag and drop
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Max file size: 50MB
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={closeModal}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleUploadPdf}
+                isLoading={uploadPdf.isPending}
+                disabled={!selectedFile || isLoading_}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Upload
+              </Button>
+            </div>
+          </div>
+        )
     }
   }
 
@@ -127,6 +482,11 @@ export function PapersPage() {
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0 flex-1">
                         <h3 className="font-medium line-clamp-2">{paper.title}</h3>
+                        {paper.one_line_pitch && (
+                          <p className="text-sm font-medium text-primary mt-1 italic">
+                            "{paper.one_line_pitch}"
+                          </p>
+                        )}
                         <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
                           {truncate(paper.abstract ?? 'No abstract available', 200)}
                         </p>
@@ -150,6 +510,9 @@ export function PapersPage() {
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-2 shrink-0">
+                        {paper.has_pdf && (
+                          <Badge variant="secondary">PDF</Badge>
+                        )}
                         {paper.has_embedding && (
                           <Badge variant="secondary">Embedded</Badge>
                         )}
@@ -204,99 +567,52 @@ export function PapersPage() {
       {/* Import Modal */}
       {showImportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <Card className="w-full max-w-lg mx-4">
-            <CardHeader>
+          <Card className="w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Import Papers</CardTitle>
+              <button onClick={closeModal} className="p-1 hover:bg-muted rounded">
+                <X className="h-5 w-5" />
+              </button>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Mode Tabs */}
-              <div className="flex gap-2">
-                <Button
-                  variant={importMode === 'doi' ? 'default' : 'outline'}
-                  onClick={() => setImportMode('doi')}
-                  className="flex-1"
-                >
-                  By DOI
-                </Button>
-                <Button
-                  variant={importMode === 'openalex' ? 'default' : 'outline'}
-                  onClick={() => setImportMode('openalex')}
-                  className="flex-1"
-                >
-                  From OpenAlex
-                </Button>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { id: 'doi' as const, label: 'DOI' },
+                  { id: 'openalex' as const, label: 'OpenAlex' },
+                  { id: 'pubmed' as const, label: 'PubMed' },
+                  { id: 'arxiv' as const, label: 'arXiv' },
+                  { id: 'pdf' as const, label: 'PDF Upload' },
+                ].map((tab) => (
+                  <Button
+                    key={tab.id}
+                    variant={importMode === tab.id ? 'default' : 'outline'}
+                    onClick={() => {
+                      setImportMode(tab.id)
+                      setImportResult(null)
+                    }}
+                    size="sm"
+                  >
+                    {tab.label}
+                  </Button>
+                ))}
               </div>
 
-              {importMode === 'doi' ? (
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="doi">DOI</Label>
-                    <Input
-                      id="doi"
-                      placeholder="10.1234/example.123"
-                      value={doiInput}
-                      onChange={(e) => setDoiInput(e.target.value)}
-                    />
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setShowImportModal(false)}>
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={handleImportDoi}
-                      isLoading={ingestByDoi.isPending}
-                      disabled={!doiInput}
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Import
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="query">Search Query</Label>
-                    <Input
-                      id="query"
-                      placeholder="e.g., machine learning healthcare"
-                      value={openAlexQuery}
-                      onChange={(e) => setOpenAlexQuery(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="maxResults">Max Results</Label>
-                    <Input
-                      id="maxResults"
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={openAlexMaxResults}
-                      onChange={(e) => setOpenAlexMaxResults(parseInt(e.target.value))}
-                    />
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setShowImportModal(false)}>
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={handleImportOpenAlex}
-                      isLoading={ingestFromOpenAlex.isPending}
-                      disabled={!openAlexQuery}
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Import
-                    </Button>
-                  </div>
-                  {ingestFromOpenAlex.isSuccess && (
-                    <div className="rounded-md bg-green-100 p-3 text-sm text-green-800">
-                      Imported {ingestFromOpenAlex.data.papers_created} papers
-                      {ingestFromOpenAlex.data.papers_skipped > 0 && (
-                        <> (skipped {ingestFromOpenAlex.data.papers_skipped} duplicates)</>
-                      )}
-                    </div>
-                  )}
+              {/* Import Result Message */}
+              {importResult && (
+                <div
+                  className={`rounded-md p-3 text-sm ${
+                    importResult.type === 'success'
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                      : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                  }`}
+                >
+                  {importResult.message}
                 </div>
               )}
+
+              {/* Form for selected mode */}
+              {renderImportForm()}
             </CardContent>
           </Card>
         </div>

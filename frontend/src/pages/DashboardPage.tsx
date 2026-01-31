@@ -22,13 +22,13 @@ export function DashboardPage() {
     },
     {
       title: 'Active Projects',
-      value: projects?.length ?? 0,
+      value: projects?.total ?? 0,
       icon: FolderKanban,
       color: 'text-green-600',
     },
     {
       title: 'Embeddings',
-      value: embeddingStats ? `${embeddingStats.percentage.toFixed(0)}%` : '—',
+      value: embeddingStats ? `${embeddingStats.embedding_coverage.toFixed(0)}%` : '—',
       icon: Search,
       color: 'text-purple-600',
     },
@@ -38,7 +38,7 @@ export function DashboardPage() {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Welcome back, {user?.full_name?.split(' ')[0]}</h1>
+        <h1 className="text-3xl font-bold">Welcome back, {user?.full_name?.split(' ')[0] ?? 'there'}</h1>
         <p className="text-muted-foreground mt-1">
           Here's what's happening with your research pipeline
         </p>
@@ -82,7 +82,7 @@ export function DashboardPage() {
               <div className="flex justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
-            ) : papersData?.items.length === 0 ? (
+            ) : !papersData?.items?.length ? (
               <div className="text-center py-8 text-muted-foreground">
                 <FileText className="mx-auto h-12 w-12 mb-4 opacity-50" />
                 <p>No papers yet</p>
@@ -169,13 +169,13 @@ export function DashboardPage() {
                 <div className="flex justify-center py-4">
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
-              ) : projects?.length === 0 ? (
+              ) : !projects?.items?.length ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   No projects yet
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {projects?.slice(0, 3).map((project) => (
+                  {projects?.items?.slice(0, 3).map((project) => (
                     <Link
                       key={project.id}
                       to={`/projects/${project.id}`}

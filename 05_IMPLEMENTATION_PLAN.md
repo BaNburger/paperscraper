@@ -2261,14 +2261,16 @@ class TestPitchGenerator:
 
 ### Sprint 7 Definition of Done
 
-- [ ] Langfuse integration tracking all LLM calls
-- [ ] Sentry capturing errors with FastAPI integration
-- [ ] Rate limiting on all endpoints (stricter on scoring)
-- [ ] API startup/shutdown handlers (DB, Redis, S3)
-- [ ] Structured JSON logging in production
-- [ ] One-line pitch generator working
-- [ ] Pitch displayed on frontend paper cards
-- [ ] Tests passing for production features
+- [x] Langfuse integration tracking all LLM calls
+- [x] Sentry capturing errors with FastAPI integration
+- [x] Rate limiting on all endpoints (stricter on scoring)
+- [x] API startup/shutdown handlers (DB, Redis, S3)
+- [x] Structured JSON logging in production
+- [x] One-line pitch generator working
+- [x] Pitch displayed on frontend paper cards
+- [x] Tests passing for production features
+
+**Sprint 7 completed: 2026-01-30**
 
 ---
 
@@ -2951,17 +2953,17 @@ const ImportModal = ({ isOpen, onClose, onSuccess }) => {
 
 ### Sprint 8 Definition of Done
 
-- [ ] PubMed client working (search, get_by_id)
-- [ ] arXiv client working (search, get_by_id) with rate limiting
-- [ ] PDF upload to S3 working
-- [ ] PDF text extraction with PyMuPDF
-- [ ] API endpoints:
-  - [ ] `POST /papers/ingest/pubmed` - PubMed batch import
-  - [ ] `POST /papers/ingest/arxiv` - arXiv batch import
-  - [ ] `POST /papers/upload/pdf` - PDF file upload
-- [ ] Background jobs for async imports
-- [ ] Frontend import modal with all sources
-- [ ] Source filter chips updated
+- [x] PubMed client working (search, get_by_id)
+- [x] arXiv client working (search, get_by_id) with rate limiting
+- [x] PDF upload to S3 working
+- [x] PDF text extraction with PyMuPDF
+- [x] API endpoints:
+  - [x] `POST /papers/ingest/pubmed` - PubMed batch import
+  - [x] `POST /papers/ingest/arxiv` - arXiv batch import
+  - [x] `POST /papers/upload/pdf` - PDF file upload
+- [ ] Background jobs for async imports (deferred - sync imports work for MVP)
+- [x] Frontend import modal with all sources
+- [x] Source filter chips updated
 - [ ] Tests passing (>80% coverage)
 
 ---
@@ -3163,13 +3165,15 @@ export const AuthorBadge = ({ position, isCorresponding, totalAuthors }: AuthorB
 
 ### Sprint 9 Definition of Done
 
-- [ ] Simplified abstract generator working
-- [ ] Enhanced score response with evidence
-- [ ] Paper notes/comments CRUD
-- [ ] @mention extraction
-- [ ] Author badges on paper detail
-- [ ] Frontend toggle for original/simplified abstract
+- [x] Simplified abstract generator working
+- [x] Enhanced score response with evidence
+- [x] Paper notes/comments CRUD
+- [x] @mention extraction
+- [x] Author badges on paper detail
+- [x] Frontend toggle for original/simplified abstract
 - [ ] Tests passing
+
+**Sprint 9 completed: 2026-01-31**
 
 ---
 
@@ -3197,65 +3201,204 @@ paper_scraper/modules/authors/
 
 ### Sprint 10 Definition of Done
 
-- [ ] Author enrichment service
-- [ ] Contact tracking fields and API
-- [ ] Author profile endpoint
-- [ ] Frontend author modal/page
-- [ ] "Log Contact" functionality
+- [x] Author enrichment service
+- [x] Contact tracking fields and API
+- [x] Author profile endpoint
+- [x] Frontend author modal/page
+- [x] "Log Contact" functionality
 - [ ] Tests passing
+
+**Sprint 10 completed: 2026-01-31**
+
+### Implementation Summary
+
+**Backend:**
+- Created `paper_scraper/modules/authors/` with models, schemas, service, router
+- `AuthorContact` model with `ContactType` and `ContactOutcome` enums
+- Author enrichment from OpenAlex API
+- Contact CRUD operations with statistics
+- New migration: `f6g7h8i9j0k1_sprint10_author_contacts`
+
+**Frontend:**
+- `AuthorModal` component (slide-over panel)
+- `useAuthors` hooks for React Query integration
+- Authors API client in `lib/api.ts`
+- Updated types in `types/index.ts`
+- Integrated into `PaperDetailPage` - clickable author rows
+
+**API Endpoints:**
+- `GET /authors/` - List authors
+- `GET /authors/{id}` - Author profile
+- `GET /authors/{id}/detail` - Full detail with papers & contacts
+- `POST /authors/{id}/contacts` - Log contact
+- `PATCH /authors/{id}/contacts/{cid}` - Update contact
+- `DELETE /authors/{id}/contacts/{cid}` - Delete contact
+- `GET /authors/{id}/contacts/stats` - Contact statistics
+- `POST /authors/{id}/enrich` - Enrich from OpenAlex
 
 ---
 
-## Sprint 11: Search & Discovery Enhancements
+## Sprint 11: Search & Discovery Enhancements ✅ COMPLETED
 
 ### Goal
 Advanced search with saved searches, alerts, and paper classification.
 
-### Task 11.1: Saved Searches
+### Task 11.1: Saved Searches ✅
 
-**Create model and endpoints for saved searches with shareable URLs.**
+**Created model and endpoints for saved searches with shareable URLs.**
 
-### Task 11.2: Alert System
+Files created:
+- `paper_scraper/modules/saved_searches/__init__.py`
+- `paper_scraper/modules/saved_searches/models.py` - SavedSearch model
+- `paper_scraper/modules/saved_searches/schemas.py` - Request/Response schemas
+- `paper_scraper/modules/saved_searches/service.py` - CRUD, share tokens
+- `paper_scraper/modules/saved_searches/router.py` - REST API endpoints
 
-**Create notification module with email alerts for saved searches.**
+API Endpoints:
+- `GET /saved-searches/` - List saved searches
+- `POST /saved-searches/` - Create saved search
+- `GET /saved-searches/{id}` - Get saved search
+- `PATCH /saved-searches/{id}` - Update saved search
+- `DELETE /saved-searches/{id}` - Delete saved search
+- `POST /saved-searches/{id}/share` - Generate share link
+- `DELETE /saved-searches/{id}/share` - Revoke share link
+- `POST /saved-searches/{id}/run` - Execute saved search
+- `GET /saved-searches/shared/{token}` - Get by share token (public)
 
-### Task 11.3: Paper Classification
+### Task 11.2: Alert System ✅
 
-**Add LLM-based paper type classification (Original Research, Review, etc.).**
+**Created notification module with email alerts for saved searches.**
+
+Files created:
+- `paper_scraper/modules/alerts/__init__.py`
+- `paper_scraper/modules/alerts/models.py` - Alert, AlertResult models
+- `paper_scraper/modules/alerts/schemas.py` - Request/Response schemas
+- `paper_scraper/modules/alerts/service.py` - Alert processing
+- `paper_scraper/modules/alerts/email_service.py` - Resend integration
+- `paper_scraper/modules/alerts/router.py` - REST API endpoints
+- `paper_scraper/jobs/alerts.py` - Background jobs (daily/weekly cron)
+
+API Endpoints:
+- `GET /alerts/` - List alerts
+- `POST /alerts/` - Create alert
+- `GET /alerts/{id}` - Get alert
+- `PATCH /alerts/{id}` - Update alert
+- `DELETE /alerts/{id}` - Delete alert
+- `GET /alerts/{id}/results` - Get alert history
+- `POST /alerts/{id}/test` - Test alert (dry run)
+- `POST /alerts/{id}/trigger` - Manually trigger alert
+
+### Task 11.3: Paper Classification ✅
+
+**Added LLM-based paper type classification (Original Research, Review, etc.).**
+
+Files created/modified:
+- `paper_scraper/modules/papers/models.py` - Added PaperType enum, paper_type field
+- `paper_scraper/modules/scoring/classifier.py` - PaperClassifier service
+- `paper_scraper/modules/scoring/prompts/paper_classification.jinja2` - Classification prompt
+- `paper_scraper/modules/scoring/router.py` - Classification endpoints
+
+Classification Types:
+- ORIGINAL_RESEARCH - Primary research with new data
+- REVIEW - Literature reviews, systematic reviews, meta-analyses
+- CASE_STUDY - Individual case reports
+- METHODOLOGY - New methods/protocols
+- THEORETICAL - Conceptual/mathematical models
+- COMMENTARY - Editorials, opinions, letters
+- PREPRINT - Early-stage research
+- OTHER - Conference abstracts, datasets, etc.
+
+API Endpoints:
+- `POST /scoring/papers/{id}/classify` - Classify single paper
+- `POST /scoring/classification/batch` - Batch classify
+- `GET /scoring/classification/unclassified` - List unclassified papers
+
+### Frontend Components ✅
+
+Files created:
+- `frontend/src/pages/SavedSearchesPage.tsx` - Saved searches management UI
+- `frontend/src/hooks/useSavedSearches.ts` - React Query hooks
+- `frontend/src/hooks/useAlerts.ts` - React Query hooks
+- `frontend/src/types/index.ts` - Added SavedSearch, Alert, PaperType types
+- `frontend/src/lib/api.ts` - Added savedSearchesApi, alertsApi, classificationApi
+
+### Database Migrations
+
+- `alembic/versions/20260131_0002_f6g7h8i9j0k1_add_saved_searches.py`
+- `alembic/versions/20260131_0003_g7h8i9j0k1l2_add_alerts.py`
+- `alembic/versions/20260131_0004_h8i9j0k1l2m3_add_paper_classification.py`
 
 ### Sprint 11 Definition of Done
 
-- [ ] Saved search CRUD
-- [ ] Alert configuration
-- [ ] Email notification sending
-- [ ] Paper classification working
-- [ ] Frontend saved searches UI
-- [ ] Tests passing
+- [x] Saved search CRUD
+- [x] Alert configuration
+- [x] Email notification sending
+- [x] Paper classification working
+- [x] Frontend saved searches UI
+- [x] Tests passing
 
 ---
 
-## Sprint 12: Analytics & Export
+## Sprint 12: Analytics & Export ✅ COMPLETED
 
 ### Goal
 Analytics dashboard and data export for reporting.
 
-### Task 12.1: Analytics Module
+### Task 12.1: Analytics Module ✅
 
-**Create analytics service with team/paper metrics.**
+**Created analytics service with team/paper metrics.**
 
-### Task 12.2: Export Module
+Files created:
+- `paper_scraper/modules/analytics/__init__.py`
+- `paper_scraper/modules/analytics/schemas.py` - Analytics response schemas
+- `paper_scraper/modules/analytics/service.py` - Analytics computation logic
+- `paper_scraper/modules/analytics/router.py` - API endpoints
 
-**Create export service for CSV, PDF, BibTeX.**
+Endpoints:
+- `GET /api/v1/analytics/dashboard` - Dashboard summary with key metrics
+- `GET /api/v1/analytics/team` - Team overview and user activity
+- `GET /api/v1/analytics/papers` - Paper import trends and scoring stats
+
+### Task 12.2: Export Module ✅
+
+**Created export service for CSV, PDF, BibTeX.**
+
+Files created:
+- `paper_scraper/modules/export/__init__.py`
+- `paper_scraper/modules/export/schemas.py` - Export options schemas
+- `paper_scraper/modules/export/service.py` - Export generation logic
+- `paper_scraper/modules/export/router.py` - Export endpoints
+
+Endpoints:
+- `GET /api/v1/export/csv` - Export papers to CSV
+- `GET /api/v1/export/bibtex` - Export papers to BibTeX
+- `GET /api/v1/export/pdf` - Export papers to PDF report
+- `POST /api/v1/export/batch` - Batch export with format selection
+
+### Frontend Implementation ✅
+
+Files created/updated:
+- `frontend/src/pages/AnalyticsPage.tsx` - Analytics dashboard with charts
+- `frontend/src/hooks/useAnalytics.ts` - React Query hooks for analytics
+- `frontend/src/lib/api.ts` - Added analyticsApi and exportApi
+- `frontend/src/types/index.ts` - Added analytics types
+- Updated sidebar navigation
+
+### Tests ✅
+
+Files created:
+- `tests/test_analytics.py` - Analytics API tests
+- `tests/test_export.py` - Export API tests
 
 ### Sprint 12 Definition of Done
 
-- [ ] Team dashboard API
-- [ ] Paper analytics API
-- [ ] CSV export working
-- [ ] PDF export working
-- [ ] BibTeX export working
-- [ ] Frontend dashboard with charts
-- [ ] Tests passing
+- [x] Team dashboard API
+- [x] Paper analytics API
+- [x] CSV export working
+- [x] PDF export working
+- [x] BibTeX export working
+- [x] Frontend dashboard with charts
+- [x] Tests passing
 
 ---
 

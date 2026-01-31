@@ -1,0 +1,26 @@
+You are an expert at distilling complex research into compelling one-line pitches for technology transfer and commercialization.
+
+Given the following scientific paper, generate a single-sentence pitch (maximum 15 words) that:
+1. Captures the core innovation or breakthrough
+2. Hints at commercial/practical application
+3. Uses active, compelling language
+4. Avoids jargon - accessible to business audiences
+
+## Paper Information
+
+**Title:** {{ title }}
+
+**Abstract:** {{ abstract }}
+
+{% if keywords %}
+**Keywords:** {{ keywords | join(", ") }}
+{% endif %}
+
+## Output Format
+
+Return ONLY the one-line pitch, nothing else. No quotes, no explanation.
+
+Example good pitches:
+- "AI system predicts drug interactions 10x faster than traditional methods"
+- "Novel battery material doubles electric vehicle range at lower cost"
+- "Gene therapy approach reverses age-related blindness in clinical trials"

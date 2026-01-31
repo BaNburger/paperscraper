@@ -39,10 +39,13 @@ paper_scraper/
 │   │   └── exceptions.py       # Custom exceptions
 │   │
 │   ├── modules/
+│   │   ├── analytics/          # Team & paper metrics, dashboard
 │   │   ├── auth/               # User, Organization, JWT
+│   │   ├── authors/            # Author CRM, contacts
+│   │   ├── export/             # CSV, PDF, BibTeX export
 │   │   ├── papers/             # Paper, Author, Ingestion
-│   │   ├── scoring/            # AI Scoring Pipeline
 │   │   ├── projects/           # KanBan, Pipeline
+│   │   ├── scoring/            # AI Scoring Pipeline
 │   │   └── search/             # Fulltext, Semantic
 │   │
 │   ├── jobs/                   # arq Background Tasks (async-native)
@@ -137,8 +140,15 @@ users (id, organization_id, email, hashed_password, role)
 
 -- Papers
 papers (id, doi, title, abstract, source, embedding vector(1536))
-authors (id, orcid, name, affiliations, h_index)
+authors (id, orcid, name, affiliations, h_index, citation_count, works_count)
 paper_authors (paper_id, author_id, position, is_corresponding)
+
+-- Author Contacts (CRM)
+author_contacts (
+  id, author_id, organization_id, contacted_by_id,
+  contact_type, contact_date, subject, notes,
+  outcome, follow_up_date, paper_id
+)
 
 -- Scoring
 paper_scores (
@@ -150,6 +160,22 @@ paper_scores (
 -- Pipeline
 projects (id, organization_id, name, stages, scoring_weights)
 paper_project_status (paper_id, project_id, stage, assigned_to, rejection_reason)
+
+-- Saved Searches & Alerts
+saved_searches (
+  id, organization_id, created_by_id, name, description,
+  query, mode, filters, is_public, share_token,
+  alert_enabled, alert_frequency, last_alert_at, run_count
+)
+alerts (
+  id, organization_id, user_id, saved_search_id,
+  name, channel, frequency, min_results, is_active,
+  last_triggered_at, trigger_count
+)
+alert_results (
+  id, alert_id, status, papers_found, new_papers,
+  paper_ids, delivered_at, error_message
+)
 ```
 
 ---
@@ -166,9 +192,28 @@ paper_project_status (paper_id, project_id, stage, assigned_to, rejection_reason
 ├── /papers
 │   ├── GET  /               # List with filters
 │   ├── GET  /{id}           # Detail
+│   ├── DELETE /{id}         # Delete paper
 │   ├── POST /ingest/doi     # Import by DOI
-│   ├── POST /ingest/pubmed  # Batch import
-│   └── POST /{id}/score     # Trigger scoring
+│   ├── POST /ingest/openalex # OpenAlex batch import
+│   ├── POST /ingest/pubmed  # PubMed batch import
+│   ├── POST /ingest/arxiv   # arXiv batch import
+│   ├── POST /upload/pdf     # PDF file upload
+│   ├── POST /{id}/generate-pitch # Generate AI pitch
+│   ├── POST /{id}/generate-simplified-abstract # Generate simplified abstract
+│   ├── GET  /{id}/notes     # List notes for paper
+│   ├── POST /{id}/notes     # Create note on paper
+│   ├── PUT  /{id}/notes/{note_id}    # Update note
+│   └── DELETE /{id}/notes/{note_id}  # Delete note
+│
+├── /authors
+│   ├── GET  /               # List authors in organization
+│   ├── GET  /{id}           # Author profile with metrics
+│   ├── GET  /{id}/detail    # Full detail with papers & contacts
+│   ├── POST /{id}/contacts  # Log contact with author
+│   ├── PATCH /{id}/contacts/{cid}  # Update contact
+│   ├── DELETE /{id}/contacts/{cid} # Delete contact
+│   ├── GET  /{id}/contacts/stats   # Contact statistics
+│   └── POST /{id}/enrich    # Enrich from OpenAlex/ORCID
 │
 ├── /projects
 │   ├── GET  /               # List
@@ -176,8 +221,47 @@ paper_project_status (paper_id, project_id, stage, assigned_to, rejection_reason
 │   ├── GET  /{id}/kanban    # KanBan view
 │   └── PATCH /{id}/papers/{paper_id}/move
 │
-└── /search
-    └── POST /               # Unified search
+├── /scoring
+│   ├── POST /papers/{id}/score    # Trigger scoring
+│   ├── GET  /papers/{id}/scores   # Get score history
+│   ├── POST /papers/{id}/classify # Classify paper type
+│   ├── POST /classification/batch # Batch classify
+│   └── GET  /classification/unclassified # List unclassified papers
+│
+├── /search
+│   └── POST /               # Unified search
+│
+├── /saved-searches
+│   ├── GET  /               # List saved searches
+│   ├── POST /               # Create saved search
+│   ├── GET  /{id}           # Get saved search
+│   ├── PATCH /{id}          # Update saved search
+│   ├── DELETE /{id}         # Delete saved search
+│   ├── POST /{id}/share     # Generate share link
+│   ├── DELETE /{id}/share   # Revoke share link
+│   ├── POST /{id}/run       # Execute saved search
+│   └── GET  /shared/{token} # Get by share token (public)
+│
+├── /alerts
+│   ├── GET  /               # List alerts
+│   ├── POST /               # Create alert
+│   ├── GET  /{id}           # Get alert
+│   ├── PATCH /{id}          # Update alert
+│   ├── DELETE /{id}         # Delete alert
+│   ├── GET  /{id}/results   # Get alert history
+│   ├── POST /{id}/test      # Test alert (dry run)
+│   └── POST /{id}/trigger   # Manually trigger alert
+│
+├── /analytics
+│   ├── GET  /dashboard      # Dashboard summary metrics
+│   ├── GET  /team           # Team overview and activity
+│   └── GET  /papers         # Paper import trends & scoring stats
+│
+└── /export
+    ├── GET  /csv            # Export papers to CSV
+    ├── GET  /bibtex         # Export papers to BibTeX
+    ├── GET  /pdf            # Export papers to PDF report
+    └── POST /batch          # Batch export with format selection
 ```
 
 ---

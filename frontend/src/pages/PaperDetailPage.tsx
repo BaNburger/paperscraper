@@ -1,8 +1,11 @@
+import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { usePaper, usePaperScore, useScorePaper, useDeletePaper, useSimilarPapers } from '@/hooks'
+import { usePaper, usePaperScore, useScorePaper, useDeletePaper, useSimilarPapers, useGenerateSimplifiedAbstract } from '@/hooks'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
+import { AuthorBadge } from '@/components/AuthorBadge'
+import { AuthorModal } from '@/components/AuthorModal'
 import {
   ArrowLeft,
   ExternalLink,
@@ -17,6 +20,8 @@ import {
   Target,
   Wrench,
   Rocket,
+  Sparkles,
+  ChevronRight,
 } from 'lucide-react'
 import { formatDate, getScoreColor, cn } from '@/lib/utils'
 
@@ -31,12 +36,15 @@ const scoreDimensions = [
 export function PaperDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const [showSimplified, setShowSimplified] = useState(false)
+  const [selectedAuthorId, setSelectedAuthorId] = useState<string | null>(null)
 
   const { data: paper, isLoading, error } = usePaper(id!)
   const { data: score, isLoading: scoreLoading } = usePaperScore(id!)
   const { data: similarData, isLoading: similarLoading } = useSimilarPapers(id!, 5)
   const scorePaper = useScorePaper()
   const deletePaper = useDeletePaper()
+  const generateSimplified = useGenerateSimplifiedAbstract()
 
   const handleScore = async () => {
     try {
@@ -143,14 +151,58 @@ export function PaperDetailPage() {
           {/* Abstract */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5" />
-                Abstract
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <BookOpen className="h-5 w-5" />
+                  Abstract
+                </CardTitle>
+                {paper.abstract && (
+                  <div className="flex items-center gap-2">
+                    {paper.simplified_abstract ? (
+                      <div className="flex rounded-lg border p-0.5">
+                        <Button
+                          variant={!showSimplified ? 'default' : 'ghost'}
+                          size="sm"
+                          onClick={() => setShowSimplified(false)}
+                          className="h-7 px-3"
+                        >
+                          Original
+                        </Button>
+                        <Button
+                          variant={showSimplified ? 'default' : 'ghost'}
+                          size="sm"
+                          onClick={() => setShowSimplified(true)}
+                          className="h-7 px-3"
+                        >
+                          <Sparkles className="h-3 w-3 mr-1" />
+                          Simplified
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => generateSimplified.mutate(id!)}
+                        isLoading={generateSimplified.isPending}
+                      >
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Simplify
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+              {showSimplified && paper.simplified_abstract && (
+                <CardDescription className="mt-1">
+                  AI-generated simplified version for general audiences
+                </CardDescription>
+              )}
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground leading-relaxed">
-                {paper.abstract || 'No abstract available'}
+                {showSimplified && paper.simplified_abstract
+                  ? paper.simplified_abstract
+                  : paper.abstract || 'No abstract available'}
               </p>
             </CardContent>
           </Card>
@@ -163,31 +215,38 @@ export function PaperDetailPage() {
                   <Users className="h-5 w-5" />
                   Authors ({paper.authors.length})
                 </CardTitle>
+                <CardDescription>Click on an author to view profile and log contacts</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   {paper.authors.map((pa, idx) => (
-                    <div
+                    <button
                       key={idx}
-                      className="flex items-center justify-between rounded-lg border p-3"
+                      onClick={() => setSelectedAuthorId(pa.author.id)}
+                      className="w-full flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors text-left"
                     >
                       <div>
-                        <p className="font-medium">{pa.author.name}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-medium">{pa.author.name}</p>
+                          <AuthorBadge
+                            position={pa.position}
+                            isCorresponding={pa.is_corresponding}
+                            totalAuthors={paper.authors.length}
+                          />
+                        </div>
                         {pa.author.affiliations.length > 0 && (
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-sm text-muted-foreground mt-1">
                             {pa.author.affiliations.join(', ')}
                           </p>
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        {pa.is_corresponding && (
-                          <Badge variant="secondary">Corresponding</Badge>
-                        )}
                         {pa.author.h_index && (
                           <Badge variant="outline">h-index: {pa.author.h_index}</Badge>
                         )}
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </CardContent>
@@ -387,6 +446,15 @@ export function PaperDetailPage() {
           </Card>
         </div>
       </div>
+
+      {/* Author Modal */}
+      {selectedAuthorId && (
+        <AuthorModal
+          authorId={selectedAuthorId}
+          isOpen={!!selectedAuthorId}
+          onClose={() => setSelectedAuthorId(null)}
+        />
+      )}
     </div>
   )
 }

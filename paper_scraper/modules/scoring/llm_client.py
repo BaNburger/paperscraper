@@ -1,13 +1,25 @@
-"""Provider-agnostic LLM client abstraction."""
+"""Provider-agnostic LLM client abstraction with Langfuse observability."""
 
 import json
 from abc import ABC, abstractmethod
 from typing import Any
 
 import httpx
+from langfuse import Langfuse
+from langfuse.decorators import observe
 
 from paper_scraper.core.config import settings
 from paper_scraper.core.exceptions import ExternalAPIError
+
+# Initialize Langfuse client (disabled if no public key configured)
+langfuse = Langfuse(
+    public_key=settings.LANGFUSE_PUBLIC_KEY,
+    secret_key=settings.LANGFUSE_SECRET_KEY.get_secret_value()
+    if settings.LANGFUSE_SECRET_KEY
+    else None,
+    host=settings.LANGFUSE_HOST,
+    enabled=bool(settings.LANGFUSE_PUBLIC_KEY),
+)
 
 
 class BaseLLMClient(ABC):
@@ -61,7 +73,7 @@ class BaseLLMClient(ABC):
 
 
 class OpenAIClient(BaseLLMClient):
-    """OpenAI API client."""
+    """OpenAI API client with Langfuse observability."""
 
     def __init__(
         self,
@@ -74,6 +86,7 @@ class OpenAIClient(BaseLLMClient):
         self.org_id = org_id or settings.OPENAI_ORG_ID
         self.base_url = "https://api.openai.com/v1"
 
+    @observe(as_type="generation", name="openai-completion")
     async def complete(
         self,
         prompt: str,
@@ -82,7 +95,7 @@ class OpenAIClient(BaseLLMClient):
         max_tokens: int | None = None,
         json_mode: bool = False,
     ) -> str:
-        """Generate completion using OpenAI API."""
+        """Generate completion using OpenAI API, tracked by Langfuse."""
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
@@ -149,7 +162,7 @@ class OpenAIClient(BaseLLMClient):
 
 
 class AnthropicClient(BaseLLMClient):
-    """Anthropic Claude API client."""
+    """Anthropic Claude API client with Langfuse observability."""
 
     def __init__(
         self,
@@ -164,6 +177,7 @@ class AnthropicClient(BaseLLMClient):
         self.model = model or "claude-sonnet-4-20250514"
         self.base_url = "https://api.anthropic.com/v1"
 
+    @observe(as_type="generation", name="anthropic-completion")
     async def complete(
         self,
         prompt: str,
@@ -172,7 +186,7 @@ class AnthropicClient(BaseLLMClient):
         max_tokens: int | None = None,
         json_mode: bool = False,
     ) -> str:
-        """Generate completion using Anthropic API."""
+        """Generate completion using Anthropic API, tracked by Langfuse."""
         headers = {
             "x-api-key": self.api_key,
             "Content-Type": "application/json",
@@ -247,7 +261,7 @@ class AnthropicClient(BaseLLMClient):
 
 
 class OllamaClient(BaseLLMClient):
-    """Ollama local LLM client."""
+    """Ollama local LLM client with Langfuse observability."""
 
     def __init__(
         self,
@@ -257,6 +271,7 @@ class OllamaClient(BaseLLMClient):
         self.base_url = base_url or settings.OLLAMA_BASE_URL
         self.model = model or settings.LLM_MODEL
 
+    @observe(as_type="generation", name="ollama-completion")
     async def complete(
         self,
         prompt: str,
@@ -265,7 +280,7 @@ class OllamaClient(BaseLLMClient):
         max_tokens: int | None = None,
         json_mode: bool = False,
     ) -> str:
-        """Generate completion using Ollama API."""
+        """Generate completion using Ollama API, tracked by Langfuse."""
         payload: dict[str, Any] = {
             "model": self.model,
             "prompt": prompt,

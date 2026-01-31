@@ -561,6 +561,535 @@ async def invalidate_paper_cache(paper_id: UUID):
 
 ---
 
+## ADR-011: Production Hardening Stack
+
+### Status
+**Implementiert** - 2026-01 (Sprint 7)
+
+### Kontext
+Für Production-Readiness werden folgende Aspekte benötigt:
+- Error Tracking und Alerting
+- LLM Call Observability
+- Rate Limiting zum Schutz vor Missbrauch
+- Structured Logging für Debugging
+
+### Entscheidung
+**Sentry + Langfuse + slowapi + JSON Logging**
+
+### Implementierung
+
+**Error Tracking (Sentry):**
+```python
+# api/main.py
+if settings.SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        environment=settings.ENVIRONMENT,
+        integrations=[FastApiIntegration(), SqlalchemyIntegration()],
+        traces_sample_rate=0.1,
+    )
+```
+
+**LLM Observability (Langfuse):**
+```python
+# modules/scoring/llm_client.py
+from langfuse.decorators import observe
+
+@observe(as_type="generation", name="openai-completion")
+async def complete(self, prompt: str, ...) -> str:
+    # Automatic tracking of: prompt, model, latency, tokens, cost
+```
+
+**Rate Limiting (slowapi):**
+```python
+# api/middleware.py
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=[f"{settings.RATE_LIMIT_REQUESTS_PER_MINUTE}/minute"],
+    storage_uri=settings.REDIS_URL,
+)
+
+# Stricter limit for expensive operations
+@limiter.limit(f"{settings.RATE_LIMIT_SCORING_PER_MINUTE}/minute")
+async def score_paper(...): ...
+```
+
+**Structured Logging:**
+```python
+# core/logging.py
+class JSONFormatter(logging.Formatter):
+    def format(self, record) -> str:
+        return json.dumps({
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+            ...
+        })
+```
+
+### Konsequenzen
+- (+) Vollständige Observability für Production
+- (+) Schutz vor API-Missbrauch
+- (+) Debugging-freundliche Logs
+- (+) LLM-Kosten-Tracking via Langfuse
+- (-) Zusätzliche externe Dependencies
+- (-) Kosten für Sentry und Langfuse (kostenlose Tiers verfügbar)
+
+---
+
+## ADR-012: One-Line Pitch Generator
+
+### Status
+**Implementiert** - 2026-01 (Sprint 7)
+
+### Kontext
+TTOs und VCs benötigen schnell erfassbare Paper-Beschreibungen für Screening. Abstracts sind zu lang und technisch.
+
+### Entscheidung
+**AI-generierte One-Line Pitches** (max 15 Wörter) pro Paper.
+
+### Implementierung
+```python
+# modules/scoring/pitch_generator.py
+class PitchGenerator:
+    async def generate(self, title: str, abstract: str, keywords: list) -> str:
+        prompt = self.template.render(title=title, abstract=abstract, keywords=keywords)
+        pitch = await self.llm.complete(prompt=prompt, temperature=0.7)
+        return pitch.strip()[:15_words]
+```
+
+**Prompt-Design:**
+- Fokus auf Business Value (nicht technische Details)
+- Active Voice, compelling Language
+- No Jargon (accessible to business audiences)
+
+**API Endpoint:**
+```
+POST /api/v1/papers/{paper_id}/generate-pitch
+Response: { "one_line_pitch": "..." }
+```
+
+### Konsequenzen
+- (+) Schnelleres Paper-Screening
+- (+) Business-freundliche Kommunikation
+- (+) Konsistente Pitch-Qualität
+- (-) LLM-Kosten pro Generation
+- (-) Qualität abhängig von Abstract-Qualität
+
+---
+
+## ADR-013: Ingestion Expansion (PubMed, arXiv, PDF)
+
+### Status
+**Implementiert** - 2026-01 (Sprint 8)
+
+### Kontext
+Nutzer benötigen Zugang zu mehr Paper-Quellen als nur OpenAlex/DOI. Besonders für Life Sciences (PubMed), Preprints (arXiv) und manuelle Uploads (PDF).
+
+### Entscheidung
+**Multi-Source Ingestion Pipeline** mit einheitlichem Client-Interface und PDF-Verarbeitung.
+
+### Implementierung
+
+**API Clients (Abstract Base Class Pattern):**
+```python
+# modules/papers/clients/base.py
+class BaseAPIClient(ABC):
+    @abstractmethod
+    async def search(self, query: str, max_results: int) -> list[dict]: ...
+    @abstractmethod
+    async def get_by_id(self, identifier: str) -> dict | None: ...
+    @abstractmethod
+    def normalize(self, raw_data: dict) -> dict: ...
+
+# Implementierungen:
+# - PubMedClient (E-utilities API, XML parsing)
+# - ArxivClient (Atom API, rate limiting 1 req/3s)
+```
+
+**PDF Processing:**
+```python
+# modules/papers/pdf_service.py
+class PDFService:
+    def __init__(self):
+        self.minio = Minio(...)  # S3-compatible storage
+
+    async def upload_and_extract(self, file_content, filename, org_id):
+        # 1. Upload to MinIO
+        # 2. Extract text via PyMuPDF (fitz)
+        # 3. Extract title (largest font on page 1)
+        # 4. Extract abstract (regex patterns)
+        return {"title": ..., "abstract": ..., "pdf_path": ...}
+```
+
+**API Endpoints:**
+```
+POST /api/v1/papers/ingest/pubmed   → IngestResult
+POST /api/v1/papers/ingest/arxiv    → IngestResult
+POST /api/v1/papers/upload/pdf      → PaperResponse (multipart/form-data)
+```
+
+**Frontend Import Modal:**
+- Tab-basierte UI für alle 5 Quellen (DOI, OpenAlex, PubMed, arXiv, PDF)
+- Drag & Drop für PDF Upload
+- Category-Filter für arXiv
+
+### Konsequenzen
+- (+) Zugang zu 35M+ PubMed Papers (Life Sciences)
+- (+) Preprint-Support via arXiv
+- (+) Manuelle PDF-Uploads für interne Dokumente
+- (+) Einheitliches Client-Interface (erweiterbar)
+- (-) PyMuPDF Dependency (~30MB)
+- (-) MinIO/S3 Storage erforderlich für PDFs
+
+---
+
+## ADR-014: Sprint 9 - Scoring Enhancements & Paper Notes
+
+### Status
+**Implementiert** - 2026-01 (Sprint 9)
+
+### Kontext
+Nutzer benötigen besseren Zugang zu komplexen wissenschaftlichen Inhalten und Kollaborationsmöglichkeiten:
+1. Vereinfachte Abstracts für nicht-technische Stakeholder
+2. Detaillierte Score-Begründungen mit Evidenz
+3. Kommentare/Notizen auf Papers mit @mention-Support
+4. Bessere Autoren-Visualisierung
+
+### Entscheidung
+**AI-Enhanced Paper Understanding + Collaboration Features**
+
+### Implementierung
+
+**1. Simplified Abstract Generator:**
+```python
+# modules/scoring/prompts/simplified_abstract.jinja2
+# Jinja2 Template für LLM-basierte Vereinfachung
+# - Ersetzt Fachbegriffe durch einfache Erklärungen
+# - Kurze Sätze (max 20 Wörter)
+# - Fokus: Was wurde gemacht? Was gefunden? Warum wichtig?
+# - Max 150 Wörter
+
+# API: POST /papers/{id}/generate-simplified-abstract
+# Frontend: Toggle zwischen Original/Simplified im Paper Detail
+```
+
+**2. Enhanced Score Evidence Schema:**
+```python
+# modules/scoring/schemas.py
+class ScoreEvidence(BaseModel):
+    factor: str                           # Bewerteter Faktor
+    description: str                      # Auswirkung auf Score
+    impact: Literal["positive", "negative", "neutral"]
+    source: str | None                    # Zitat aus Paper
+
+class DimensionScoreDetail(BaseModel):
+    score: float
+    confidence: float
+    summary: str                          # Kurze Begründung
+    key_factors: list[str]                # Hauptfaktoren
+    evidence: list[ScoreEvidence]         # Evidenz
+    comparison_to_field: str | None       # Vergleich zu ähnlichen Papers
+
+class EnhancedPaperScoreResponse(BaseModel):
+    # Detaillierte Scores pro Dimension mit Evidenz
+```
+
+**3. Paper Notes/Comments System:**
+```python
+# modules/papers/notes.py - PaperNote Model
+# modules/papers/note_service.py - NoteService mit @mention-Extraktion
+# modules/papers/router.py - CRUD Endpoints:
+#   GET    /papers/{id}/notes
+#   POST   /papers/{id}/notes
+#   PUT    /papers/{id}/notes/{note_id}
+#   DELETE /papers/{id}/notes/{note_id}
+
+# @mention Format: @{user-uuid}
+# Extraktion via Regex, gespeichert in JSON-Array
+```
+
+**4. Author Badge Component:**
+```typescript
+// frontend/src/components/AuthorBadge.tsx
+// Zeigt: First Author, Senior Author, Corresponding
+// Badges mit unterschiedlichen Farben (blue, purple, green)
+```
+
+### Konsequenzen
+- (+) Nicht-technische Stakeholder können Papers verstehen
+- (+) Transparenz bei AI-Scoring durch Evidenz
+- (+) Team-Kollaboration via Notes/Comments
+- (+) Bessere Autoren-Visualisierung
+- (-) Zusätzlicher LLM-Call für simplified abstract
+- (-) Neue Tabelle paper_notes
+
+### Migration
+```sql
+-- alembic: e5f6g7h8i9j0_sprint9_enhancements
+ALTER TABLE papers ADD COLUMN simplified_abstract TEXT;
+CREATE TABLE paper_notes (...);
+```
+
+---
+
+## ADR-015: Author Intelligence Module (Sprint 10)
+
+### Status
+**Akzeptiert** - 2026-01
+
+### Kontext
+TTOs und VCs müssen nicht nur Papers evaluieren, sondern auch mit Autoren in Kontakt treten. Bisher gab es keine Möglichkeit, Autoren-Profile anzuzeigen oder Kontakte zu tracken.
+
+### Entscheidung
+Wir implementieren ein dediziertes **Authors Module** mit:
+1. Author Profile API mit Metriken (h-index, citations, works)
+2. Contact Tracking für CRM-ähnliche Funktionalität
+3. Author Enrichment aus externen Quellen (OpenAlex, ORCID)
+4. Frontend AuthorModal mit Slide-over Panel
+
+### Architektur
+
+**1. Backend Module Structure:**
+```
+paper_scraper/modules/authors/
+├── __init__.py
+├── models.py      # AuthorContact mit ContactType, ContactOutcome
+├── schemas.py     # AuthorProfile, ContactCreate, EnrichmentResult
+├── service.py     # Enrichment, Contact CRUD, Stats
+└── router.py      # REST API Endpoints
+```
+
+**2. AuthorContact Model:**
+```python
+class ContactType(str, Enum):
+    EMAIL = "email"
+    PHONE = "phone"
+    LINKEDIN = "linkedin"
+    MEETING = "meeting"
+    CONFERENCE = "conference"
+    OTHER = "other"
+
+class ContactOutcome(str, Enum):
+    SUCCESSFUL = "successful"
+    NO_RESPONSE = "no_response"
+    DECLINED = "declined"
+    FOLLOW_UP_NEEDED = "follow_up_needed"
+    IN_PROGRESS = "in_progress"
+
+class AuthorContact(Base):
+    __tablename__ = "author_contacts"
+    id, author_id, organization_id, contacted_by_id
+    contact_type, contact_date, subject, notes
+    outcome, follow_up_date, paper_id
+    created_at, updated_at
+```
+
+**3. API Endpoints:**
+```
+GET    /authors/              # List authors in org
+GET    /authors/{id}          # Author profile
+GET    /authors/{id}/detail   # Full detail with papers & contacts
+POST   /authors/{id}/contacts # Log contact
+PATCH  /authors/{id}/contacts/{cid} # Update contact
+DELETE /authors/{id}/contacts/{cid} # Delete contact
+GET    /authors/{id}/contacts/stats # Contact statistics
+POST   /authors/{id}/enrich   # Enrich from OpenAlex/ORCID
+```
+
+**4. Frontend AuthorModal:**
+```typescript
+// components/AuthorModal.tsx - Slide-over panel
+// - Author metrics (h-index, citations, works)
+// - External links (ORCID, OpenAlex)
+// - Contact history with Log Contact form
+// - Papers list from library
+// - Refresh data from OpenAlex
+```
+
+### Konsequenzen
+- (+) CRM-Funktionalität für Autoren-Outreach
+- (+) Metriken-Tracking für Due Diligence
+- (+) Bessere Author-Paper-Verknüpfung
+- (-) Neue Tabelle author_contacts
+- (-) API-Calls zu OpenAlex für Enrichment
+
+### Migration
+```sql
+-- alembic: f6g7h8i9j0k1_sprint10_author_contacts
+CREATE TYPE contacttype AS ENUM (...);
+CREATE TYPE contactoutcome AS ENUM (...);
+CREATE TABLE author_contacts (...);
+CREATE INDEX ix_author_contacts_org_author ON author_contacts (organization_id, author_id);
+```
+
+---
+
+## ADR-016: Search & Discovery Enhancements (Sprint 11)
+
+### Status
+**Akzeptiert** - 2026-01
+
+### Kontext
+Nutzer führen wiederholt dieselben Suchen durch und verpassen neue relevante Papers. Es fehlt eine Möglichkeit, Suchen zu speichern, zu teilen und Benachrichtigungen für neue Ergebnisse zu erhalten.
+
+### Entscheidung
+Wir implementieren drei neue Features:
+1. **Saved Searches** - Persistierung von Suchen mit Share-URLs
+2. **Alert System** - E-Mail-Benachrichtigungen für neue Suchergebnisse
+3. **Paper Classification** - LLM-basierte Kategorisierung (Review, Original Research, etc.)
+
+### Architektur
+
+**1. Saved Searches Module:**
+```
+paper_scraper/modules/saved_searches/
+├── __init__.py
+├── models.py      # SavedSearch mit share_token, alert_config
+├── schemas.py     # Create, Update, Response schemas
+├── service.py     # CRUD, Share-Token-Generierung
+└── router.py      # REST API Endpoints
+```
+
+**SavedSearch Model:**
+```python
+class SavedSearch(Base):
+    __tablename__ = "saved_searches"
+    id, organization_id, created_by_id
+    name, description, query, mode, filters
+    is_public, share_token (unique)
+    alert_enabled, alert_frequency, last_alert_at
+    run_count, last_run_at
+    created_at, updated_at
+```
+
+**2. Alerts Module:**
+```
+paper_scraper/modules/alerts/
+├── __init__.py
+├── models.py          # Alert, AlertResult
+├── schemas.py         # Request/Response schemas
+├── service.py         # CRUD, Alert processing
+├── email_service.py   # Resend API integration
+└── router.py          # REST API Endpoints
+```
+
+**Alert Processing via arq cron:**
+```python
+# jobs/worker.py
+cron_jobs = [
+    arq.cron(process_daily_alerts_task, hour=6, minute=0),
+    arq.cron(process_weekly_alerts_task, weekday=0, hour=6, minute=0),
+]
+```
+
+**3. Paper Classification:**
+```python
+# modules/papers/models.py
+class PaperType(str, Enum):
+    ORIGINAL_RESEARCH = "original_research"
+    REVIEW = "review"
+    CASE_STUDY = "case_study"
+    METHODOLOGY = "methodology"
+    THEORETICAL = "theoretical"
+    COMMENTARY = "commentary"
+    PREPRINT = "preprint"
+    OTHER = "other"
+
+# Paper model erhält: paper_type: PaperType | None
+```
+
+**Classification Prompt (Jinja2):**
+```
+prompts/paper_classification.jinja2
+- Classifies based on abstract structure
+- Returns JSON: {paper_type, confidence, reasoning, indicators}
+```
+
+**4. API Endpoints:**
+```
+# Saved Searches
+GET    /saved-searches/               # List saved searches
+POST   /saved-searches/               # Create saved search
+GET    /saved-searches/{id}           # Get saved search
+PATCH  /saved-searches/{id}           # Update saved search
+DELETE /saved-searches/{id}           # Delete saved search
+POST   /saved-searches/{id}/share     # Generate share link
+DELETE /saved-searches/{id}/share     # Revoke share link
+POST   /saved-searches/{id}/run       # Execute saved search
+GET    /saved-searches/shared/{token} # Get by share token (public)
+
+# Alerts
+GET    /alerts/                       # List alerts
+POST   /alerts/                       # Create alert
+GET    /alerts/{id}                   # Get alert
+PATCH  /alerts/{id}                   # Update alert
+DELETE /alerts/{id}                   # Delete alert
+GET    /alerts/{id}/results           # Get alert history
+POST   /alerts/{id}/test              # Test alert (dry run)
+POST   /alerts/{id}/trigger           # Manually trigger alert
+
+# Classification
+POST   /scoring/papers/{id}/classify  # Classify single paper
+POST   /scoring/classification/batch  # Batch classify
+GET    /scoring/classification/unclassified  # List unclassified
+```
+
+**5. Email Service (Resend):**
+```python
+# email_service.py
+class EmailService:
+    async def send_alert_notification(
+        to, alert_name, search_query,
+        new_papers_count, papers, view_url
+    )
+```
+
+**6. Frontend Components:**
+```typescript
+// pages/SavedSearchesPage.tsx
+// hooks/useSavedSearches.ts - React Query hooks
+// hooks/useAlerts.ts - React Query hooks
+// types/index.ts - SavedSearch, Alert types
+```
+
+### Konsequenzen
+- (+) Nutzer können Suchen speichern und teilen
+- (+) Automatische Benachrichtigungen bei neuen Papers
+- (+) Paper-Kategorisierung für besseres Filtern
+- (+) Shareable URLs für Collaboration
+- (-) Neue DB-Tabellen: saved_searches, alerts, alert_results
+- (-) E-Mail-Service-Dependency (Resend)
+- (-) Cron-Jobs für Alert-Processing
+
+### Migrations
+```sql
+-- f6g7h8i9j0k1_add_saved_searches
+CREATE TABLE saved_searches (...);
+CREATE INDEX ix_saved_searches_share_token UNIQUE;
+
+-- g7h8i9j0k1l2_add_alerts
+CREATE TABLE alerts (...);
+CREATE TABLE alert_results (...);
+CREATE TYPE alertchannel AS ENUM ('EMAIL', 'IN_APP');
+CREATE TYPE alertstatus AS ENUM ('PENDING', 'SENT', 'FAILED', 'SKIPPED');
+
+-- h8i9j0k1l2m3_add_paper_classification
+ALTER TABLE papers ADD COLUMN paper_type papertype;
+CREATE TYPE papertype AS ENUM (...);
+```
+
+### Konfiguration
+```env
+# .env additions
+RESEND_API_KEY=re_xxx
+EMAIL_FROM_ADDRESS=Paper Scraper <noreply@paperscraper.app>
+FRONTEND_URL=http://localhost:3000
+```
+
+---
+
 ## Zusammenfassung der Entscheidungen
 
 | ADR | Entscheidung | Rationale |
@@ -575,6 +1104,12 @@ async def invalidate_paper_cache(paper_id: UUID):
 | 008 | Langfuse | Prompt-Management, LLM Observability |
 | 009 | URL-Versionierung | Klar, einfach, Standard |
 | 010 | Redis Caching | Performance, Kosten-Reduktion |
+| 011 | **Production Hardening** | Sentry + Langfuse + slowapi + JSON Logging |
+| 012 | **One-Line Pitch Generator** | AI-generierte Business-Pitches für Papers |
+| 013 | **Ingestion Expansion** | PubMed, arXiv, PDF Upload Support |
+| 014 | **Sprint 9 Enhancements** | Simplified Abstracts, Score Evidence, Notes, Author Badges |
+| 015 | **Author Intelligence** | Author Profiles, Contact Tracking, Enrichment |
+| 016 | **Search & Discovery** | Saved Searches, Alerts, Paper Classification |
 
 ---
 
