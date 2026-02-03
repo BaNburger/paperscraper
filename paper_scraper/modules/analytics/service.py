@@ -337,17 +337,13 @@ class AnalyticsService:
 
         # Projects
         projects_result = await self.db.execute(
-            select(
-                func.count(Project.id).filter(Project.organization_id == organization_id),
-                func.count(Project.id).filter(
-                    Project.organization_id == organization_id,
-                    Project.is_active == True,  # noqa: E712
-                ),
+            select(func.count(Project.id)).where(
+                Project.organization_id == organization_id
             )
         )
-        project_row = projects_result.one()
-        total_projects = project_row[0] or 0
-        active_projects = project_row[1] or 0
+        total_projects = projects_result.scalar() or 0
+        # All projects are considered active (no is_active field exists)
+        active_projects = total_projects
 
         # Users
         users_result = await self.db.execute(

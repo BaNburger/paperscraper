@@ -10,9 +10,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
-from sqlalchemy.ext.asyncio import create_async_engine
 
-from paper_scraper.api.middleware import SlowAPIMiddleware, limiter
+from paper_scraper.api.middleware import SecurityHeadersMiddleware, SlowAPIMiddleware, limiter
+from paper_scraper.core.database import engine as db_engine
 from paper_scraper.api.v1.router import api_router
 from paper_scraper.core.config import settings
 from paper_scraper.core.exceptions import (
@@ -50,14 +50,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup
     logger.info("Starting Paper Scraper API...")
 
-    # Initialize database connection pool
-    engine = create_async_engine(
-        settings.DATABASE_URL,
-        pool_size=settings.DB_POOL_SIZE,
-        max_overflow=settings.DB_MAX_OVERFLOW,
-        pool_pre_ping=True,
-    )
-    app.state.db_engine = engine
+    # Use the shared engine from database module (avoid duplicate initialization)
+    app.state.db_engine = db_engine
     logger.info("Database connection pool initialized")
 
     # Initialize Redis connection pool
@@ -115,6 +109,9 @@ app.add_middleware(
 # Rate Limiting
 app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
+
+# Security Headers
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 # =============================================================================

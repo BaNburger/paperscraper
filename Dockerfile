@@ -26,8 +26,14 @@ FROM python:3.11-slim as runtime
 WORKDIR /app
 
 # Install runtime dependencies
+# - libpq-dev: PostgreSQL client library
+# - postgresql-client: For pg_isready in entrypoint
+# - redis-tools: For redis-cli in entrypoint
+# - curl: For health checks
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
+    postgresql-client \
+    redis-tools \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -40,6 +46,10 @@ COPY paper_scraper ./paper_scraper
 COPY alembic ./alembic
 COPY alembic.ini ./
 
+# Copy and set up entrypoint script
+COPY scripts/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash appuser \
     && chown -R appuser:appuser /app
@@ -51,6 +61,9 @@ EXPOSE 8000
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
+
+# Use entrypoint script (runs migrations before starting)
+ENTRYPOINT ["/entrypoint.sh"]
 
 # Default command
 CMD ["uvicorn", "paper_scraper.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -130,6 +130,11 @@ class Settings(BaseSettings):
     RESEND_API_KEY: str | None = None
     EMAIL_FROM_ADDRESS: str = "Paper Scraper <noreply@paperscraper.app>"
 
+    # Token expiry settings (for email verification, password reset, invitations)
+    EMAIL_VERIFICATION_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
+    PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 60  # 1 hour
+    TEAM_INVITATION_TOKEN_EXPIRE_DAYS: int = 7  # 7 days
+
     # ==========================================================================
     # Frontend
     # ==========================================================================

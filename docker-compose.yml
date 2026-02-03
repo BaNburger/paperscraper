@@ -68,8 +68,16 @@ services:
       dockerfile: Dockerfile
     container_name: paperscraper_api
     environment:
+      # Database URLs (both async and sync needed)
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/paperscraper
       - DATABASE_URL_SYNC=postgresql://postgres:postgres@db:5432/paperscraper
+      # Connection info for entrypoint health checks
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      # Other services
       - REDIS_URL=redis://redis:6379/0
       - S3_ENDPOINT=http://minio:9000
       - S3_ACCESS_KEY=minio
@@ -89,6 +97,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # Entrypoint runs migrations, then this command starts the app
     command: uvicorn paper_scraper.api.main:app --host 0.0.0.0 --port 8000 --reload
     restart: unless-stopped
     develop:

@@ -1,5 +1,6 @@
 """Security utilities for authentication and authorization."""
 
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -141,3 +142,73 @@ def validate_token_type(payload: dict[str, Any], expected_type: str) -> bool:
         True if the token type matches, False otherwise.
     """
     return payload.get("type") == expected_type
+
+
+# =============================================================================
+# Secure Token Generation
+# =============================================================================
+
+
+def generate_secure_token(length: int = 32) -> str:
+    """Generate a cryptographically secure random token.
+
+    Args:
+        length: The number of bytes to generate (result will be 2x this in hex).
+
+    Returns:
+        A URL-safe hex string token.
+    """
+    return secrets.token_urlsafe(length)
+
+
+def generate_verification_token() -> tuple[str, datetime]:
+    """Generate an email verification token with expiry.
+
+    Returns:
+        A tuple of (token, expires_at datetime).
+    """
+    token = generate_secure_token()
+    expires_at = datetime.now(timezone.utc) + timedelta(
+        minutes=settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_MINUTES
+    )
+    return token, expires_at
+
+
+def generate_password_reset_token() -> tuple[str, datetime]:
+    """Generate a password reset token with expiry.
+
+    Returns:
+        A tuple of (token, expires_at datetime).
+    """
+    token = generate_secure_token()
+    expires_at = datetime.now(timezone.utc) + timedelta(
+        minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES
+    )
+    return token, expires_at
+
+
+def generate_invitation_token() -> tuple[str, datetime]:
+    """Generate a team invitation token with expiry.
+
+    Returns:
+        A tuple of (token, expires_at datetime).
+    """
+    token = generate_secure_token()
+    expires_at = datetime.now(timezone.utc) + timedelta(
+        days=settings.TEAM_INVITATION_TOKEN_EXPIRE_DAYS
+    )
+    return token, expires_at
+
+
+def is_token_expired(expires_at: datetime | None) -> bool:
+    """Check if a token has expired.
+
+    Args:
+        expires_at: The expiration datetime of the token.
+
+    Returns:
+        True if expired or no expiry set, False otherwise.
+    """
+    if expires_at is None:
+        return True
+    return datetime.now(timezone.utc) > expires_at

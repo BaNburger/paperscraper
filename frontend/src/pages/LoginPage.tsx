@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/Card'
 import { FileText } from 'lucide-react'
+import { getApiErrorMessage } from '@/types'
 
 export function LoginPage() {
   const [email, setEmail] = useState('')
@@ -27,9 +28,8 @@ export function LoginPage() {
     try {
       await login({ email, password })
       navigate(from, { replace: true })
-    } catch (err: any) {
-      const message = err.response?.data?.detail || err.response?.data?.message || 'Invalid email or password'
-      setError(message)
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Invalid email or password'))
     } finally {
       setIsLoading(false)
     }
@@ -66,7 +66,15 @@ export function LoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                <Link
+                  to="/forgot-password"
+                  className="text-sm text-primary hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <Input
                 id="password"
                 type="password"

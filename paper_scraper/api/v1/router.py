@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from paper_scraper.modules.alerts.router import router as alerts_router
 from paper_scraper.modules.analytics.router import router as analytics_router
+from paper_scraper.modules.audit.router import router as audit_router
 from paper_scraper.modules.auth.router import router as auth_router
 from paper_scraper.modules.authors.router import router as authors_router
 from paper_scraper.modules.export.router import router as export_router
@@ -25,4 +26,5 @@ api_router.include_router(search_router, prefix="/search", tags=["Search"])
 api_router.include_router(saved_searches_router, prefix="/saved-searches", tags=["Saved Searches"])
 api_router.include_router(alerts_router, prefix="/alerts", tags=["Alerts"])
 api_router.include_router(analytics_router, prefix="/analytics", tags=["Analytics"])
+api_router.include_router(audit_router, prefix="/audit", tags=["Audit"])
 api_router.include_router(export_router, prefix="/export", tags=["Export"])

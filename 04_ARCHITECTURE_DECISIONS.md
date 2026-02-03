@@ -1090,6 +1090,210 @@ FRONTEND_URL=http://localhost:3000
 
 ---
 
+## ADR-017: Analytics & Export Module (Sprint 12)
+
+### Status
+**Implementiert** - 2026-01 (Sprint 12)
+
+### Kontext
+Nutzer benötigen Einblicke in ihre Paper-Analyse-Aktivitäten und die Möglichkeit, Daten für Berichte und Präsentationen zu exportieren.
+
+### Entscheidung
+Wir implementieren ein **Analytics & Export Module** mit:
+1. Dashboard-Metriken (Team-Aktivität, Paper-Trends, Scoring-Stats)
+2. Multi-Format Export (CSV, PDF, BibTeX)
+
+### Architektur
+
+**1. Analytics Module:**
+```python
+# modules/analytics/service.py
+class AnalyticsService:
+    async def get_dashboard_metrics(org_id) -> DashboardMetrics
+    async def get_team_activity(org_id) -> TeamActivityResponse
+    async def get_paper_analytics(org_id, period) -> PaperAnalyticsResponse
+
+# Response Types:
+# - DashboardMetrics: total_papers, scored_papers, avg_score, recent_imports
+# - TeamActivityResponse: user_activity, papers_per_user, scoring_per_user
+# - PaperAnalyticsResponse: daily_imports, score_distribution, source_breakdown
+```
+
+**2. Export Module:**
+```python
+# modules/export/service.py
+class ExportService:
+    async def export_csv(papers, options) -> bytes
+    async def export_pdf(papers, options) -> bytes
+    async def export_bibtex(papers) -> str
+```
+
+**3. API Endpoints:**
+```
+# Analytics
+GET /analytics/dashboard    # Dashboard summary
+GET /analytics/team         # Team overview
+GET /analytics/papers       # Paper trends
+
+# Export
+GET /export/csv             # CSV export with filters
+GET /export/pdf             # PDF report generation
+GET /export/bibtex          # BibTeX bibliography
+POST /export/batch          # Batch export multiple formats
+```
+
+### Konsequenzen
+- (+) Datengetriebene Einblicke für Teams
+- (+) Professionelle Berichte via PDF Export
+- (+) Standard BibTeX für akademische Integration
+- (-) PDF-Generierung erfordert zusätzliche Logik
+- (-) Aggregation-Queries können bei großen Datenmengen langsam sein
+
+---
+
+## ADR-018: User Management & Email Infrastructure (Sprint 13)
+
+### Status
+**Implementiert** - 2026-01-31 (Sprint 13)
+
+### Kontext
+Für Team-Kollaboration benötigen wir:
+1. Einladungssystem für neue Team-Mitglieder
+2. E-Mail-Verifikation für Account-Sicherheit
+3. Passwort-Reset-Funktion
+4. Benutzerverwaltung für Admins
+
+### Entscheidung
+Wir implementieren ein **vollständiges User Management System** mit Resend als E-Mail-Provider.
+
+### Architektur
+
+**1. Email Service (Resend):**
+```python
+# modules/email/service.py
+class EmailService:
+    async def send_verification_email(to, token) -> dict
+    async def send_password_reset_email(to, token) -> dict
+    async def send_team_invite_email(to, token, inviter_name, org_name) -> dict
+    async def send_welcome_email(to, user_name) -> dict
+
+# Professionell gestaltete HTML-E-Mails mit Fallback-Plaintext
+```
+
+**2. Security Tokens:**
+```python
+# core/security.py - Secure Token Generation
+def generate_verification_token() -> tuple[str, datetime]  # 24h expiry
+def generate_password_reset_token() -> tuple[str, datetime]  # 1h expiry
+def generate_invitation_token() -> tuple[str, datetime]  # 7d expiry
+def is_token_expired(expires_at: datetime) -> bool
+```
+
+**3. User Model Extensions:**
+```python
+# modules/auth/models.py - Added Fields
+class User:
+    email_verified: bool = False
+    email_verification_token: str | None
+    email_verification_token_expires_at: datetime | None
+    password_reset_token: str | None
+    password_reset_token_expires_at: datetime | None
+
+class TeamInvitation:
+    id, organization_id, email, role, token
+    created_by_id, status, expires_at
+    # status: pending, accepted, declined, expired
+```
+
+**4. Auth Router Extensions (14 new endpoints):**
+```
+# Email Verification
+POST /auth/verify-email         # Verify email with token
+POST /auth/resend-verification  # Resend verification email
+
+# Password Reset
+POST /auth/forgot-password      # Request password reset
+POST /auth/reset-password       # Reset with token
+
+# Team Invitations
+POST /auth/invite               # Send invitation (admin)
+GET  /auth/invitation/{token}   # Get invitation info (public)
+POST /auth/accept-invite        # Accept invitation (public)
+GET  /auth/invitations          # List pending invitations (admin)
+DELETE /auth/invitations/{id}   # Cancel invitation (admin)
+
+# User Management (Admin)
+GET  /auth/users                # List organization users
+PATCH /auth/users/{id}/role     # Update user role
+POST /auth/users/{id}/deactivate   # Deactivate user
+POST /auth/users/{id}/reactivate   # Reactivate user
+```
+
+**5. Frontend Pages:**
+```typescript
+// New pages added:
+// - ForgotPasswordPage.tsx - Request password reset
+// - ResetPasswordPage.tsx - Set new password
+// - VerifyEmailPage.tsx - Email verification
+// - AcceptInvitePage.tsx - Accept team invitation
+// - TeamMembersPage.tsx - User management (admin)
+
+// New UI components:
+// - Dialog, DropdownMenu, Select, Table (Shadcn/UI)
+```
+
+**6. Configuration:**
+```env
+# .env additions
+RESEND_API_KEY=re_xxx
+EMAIL_FROM_ADDRESS=Paper Scraper <noreply@paperscraper.app>
+EMAIL_VERIFICATION_TOKEN_EXPIRE_MINUTES=1440
+PASSWORD_RESET_TOKEN_EXPIRE_MINUTES=60
+TEAM_INVITATION_TOKEN_EXPIRE_DAYS=7
+```
+
+### Migration
+```sql
+-- i9j0k1l2m3n4_sprint13_user_management
+
+-- Users table extensions
+ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN email_verification_token VARCHAR(255);
+ALTER TABLE users ADD COLUMN email_verification_token_expires_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN password_reset_token VARCHAR(255);
+ALTER TABLE users ADD COLUMN password_reset_token_expires_at TIMESTAMPTZ;
+
+-- Index for token lookups
+CREATE INDEX ix_users_email_verification_token ON users(email_verification_token);
+CREATE INDEX ix_users_password_reset_token ON users(password_reset_token);
+
+-- Team invitations table
+CREATE TABLE team_invitations (
+    id UUID PRIMARY KEY,
+    organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+    email VARCHAR(255) NOT NULL,
+    role userrole NOT NULL DEFAULT 'member',
+    token VARCHAR(255) UNIQUE NOT NULL,
+    created_by_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    status invitationstatus NOT NULL DEFAULT 'pending',
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TYPE invitationstatus AS ENUM ('pending', 'accepted', 'declined', 'expired');
+```
+
+### Konsequenzen
+- (+) Sichere Team-Einladungen mit Token-basierter Authentifizierung
+- (+) Professionelle E-Mail-Kommunikation
+- (+) Admin-Kontrolle über Benutzerrollen
+- (+) Verhindert Email-Enumeration durch konsistente Responses
+- (+) 29 Tests für umfassende Coverage
+- (-) Externe Abhängigkeit: Resend Email Service
+- (-) Token-Management erfordert Expiry-Handling
+
+---
+
 ## Zusammenfassung der Entscheidungen
 
 | ADR | Entscheidung | Rationale |
@@ -1110,6 +1314,8 @@ FRONTEND_URL=http://localhost:3000
 | 014 | **Sprint 9 Enhancements** | Simplified Abstracts, Score Evidence, Notes, Author Badges |
 | 015 | **Author Intelligence** | Author Profiles, Contact Tracking, Enrichment |
 | 016 | **Search & Discovery** | Saved Searches, Alerts, Paper Classification |
+| 017 | **Analytics & Export** | Dashboard Metrics, CSV/PDF/BibTeX Export |
+| 018 | **User Management** | Email Verification, Password Reset, Team Invitations |
 
 ---
 

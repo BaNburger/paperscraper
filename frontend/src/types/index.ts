@@ -17,6 +17,8 @@ export interface User {
   organization_id: string
   preferences: Record<string, unknown>
   is_active: boolean
+  onboarding_completed: boolean
+  onboarding_completed_at: string | null
   created_at: string
   updated_at: string
   organization: Organization
@@ -39,6 +41,51 @@ export interface RegisterRequest {
   password: string
   full_name: string
   organization_name: string
+}
+
+// Team Invitation types
+export type UserRole = 'admin' | 'manager' | 'member' | 'viewer'
+export type InvitationStatus = 'pending' | 'accepted' | 'declined' | 'expired'
+
+export interface InvitationInfo {
+  email: string
+  organization_name: string
+  inviter_name: string | null
+  role: UserRole
+  expires_at: string
+}
+
+export interface AcceptInviteRequest {
+  token: string
+  password: string
+  full_name?: string
+}
+
+export interface TeamInvitation {
+  id: string
+  organization_id: string
+  email: string
+  role: UserRole
+  status: InvitationStatus
+  expires_at: string
+  created_at: string
+}
+
+export interface UserListItem {
+  id: string
+  email: string
+  full_name: string | null
+  role: UserRole
+  is_active: boolean
+  email_verified: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface OrganizationUsers {
+  users: UserListItem[]
+  total: number
+  pending_invitations: number
 }
 
 // Paper types
@@ -564,7 +611,70 @@ export interface ClassificationResponse {
   indicators: string[]
 }
 
+// User Settings types
+export interface UpdateUserRequest {
+  full_name?: string
+  preferences?: Record<string, unknown>
+}
+
+export interface ChangePasswordRequest {
+  current_password: string
+  new_password: string
+}
+
+export interface UpdateOrganizationRequest {
+  name?: string
+  type?: string
+  settings?: Record<string, unknown>
+}
+
 // API Error types
+export interface ApiErrorDetail {
+  msg: string
+  type: string
+  loc?: string[]
+}
+
+export interface ApiErrorResponse {
+  detail?: string | ApiErrorDetail[]
+  message?: string
+  error?: string
+}
+
 export interface ApiError {
-  detail: string | { msg: string; type: string }[]
+  response?: {
+    data?: ApiErrorResponse
+    status?: number
+  }
+  message?: string
+}
+
+/**
+ * Extracts a user-friendly error message from an API error.
+ * Handles various error formats from FastAPI and custom exceptions.
+ */
+export function getApiErrorMessage(error: unknown, fallback: string = 'An error occurred'): string {
+  const err = error as ApiError
+
+  // Check for response data with detail string
+  if (typeof err?.response?.data?.detail === 'string') {
+    return err.response.data.detail
+  }
+
+  // Check for response data with message
+  if (err?.response?.data?.message) {
+    return err.response.data.message
+  }
+
+  // Check for validation errors (array of details)
+  if (Array.isArray(err?.response?.data?.detail)) {
+    return err.response.data.detail.map(d => d.msg).join(', ')
+  }
+
+  // Check for generic error message
+  if (err?.message) {
+    return err.message
+  }
+
+  return fallback
 }

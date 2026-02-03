@@ -40,8 +40,10 @@ paper_scraper/
 │   │
 │   ├── modules/
 │   │   ├── analytics/          # Team & paper metrics, dashboard
-│   │   ├── auth/               # User, Organization, JWT
+│   │   ├── audit/              # Security audit logging (GDPR compliance)
+│   │   ├── auth/               # User, Organization, JWT, Team Invitations, GDPR
 │   │   ├── authors/            # Author CRM, contacts
+│   │   ├── email/              # Transactional emails (Resend)
 │   │   ├── export/             # CSV, PDF, BibTeX export
 │   │   ├── papers/             # Paper, Author, Ingestion
 │   │   ├── projects/           # KanBan, Pipeline
@@ -66,9 +68,16 @@ paper_scraper/
 │       ├── lib/api.ts          # API Client
 │       └── pages/              # Route Pages
 │
-├── tests/                      # pytest
+├── tests/                      # pytest Backend-Tests
+├── e2e/                        # Playwright E2E Tests
+│   ├── tests/                  # Test specs
+│   └── playwright.config.ts    # Playwright config
+├── .github/workflows/          # CI/CD Pipelines
+│   ├── ci.yml                  # Continuous Integration
+│   └── deploy.yml              # Deployment
 ├── alembic/                    # Migrations
 ├── docker-compose.yml
+├── DEPLOYMENT.md               # Deployment Guide
 └── pyproject.toml
 ```
 
@@ -136,7 +145,15 @@ const usePapers = () => {
 ```sql
 -- Organizations & Users
 organizations (id, name, type, subscription_tier, settings)
-users (id, organization_id, email, hashed_password, role)
+users (id, organization_id, email, hashed_password, role, email_verified,
+       email_verification_token, password_reset_token,
+       onboarding_completed, onboarding_completed_at)
+
+-- Team Invitations
+team_invitations (
+  id, organization_id, email, role, token, created_by_id,
+  status, expires_at, created_at
+)
 
 -- Papers
 papers (id, doi, title, abstract, source, embedding vector(1536))
@@ -176,6 +193,12 @@ alert_results (
   id, alert_id, status, papers_found, new_papers,
   paper_ids, delivered_at, error_message
 )
+
+-- Audit Logging (GDPR/Security Compliance)
+audit_logs (
+  id, user_id, organization_id, action, resource_type,
+  resource_id, details, ip_address, user_agent, created_at
+)
 ```
 
 ---
@@ -187,7 +210,31 @@ alert_results (
 ├── /auth
 │   ├── POST /register
 │   ├── POST /login
-│   └── GET  /me
+│   ├── POST /refresh
+│   ├── GET  /me
+│   ├── PATCH /me
+│   ├── POST /change-password
+│   ├── POST /forgot-password      # Initiate password reset
+│   ├── POST /reset-password       # Reset with token
+│   ├── POST /verify-email         # Verify email address
+│   ├── POST /resend-verification  # Resend verification email
+│   ├── POST /invite               # Send team invitation (admin)
+│   ├── GET  /invitation/{token}   # Get invitation info
+│   ├── POST /accept-invite        # Accept team invitation
+│   ├── GET  /invitations          # List pending invitations (admin)
+│   ├── DELETE /invitations/{id}   # Cancel invitation (admin)
+│   ├── GET  /users                # List organization users (admin)
+│   ├── PATCH /users/{id}/role     # Update user role (admin)
+│   ├── POST /users/{id}/deactivate   # Deactivate user (admin)
+│   ├── POST /users/{id}/reactivate   # Reactivate user (admin)
+│   ├── POST /onboarding/complete     # Mark onboarding as complete
+│   ├── GET  /export-data             # Export user data (GDPR)
+│   └── DELETE /delete-account        # Delete account (GDPR)
+│
+├── /audit
+│   ├── GET  /               # List audit logs (admin)
+│   ├── GET  /users/{id}     # Get user activity (admin)
+│   └── GET  /my-activity    # Get own activity log
 │
 ├── /papers
 │   ├── GET  /               # List with filters
@@ -326,8 +373,14 @@ Docs:     http://localhost:8000/docs
 Frontend: http://localhost:3000
 MinIO:    http://localhost:9001 (Console)
 
-# Tests
-pytest tests/ -v
+# Backend Tests
+pytest tests/ -v --cov=paper_scraper
+
+# Frontend Unit Tests
+cd frontend && npm test
+
+# E2E Tests
+cd e2e && npm test
 
 # Migrations
 alembic upgrade head
@@ -344,10 +397,32 @@ arq paper_scraper.jobs.worker.WorkerSettings
 | Datei | Zweck |
 |-------|-------|
 | `core/config.py` | Alle Environment Variables |
+| `core/security.py` | JWT, Passwort-Hashing, Token-Generierung |
+| `api/middleware.py` | Rate Limiting, Security Headers |
+| `modules/auth/service.py` | Auth-Service mit User Management, GDPR |
+| `modules/audit/service.py` | Audit Logging Service |
+| `modules/email/service.py` | E-Mail-Service (Resend) |
 | `modules/scoring/prompts/` | LLM Prompt Templates |
 | `modules/scoring/llm_client.py` | LLM Provider Abstraktion |
 | `frontend/src/lib/api.ts` | API Client |
+| `frontend/src/components/ui/` | Shadcn/UI-style Components |
+| `frontend/src/components/Onboarding/` | Onboarding Wizard (4-step) |
+| `frontend/vitest.config.ts` | Vitest Unit Test Configuration |
+| `e2e/playwright.config.ts` | Playwright E2E Test Configuration |
+| `.github/workflows/ci.yml` | CI Pipeline |
+| `.github/workflows/deploy.yml` | Deployment Pipeline |
+| `DEPLOYMENT.md` | Deployment Guide |
 | `docker-compose.yml` | Lokale Services |
+
+### Frontend UI Components (frontend/src/components/ui/)
+
+| Component | Zweck |
+|-----------|-------|
+| `EmptyState.tsx` | Empty states mit Icon, Titel, Beschreibung, Action |
+| `Skeleton.tsx` | Loading skeletons (Card, Table, Kanban, Stats, Avatar) |
+| `Toast.tsx` | Toast notifications mit ToastProvider & useToast |
+| `ConfirmDialog.tsx` | Bestätigungsdialog (default/destructive Varianten) |
+| `ErrorBoundary.tsx` | React Error Boundary mit Fallback UI |
 
 ---
 
@@ -358,6 +433,7 @@ arq paper_scraper.jobs.worker.WorkerSettings
 - `03_CLAUDE_CODE_GUIDE.md` - Entwicklungs-Workflow
 - `04_ARCHITECTURE_DECISIONS.md` - ADRs
 - `05_IMPLEMENTATION_PLAN.md` - Sprint-Plan
+- `DEPLOYMENT.md` - Deployment & Operations Guide
 
 ---
 

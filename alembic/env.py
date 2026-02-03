@@ -3,7 +3,7 @@ import asyncio
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import pool
+from sqlalchemy import create_engine, pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
@@ -14,12 +14,23 @@ from paper_scraper.core.database import Base
 from paper_scraper.modules.auth.models import Organization, User  # noqa: F401
 from paper_scraper.modules.papers.models import Author, Paper, PaperAuthor  # noqa: F401
 
+# Try to import additional models (may not exist yet in early sprints)
+try:
+    from paper_scraper.modules.scoring.models import PaperScore, ScoringJob  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    from paper_scraper.modules.projects.models import Project, PaperProjectStatus, PaperStageHistory  # noqa: F401
+except ImportError:
+    pass
+
 # Alembic Config object
 config = context.config
 
 # Override sqlalchemy.url with our settings
-# Use sync URL for offline mode, async URL for online mode
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# IMPORTANT: Use sync URL for Alembic migrations (not asyncpg)
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL_SYNC)
 
 # Interpret the config file for Python logging
 if config.config_file_name is not None:
@@ -55,23 +66,21 @@ def do_run_migrations(connection: Connection) -> None:
         context.run_migrations()
 
 
-async def run_async_migrations() -> None:
-    """Run migrations in 'online' mode with async engine."""
-    connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
+def run_migrations_online() -> None:
+    """Run migrations in 'online' mode with sync engine.
+
+    Uses the sync DATABASE_URL_SYNC instead of async to avoid
+    issues with asyncpg driver in Alembic migrations.
+    """
+    connectable = create_engine(
+        config.get_main_option("sqlalchemy.url"),
         poolclass=pool.NullPool,
     )
 
-    async with connectable.connect() as connection:
-        await connection.run_sync(do_run_migrations)
+    with connectable.connect() as connection:
+        do_run_migrations(connection)
 
-    await connectable.dispose()
-
-
-def run_migrations_online() -> None:
-    """Run migrations in 'online' mode."""
-    asyncio.run(run_async_migrations())
+    connectable.dispose()
 
 
 if context.is_offline_mode():

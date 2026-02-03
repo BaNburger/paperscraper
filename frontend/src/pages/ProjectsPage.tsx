@@ -6,17 +6,23 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
 import { Badge } from '@/components/ui/Badge'
-import { FolderKanban, Plus, Loader2, Trash2 } from 'lucide-react'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { SkeletonCard } from '@/components/ui/Skeleton'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { useToast } from '@/components/ui/Toast'
+import { FolderKanban, Plus, Trash2, AlertTriangle } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
 export function ProjectsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [newProjectName, setNewProjectName] = useState('')
   const [newProjectDescription, setNewProjectDescription] = useState('')
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null)
 
   const { data: projects, isLoading, error } = useProjects()
   const createProject = useCreateProject()
   const deleteProject = useDeleteProject()
+  const { success, error: showError } = useToast()
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -28,18 +34,20 @@ export function ProjectsPage() {
       setNewProjectName('')
       setNewProjectDescription('')
       setShowCreateModal(false)
+      success('Project created', `"${newProjectName}" has been created successfully.`)
     } catch (err) {
-      // Error handled by mutation
+      showError('Failed to create project', 'Please try again.')
     }
   }
 
-  const handleDelete = async (id: string, name: string) => {
-    if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
-      try {
-        await deleteProject.mutateAsync(id)
-      } catch (err) {
-        // Error handled by mutation
-      }
+  const handleDelete = async () => {
+    if (!deleteConfirm) return
+    try {
+      await deleteProject.mutateAsync(deleteConfirm.id)
+      success('Project deleted', `"${deleteConfirm.name}" has been deleted.`)
+      setDeleteConfirm(null)
+    } catch (err) {
+      showError('Failed to delete project', 'Please try again.')
     }
   }
 
@@ -61,8 +69,10 @@ export function ProjectsPage() {
 
       {/* Projects Grid */}
       {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
         </div>
       ) : error ? (
         <Card>
@@ -72,16 +82,16 @@ export function ProjectsPage() {
         </Card>
       ) : !projects?.items?.length ? (
         <Card>
-          <CardContent className="py-12 text-center">
-            <FolderKanban className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
-            <h3 className="font-medium">No projects yet</h3>
-            <p className="text-muted-foreground text-sm mt-1">
-              Create a project to start organizing your papers
-            </p>
-            <Button onClick={() => setShowCreateModal(true)} className="mt-4">
-              <Plus className="h-4 w-4 mr-2" />
-              Create Project
-            </Button>
+          <CardContent>
+            <EmptyState
+              icon={<FolderKanban className="h-16 w-16" />}
+              title="No projects yet"
+              description="Create a project to organize your papers through a KanBan-style review pipeline."
+              action={{
+                label: 'Create Project',
+                onClick: () => setShowCreateModal(true),
+              }}
+            />
           </CardContent>
         </Card>
       ) : (
@@ -137,7 +147,7 @@ export function ProjectsPage() {
                 className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
                 onClick={(e) => {
                   e.preventDefault()
-                  handleDelete(project.id, project.name)
+                  setDeleteConfirm({ id: project.id, name: project.name })
                 }}
               >
                 <Trash2 className="h-4 w-4 text-destructive" />
@@ -146,6 +156,19 @@ export function ProjectsPage() {
           ))}
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        onOpenChange={(open) => !open && setDeleteConfirm(null)}
+        title="Delete Project"
+        description={`Are you sure you want to delete "${deleteConfirm?.name}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={handleDelete}
+        isLoading={deleteProject.isPending}
+        icon={<AlertTriangle className="h-6 w-6 text-destructive" />}
+      />
 
       {/* Create Modal */}
       {showCreateModal && (

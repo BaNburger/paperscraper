@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { authApi, getStoredToken, setStoredToken, removeStoredToken } from '@/lib/api'
+import { authApi, getStoredToken, setStoredTokens, removeStoredToken } from '@/lib/api'
 import type { User, LoginRequest, RegisterRequest } from '@/types'
 
 interface AuthContextType {
@@ -10,6 +10,7 @@ interface AuthContextType {
   login: (data: LoginRequest) => Promise<void>
   register: (data: RegisterRequest) => Promise<void>
   logout: () => void
+  refreshUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -38,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (data: LoginRequest) => {
     const tokens = await authApi.login(data)
-    setStoredToken(tokens.access_token)
+    setStoredTokens(tokens)
     const userData = await authApi.getMe()
     setUser(userData)
   }
@@ -46,7 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (data: RegisterRequest) => {
     // Register returns tokens directly - no need for separate login
     const tokens = await authApi.register(data)
-    setStoredToken(tokens.access_token)
+    setStoredTokens(tokens)
     const userData = await authApi.getMe()
     setUser(userData)
   }
@@ -55,6 +56,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     removeStoredToken()
     setUser(null)
     queryClient.clear()
+  }
+
+  const refreshUser = async () => {
+    const token = getStoredToken()
+    if (token) {
+      const userData = await authApi.getMe()
+      setUser(userData)
+    }
   }
 
   return (
@@ -66,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         logout,
+        refreshUser,
       }}
     >
       {children}

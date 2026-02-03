@@ -134,3 +134,20 @@ class RateLimitError(PaperScraperException):
         super().__init__(message=message, code="RATE_LIMIT_EXCEEDED", details=details)
         self.limit = limit
         self.window = window
+
+
+class EmailError(PaperScraperException):
+    """Raised when email sending fails."""
+
+    def __init__(
+        self,
+        recipient: str,
+        reason: str,
+        status_code: int | None = None,
+        details: dict[str, Any] | None = None,
+    ):
+        message = f"Failed to send email to {recipient}: {reason}"
+        super().__init__(message=message, code="EMAIL_ERROR", details=details)
+        self.recipient = recipient
+        self.reason = reason
+        self.status_code = status_code

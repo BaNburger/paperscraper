@@ -13,16 +13,18 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
 import { Badge } from '@/components/ui/Badge'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { SkeletonCard } from '@/components/ui/Skeleton'
 import {
   FileText,
   Search,
   Plus,
   ChevronLeft,
   ChevronRight,
-  Loader2,
   Download,
   Upload,
   X,
+  SearchX,
 } from 'lucide-react'
 import { formatDate, truncate } from '@/lib/utils'
 
@@ -453,8 +455,10 @@ export function PapersPage() {
 
       {/* Papers List */}
       {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className="space-y-4">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
         </div>
       ) : error ? (
         <Card>
@@ -464,12 +468,31 @@ export function PapersPage() {
         </Card>
       ) : data?.items.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center">
-            <FileText className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
-            <h3 className="font-medium">No papers found</h3>
-            <p className="text-muted-foreground text-sm mt-1">
-              {search ? 'Try a different search term' : 'Import papers to get started'}
-            </p>
+          <CardContent>
+            {search ? (
+              <EmptyState
+                icon={<SearchX className="h-16 w-16" />}
+                title="No papers match your search"
+                description="Try adjusting your search terms or clear the filter to see all papers."
+                action={{
+                  label: 'Clear search',
+                  onClick: () => {
+                    setSearchInput('')
+                    setSearchParams({})
+                  },
+                }}
+              />
+            ) : (
+              <EmptyState
+                icon={<FileText className="h-16 w-16" />}
+                title="No papers yet"
+                description="Start building your research library by importing papers from various sources."
+                action={{
+                  label: 'Import Papers',
+                  onClick: () => setShowImportModal(true),
+                }}
+              />
+            )}
           </CardContent>
         </Card>
       ) : (

@@ -160,3 +160,9 @@ logs/
 # Temporary files
 tmp/
 temp/
+
+# DevOps internal documentation (not for version control)
+DevOps/
+
+# Development data and analysis (bulk downloads, research)
+DevData/

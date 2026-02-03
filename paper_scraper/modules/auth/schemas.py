@@ -85,6 +85,8 @@ class UserResponse(UserBase):
     role: UserRole
     preferences: dict
     is_active: bool
+    onboarding_completed: bool
+    onboarding_completed_at: datetime | None
     created_at: datetime
     updated_at: datetime
 
@@ -137,3 +139,148 @@ class ChangePasswordRequest(BaseModel):
 
     current_password: str
     new_password: str = Field(..., min_length=8, max_length=128)
+
+
+# =============================================================================
+# Email Verification & Password Reset Schemas
+# =============================================================================
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Schema for requesting password reset."""
+
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    """Schema for resetting password with token."""
+
+    token: str
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+
+class VerifyEmailRequest(BaseModel):
+    """Schema for email verification."""
+
+    token: str
+
+
+class ResendVerificationRequest(BaseModel):
+    """Schema for resending verification email."""
+
+    email: EmailStr
+
+
+# =============================================================================
+# Team Invitation Schemas
+# =============================================================================
+
+
+class InviteUserRequest(BaseModel):
+    """Schema for inviting a user to the organization."""
+
+    email: EmailStr
+    role: UserRole = UserRole.MEMBER
+
+
+class AcceptInviteRequest(BaseModel):
+    """Schema for accepting a team invitation."""
+
+    token: str
+    password: str = Field(..., min_length=8, max_length=128)
+    full_name: str | None = Field(None, max_length=255)
+
+
+class TeamInvitationResponse(BaseModel):
+    """Schema for team invitation response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    organization_id: UUID
+    email: str
+    role: UserRole
+    status: str
+    expires_at: datetime
+    created_at: datetime
+
+
+class InvitationInfoResponse(BaseModel):
+    """Schema for invitation info (public, for accept-invite page)."""
+
+    email: str
+    organization_name: str
+    inviter_name: str | None
+    role: UserRole
+    expires_at: datetime
+
+
+# =============================================================================
+# User Management Schemas (Admin)
+# =============================================================================
+
+
+class UpdateRoleRequest(BaseModel):
+    """Schema for updating user role (admin only)."""
+
+    role: UserRole
+
+
+class UserListResponse(BaseModel):
+    """Schema for user list response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    email: str
+    full_name: str | None
+    role: UserRole
+    is_active: bool
+    email_verified: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class OrganizationUsersResponse(BaseModel):
+    """Schema for organization users list."""
+
+    users: list[UserListResponse]
+    total: int
+    pending_invitations: int
+
+
+class MessageResponse(BaseModel):
+    """Schema for simple message responses."""
+
+    message: str
+
+
+# =============================================================================
+# GDPR Compliance Schemas
+# =============================================================================
+
+
+class GDPRDataExport(BaseModel):
+    """Schema for GDPR data export response."""
+
+    user: UserResponse
+    organization: OrganizationResponse
+    export_date: datetime
+    papers_count: int
+    projects_count: int
+    saved_searches_count: int
+    alerts_count: int
+    data: dict  # Full data export as JSON
+
+
+class DeleteAccountRequest(BaseModel):
+    """Schema for account deletion request."""
+
+    password: str = Field(..., description="Current password for verification")
+    confirm_deletion: bool = Field(
+        ..., description="Must be true to confirm deletion"
+    )
+    delete_organization: bool = Field(
+        default=False,
+        description="If true and user is sole admin, delete entire organization",
+    )

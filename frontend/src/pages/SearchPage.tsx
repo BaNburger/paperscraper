@@ -6,14 +6,15 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
 import { Badge } from '@/components/ui/Badge'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { SkeletonCard } from '@/components/ui/Skeleton'
 import {
   Search,
-  Loader2,
-  FileText,
   TrendingUp,
   ChevronLeft,
   ChevronRight,
   SlidersHorizontal,
+  SearchX,
 } from 'lucide-react'
 import { formatDate, truncate, getScoreColor } from '@/lib/utils'
 import type { SearchMode } from '@/types'
@@ -138,8 +139,10 @@ export function SearchPage() {
 
       {/* Results */}
       {searchMutation.isPending ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className="space-y-4">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
         </div>
       ) : result ? (
         <div className="space-y-4">
@@ -153,12 +156,16 @@ export function SearchPage() {
           {/* Results List */}
           {result.results.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center">
-                <FileText className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
-                <h3 className="font-medium">No results found</h3>
-                <p className="text-muted-foreground text-sm mt-1">
-                  Try different keywords or search mode
-                </p>
+              <CardContent>
+                <EmptyState
+                  icon={<SearchX className="h-16 w-16" />}
+                  title="No results found"
+                  description={`No papers match "${result.query}". Try different keywords or switch to semantic search for broader results.`}
+                  action={{
+                    label: 'Try Semantic Search',
+                    onClick: () => setMode('semantic'),
+                  }}
+                />
               </CardContent>
             </Card>
           ) : (
@@ -257,12 +264,12 @@ export function SearchPage() {
         </div>
       ) : (
         <Card>
-          <CardContent className="py-12 text-center">
-            <Search className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
-            <h3 className="font-medium">Start searching</h3>
-            <p className="text-muted-foreground text-sm mt-1">
-              Enter a query to search your paper library
-            </p>
+          <CardContent>
+            <EmptyState
+              icon={<Search className="h-16 w-16" />}
+              title="Start searching"
+              description="Enter keywords to find papers in your library. Use semantic search to discover papers by meaning, not just keywords."
+            />
           </CardContent>
         </Card>
       )}

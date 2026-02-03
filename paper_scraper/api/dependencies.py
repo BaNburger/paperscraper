@@ -8,9 +8,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.core.database import get_db
-from paper_scraper.core.exceptions import UnauthorizedError
+from paper_scraper.core.exceptions import ForbiddenError, UnauthorizedError
 from paper_scraper.core.security import decode_token, validate_token_type
-from paper_scraper.modules.auth.models import User
+from paper_scraper.modules.auth.models import User, UserRole
 
 
 async def get_current_user(
@@ -104,3 +104,46 @@ async def get_organization_id(
 CurrentUser = Annotated[User, Depends(get_current_user)]
 CurrentActiveUser = Annotated[User, Depends(get_current_active_user)]
 OrganizationId = Annotated[UUID, Depends(get_organization_id)]
+
+
+async def require_admin(
+    current_user: CurrentUser,
+) -> User:
+    """Require the current user to be an admin.
+
+    Args:
+        current_user: The authenticated user.
+
+    Returns:
+        The admin User object.
+
+    Raises:
+        ForbiddenError: If user is not an admin.
+    """
+    if current_user.role != UserRole.ADMIN:
+        raise ForbiddenError("This action requires admin privileges")
+    return current_user
+
+
+async def require_manager_or_admin(
+    current_user: CurrentUser,
+) -> User:
+    """Require the current user to be a manager or admin.
+
+    Args:
+        current_user: The authenticated user.
+
+    Returns:
+        The User object.
+
+    Raises:
+        ForbiddenError: If user is not a manager or admin.
+    """
+    if current_user.role not in (UserRole.ADMIN, UserRole.MANAGER):
+        raise ForbiddenError("This action requires manager or admin privileges")
+    return current_user
+
+
+# Type aliases for role-based dependencies
+AdminUser = Annotated[User, Depends(require_admin)]
+ManagerOrAdminUser = Annotated[User, Depends(require_manager_or_admin)]
