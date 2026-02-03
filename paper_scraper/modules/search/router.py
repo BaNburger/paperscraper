@@ -14,11 +14,10 @@ from paper_scraper.modules.search.schemas import (
     EmbeddingBackfillRequest,
     EmbeddingBackfillResponse,
     EmbeddingBackfillResult,
-    SearchFilters,
+    EmbeddingStats,
     SearchMode,
     SearchRequest,
     SearchResponse,
-    SearchResultItem,
     SimilarPapersRequest,
     SimilarPapersResponse,
 )
@@ -188,55 +187,20 @@ async def find_similar_papers_get(
 
 @router.get(
     "/embeddings/stats",
+    response_model=EmbeddingStats,
     summary="Get embedding statistics",
     description="Get statistics about paper embeddings.",
 )
 async def get_embedding_stats(
     current_user: CurrentUser,
     search_service: Annotated[SearchService, Depends(get_search_service)],
-) -> dict:
+) -> EmbeddingStats:
     """
     Get embedding statistics for the organization.
 
     Returns count of papers with and without embeddings.
     """
-    from sqlalchemy import func, select
-
-    from paper_scraper.modules.papers.models import Paper
-
-    # Count papers with embeddings
-    with_embedding = await search_service.db.execute(
-        select(func.count())
-        .select_from(Paper)
-        .where(
-            Paper.organization_id == current_user.organization_id,
-            Paper.embedding.is_not(None),
-        )
-    )
-
-    # Count papers without embeddings
-    without_embedding = await search_service.db.execute(
-        select(func.count())
-        .select_from(Paper)
-        .where(
-            Paper.organization_id == current_user.organization_id,
-            Paper.embedding.is_(None),
-        )
-    )
-
-    with_count = with_embedding.scalar() or 0
-    without_count = without_embedding.scalar() or 0
-
-    return {
-        "total_papers": with_count + without_count,
-        "with_embedding": with_count,
-        "without_embedding": without_count,
-        "embedding_coverage": round(
-            with_count / (with_count + without_count) * 100, 2
-        )
-        if (with_count + without_count) > 0
-        else 0,
-    }
+    return await search_service.get_embedding_stats(current_user.organization_id)
 
 
 @router.post(
@@ -274,19 +238,22 @@ async def start_embedding_backfill(
 
     # Queue the job
     redis = await arq.create_pool(settings.arq_redis_settings)
-    job = await redis.enqueue_job(
-        "backfill_embeddings_task",
-        str(current_user.organization_id),
-        request.batch_size,
-        request.max_papers,
-    )
+    try:
+        job = await redis.enqueue_job(
+            "backfill_embeddings_task",
+            str(current_user.organization_id),
+            request.batch_size,
+            request.max_papers,
+        )
 
-    return EmbeddingBackfillResponse(
-        job_id=job.job_id,
-        status="queued",
-        papers_to_process=papers_to_process,
-        message=f"Backfill job queued for {papers_to_process} papers",
-    )
+        return EmbeddingBackfillResponse(
+            job_id=job.job_id,
+            status="queued",
+            papers_to_process=papers_to_process,
+            message=f"Backfill job queued for {papers_to_process} papers",
+        )
+    finally:
+        await redis.close()
 
 
 @router.post(

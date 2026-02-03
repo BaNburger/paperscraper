@@ -34,34 +34,3 @@ class ExportResponse(BaseModel):
     filename: str
     content_type: str
     paper_count: int
-
-
-class BibTeXOptions(BaseModel):
-    """Options for BibTeX export."""
-
-    citation_key_format: str = Field(
-        default="author_year",
-        description="Format for citation keys: 'author_year', 'doi', 'custom'",
-    )
-    include_abstract: bool = Field(default=True)
-    include_keywords: bool = Field(default=True)
-    include_url: bool = Field(default=True)
-
-
-class CSVOptions(BaseModel):
-    """Options for CSV export."""
-
-    delimiter: str = Field(default=",")
-    include_header: bool = Field(default=True)
-    columns: list[str] | None = Field(
-        default=None,
-        description="Specific columns to include. If None, includes all.",
-    )
-
-
-class PDFOptions(BaseModel):
-    """Options for PDF export."""
-
-    include_scores_chart: bool = Field(default=True)
-    include_abstract: bool = Field(default=True)
-    page_size: str = Field(default="A4")

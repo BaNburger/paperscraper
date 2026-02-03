@@ -1,15 +1,67 @@
 """Pydantic schemas for authentication module."""
 
+import re
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from paper_scraper.modules.auth.models import (
     OrganizationType,
     SubscriptionTier,
     UserRole,
 )
+
+
+# =============================================================================
+# Password Validation
+# =============================================================================
+
+# Common passwords to reject (top passwords from breach lists)
+COMMON_PASSWORDS = {
+    "password", "12345678", "123456789", "qwerty123", "password1",
+    "iloveyou", "sunshine", "princess", "football", "welcome1",
+    "shadow12", "superman", "michael1", "password123", "letmein1",
+}
+
+
+def validate_password_complexity(password: str) -> str:
+    """Validate password meets complexity requirements.
+
+    Requirements:
+    - At least 8 characters (enforced by Field)
+    - At least one uppercase letter
+    - At least one lowercase letter
+    - At least one digit
+    - Not in common password list
+
+    Args:
+        password: The password to validate.
+
+    Returns:
+        The password if valid.
+
+    Raises:
+        ValueError: If password doesn't meet requirements.
+    """
+    errors = []
+
+    if not re.search(r"[A-Z]", password):
+        errors.append("at least one uppercase letter")
+
+    if not re.search(r"[a-z]", password):
+        errors.append("at least one lowercase letter")
+
+    if not re.search(r"\d", password):
+        errors.append("at least one digit")
+
+    if password.lower() in COMMON_PASSWORDS:
+        errors.append("not be a commonly used password")
+
+    if errors:
+        raise ValueError(f"Password must contain {', '.join(errors)}")
+
+    return password
 
 
 # =============================================================================
@@ -67,6 +119,12 @@ class UserCreate(UserBase):
 
     password: str = Field(..., min_length=8, max_length=128)
 
+    @field_validator("password")
+    @classmethod
+    def password_complexity(cls, v: str) -> str:
+        """Validate password complexity."""
+        return validate_password_complexity(v)
+
 
 class UserUpdate(BaseModel):
     """Schema for updating a user."""
@@ -111,6 +169,12 @@ class RegisterRequest(BaseModel):
     organization_name: str = Field(..., min_length=1, max_length=255)
     organization_type: OrganizationType = OrganizationType.UNIVERSITY
 
+    @field_validator("password")
+    @classmethod
+    def password_complexity(cls, v: str) -> str:
+        """Validate password complexity."""
+        return validate_password_complexity(v)
+
 
 class LoginRequest(BaseModel):
     """Schema for user login."""
@@ -140,6 +204,12 @@ class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str = Field(..., min_length=8, max_length=128)
 
+    @field_validator("new_password")
+    @classmethod
+    def password_complexity(cls, v: str) -> str:
+        """Validate password complexity."""
+        return validate_password_complexity(v)
+
 
 # =============================================================================
 # Email Verification & Password Reset Schemas
@@ -157,6 +227,12 @@ class ResetPasswordRequest(BaseModel):
 
     token: str
     new_password: str = Field(..., min_length=8, max_length=128)
+
+    @field_validator("new_password")
+    @classmethod
+    def password_complexity(cls, v: str) -> str:
+        """Validate password complexity."""
+        return validate_password_complexity(v)
 
 
 class VerifyEmailRequest(BaseModel):
@@ -189,6 +265,12 @@ class AcceptInviteRequest(BaseModel):
     token: str
     password: str = Field(..., min_length=8, max_length=128)
     full_name: str | None = Field(None, max_length=255)
+
+    @field_validator("password")
+    @classmethod
+    def password_complexity(cls, v: str) -> str:
+        """Validate password complexity."""
+        return validate_password_complexity(v)
 
 
 class TeamInvitationResponse(BaseModel):

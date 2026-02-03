@@ -49,7 +49,7 @@ const subscriptionFeatures = {
   },
 }
 
-export const OrganizationSettingsPage = () => {
+export function OrganizationSettingsPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const { success, error: showError } = useToast()

@@ -19,12 +19,12 @@ const defaultStages = [
   { id: 'rejected', name: 'Rejected', color: '#EF4444', order: 3 },
 ]
 
-export const CreateProjectStep = ({
+export function CreateProjectStep({
   projectId,
   onProjectCreated,
   onNext,
   onSkip,
-}: CreateProjectStepProps) => {
+}: CreateProjectStepProps): JSX.Element {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [isLoading, setIsLoading] = useState(false)

@@ -1,6 +1,7 @@
 """Security utilities for authentication and authorization."""
 
 import secrets
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -38,6 +39,42 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
+def _create_jwt_token(
+    subject: str | Any,
+    token_type: str,
+    expires_delta: timedelta,
+    extra_claims: dict[str, Any] | None = None,
+) -> str:
+    """Create a JWT token with the specified type and expiration.
+
+    Args:
+        subject: The subject (typically user ID) to encode in the token.
+        token_type: Token type ("access" or "refresh").
+        expires_delta: Expiration time delta.
+        extra_claims: Optional additional claims to include in the token.
+
+    Returns:
+        The encoded JWT token string.
+    """
+    now = datetime.now(timezone.utc)
+    to_encode: dict[str, Any] = {
+        "sub": str(subject),
+        "exp": now + expires_delta,
+        "iat": int(now.timestamp()),
+        "jti": str(uuid.uuid4()),
+        "type": token_type,
+    }
+
+    if extra_claims:
+        to_encode.update(extra_claims)
+
+    return jwt.encode(
+        to_encode,
+        settings.JWT_SECRET_KEY.get_secret_value(),
+        algorithm=settings.JWT_ALGORITHM,
+    )
+
+
 def create_access_token(
     subject: str | Any,
     expires_delta: timedelta | None = None,
@@ -53,28 +90,8 @@ def create_access_token(
     Returns:
         The encoded JWT token string.
     """
-    if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(timezone.utc) + timedelta(
-            minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
-        )
-
-    to_encode: dict[str, Any] = {
-        "sub": str(subject),
-        "exp": expire,
-        "type": "access",
-    }
-
-    if extra_claims:
-        to_encode.update(extra_claims)
-
-    encoded_jwt = jwt.encode(
-        to_encode,
-        settings.JWT_SECRET_KEY.get_secret_value(),
-        algorithm=settings.JWT_ALGORITHM,
-    )
-    return encoded_jwt
+    delta = expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    return _create_jwt_token(subject, "access", delta, extra_claims)
 
 
 def create_refresh_token(
@@ -90,25 +107,8 @@ def create_refresh_token(
     Returns:
         The encoded JWT refresh token string.
     """
-    if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(timezone.utc) + timedelta(
-            days=settings.REFRESH_TOKEN_EXPIRE_DAYS
-        )
-
-    to_encode: dict[str, Any] = {
-        "sub": str(subject),
-        "exp": expire,
-        "type": "refresh",
-    }
-
-    encoded_jwt = jwt.encode(
-        to_encode,
-        settings.JWT_SECRET_KEY.get_secret_value(),
-        algorithm=settings.JWT_ALGORITHM,
-    )
-    return encoded_jwt
+    delta = expires_delta or timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    return _create_jwt_token(subject, "refresh", delta)
 
 
 def decode_token(token: str) -> dict[str, Any] | None:
@@ -161,17 +161,29 @@ def generate_secure_token(length: int = 32) -> str:
     return secrets.token_urlsafe(length)
 
 
+def _generate_token_with_expiry(expires_delta: timedelta) -> tuple[str, datetime]:
+    """Generate a secure token with an expiration datetime.
+
+    Args:
+        expires_delta: Time until the token expires.
+
+    Returns:
+        A tuple of (token, expires_at datetime).
+    """
+    token = generate_secure_token()
+    expires_at = datetime.now(timezone.utc) + expires_delta
+    return token, expires_at
+
+
 def generate_verification_token() -> tuple[str, datetime]:
     """Generate an email verification token with expiry.
 
     Returns:
         A tuple of (token, expires_at datetime).
     """
-    token = generate_secure_token()
-    expires_at = datetime.now(timezone.utc) + timedelta(
-        minutes=settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_MINUTES
+    return _generate_token_with_expiry(
+        timedelta(minutes=settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_MINUTES)
     )
-    return token, expires_at
 
 
 def generate_password_reset_token() -> tuple[str, datetime]:
@@ -180,11 +192,9 @@ def generate_password_reset_token() -> tuple[str, datetime]:
     Returns:
         A tuple of (token, expires_at datetime).
     """
-    token = generate_secure_token()
-    expires_at = datetime.now(timezone.utc) + timedelta(
-        minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES
+    return _generate_token_with_expiry(
+        timedelta(minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES)
     )
-    return token, expires_at
 
 
 def generate_invitation_token() -> tuple[str, datetime]:
@@ -193,11 +203,9 @@ def generate_invitation_token() -> tuple[str, datetime]:
     Returns:
         A tuple of (token, expires_at datetime).
     """
-    token = generate_secure_token()
-    expires_at = datetime.now(timezone.utc) + timedelta(
-        days=settings.TEAM_INVITATION_TOKEN_EXPIRE_DAYS
+    return _generate_token_with_expiry(
+        timedelta(days=settings.TEAM_INVITATION_TOKEN_EXPIRE_DAYS)
     )
-    return token, expires_at
 
 
 def is_token_expired(expires_at: datetime | None) -> bool:

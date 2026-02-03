@@ -1,7 +1,7 @@
 """Service layer for saved searches module."""
 
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import and_, func, or_, select
@@ -405,7 +405,7 @@ class SavedSearchService:
 
         if saved_search:
             saved_search.run_count += 1
-            saved_search.last_run_at = datetime.utcnow()
+            saved_search.last_run_at = datetime.now(timezone.utc)
             await self.db.flush()
 
         return saved_search
@@ -423,7 +423,7 @@ class SavedSearchService:
         Returns:
             List of saved searches needing alerts.
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         result = await self.db.execute(
             select(SavedSearch)

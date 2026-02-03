@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import DOMPurify from 'dompurify'
 import { useSearchMutation } from '@/hooks'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -180,7 +181,7 @@ export function SearchPage() {
                             {item.highlights.title ? (
                               <span
                                 dangerouslySetInnerHTML={{
-                                  __html: item.highlights.title,
+                                  __html: DOMPurify.sanitize(item.highlights.title),
                                 }}
                               />
                             ) : (
@@ -191,7 +192,7 @@ export function SearchPage() {
                             {item.highlights.abstract ? (
                               <span
                                 dangerouslySetInnerHTML={{
-                                  __html: item.highlights.abstract,
+                                  __html: DOMPurify.sanitize(item.highlights.abstract),
                                 }}
                               />
                             ) : (

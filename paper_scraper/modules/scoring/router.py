@@ -184,19 +184,22 @@ async def batch_score(
 
     # Enqueue arq job
     redis = await arq.create_pool(settings.arq_redis_settings)
-    arq_job = await redis.enqueue_job(
-        "score_papers_batch_task",
-        str(job.id),
-        str(current_user.organization_id),
-        [str(pid) for pid in request.paper_ids],
-        request.weights.model_dump() if request.weights else None,
-    )
+    try:
+        arq_job = await redis.enqueue_job(
+            "score_papers_batch_task",
+            str(job.id),
+            str(current_user.organization_id),
+            [str(pid) for pid in request.paper_ids],
+            request.weights.model_dump() if request.weights else None,
+        )
 
-    # Update job with arq reference
-    job.arq_job_id = arq_job.job_id
-    await scoring_service.db.commit()
+        # Update job with arq reference
+        job.arq_job_id = arq_job.job_id
+        await scoring_service.db.commit()
 
-    return ScoringJobResponse.model_validate(job)
+        return ScoringJobResponse.model_validate(job)
+    finally:
+        await redis.close()
 
 
 @router.get(

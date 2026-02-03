@@ -195,14 +195,12 @@ async def enrich_author(
     author_id: UUID,
     current_user: CurrentUser,
     author_service: Annotated[AuthorService, Depends(get_author_service)],
-    request: EnrichmentRequest | None = None,
+    request: EnrichmentRequest = EnrichmentRequest(),
 ) -> EnrichmentResult:
     """Enrich author data from external sources (OpenAlex, ORCID, etc.)."""
-    source = request.source if request else "openalex"
-    force_update = request.force_update if request else False
-
     return await author_service.enrich_author(
         author_id=author_id,
-        source=source,
-        force_update=force_update,
+        organization_id=current_user.organization_id,
+        source=request.source,
+        force_update=request.force_update,
     )

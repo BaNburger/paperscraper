@@ -1,6 +1,6 @@
 """Analytics service for team and paper metrics."""
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
 
 from sqlalchemy import case, func, select
@@ -24,6 +24,10 @@ from paper_scraper.modules.papers.notes import PaperNote
 from paper_scraper.modules.projects.models import Project
 from paper_scraper.modules.scoring.models import PaperScore
 
+# Standard time periods for analytics
+DAYS_IN_WEEK = 7
+DAYS_IN_MONTH = 30
+
 
 class AnalyticsService:
     """Service for computing analytics and metrics."""
@@ -32,94 +36,91 @@ class AnalyticsService:
         """Initialize analytics service."""
         self.db = db
 
+    async def _count_records(self, query) -> int:
+        """Execute a count query and return the result."""
+        result = await self.db.execute(query)
+        return result.scalar() or 0
+
     async def get_team_overview(self, organization_id: UUID) -> TeamOverviewResponse:
         """Get team overview statistics."""
-        now = datetime.utcnow()
-        week_ago = now - timedelta(days=7)
-        month_ago = now - timedelta(days=30)
+        now = datetime.now(timezone.utc)
+        week_ago = now - timedelta(days=DAYS_IN_WEEK)
+        month_ago = now - timedelta(days=DAYS_IN_MONTH)
 
-        # Total users
-        total_users_result = await self.db.execute(
+        # Count totals using helper method
+        total_users = await self._count_records(
             select(func.count(User.id)).where(User.organization_id == organization_id)
         )
-        total_users = total_users_result.scalar() or 0
-
-        # Active users in last 7 days (based on paper imports)
-        active_7_result = await self.db.execute(
-            select(func.count(func.distinct(Paper.organization_id))).where(
-                Paper.organization_id == organization_id,
-                Paper.created_at >= week_ago,
-            )
-        )
-        active_7 = min(active_7_result.scalar() or 0, total_users)
-
-        # Active users in last 30 days
-        active_30_result = await self.db.execute(
-            select(func.count(func.distinct(Paper.organization_id))).where(
-                Paper.organization_id == organization_id,
-                Paper.created_at >= month_ago,
-            )
-        )
-        active_30 = min(active_30_result.scalar() or 0, total_users)
-
-        # Total papers
-        papers_result = await self.db.execute(
+        total_papers = await self._count_records(
             select(func.count(Paper.id)).where(Paper.organization_id == organization_id)
         )
-        total_papers = papers_result.scalar() or 0
-
-        # Total scores
-        scores_result = await self.db.execute(
+        total_scores = await self._count_records(
             select(func.count(PaperScore.id)).where(
                 PaperScore.organization_id == organization_id
             )
         )
-        total_scores = scores_result.scalar() or 0
-
-        # Total projects
-        projects_result = await self.db.execute(
+        total_projects = await self._count_records(
             select(func.count(Project.id)).where(
                 Project.organization_id == organization_id
             )
         )
-        total_projects = projects_result.scalar() or 0
 
-        # User activity stats
+        # Active users based on note activity (Paper model lacks created_by_id)
+        # TODO: Add created_by_id to Paper model for accurate tracking
+        active_users_7_days = await self._count_records(
+            select(func.count(func.distinct(PaperNote.user_id))).where(
+                PaperNote.organization_id == organization_id,
+                PaperNote.created_at >= week_ago,
+            )
+        )
+        active_users_30_days = await self._count_records(
+            select(func.count(func.distinct(PaperNote.user_id))).where(
+                PaperNote.organization_id == organization_id,
+                PaperNote.created_at >= month_ago,
+            )
+        )
+
+        # User activity stats - fetch users and notes count in optimized queries
         users_result = await self.db.execute(
             select(User).where(User.organization_id == organization_id)
         )
         users = users_result.scalars().all()
 
+        # Batch query for notes count per user (with tenant isolation)
+        user_ids = [user.id for user in users]
+        notes_by_user: dict[UUID, int] = {}
+        if user_ids:
+            notes_result = await self.db.execute(
+                select(PaperNote.user_id, func.count(PaperNote.id).label("count"))
+                .where(
+                    PaperNote.user_id.in_(user_ids),
+                    PaperNote.organization_id == organization_id,  # Tenant isolation
+                )
+                .group_by(PaperNote.user_id)
+            )
+            notes_by_user = {row.user_id: row.count for row in notes_result.all()}
+
+        # Note: Paper model lacks created_by_id, so we can't track per-user paper imports.
+        # Show 0 for papers_imported/papers_scored until model supports user tracking.
+        # TODO: Add created_by_id to Paper model and update this query
         user_activity: list[UserActivityStats] = []
         for user in users:
-            # Papers imported by this user (approximate - by org)
-            papers_count = total_papers  # In multi-user scenario, track by user
-
-            # Scores generated
-            scores_count = total_scores  # In multi-user scenario, track by user
-
-            # Notes created
-            notes_result = await self.db.execute(
-                select(func.count(PaperNote.id)).where(PaperNote.user_id == user.id)
-            )
-            notes_count = notes_result.scalar() or 0
-
             user_activity.append(
                 UserActivityStats(
                     user_id=user.id,
                     email=user.email,
                     full_name=user.full_name,
-                    papers_imported=papers_count,
-                    papers_scored=scores_count,
-                    notes_created=notes_count,
+                    papers_imported=0,  # Requires Paper.created_by_id field
+                    papers_scored=0,  # Requires PaperScore.created_by_id field
+                    notes_created=notes_by_user.get(user.id, 0),
                     last_active=user.updated_at,
                 )
             )
 
         return TeamOverviewResponse(
             total_users=total_users,
-            active_users_last_7_days=active_7 if active_7 > 0 else 1,
-            active_users_last_30_days=active_30 if active_30 > 0 else 1,
+            active_users_last_7_days=active_users_7_days,
+            active_users_last_30_days=active_users_30_days,
             total_papers=total_papers,
             total_scores=total_scores,
             total_projects=total_projects,
@@ -130,7 +131,7 @@ class AnalyticsService:
         self, organization_id: UUID, days: int = 90
     ) -> PaperAnalyticsResponse:
         """Get paper analytics."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         start_date = now - timedelta(days=days)
 
         # Import trends - daily
@@ -228,34 +229,56 @@ class AnalyticsService:
 
     async def _get_scoring_stats(self, organization_id: UUID) -> ScoringStats:
         """Get scoring statistics."""
-        # Count scored and unscored papers
-        scored_result = await self.db.execute(
+        scored_papers = await self._count_records(
             select(func.count(func.distinct(PaperScore.paper_id))).where(
                 PaperScore.organization_id == organization_id
             )
         )
-        scored = scored_result.scalar() or 0
-
-        total_result = await self.db.execute(
+        total_papers = await self._count_records(
             select(func.count(Paper.id)).where(Paper.organization_id == organization_id)
         )
-        total = total_result.scalar() or 0
-        unscored = total - scored
+        unscored_papers = total_papers - scored_papers
 
-        # Average scores (latest score per paper)
+        # Average scores with labeled columns for clarity
         avg_result = await self.db.execute(
             select(
-                func.avg(PaperScore.overall_score),
-                func.avg(PaperScore.novelty),
-                func.avg(PaperScore.ip_potential),
-                func.avg(PaperScore.marketability),
-                func.avg(PaperScore.feasibility),
-                func.avg(PaperScore.commercialization),
+                func.avg(PaperScore.overall_score).label("overall"),
+                func.avg(PaperScore.novelty).label("novelty"),
+                func.avg(PaperScore.ip_potential).label("ip_potential"),
+                func.avg(PaperScore.marketability).label("marketability"),
+                func.avg(PaperScore.feasibility).label("feasibility"),
+                func.avg(PaperScore.commercialization).label("commercialization"),
             ).where(PaperScore.organization_id == organization_id)
         )
-        avg_row = avg_result.one()
+        averages = avg_result.one()
 
-        # Score distribution
+        # Score distribution by bucket
+        score_distribution = await self._get_score_distribution(organization_id)
+
+        return ScoringStats(
+            total_scored=scored_papers,
+            total_unscored=unscored_papers,
+            average_overall_score=self._round_score(averages.overall),
+            average_novelty=self._round_score(averages.novelty),
+            average_ip_potential=self._round_score(averages.ip_potential),
+            average_marketability=self._round_score(averages.marketability),
+            average_feasibility=self._round_score(averages.feasibility),
+            average_commercialization=self._round_score(averages.commercialization),
+            score_distribution=score_distribution,
+        )
+
+    async def _get_score_distribution(
+        self, organization_id: UUID
+    ) -> list[ScoreDistributionBucket]:
+        """Get score distribution buckets for an organization."""
+        bucket_ranges = {
+            "0-2": (0.0, 2.0),
+            "2-4": (2.0, 4.0),
+            "4-6": (4.0, 6.0),
+            "6-8": (6.0, 8.0),
+            "8-10": (8.0, 10.0),
+        }
+
         distribution_result = await self.db.execute(
             select(
                 case(
@@ -270,122 +293,76 @@ class AnalyticsService:
             .where(PaperScore.organization_id == organization_id)
             .group_by("bucket")
         )
-        distribution_rows = distribution_result.all()
 
-        bucket_map = {"0-2": (0, 2), "2-4": (2, 4), "4-6": (4, 6), "6-8": (6, 8), "8-10": (8, 10)}
-        score_distribution = [
+        return [
             ScoreDistributionBucket(
-                range_start=bucket_map.get(row.bucket, (0, 2))[0],
-                range_end=bucket_map.get(row.bucket, (0, 2))[1],
+                range_start=bucket_ranges[row.bucket][0],
+                range_end=bucket_ranges[row.bucket][1],
                 count=row.count,
             )
-            for row in distribution_rows
+            for row in distribution_result.all()
         ]
 
-        return ScoringStats(
-            total_scored=scored,
-            total_unscored=unscored,
-            average_overall_score=round(avg_row[0], 2) if avg_row[0] else None,
-            average_novelty=round(avg_row[1], 2) if avg_row[1] else None,
-            average_ip_potential=round(avg_row[2], 2) if avg_row[2] else None,
-            average_marketability=round(avg_row[3], 2) if avg_row[3] else None,
-            average_feasibility=round(avg_row[4], 2) if avg_row[4] else None,
-            average_commercialization=round(avg_row[5], 2) if avg_row[5] else None,
-            score_distribution=score_distribution,
-        )
+    @staticmethod
+    def _round_score(value: float | None) -> float | None:
+        """Round a score to 2 decimal places, or return None if value is None."""
+        return round(value, 2) if value is not None else None
 
     async def get_dashboard_summary(
         self, organization_id: UUID
     ) -> DashboardSummaryResponse:
         """Get dashboard summary with key metrics."""
-        now = datetime.utcnow()
-        week_ago = now - timedelta(days=7)
-        month_ago = now - timedelta(days=30)
+        now = datetime.now(timezone.utc)
+        week_ago = now - timedelta(days=DAYS_IN_WEEK)
+        month_ago = now - timedelta(days=DAYS_IN_MONTH)
 
         # Paper counts
-        total_papers_result = await self.db.execute(
+        total_papers = await self._count_records(
             select(func.count(Paper.id)).where(Paper.organization_id == organization_id)
         )
-        total_papers = total_papers_result.scalar() or 0
-
-        week_papers_result = await self.db.execute(
+        papers_this_week = await self._count_records(
             select(func.count(Paper.id)).where(
                 Paper.organization_id == organization_id,
                 Paper.created_at >= week_ago,
             )
         )
-        papers_this_week = week_papers_result.scalar() or 0
-
-        month_papers_result = await self.db.execute(
+        papers_this_month = await self._count_records(
             select(func.count(Paper.id)).where(
                 Paper.organization_id == organization_id,
                 Paper.created_at >= month_ago,
             )
         )
-        papers_this_month = month_papers_result.scalar() or 0
 
-        # Scored papers
+        # Scored papers and average score
         scored_result = await self.db.execute(
             select(
-                func.count(func.distinct(PaperScore.paper_id)),
-                func.avg(PaperScore.overall_score),
+                func.count(func.distinct(PaperScore.paper_id)).label("count"),
+                func.avg(PaperScore.overall_score).label("avg_score"),
             ).where(PaperScore.organization_id == organization_id)
         )
         scored_row = scored_result.one()
-        scored_papers = scored_row[0] or 0
-        average_score = round(scored_row[1], 2) if scored_row[1] else None
+        scored_papers = scored_row.count or 0
+        average_score = self._round_score(scored_row.avg_score)
 
-        # Projects
-        projects_result = await self.db.execute(
+        # Projects (all are considered active as no is_active field exists)
+        total_projects = await self._count_records(
             select(func.count(Project.id)).where(
                 Project.organization_id == organization_id
             )
         )
-        total_projects = projects_result.scalar() or 0
-        # All projects are considered active (no is_active field exists)
-        active_projects = total_projects
 
-        # Users
-        users_result = await self.db.execute(
+        # Users (all are considered active for now)
+        total_users = await self._count_records(
             select(func.count(User.id)).where(User.organization_id == organization_id)
         )
-        total_users = users_result.scalar() or 0
 
-        # Import trend (last 30 days)
-        trend_result = await self.db.execute(
-            select(
-                func.date(Paper.created_at).label("date"),
-                func.count(Paper.id).label("count"),
-            )
-            .where(
-                Paper.organization_id == organization_id,
-                Paper.created_at >= month_ago,
-            )
-            .group_by(func.date(Paper.created_at))
-            .order_by(func.date(Paper.created_at))
+        # Trends (last 30 days)
+        import_trend = await self._get_daily_trend(
+            Paper, organization_id, month_ago
         )
-        import_trend = [
-            TimeSeriesDataPoint(date=row.date, count=row.count)
-            for row in trend_result.all()
-        ]
-
-        # Scoring trend (last 30 days)
-        scoring_trend_result = await self.db.execute(
-            select(
-                func.date(PaperScore.created_at).label("date"),
-                func.count(PaperScore.id).label("count"),
-            )
-            .where(
-                PaperScore.organization_id == organization_id,
-                PaperScore.created_at >= month_ago,
-            )
-            .group_by(func.date(PaperScore.created_at))
-            .order_by(func.date(PaperScore.created_at))
+        scoring_trend = await self._get_daily_trend(
+            PaperScore, organization_id, month_ago
         )
-        scoring_trend = [
-            TimeSeriesDataPoint(date=row.date, count=row.count)
-            for row in scoring_trend_result.all()
-        ]
 
         return DashboardSummaryResponse(
             total_papers=total_papers,
@@ -394,12 +371,36 @@ class AnalyticsService:
             scored_papers=scored_papers,
             average_score=average_score,
             total_projects=total_projects,
-            active_projects=active_projects,
+            active_projects=total_projects,
             total_users=total_users,
-            active_users=total_users,  # All users considered active for now
+            active_users=total_users,
             import_trend=import_trend,
             scoring_trend=scoring_trend,
         )
+
+    async def _get_daily_trend(
+        self,
+        model: type[Paper] | type[PaperScore],
+        organization_id: UUID,
+        since: datetime,
+    ) -> list[TimeSeriesDataPoint]:
+        """Get daily count trend for a model since a given date."""
+        result = await self.db.execute(
+            select(
+                func.date(model.created_at).label("date"),
+                func.count(model.id).label("count"),
+            )
+            .where(
+                model.organization_id == organization_id,
+                model.created_at >= since,
+            )
+            .group_by(func.date(model.created_at))
+            .order_by(func.date(model.created_at))
+        )
+        return [
+            TimeSeriesDataPoint(date=row.date, count=row.count)
+            for row in result.all()
+        ]
 
     def _aggregate_to_weekly(
         self, daily_data: list[TimeSeriesDataPoint]

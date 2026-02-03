@@ -1,17 +1,16 @@
 """LLM-based paper classification service."""
 
 import logging
-from pathlib import Path
 from typing import Any
 from uuid import UUID
 
-from jinja2 import Environment, FileSystemLoader
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.core.exceptions import NotFoundError, ScoringError
 from paper_scraper.modules.papers.models import Paper
 from paper_scraper.modules.scoring.llm_client import get_llm_client
+from paper_scraper.modules.scoring.prompts import jinja_env
 
 logger = logging.getLogger(__name__)
 
@@ -26,10 +25,6 @@ PAPER_TYPES = [
     "PREPRINT",
     "OTHER",
 ]
-
-# Load Jinja2 templates
-PROMPTS_DIR = Path(__file__).parent / "prompts"
-jinja_env = Environment(loader=FileSystemLoader(PROMPTS_DIR))
 
 
 class PaperClassifier:
@@ -104,7 +99,7 @@ class PaperClassifier:
         # Update paper
         paper.paper_type = paper_type
 
-        await self.db.flush()
+        await self.db.commit()
 
         return {
             "paper_id": str(paper_id),

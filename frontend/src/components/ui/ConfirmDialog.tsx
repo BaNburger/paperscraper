@@ -23,7 +23,7 @@ interface ConfirmDialogProps {
   icon?: ReactNode
 }
 
-export const ConfirmDialog = ({
+export function ConfirmDialog({
   open,
   onOpenChange,
   title,
@@ -35,13 +35,13 @@ export const ConfirmDialog = ({
   variant = 'default',
   isLoading = false,
   icon,
-}: ConfirmDialogProps) => {
-  const handleCancel = () => {
+}: ConfirmDialogProps): JSX.Element {
+  function handleCancel(): void {
     onCancel?.()
     onOpenChange(false)
   }
 
-  const handleConfirm = async () => {
+  async function handleConfirm(): Promise<void> {
     await onConfirm()
     onOpenChange(false)
   }
@@ -79,21 +79,4 @@ export const ConfirmDialog = ({
   )
 }
 
-interface UseConfirmDialogOptions {
-  title: string
-  description: string
-  confirmLabel?: string
-  cancelLabel?: string
-  variant?: 'default' | 'destructive'
-}
 
-export const useConfirmDialog = () => {
-  // This hook returns a helper that can be used with useState
-  // Usage:
-  // const [dialogProps, setDialogProps] = useState<ConfirmDialogState | null>(null)
-  // const confirm = useConfirmDialog()
-  // await confirm({ title: '...', onConfirm: () => {} })
-  return (options: UseConfirmDialogOptions & { onConfirm: () => void | Promise<void> }) => {
-    return options
-  }
-}

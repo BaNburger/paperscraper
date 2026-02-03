@@ -1,7 +1,7 @@
 """arq worker configuration and job definitions."""
 
 from typing import Any
-from uuid import UUID
+from urllib.parse import urlparse
 
 import arq
 from arq.connections import ArqRedis, RedisSettings
@@ -22,102 +22,53 @@ from paper_scraper.jobs.search import backfill_embeddings_task
 
 
 async def startup(ctx: dict[str, Any]) -> None:
-    """Worker startup handler.
-
-    Called when the worker starts up. Use this to initialize
-    shared resources like database connections.
-
-    Args:
-        ctx: Worker context dictionary for storing shared resources.
-    """
-    pass
+    """Initialize shared resources when worker starts."""
 
 
 async def shutdown(ctx: dict[str, Any]) -> None:
-    """Worker shutdown handler.
-
-    Called when the worker shuts down. Use this to cleanup
-    shared resources.
-
-    Args:
-        ctx: Worker context dictionary.
-    """
-    pass
-
-
-# =============================================================================
-# Job Definitions
-# =============================================================================
+    """Cleanup shared resources when worker shuts down."""
 
 
 async def ingest_papers_task(
     ctx: dict[str, Any],
     source: str,
     query: str,
-    project_id: UUID | None = None,
     max_results: int = 100,
 ) -> dict[str, Any]:
-    """Ingest papers from an external source.
+    """Ingest papers from an external source (placeholder).
+
+    Note: This is a placeholder for future implementations of PubMed,
+    arXiv, and Crossref ingestion. Use ingest_openalex_task for OpenAlex.
 
     Args:
         ctx: Worker context.
         source: Source to ingest from ('pubmed', 'arxiv', 'crossref').
         query: Search query for the source.
-        project_id: Optional project to add papers to.
         max_results: Maximum number of papers to ingest.
 
     Returns:
         Dict with ingestion results.
     """
-    # TODO: Implement paper ingestion for other sources
     return {
-        "status": "completed",
+        "status": "not_implemented",
         "source": source,
         "papers_ingested": 0,
+        "message": f"Ingestion from {source} is not yet implemented",
     }
 
 
-# =============================================================================
-# Worker Configuration
-# =============================================================================
-
-
 def get_redis_settings() -> RedisSettings:
-    """Get Redis settings from application config."""
-    # Parse Redis URL
-    url = settings.REDIS_URL
-    # arq expects RedisSettings, we'll parse the URL
-    # Format: redis://[:password@]host[:port][/db]
-    if url.startswith("redis://"):
-        url = url[8:]
+    """Parse Redis URL and return arq RedisSettings."""
+    parsed = urlparse(settings.REDIS_URL)
 
-    # Split off db number if present
     db = 0
-    if "/" in url:
-        url, db_str = url.rsplit("/", 1)
-        db = int(db_str) if db_str else 0
-
-    # Split host and port
-    host = "localhost"
-    port = 6379
-    password = None
-
-    if "@" in url:
-        auth, hostport = url.rsplit("@", 1)
-        password = auth.split(":")[-1] if ":" in auth else auth
-    else:
-        hostport = url
-
-    if ":" in hostport:
-        host, port_str = hostport.split(":")
-        port = int(port_str)
-    else:
-        host = hostport
+    if parsed.path and parsed.path != "/":
+        db = int(parsed.path.lstrip("/"))
 
     return RedisSettings(
-        host=host,
-        port=port,
-        password=password,
+        host=parsed.hostname or "localhost",
+        port=parsed.port or 6379,
+        password=parsed.password,
         database=db,
     )
 

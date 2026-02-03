@@ -1,10 +1,13 @@
 """Application configuration using Pydantic Settings."""
 
+import logging
 from functools import lru_cache
 from typing import Any
 
-from pydantic import SecretStr, field_validator
+from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -27,6 +30,8 @@ class Settings(BaseSettings):
 
     # ==========================================================================
     # Database (PostgreSQL + pgvector)
+    # NOTE: These have development defaults. In production, set DATABASE_URL
+    # via environment variable with proper credentials.
     # ==========================================================================
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/paperscraper"
     DATABASE_URL_SYNC: str = "postgresql://postgres:postgres@localhost:5432/paperscraper"
@@ -41,18 +46,21 @@ class Settings(BaseSettings):
 
     # ==========================================================================
     # JWT Authentication
+    # IMPORTANT: JWT_SECRET_KEY MUST be set in production!
+    # Generate with: openssl rand -hex 32
     # ==========================================================================
-    JWT_SECRET_KEY: SecretStr = SecretStr("change-me-in-production")
+    JWT_SECRET_KEY: SecretStr = SecretStr("")  # Required - no default
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # ==========================================================================
     # Object Storage (MinIO / S3-compatible)
+    # NOTE: S3_ACCESS_KEY and S3_SECRET_KEY MUST be set via environment
     # ==========================================================================
     S3_ENDPOINT: str = "http://localhost:9000"
-    S3_ACCESS_KEY: str = "minio"
-    S3_SECRET_KEY: SecretStr = SecretStr("minio123")
+    S3_ACCESS_KEY: str = ""  # Required - no default
+    S3_SECRET_KEY: SecretStr = SecretStr("")  # Required - no default
     S3_BUCKET_NAME: str = "paperscraper"
     S3_REGION: str = "us-east-1"
 
@@ -156,8 +164,99 @@ class Settings(BaseSettings):
                 return json.loads(v)
             # Handle comma-separated string
             return [origin.strip() for origin in v.split(",")]
-        return v + ["http://127.0.0.1:3000"]
+        if isinstance(v, list):
+            return v
+        return ["http://localhost:3000", "http://localhost:5173"]
 
+    @model_validator(mode="after")
+    def validate_production_secrets(self) -> "Settings":
+        """Validate that required secrets are set in production/staging."""
+        jwt_secret = self.JWT_SECRET_KEY.get_secret_value()
+
+        if self.APP_ENV in ("production", "staging"):
+            errors = self._validate_production_config(jwt_secret)
+
+            if self.APP_ENV == "production" and self.DEBUG:
+                logger.warning(
+                    "DEBUG is True in production - forcing to False for security"
+                )
+                object.__setattr__(self, "DEBUG", False)
+
+            if errors:
+                raise ValueError(
+                    "Production configuration validation failed:\n- " +
+                    "\n- ".join(errors)
+                )
+
+        elif self.APP_ENV == "development" and not jwt_secret:
+            raise ValueError(
+                "JWT_SECRET_KEY must be set even in development. "
+                "Add JWT_SECRET_KEY to your .env file. "
+                "Generate with: openssl rand -hex 32"
+            )
+
+        return self
+
+    def _validate_production_config(self, jwt_secret: str) -> list[str]:
+        """Validate production configuration and return list of errors."""
+        import re
+
+        errors: list[str] = []
+
+        # JWT Secret validation
+        if self._is_weak_secret(jwt_secret, re):
+            errors.append(
+                "JWT_SECRET_KEY must be at least 32 characters and not contain "
+                "common patterns like 'dev', 'test', 'secret'. "
+                "Generate with: openssl rand -hex 32"
+            )
+        elif jwt_secret and len(jwt_secret) < 32:
+            errors.append(
+                f"JWT_SECRET_KEY is too short ({len(jwt_secret)} chars). "
+                "Minimum 32 characters required for adequate security."
+            )
+
+        # S3 credentials
+        if not self.S3_ACCESS_KEY:
+            errors.append("S3_ACCESS_KEY must be set")
+        if not self.S3_SECRET_KEY.get_secret_value():
+            errors.append("S3_SECRET_KEY must be set")
+
+        # Database URL should not contain default credentials
+        if "postgres:postgres@" in self.DATABASE_URL:
+            errors.append(
+                "DATABASE_URL appears to use default credentials. "
+                "Use secure credentials in production."
+            )
+
+        # CORS origins should not include localhost in production
+        if self.APP_ENV == "production":
+            localhost_origins = [
+                o for o in self.CORS_ORIGINS
+                if "localhost" in o or "127.0.0.1" in o
+            ]
+            if localhost_origins:
+                errors.append(
+                    f"CORS_ORIGINS contains localhost URLs which should not "
+                    f"be allowed in production: {localhost_origins}"
+                )
+
+        return errors
+
+    @staticmethod
+    def _is_weak_secret(secret: str, re_module: Any) -> bool:
+        """Check if a secret matches weak patterns."""
+        if not secret:
+            return True
+
+        weak_patterns = [
+            r"^(dev|test|secret|password|changeme|change-me|default)",
+            r"^.{0,15}$",  # Too short (less than 16 chars)
+        ]
+        return any(
+            re_module.match(pattern, secret, re_module.IGNORECASE)
+            for pattern in weak_patterns
+        )
 
     @property
     def is_production(self) -> bool:
@@ -168,6 +267,34 @@ class Settings(BaseSettings):
     def is_development(self) -> bool:
         """Check if running in development environment."""
         return self.APP_ENV == "development"
+
+    @property
+    def is_staging(self) -> bool:
+        """Check if running in staging environment."""
+        return self.APP_ENV == "staging"
+
+
+    @property
+    def arq_redis_settings(self) -> "RedisSettings":
+        """Get arq Redis settings from REDIS_URL.
+
+        Parses the REDIS_URL and returns a RedisSettings object
+        compatible with arq's create_pool function.
+
+        Returns:
+            RedisSettings object for arq connection pool.
+        """
+        from urllib.parse import urlparse
+
+        from arq.connections import RedisSettings
+
+        parsed = urlparse(self.REDIS_URL)
+        return RedisSettings(
+            host=parsed.hostname or "localhost",
+            port=parsed.port or 6379,
+            database=int(parsed.path.lstrip("/") or 0) if parsed.path else 0,
+            password=parsed.password,
+        )
 
 
 @lru_cache

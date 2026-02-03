@@ -1,12 +1,7 @@
 """AI content generators for papers (pitch, simplified abstract)."""
 
-from pathlib import Path
-
-from jinja2 import Environment, FileSystemLoader
-
 from paper_scraper.modules.scoring.llm_client import get_llm_client
-
-PROMPTS_DIR = Path(__file__).parent / "prompts"
+from paper_scraper.modules.scoring.prompts import jinja_env
 
 
 class SimplifiedAbstractGenerator:
@@ -15,8 +10,7 @@ class SimplifiedAbstractGenerator:
     def __init__(self) -> None:
         """Initialize generator with LLM client and template."""
         self.llm = get_llm_client()
-        self.env = Environment(loader=FileSystemLoader(PROMPTS_DIR))
-        self.template = self.env.get_template("simplified_abstract.jinja2")
+        self.template = jinja_env.get_template("simplified_abstract.jinja2")
 
     async def generate(
         self,
@@ -63,8 +57,7 @@ class PitchGenerator:
     def __init__(self) -> None:
         """Initialize pitch generator with LLM client and template."""
         self.llm = get_llm_client()
-        self.env = Environment(loader=FileSystemLoader(PROMPTS_DIR))
-        self.template = self.env.get_template("one_line_pitch.jinja2")
+        self.template = jinja_env.get_template("one_line_pitch.jinja2")
 
     async def generate(
         self,

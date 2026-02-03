@@ -1,6 +1,6 @@
 """FastAPI router for export endpoints."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated
 from uuid import UUID
 
@@ -14,6 +14,34 @@ from paper_scraper.modules.export.schemas import ExportFormat
 from paper_scraper.modules.export.service import ExportService
 
 router = APIRouter()
+
+# Format configuration: media_type, file_extension
+FORMAT_CONFIG = {
+    ExportFormat.CSV: ("text/csv", "csv"),
+    ExportFormat.BIBTEX: ("application/x-bibtex", "bib"),
+    ExportFormat.PDF: ("text/plain", "txt"),  # Would be application/pdf with proper library
+}
+
+
+def _create_export_response(
+    content: str | bytes,
+    format: ExportFormat,
+    count: int,
+    filename_prefix: str = "papers_export",
+) -> Response:
+    """Create a standardized export response."""
+    media_type, extension = FORMAT_CONFIG[format]
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    filename = f"{filename_prefix}_{timestamp}.{extension}"
+
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-Paper-Count": str(count),
+        },
+    )
 
 
 def get_export_service(
@@ -39,24 +67,13 @@ async def export_csv(
     Returns a CSV file containing paper metadata, optionally with
     scoring data and author information.
     """
-    csv_content, count = await export_service.export_csv(
+    content, count = await export_service.export_csv(
         organization_id=current_user.organization_id,
         paper_ids=paper_ids,
         include_scores=include_scores,
         include_authors=include_authors,
     )
-
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    filename = f"papers_export_{timestamp}.csv"
-
-    return Response(
-        content=csv_content,
-        media_type="text/csv",
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
-            "X-Paper-Count": str(count),
-        },
-    )
+    return _create_export_response(content, ExportFormat.CSV, count)
 
 
 @router.get(
@@ -74,23 +91,12 @@ async def export_bibtex(
     Returns a BibTeX file suitable for use with LaTeX and
     reference management software.
     """
-    bibtex_content, count = await export_service.export_bibtex(
+    content, count = await export_service.export_bibtex(
         organization_id=current_user.organization_id,
         paper_ids=paper_ids,
         include_abstract=include_abstract,
     )
-
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    filename = f"papers_export_{timestamp}.bib"
-
-    return Response(
-        content=bibtex_content,
-        media_type="application/x-bibtex",
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
-            "X-Paper-Count": str(count),
-        },
-    )
+    return _create_export_response(content, ExportFormat.BIBTEX, count)
 
 
 @router.get(
@@ -109,24 +115,13 @@ async def export_pdf(
     Returns a PDF document containing paper details,
     optionally with scoring information and abstracts.
     """
-    pdf_content, count = await export_service.export_pdf(
+    content, count = await export_service.export_pdf(
         organization_id=current_user.organization_id,
         paper_ids=paper_ids,
         include_scores=include_scores,
         include_abstract=include_abstract,
     )
-
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    filename = f"papers_report_{timestamp}.txt"  # Using .txt for now
-
-    return Response(
-        content=pdf_content,
-        media_type="text/plain",  # Would be application/pdf with proper library
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
-            "X-Paper-Count": str(count),
-        },
-    )
+    return _create_export_response(content, ExportFormat.PDF, count, "papers_report")
 
 
 @router.post(
@@ -142,49 +137,28 @@ async def batch_export(
     include_authors: bool = Query(default=True),
 ) -> Response:
     """Batch export specific papers in the requested format."""
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    org_id = current_user.organization_id
 
     if format == ExportFormat.CSV:
         content, count = await export_service.export_csv(
-            organization_id=current_user.organization_id,
+            organization_id=org_id,
             paper_ids=paper_ids,
             include_scores=include_scores,
             include_authors=include_authors,
         )
-        return Response(
-            content=content,
-            media_type="text/csv",
-            headers={
-                "Content-Disposition": f'attachment; filename="papers_export_{timestamp}.csv"',
-                "X-Paper-Count": str(count),
-            },
-        )
+        return _create_export_response(content, format, count)
 
-    elif format == ExportFormat.BIBTEX:
+    if format == ExportFormat.BIBTEX:
         content, count = await export_service.export_bibtex(
-            organization_id=current_user.organization_id,
+            organization_id=org_id,
             paper_ids=paper_ids,
         )
-        return Response(
-            content=content,
-            media_type="application/x-bibtex",
-            headers={
-                "Content-Disposition": f'attachment; filename="papers_export_{timestamp}.bib"',
-                "X-Paper-Count": str(count),
-            },
-        )
+        return _create_export_response(content, format, count)
 
-    else:  # PDF
-        content, count = await export_service.export_pdf(
-            organization_id=current_user.organization_id,
-            paper_ids=paper_ids,
-            include_scores=include_scores,
-        )
-        return Response(
-            content=content,
-            media_type="text/plain",
-            headers={
-                "Content-Disposition": f'attachment; filename="papers_report_{timestamp}.txt"',
-                "X-Paper-Count": str(count),
-            },
-        )
+    # PDF format
+    content, count = await export_service.export_pdf(
+        organization_id=org_id,
+        paper_ids=paper_ids,
+        include_scores=include_scores,
+    )
+    return _create_export_response(content, format, count, "papers_report")

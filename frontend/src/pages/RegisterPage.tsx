@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/Card'
 import { FileText } from 'lucide-react'
+import { getApiErrorMessage } from '@/types'
 
 export function RegisterPage() {
   const [email, setEmail] = useState('')
@@ -31,9 +32,8 @@ export function RegisterPage() {
         organization_name: organizationName,
       })
       navigate('/')
-    } catch (err: any) {
-      const message = err.response?.data?.detail || err.response?.data?.message || 'Registration failed. Please try again.'
-      setError(message)
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Registration failed. Please try again.'))
     } finally {
       setIsLoading(false)
     }

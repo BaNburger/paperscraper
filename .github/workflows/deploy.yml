@@ -50,10 +50,22 @@ jobs:
 
     outputs:
       backend-image: ${{ steps.meta-backend.outputs.tags }}
+      backend-digest: ${{ steps.build-backend.outputs.digest }}
       frontend-image: ${{ steps.meta-frontend.outputs.tags }}
+      frontend-digest: ${{ steps.build-frontend.outputs.digest }}
+      version: ${{ steps.version.outputs.version }}
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          else
+            echo "version=sha-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -88,6 +100,7 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and push backend
+        id: build-backend
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -97,8 +110,12 @@ jobs:
           labels: ${{ steps.meta-backend.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_VERSION=${{ steps.version.outputs.version }}
+            BUILD_COMMIT=${{ github.sha }}
 
       - name: Build and push frontend
+        id: build-frontend
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
@@ -119,20 +136,88 @@ jobs:
     environment:
       name: staging
       url: ${{ secrets.STAGING_URL }}
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy to staging
+      - name: Validate required secrets
+        run: |
+          if [[ -z "${{ secrets.STAGING_SSH_HOST }}" ]]; then
+            echo "::error::STAGING_SSH_HOST secret is not set"
+            exit 1
+          fi
+          if [[ -z "${{ secrets.STAGING_SSH_KEY }}" ]]; then
+            echo "::error::STAGING_SSH_KEY secret is not set"
+            exit 1
+          fi
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.STAGING_SSH_KEY }}
+
+      - name: Add host to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.STAGING_SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to staging server
+        env:
+          DEPLOY_HOST: ${{ secrets.STAGING_SSH_HOST }}
+          DEPLOY_USER: ${{ secrets.STAGING_SSH_USER }}
+          DEPLOY_PATH: ${{ secrets.STAGING_DEPLOY_PATH }}
+          BACKEND_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ needs.build-and-push.outputs.version }}
+          FRONTEND_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ needs.build-and-push.outputs.version }}
         run: |
           echo "Deploying to staging environment..."
-          echo "Backend image: ${{ needs.build-and-push.outputs.backend-image }}"
-          echo "Frontend image: ${{ needs.build-and-push.outputs.frontend-image }}"
-          # Add your deployment commands here, e.g.:
-          # - SSH to server and docker pull/run
-          # - kubectl apply
-          # - terraform apply
-          # - etc.
+          echo "Backend image: $BACKEND_IMAGE"
+          echo "Frontend image: $FRONTEND_IMAGE"
+
+          ssh $DEPLOY_USER@$DEPLOY_HOST << 'ENDSSH'
+            set -e
+            cd ${{ secrets.STAGING_DEPLOY_PATH }}
+
+            # Login to registry
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Pull new images
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ needs.build-and-push.outputs.version }}
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ needs.build-and-push.outputs.version }}
+
+            # Update environment file with new image tags
+            sed -i "s|BACKEND_IMAGE=.*|BACKEND_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ needs.build-and-push.outputs.version }}|" .env
+            sed -i "s|FRONTEND_IMAGE=.*|FRONTEND_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ needs.build-and-push.outputs.version }}|" .env
+
+            # Deploy with zero-downtime restart
+            docker compose pull
+            docker compose up -d --remove-orphans
+
+            # Wait for services to be healthy
+            echo "Waiting for services to be healthy..."
+            sleep 10
+          ENDSSH
+
+      - name: Verify deployment
+        run: |
+          echo "Verifying staging deployment..."
+          for i in {1..30}; do
+            if curl -sf "${{ secrets.STAGING_URL }}/health" > /dev/null; then
+              echo "Health check passed!"
+              exit 0
+            fi
+            echo "Waiting for service to be ready... (attempt $i/30)"
+            sleep 5
+          done
+          echo "::error::Health check failed after 30 attempts"
+          exit 1
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::warning::Staging deployment failed! Consider rolling back."
 
   deploy-production:
     name: Deploy to Production
@@ -142,19 +227,150 @@ jobs:
     environment:
       name: production
       url: ${{ secrets.PRODUCTION_URL }}
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy to production
+      - name: Validate required secrets
+        run: |
+          missing_secrets=""
+          if [[ -z "${{ secrets.PROD_SSH_HOST }}" ]]; then
+            missing_secrets="$missing_secrets PROD_SSH_HOST"
+          fi
+          if [[ -z "${{ secrets.PROD_SSH_KEY }}" ]]; then
+            missing_secrets="$missing_secrets PROD_SSH_KEY"
+          fi
+          if [[ -n "$missing_secrets" ]]; then
+            echo "::error::Missing required secrets:$missing_secrets"
+            exit 1
+          fi
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.PROD_SSH_KEY }}
+
+      - name: Add host to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.PROD_SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Create backup before deployment
+        env:
+          DEPLOY_HOST: ${{ secrets.PROD_SSH_HOST }}
+          DEPLOY_USER: ${{ secrets.PROD_SSH_USER }}
+        run: |
+          echo "Creating pre-deployment backup..."
+          ssh $DEPLOY_USER@$DEPLOY_HOST << 'ENDSSH'
+            set -e
+            cd ${{ secrets.PROD_DEPLOY_PATH }}
+
+            # Save current image tags for rollback
+            docker compose config | grep 'image:' > /tmp/previous-images.txt || true
+
+            # Backup database (if pg_dump is available)
+            if command -v pg_dump &> /dev/null; then
+              echo "Creating database backup..."
+              BACKUP_FILE="backup-$(date +%Y%m%d-%H%M%S).sql"
+              docker compose exec -T db pg_dump -U postgres paperscraper > "/backups/$BACKUP_FILE" || true
+              echo "Database backup created: $BACKUP_FILE"
+            fi
+          ENDSSH
+
+      - name: Deploy to production server
+        env:
+          DEPLOY_HOST: ${{ secrets.PROD_SSH_HOST }}
+          DEPLOY_USER: ${{ secrets.PROD_SSH_USER }}
+          DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+          BACKEND_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ needs.build-and-push.outputs.version }}
+          FRONTEND_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ needs.build-and-push.outputs.version }}
         run: |
           echo "Deploying to production environment..."
-          echo "Backend image: ${{ needs.build-and-push.outputs.backend-image }}"
-          echo "Frontend image: ${{ needs.build-and-push.outputs.frontend-image }}"
-          # Add your deployment commands here
+          echo "Backend image: $BACKEND_IMAGE"
+          echo "Frontend image: $FRONTEND_IMAGE"
+
+          ssh $DEPLOY_USER@$DEPLOY_HOST << 'ENDSSH'
+            set -e
+            cd ${{ secrets.PROD_DEPLOY_PATH }}
+
+            # Login to registry
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Pull new images
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ needs.build-and-push.outputs.version }}
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ needs.build-and-push.outputs.version }}
+
+            # Update environment file with new image tags
+            sed -i "s|BACKEND_IMAGE=.*|BACKEND_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ needs.build-and-push.outputs.version }}|" .env
+            sed -i "s|FRONTEND_IMAGE=.*|FRONTEND_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ needs.build-and-push.outputs.version }}|" .env
+
+            # Run database migrations first (with timeout)
+            echo "Running database migrations..."
+            timeout 300 docker compose run --rm api alembic upgrade head
+
+            # Deploy with zero-downtime restart
+            docker compose up -d --remove-orphans
+
+            # Prune old images
+            docker image prune -f
+
+            echo "Waiting for services to be healthy..."
+            sleep 15
+          ENDSSH
+
+      - name: Verify production deployment
+        run: |
+          echo "Verifying production deployment..."
+          for i in {1..30}; do
+            HEALTH_RESPONSE=$(curl -sf "${{ secrets.PRODUCTION_URL }}/health/ready" || echo "failed")
+            if [[ "$HEALTH_RESPONSE" != "failed" ]]; then
+              echo "Health check response: $HEALTH_RESPONSE"
+              if echo "$HEALTH_RESPONSE" | grep -q '"status":"ready"'; then
+                echo "Production deployment verified successfully!"
+                exit 0
+              fi
+            fi
+            echo "Waiting for service to be ready... (attempt $i/30)"
+            sleep 10
+          done
+          echo "::error::Production health check failed after 30 attempts"
+          exit 1
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v1
         with:
           generate_release_notes: true
+          body: |
+            ## Deployment Info
+            - **Backend Image**: `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ needs.build-and-push.outputs.version }}`
+            - **Frontend Image**: `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ needs.build-and-push.outputs.version }}`
+            - **Commit**: ${{ github.sha }}
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Production deployment failed!"
+          echo "To rollback, run the rollback workflow or manually restore from backup."
+
+  # Optional: Rollback job that can be triggered manually
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && failure()
+    needs: [determine-environment, deploy-staging, deploy-production]
+    environment:
+      name: ${{ needs.determine-environment.outputs.environment }}
+
+    steps:
+      - name: Rollback notification
+        run: |
+          echo "::warning::Deployment failed. Manual rollback may be required."
+          echo "To rollback:"
+          echo "1. SSH to the server"
+          echo "2. cd to deployment directory"
+          echo "3. Restore previous image tags from /tmp/previous-images.txt"
+          echo "4. Run: docker compose up -d"

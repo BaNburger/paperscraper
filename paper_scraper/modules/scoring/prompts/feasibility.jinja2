@@ -45,6 +45,38 @@ Also evaluate:
 5. **Scalability:** Can this scale from lab to production?
 6. **Dependencies:** What external technologies/resources are required?
 
+## Example Responses
+
+Example 1 - High Feasibility (Score: 7.5):
+```json
+{
+    "score": 7.5,
+    "confidence": 0.80,
+    "reasoning": "The paper demonstrates a working prototype of the biosensor with clinical validation data from 200+ patients. Manufacturing uses standard semiconductor processes, and the team has already identified a contract manufacturer. Main remaining work is regulatory clearance.",
+    "estimated_trl": 7,
+    "time_to_market_years": "1-2",
+    "development_cost_estimate": "medium",
+    "key_technical_risks": ["Regulatory approval timeline", "Sensitivity in real-world conditions"],
+    "required_capabilities": ["FDA regulatory expertise", "Clinical trial management"],
+    "scalability_assessment": "easy"
+}
+```
+
+Example 2 - Low Feasibility (Score: 2.5):
+```json
+{
+    "score": 2.5,
+    "confidence": 0.70,
+    "reasoning": "This theoretical framework for room-temperature superconductivity presents intriguing physics but lacks experimental validation. The proposed materials have not been synthesized, and the conditions described present significant engineering challenges that may take decades to overcome.",
+    "estimated_trl": 2,
+    "time_to_market_years": "10+",
+    "development_cost_estimate": "very_high",
+    "key_technical_risks": ["Material synthesis feasibility", "Fundamental physics assumptions untested"],
+    "required_capabilities": ["Advanced materials synthesis", "High-pressure physics expertise", "Substantial research funding"],
+    "scalability_assessment": "uncertain"
+}
+```
+
 ## Required JSON Response
 
 Respond with ONLY valid JSON in this exact format:

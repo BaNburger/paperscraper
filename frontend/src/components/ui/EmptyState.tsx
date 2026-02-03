@@ -17,14 +17,14 @@ interface EmptyStateProps {
   className?: string
 }
 
-export const EmptyState = ({
+export function EmptyState({
   icon,
   title,
   description,
   action,
   secondaryAction,
   className,
-}: EmptyStateProps) => {
+}: EmptyStateProps): JSX.Element {
   return (
     <div
       className={cn(

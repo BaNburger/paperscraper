@@ -1,11 +1,10 @@
 """Service layer for scoring module."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from paper_scraper.core.exceptions import NotFoundError
 from paper_scraper.modules.papers.models import Paper
@@ -21,6 +20,7 @@ from paper_scraper.modules.scoring.schemas import (
     PaperScoreListResponse,
     PaperScoreSummary,
     ScoringJobListResponse,
+    ScoringJobResponse,
     ScoringWeightsSchema,
 )
 
@@ -68,7 +68,7 @@ class ScoringService:
         # Check for existing recent score (within 24 hours)
         if not force_rescore:
             existing = await self.get_latest_score(paper_id, organization_id)
-            if existing and existing.created_at > datetime.utcnow() - timedelta(hours=24):
+            if existing and existing.created_at > datetime.now(timezone.utc) - timedelta(hours=24):
                 return existing
 
         # Ensure paper has embedding for similar paper lookup
@@ -276,8 +276,6 @@ class ScoringService:
         result = await self.db.execute(query)
         jobs = list(result.scalars().all())
 
-        from paper_scraper.modules.scoring.schemas import ScoringJobResponse
-
         return ScoringJobListResponse(
             items=[ScoringJobResponse.model_validate(j) for j in jobs],
             total=total,
@@ -302,9 +300,9 @@ class ScoringService:
         job.status = status
 
         if status == "running" and not job.started_at:
-            job.started_at = datetime.utcnow()
+            job.started_at = datetime.now(timezone.utc)
         if status in ("completed", "failed"):
-            job.completed_at = datetime.utcnow()
+            job.completed_at = datetime.now(timezone.utc)
 
         if completed_papers is not None:
             job.completed_papers = completed_papers

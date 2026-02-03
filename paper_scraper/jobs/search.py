@@ -13,27 +13,24 @@ async def backfill_embeddings_task(
     batch_size: int = 100,
     max_papers: int | None = None,
 ) -> dict[str, Any]:
-    """
-    arq task: Backfill embeddings for papers that don't have them.
+    """Backfill embeddings for papers that don't have them.
 
-    This task generates embeddings for all papers in an organization
-    that don't currently have vector embeddings.
+    Generates embeddings for all papers in an organization that don't
+    currently have vector embeddings.
 
     Args:
-        ctx: arq context
-        organization_id: UUID string of organization
-        batch_size: Papers to process per batch (for commits)
-        max_papers: Maximum papers to process (None = all)
+        ctx: arq context.
+        organization_id: UUID string of organization.
+        batch_size: Papers to process per batch (for commits).
+        max_papers: Maximum papers to process (None = all).
 
     Returns:
-        Result dict with backfill statistics
+        Result dict with backfill statistics.
     """
-    org_uuid = UUID(organization_id)
-
     async with get_db_session() as db:
         service = SearchService(db)
         result = await service.backfill_embeddings(
-            organization_id=org_uuid,
+            organization_id=UUID(organization_id),
             batch_size=batch_size,
             max_papers=max_papers,
         )

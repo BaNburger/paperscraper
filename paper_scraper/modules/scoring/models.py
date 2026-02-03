@@ -4,7 +4,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, Float, ForeignKey, Index, JSON, String, Text, Uuid, func
+from sqlalchemy import DateTime, Float, ForeignKey, Index, String, Text, Uuid, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from paper_scraper.core.database import Base
@@ -48,13 +49,13 @@ class PaperScore(Base):
 
     # Scoring metadata
     model_version: Mapped[str] = mapped_column(String(50), nullable=False)
-    weights: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    weights: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
     # Detailed dimension data (reasoning, details, etc.)
-    dimension_details: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    dimension_details: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
     # Scoring errors (if any)
-    errors: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    errors: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
@@ -100,7 +101,7 @@ class ScoringJob(Base):
     )  # pending, running, completed, failed
 
     # Job details
-    paper_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    paper_ids: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     total_papers: Mapped[int] = mapped_column(nullable=False, default=0)
     completed_papers: Mapped[int] = mapped_column(nullable=False, default=0)
     failed_papers: Mapped[int] = mapped_column(nullable=False, default=0)

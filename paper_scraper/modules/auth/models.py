@@ -2,16 +2,12 @@
 
 import enum
 from datetime import datetime
-from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, JSON, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from paper_scraper.core.database import Base
-
-if TYPE_CHECKING:
-    pass
 
 
 class OrganizationType(str, enum.Enum):

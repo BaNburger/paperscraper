@@ -3,8 +3,23 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTheme } from '@/contexts/ThemeContext'
 import { FileText, LogOut, User, Settings, Building2, ChevronDown, Sun, Moon, Monitor } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
-export function Navbar() {
+type Theme = 'light' | 'dark' | 'system'
+
+interface ThemeOption {
+  value: Theme
+  label: string
+  icon: LucideIcon
+}
+
+const themeOptions: ThemeOption[] = [
+  { value: 'light', label: 'Light', icon: Sun },
+  { value: 'dark', label: 'Dark', icon: Moon },
+  { value: 'system', label: 'System', icon: Monitor },
+]
+
+export function Navbar(): JSX.Element {
   const { user, logout } = useAuth()
   const { theme, setTheme, resolvedTheme } = useTheme()
   const navigate = useNavigate()
@@ -13,9 +28,8 @@ export function Navbar() {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const themeDropdownRef = useRef<HTMLDivElement>(null)
 
-  // Close dropdowns when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    function handleClickOutside(event: MouseEvent): void {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsDropdownOpen(false)
       }
@@ -26,6 +40,21 @@ export function Navbar() {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  function handleThemeSelect(selectedTheme: Theme): void {
+    setTheme(selectedTheme)
+    setIsThemeDropdownOpen(false)
+  }
+
+  function handleNavigate(path: string): void {
+    setIsDropdownOpen(false)
+    navigate(path)
+  }
+
+  function handleLogout(): void {
+    setIsDropdownOpen(false)
+    logout()
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -53,42 +82,21 @@ export function Navbar() {
             {isThemeDropdownOpen && (
               <div className="absolute right-0 mt-2 w-36 rounded-md border bg-popover shadow-lg">
                 <div className="p-1">
-                  <button
-                    onClick={() => {
-                      setTheme('light')
-                      setIsThemeDropdownOpen(false)
-                    }}
-                    className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent ${
-                      theme === 'light' ? 'bg-accent' : ''
-                    }`}
-                  >
-                    <Sun className="h-4 w-4" />
-                    Light
-                  </button>
-                  <button
-                    onClick={() => {
-                      setTheme('dark')
-                      setIsThemeDropdownOpen(false)
-                    }}
-                    className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent ${
-                      theme === 'dark' ? 'bg-accent' : ''
-                    }`}
-                  >
-                    <Moon className="h-4 w-4" />
-                    Dark
-                  </button>
-                  <button
-                    onClick={() => {
-                      setTheme('system')
-                      setIsThemeDropdownOpen(false)
-                    }}
-                    className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent ${
-                      theme === 'system' ? 'bg-accent' : ''
-                    }`}
-                  >
-                    <Monitor className="h-4 w-4" />
-                    System
-                  </button>
+                  {themeOptions.map((option) => {
+                    const Icon = option.icon
+                    return (
+                      <button
+                        key={option.value}
+                        onClick={() => handleThemeSelect(option.value)}
+                        className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent ${
+                          theme === option.value ? 'bg-accent' : ''
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {option.label}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             )}
@@ -118,10 +126,7 @@ export function Navbar() {
                   </div>
                   <div className="p-1">
                     <button
-                      onClick={() => {
-                        setIsDropdownOpen(false)
-                        navigate('/settings')
-                      }}
+                      onClick={() => handleNavigate('/settings')}
                       className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
                     >
                       <Settings className="h-4 w-4" />
@@ -129,10 +134,7 @@ export function Navbar() {
                     </button>
                     {user.role === 'admin' && (
                       <button
-                        onClick={() => {
-                          setIsDropdownOpen(false)
-                          navigate('/settings/organization')
-                        }}
+                        onClick={() => handleNavigate('/settings/organization')}
                         className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
                       >
                         <Building2 className="h-4 w-4" />
@@ -142,10 +144,7 @@ export function Navbar() {
                   </div>
                   <div className="p-1 border-t">
                     <button
-                      onClick={() => {
-                        setIsDropdownOpen(false)
-                        logout()
-                      }}
+                      onClick={handleLogout}
                       className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950"
                     >
                       <LogOut className="h-4 w-4" />

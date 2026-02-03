@@ -4,7 +4,7 @@ interface SkeletonProps {
   className?: string
 }
 
-export const Skeleton = ({ className }: SkeletonProps) => {
+export function Skeleton({ className }: SkeletonProps): JSX.Element {
   return (
     <div
       className={cn('animate-pulse rounded-md bg-muted', className)}
@@ -12,11 +12,11 @@ export const Skeleton = ({ className }: SkeletonProps) => {
   )
 }
 
-export const SkeletonText = ({ className }: SkeletonProps) => {
+export function SkeletonText({ className }: SkeletonProps): JSX.Element {
   return <Skeleton className={cn('h-4 w-full', className)} />
 }
 
-export const SkeletonCard = ({ className }: SkeletonProps) => {
+export function SkeletonCard({ className }: SkeletonProps): JSX.Element {
   return (
     <div className={cn('rounded-lg border bg-card p-6 space-y-4', className)}>
       <Skeleton className="h-6 w-3/4" />
@@ -30,7 +30,11 @@ export const SkeletonCard = ({ className }: SkeletonProps) => {
   )
 }
 
-export const SkeletonTable = ({ rows = 5 }: { rows?: number }) => {
+interface SkeletonTableProps {
+  rows?: number
+}
+
+export function SkeletonTable({ rows = 5 }: SkeletonTableProps): JSX.Element {
   return (
     <div className="space-y-3">
       <div className="flex gap-4 pb-3 border-b">
@@ -51,16 +55,21 @@ export const SkeletonTable = ({ rows = 5 }: { rows?: number }) => {
   )
 }
 
-export const SkeletonAvatar = ({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) => {
-  const sizeClasses = {
-    sm: 'h-8 w-8',
-    md: 'h-10 w-10',
-    lg: 'h-14 w-14',
-  }
-  return <Skeleton className={cn('rounded-full', sizeClasses[size])} />
+interface SkeletonAvatarProps {
+  size?: 'sm' | 'md' | 'lg'
 }
 
-export const SkeletonKanban = () => {
+const avatarSizeClasses: Record<'sm' | 'md' | 'lg', string> = {
+  sm: 'h-8 w-8',
+  md: 'h-10 w-10',
+  lg: 'h-14 w-14',
+}
+
+export function SkeletonAvatar({ size = 'md' }: SkeletonAvatarProps): JSX.Element {
+  return <Skeleton className={cn('rounded-full', avatarSizeClasses[size])} />
+}
+
+export function SkeletonKanban(): JSX.Element {
   return (
     <div className="flex gap-4 overflow-x-auto pb-4">
       {Array.from({ length: 4 }).map((_, columnIndex) => (
@@ -75,7 +84,7 @@ export const SkeletonKanban = () => {
   )
 }
 
-export const SkeletonStats = () => {
+export function SkeletonStats(): JSX.Element {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       {Array.from({ length: 4 }).map((_, i) => (

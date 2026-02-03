@@ -1,7 +1,9 @@
 """PDF upload and text extraction service."""
 
+import asyncio
 import io
 import re
+from datetime import timedelta
 from uuid import UUID, uuid4
 
 import fitz  # PyMuPDF
@@ -23,12 +25,17 @@ class PDFService:
             secure=settings.S3_ENDPOINT.startswith("https"),
         )
         self.bucket = settings.S3_BUCKET_NAME
-        self._ensure_bucket()
+        self._bucket_initialized = False
 
-    def _ensure_bucket(self) -> None:
-        """Ensure the bucket exists."""
-        if not self.minio.bucket_exists(self.bucket):
-            self.minio.make_bucket(self.bucket)
+    async def _ensure_bucket(self) -> None:
+        """Ensure the bucket exists (async wrapper)."""
+        if self._bucket_initialized:
+            return
+
+        exists = await asyncio.to_thread(self.minio.bucket_exists, self.bucket)
+        if not exists:
+            await asyncio.to_thread(self.minio.make_bucket, self.bucket)
+        self._bucket_initialized = True
 
     async def upload_and_extract(
         self,
@@ -47,60 +54,74 @@ class PDFService:
         Returns:
             Dict with extracted metadata and S3 path
         """
+        # Ensure bucket exists (lazy init)
+        await self._ensure_bucket()
+
         # Generate unique path
         file_id = uuid4()
         s3_path = f"papers/{organization_id}/{file_id}/{filename}"
 
-        # Upload to S3
-        self.minio.put_object(
+        # Upload to S3 (run in thread to avoid blocking)
+        await asyncio.to_thread(
+            self.minio.put_object,
             self.bucket,
             s3_path,
             io.BytesIO(file_content),
-            length=len(file_content),
-            content_type="application/pdf",
+            len(file_content),
+            "application/pdf",
         )
 
-        # Extract text and metadata
-        extracted = self._extract_from_pdf(file_content)
+        # Extract text and metadata (CPU-bound, run in thread)
+        extracted = await asyncio.to_thread(self._extract_from_pdf, file_content)
         extracted["pdf_path"] = s3_path
 
         return extracted
 
     def _extract_from_pdf(self, pdf_content: bytes) -> dict:
-        """Extract text and metadata from PDF using PyMuPDF."""
+        """Extract text and metadata from PDF using PyMuPDF.
+
+        Args:
+            pdf_content: Raw PDF bytes.
+
+        Returns:
+            Dictionary with extracted title, abstract, authors, full_text, keywords, and source.
+        """
         doc = fitz.open(stream=pdf_content, filetype="pdf")
 
-        # Extract metadata
-        metadata = doc.metadata or {}
-        title = metadata.get("title") or self._extract_title_from_text(doc)
+        try:
+            metadata = doc.metadata or {}
+            title = metadata.get("title") or self._extract_title_from_text(doc)
+            full_text = "\n".join(page.get_text("text") for page in doc)
+            abstract = self._extract_abstract(full_text)
+            authors = self._parse_authors(metadata.get("author", ""))
 
-        # Extract full text
-        full_text_parts = []
-        for page in doc:
-            text = page.get_text("text")
-            full_text_parts.append(text)
+            return {
+                "title": title or "Untitled PDF",
+                "abstract": abstract,
+                "authors": authors,
+                "full_text": full_text[:100000],  # Limit to 100k chars
+                "keywords": [],
+                "source": "pdf",
+            }
+        finally:
+            doc.close()
 
-        full_text = "\n".join(full_text_parts)
+    def _parse_authors(self, author_string: str) -> list[dict]:
+        """Parse comma-separated author names into author dictionaries.
 
-        # Extract abstract (heuristic: first paragraph after "Abstract")
-        abstract = self._extract_abstract(full_text)
+        Args:
+            author_string: Comma-separated author names.
 
-        # Extract authors from metadata or text
-        authors = []
-        if metadata.get("author"):
-            for name in metadata["author"].split(","):
-                authors.append({"name": name.strip(), "affiliations": []})
-
-        doc.close()
-
-        return {
-            "title": title or "Untitled PDF",
-            "abstract": abstract,
-            "authors": authors,
-            "full_text": full_text[:100000],  # Limit to 100k chars
-            "keywords": [],
-            "source": "pdf",
-        }
+        Returns:
+            List of author dictionaries with name and affiliations.
+        """
+        if not author_string:
+            return []
+        return [
+            {"name": name.strip(), "affiliations": []}
+            for name in author_string.split(",")
+            if name.strip()
+        ]
 
     def _extract_title_from_text(self, doc: fitz.Document) -> str | None:
         """Extract title from first page (usually largest font text)."""
@@ -143,20 +164,19 @@ class PDFService:
 
         return None
 
-    def get_pdf_url(self, s3_path: str, expires_hours: int = 1) -> str:
+    async def get_pdf_url(self, s3_path: str, expires_hours: int = 1) -> str:
         """Get a presigned URL for PDF download.
 
         Args:
-            s3_path: S3 object path
-            expires_hours: URL expiry time in hours
+            s3_path: S3 object path.
+            expires_hours: URL expiry time in hours.
 
         Returns:
-            Presigned URL for download
+            Presigned URL for download.
         """
-        from datetime import timedelta
-
-        return self.minio.presigned_get_object(
+        return await asyncio.to_thread(
+            self.minio.presigned_get_object,
             self.bucket,
             s3_path,
-            expires=timedelta(hours=expires_hours),
+            timedelta(hours=expires_hours),
         )

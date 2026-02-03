@@ -252,7 +252,7 @@ async def trigger_alert(
 
     # Should not happen, but return empty result if no result found
     from uuid import uuid4
-    from datetime import datetime
+    from datetime import datetime, timezone
     return AlertResultResponse(
         id=uuid4(),
         alert_id=alert_id,
@@ -262,5 +262,5 @@ async def trigger_alert(
         paper_ids=[],
         delivered_at=None,
         error_message=None,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )

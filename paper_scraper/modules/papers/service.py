@@ -17,6 +17,18 @@ from paper_scraper.modules.papers.schemas import IngestResult, PaperListResponse
 from paper_scraper.modules.scoring.pitch_generator import PitchGenerator, SimplifiedAbstractGenerator
 
 
+def _escape_like(text: str) -> str:
+    """Escape special characters for SQL LIKE patterns.
+
+    Args:
+        text: The search text to escape.
+
+    Returns:
+        Text with LIKE special characters (%, _) escaped.
+    """
+    return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 class PaperService:
     """Service for paper management and ingestion."""
 
@@ -75,9 +87,11 @@ class PaperService:
         query = select(Paper).where(Paper.organization_id == organization_id)
 
         if search:
-            search_filter = f"%{search}%"
+            # Escape LIKE special characters to prevent pattern injection
+            search_filter = f"%{_escape_like(search)}%"
             query = query.where(
-                Paper.title.ilike(search_filter) | Paper.abstract.ilike(search_filter)
+                Paper.title.ilike(search_filter, escape="\\")
+                | Paper.abstract.ilike(search_filter, escape="\\")
             )
 
         # Count total
@@ -249,46 +263,11 @@ class PaperService:
         Returns:
             IngestResult with counts of created/skipped papers.
         """
-        created = 0
-        skipped = 0
-        errors: list[str] = []
-
         async with PubMedClient() as client:
             papers_data = await client.search(query, max_results)
 
-        for paper_data in papers_data:
-            try:
-                # Check by DOI first
-                doi = paper_data.get("doi")
-                if doi:
-                    existing = await self.get_paper_by_doi(doi, organization_id)
-                    if existing:
-                        skipped += 1
-                        continue
-
-                # Check by source_id
-                source_id = paper_data.get("source_id")
-                if source_id:
-                    existing = await self._get_paper_by_source(
-                        PaperSource.PUBMED, source_id, organization_id
-                    )
-                    if existing:
-                        skipped += 1
-                        continue
-
-                await self._create_paper_from_data(paper_data, organization_id)
-                created += 1
-            except Exception as e:
-                title = paper_data.get("title", "unknown")[:50]
-                errors.append(f"Error importing '{title}': {str(e)}")
-
-        await self.db.commit()
-
-        return IngestResult(
-            papers_created=created,
-            papers_updated=0,
-            papers_skipped=skipped,
-            errors=errors,
+        return await self._ingest_papers_batch(
+            papers_data, organization_id, PaperSource.PUBMED
         )
 
     async def ingest_from_arxiv(
@@ -309,38 +288,44 @@ class PaperService:
         Returns:
             IngestResult with counts of created/skipped papers.
         """
+        async with ArxivClient() as client:
+            papers_data = await client.search(query, max_results, category)
+
+        return await self._ingest_papers_batch(
+            papers_data, organization_id, PaperSource.ARXIV
+        )
+
+    async def _ingest_papers_batch(
+        self,
+        papers_data: list[dict],
+        organization_id: UUID,
+        source: PaperSource,
+    ) -> IngestResult:
+        """Ingest a batch of papers with duplicate checking.
+
+        Args:
+            papers_data: List of normalized paper data dictionaries.
+            organization_id: Organization UUID.
+            source: Paper source for duplicate checking by source_id.
+
+        Returns:
+            IngestResult with counts of created/skipped papers.
+        """
         created = 0
         skipped = 0
         errors: list[str] = []
 
-        async with ArxivClient() as client:
-            papers_data = await client.search(query, max_results, category)
-
         for paper_data in papers_data:
             try:
-                # Check by DOI first
-                doi = paper_data.get("doi")
-                if doi:
-                    existing = await self.get_paper_by_doi(doi, organization_id)
-                    if existing:
-                        skipped += 1
-                        continue
-
-                # Check by source_id (arXiv ID)
-                source_id = paper_data.get("source_id")
-                if source_id:
-                    existing = await self._get_paper_by_source(
-                        PaperSource.ARXIV, source_id, organization_id
-                    )
-                    if existing:
-                        skipped += 1
-                        continue
+                if await self._paper_exists(paper_data, organization_id, source):
+                    skipped += 1
+                    continue
 
                 await self._create_paper_from_data(paper_data, organization_id)
                 created += 1
             except Exception as e:
                 title = paper_data.get("title", "unknown")[:50]
-                errors.append(f"Error importing '{title}': {str(e)}")
+                errors.append(f"Error importing '{title}': {e}")
 
         await self.db.commit()
 
@@ -350,6 +335,36 @@ class PaperService:
             papers_skipped=skipped,
             errors=errors,
         )
+
+    async def _paper_exists(
+        self,
+        paper_data: dict,
+        organization_id: UUID,
+        source: PaperSource,
+    ) -> bool:
+        """Check if paper already exists by DOI or source_id.
+
+        Args:
+            paper_data: Paper data dictionary.
+            organization_id: Organization UUID.
+            source: Paper source for source_id lookup.
+
+        Returns:
+            True if paper already exists.
+        """
+        doi = paper_data.get("doi")
+        if doi:
+            existing = await self.get_paper_by_doi(doi, organization_id)
+            if existing:
+                return True
+
+        source_id = paper_data.get("source_id")
+        if source_id:
+            existing = await self._get_paper_by_source(source, source_id, organization_id)
+            if existing:
+                return True
+
+        return False
 
     async def ingest_from_pdf(
         self,
@@ -464,7 +479,7 @@ class PaperService:
 
         # Create/link authors
         for idx, author_data in enumerate(data.get("authors", [])):
-            author = await self._get_or_create_author(author_data)
+            author = await self._get_or_create_author(author_data, organization_id)
             paper_author = PaperAuthor(
                 paper_id=paper.id,
                 author_id=author.id,
@@ -476,37 +491,48 @@ class PaperService:
         await self.db.flush()
         return paper
 
-    async def _get_or_create_author(self, data: dict) -> Author:
-        """Get existing author or create new one.
+    async def _get_or_create_author(
+        self, data: dict, organization_id: UUID
+    ) -> Author:
+        """Get existing author or create new one within organization.
 
         Lookup order: ORCID > OpenAlex ID > Create new.
+        Authors are scoped to organizations for multi-tenancy.
 
         Args:
             data: Author data from API response.
+            organization_id: Organization UUID for tenant isolation.
 
         Returns:
             Author object (existing or new).
         """
-        # Try to find by ORCID
+        # Try to find by ORCID within organization
         if data.get("orcid"):
             result = await self.db.execute(
-                select(Author).where(Author.orcid == data["orcid"])
+                select(Author).where(
+                    Author.organization_id == organization_id,
+                    Author.orcid == data["orcid"],
+                )
             )
             author = result.scalar_one_or_none()
             if author:
                 return author
 
-        # Try to find by OpenAlex ID
+        # Try to find by OpenAlex ID within organization
         if data.get("openalex_id"):
             result = await self.db.execute(
-                select(Author).where(Author.openalex_id == data["openalex_id"])
+                select(Author).where(
+                    Author.organization_id == organization_id,
+                    Author.openalex_id == data["openalex_id"],
+                )
             )
             author = result.scalar_one_or_none()
             if author:
                 return author
 
-        # Create new author
+        # Create new author in organization
         author = Author(
+            organization_id=organization_id,
             name=data["name"],
             orcid=data.get("orcid"),
             openalex_id=data.get("openalex_id"),

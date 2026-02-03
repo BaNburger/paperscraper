@@ -24,34 +24,19 @@ class IPPotentialDimension(BaseDimension):
 
     def _parse_response(self, response: dict[str, Any]) -> DimensionResult:
         """Parse IP potential-specific response fields."""
-        score = self._safe_get(response, "score", 5.0, float)
-        confidence = self._safe_get(response, "confidence", 0.5, float)
-        reasoning = self._safe_get(response, "reasoning", "No reasoning provided.", str)
+        score, confidence, reasoning = self._extract_base_fields(response)
 
-        # Clamp values to valid ranges
-        score = max(0.0, min(10.0, score))
-        confidence = max(0.0, min(1.0, confidence))
-
-        # Extract patentability factors
-        patentability_factors = self._safe_get(
-            response, "patentability_factors", {}, dict
-        )
+        patentability_factors = self._safe_get(response, "patentability_factors", {}, dict)
 
         details = {
             "patentability_factors": {
                 "novelty": self._safe_get(patentability_factors, "novelty", 5.0, float),
-                "non_obviousness": self._safe_get(
-                    patentability_factors, "non_obviousness", 5.0, float
-                ),
+                "non_obviousness": self._safe_get(patentability_factors, "non_obviousness", 5.0, float),
                 "utility": self._safe_get(patentability_factors, "utility", 5.0, float),
-                "enablement": self._safe_get(
-                    patentability_factors, "enablement", 5.0, float
-                ),
+                "enablement": self._safe_get(patentability_factors, "enablement", 5.0, float),
             },
             "prior_art_risk": self._safe_get(response, "prior_art_risk", "medium", str),
-            "suggested_claim_scope": self._safe_get(
-                response, "suggested_claim_scope", "uncertain", str
-            ),
+            "suggested_claim_scope": self._safe_get(response, "suggested_claim_scope", "uncertain", str),
         }
 
         return DimensionResult(

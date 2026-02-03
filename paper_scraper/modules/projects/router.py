@@ -23,7 +23,6 @@ from paper_scraper.modules.projects.schemas import (
     ProjectStatistics,
     ProjectUpdate,
     RejectPaperRequest,
-    StageHistoryEntry,
     UpdatePaperStatusRequest,
 )
 from paper_scraper.modules.projects.service import ProjectService

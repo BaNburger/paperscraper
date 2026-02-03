@@ -13,12 +13,12 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
-    JSON,
     String,
     Text,
     Uuid,
     func,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from paper_scraper.core.database import Base
@@ -83,8 +83,8 @@ class Paper(Base):
     pages: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # Extended metadata
-    keywords: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
-    mesh_terms: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    keywords: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    mesh_terms: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     references_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     citations_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
@@ -96,7 +96,7 @@ class Paper(Base):
     embedding: Mapped[list | None] = mapped_column(Vector(1536), nullable=True)
 
     # Raw API response for debugging
-    raw_metadata: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    raw_metadata: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
     # AI-generated content
     one_line_pitch: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -153,15 +153,21 @@ class Author(Base):
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
 
-    # Identifiers
-    orcid: Mapped[str | None] = mapped_column(String(50), nullable=True, unique=True)
-    openalex_id: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, unique=True
+    # Multi-tenancy: Authors are scoped to organizations
+    organization_id: Mapped[UUID] = mapped_column(
+        Uuid,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
+
+    # Identifiers - unique within organization, not globally
+    orcid: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    openalex_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # Profile
     name: Mapped[str] = mapped_column(String(500), nullable=False)
-    affiliations: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    affiliations: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
 
     # Metrics
     h_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -183,11 +189,39 @@ class Author(Base):
     )
 
     # Relationships
+    organization: Mapped["Organization"] = relationship("Organization")
     papers: Mapped[list["PaperAuthor"]] = relationship(
         "PaperAuthor", back_populates="author"
     )
     contacts: Mapped[list["AuthorContact"]] = relationship(
         "AuthorContact", back_populates="author", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        # Unique ORCID within organization
+        Index(
+            "ix_authors_org_orcid",
+            "organization_id",
+            "orcid",
+            unique=True,
+            postgresql_where="orcid IS NOT NULL",
+        ),
+        # Unique OpenAlex ID within organization
+        Index(
+            "ix_authors_org_openalex",
+            "organization_id",
+            "openalex_id",
+            unique=True,
+            postgresql_where="openalex_id IS NOT NULL",
+        ),
+        # HNSW index for author embedding similarity search
+        Index(
+            "ix_authors_embedding_hnsw",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_with={"m": 16, "ef_construction": 64},
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
     )
 
     def __repr__(self) -> str:

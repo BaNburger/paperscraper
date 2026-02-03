@@ -15,12 +15,12 @@ interface ImportPapersStepProps {
   onSkip: () => void
 }
 
-export const ImportPapersStep = ({
+export function ImportPapersStep({
   importedIds,
   onImport,
   onNext,
   onSkip,
-}: ImportPapersStepProps) => {
+}: ImportPapersStepProps): JSX.Element {
   const [method, setMethod] = useState<ImportMethod>('doi')
   const [doi, setDoi] = useState('')
   const [query, setQuery] = useState('')

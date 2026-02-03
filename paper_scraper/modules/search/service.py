@@ -3,16 +3,17 @@
 import time
 from uuid import UUID
 
-from sqlalchemy import Float, String, and_, case, exists, func, literal, or_, select, text
+from sqlalchemy import and_, exists, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from paper_scraper.core.exceptions import NotFoundError
-from paper_scraper.modules.papers.models import Paper, PaperSource
+from paper_scraper.modules.papers.models import Paper
 from paper_scraper.modules.scoring.embeddings import EmbeddingClient
 from paper_scraper.modules.scoring.models import PaperScore
 from paper_scraper.modules.search.schemas import (
     EmbeddingBackfillResult,
+    EmbeddingStats,
     ScoreSummary,
     SearchFilters,
     SearchHighlight,
@@ -238,6 +239,38 @@ class SearchService:
         )
         return result.scalar() or 0
 
+    async def get_embedding_stats(self, organization_id: UUID) -> EmbeddingStats:
+        """Get embedding statistics for an organization."""
+        with_embedding_result = await self.db.execute(
+            select(func.count())
+            .select_from(Paper)
+            .where(
+                Paper.organization_id == organization_id,
+                Paper.embedding.is_not(None),
+            )
+        )
+        without_embedding_result = await self.db.execute(
+            select(func.count())
+            .select_from(Paper)
+            .where(
+                Paper.organization_id == organization_id,
+                Paper.embedding.is_(None),
+            )
+        )
+
+        with_count = with_embedding_result.scalar() or 0
+        without_count = without_embedding_result.scalar() or 0
+        total = with_count + without_count
+
+        coverage = round(with_count / total * 100, 2) if total > 0 else 0.0
+
+        return EmbeddingStats(
+            total_papers=total,
+            with_embedding=with_count,
+            without_embedding=without_count,
+            embedding_coverage=coverage,
+        )
+
     async def backfill_embeddings(
         self,
         organization_id: UUID,
@@ -294,9 +327,12 @@ class SearchService:
             except Exception as e:
                 failed += 1
                 errors.append(f"Paper {paper.id}: {str(e)[:100]}")
+                # Rollback to clear any dirty state from failed operations
+                await self.db.rollback()
 
-        # Final commit
-        await self.db.commit()
+        # Final commit for remaining papers
+        if succeeded % batch_size != 0:
+            await self.db.commit()
 
         return EmbeddingBackfillResult(
             papers_processed=len(papers),
@@ -597,36 +633,74 @@ class SearchService:
         if not filters:
             return query
 
-        # Source filter
+        query = self._apply_basic_filters(query, filters)
+        query = self._apply_score_filters(query, filters, organization_id)
+
+        return query
+
+    def _apply_basic_filters(self, query, filters: SearchFilters):
+        """Apply basic paper field filters."""
         if filters.sources:
             query = query.where(Paper.source.in_(filters.sources))
 
-        # Date filters
         if filters.date_from:
             query = query.where(Paper.publication_date >= filters.date_from)
         if filters.date_to:
             query = query.where(Paper.publication_date <= filters.date_to)
 
-        # Embedding filter
         if filters.has_embedding is True:
             query = query.where(Paper.embedding.is_not(None))
         elif filters.has_embedding is False:
             query = query.where(Paper.embedding.is_(None))
 
-        # Journal filter
         if filters.journals:
             query = query.where(Paper.journal.in_(filters.journals))
 
-        # Keywords filter (any match)
         if filters.keywords:
             keyword_conditions = [
                 Paper.keywords.contains([kw]) for kw in filters.keywords
             ]
             query = query.where(or_(*keyword_conditions))
 
-        # Score filters require joining with paper_scores
-        if filters.min_score is not None or filters.max_score is not None or filters.has_score is not None:
-            # Subquery for latest scores
+        return query
+
+    def _apply_score_filters(
+        self,
+        query,
+        filters: SearchFilters,
+        organization_id: UUID,
+    ):
+        """Apply score-related filters requiring PaperScore join."""
+        needs_score_filter = (
+            filters.min_score is not None
+            or filters.max_score is not None
+            or filters.has_score is not None
+        )
+        if not needs_score_filter:
+            return query
+
+        score_alias = aliased(PaperScore)
+
+        if filters.has_score is True:
+            query = query.where(
+                exists(
+                    select(score_alias.id).where(
+                        score_alias.paper_id == Paper.id,
+                        score_alias.organization_id == organization_id,
+                    )
+                )
+            )
+        elif filters.has_score is False:
+            query = query.where(
+                ~exists(
+                    select(score_alias.id).where(
+                        score_alias.paper_id == Paper.id,
+                        score_alias.organization_id == organization_id,
+                    )
+                )
+            )
+
+        if filters.min_score is not None or filters.max_score is not None:
             latest_score_subquery = (
                 select(
                     PaperScore.paper_id,
@@ -637,46 +711,21 @@ class SearchService:
                 .subquery()
             )
 
-            score_alias = aliased(PaperScore)
+            query = query.join(
+                latest_score_subquery,
+                Paper.id == latest_score_subquery.c.paper_id,
+            ).join(
+                score_alias,
+                and_(
+                    score_alias.paper_id == latest_score_subquery.c.paper_id,
+                    score_alias.created_at == latest_score_subquery.c.latest,
+                ),
+            )
 
-            if filters.has_score is True:
-                # Must have a score
-                query = query.where(
-                    exists(
-                        select(score_alias.id).where(
-                            score_alias.paper_id == Paper.id,
-                            score_alias.organization_id == organization_id,
-                        )
-                    )
-                )
-            elif filters.has_score is False:
-                # Must not have a score
-                query = query.where(
-                    ~exists(
-                        select(score_alias.id).where(
-                            score_alias.paper_id == Paper.id,
-                            score_alias.organization_id == organization_id,
-                        )
-                    )
-                )
-
-            if filters.min_score is not None or filters.max_score is not None:
-                # Join to get score values
-                query = query.join(
-                    latest_score_subquery,
-                    Paper.id == latest_score_subquery.c.paper_id,
-                ).join(
-                    score_alias,
-                    and_(
-                        score_alias.paper_id == latest_score_subquery.c.paper_id,
-                        score_alias.created_at == latest_score_subquery.c.latest,
-                    ),
-                )
-
-                if filters.min_score is not None:
-                    query = query.where(score_alias.overall_score >= filters.min_score)
-                if filters.max_score is not None:
-                    query = query.where(score_alias.overall_score <= filters.max_score)
+            if filters.min_score is not None:
+                query = query.where(score_alias.overall_score >= filters.min_score)
+            if filters.max_score is not None:
+                query = query.where(score_alias.overall_score <= filters.max_score)
 
         return query
 
@@ -749,45 +798,48 @@ class SearchService:
         query: str,
     ) -> list[SearchHighlight]:
         """Generate text highlights showing where query matches."""
-        highlights = []
-        query_lower = query.lower()
-        query_words = query_lower.split()
+        query_words = query.lower().split()
+        highlights: list[SearchHighlight] = []
 
-        # Check title
-        if paper.title:
-            title_lower = paper.title.lower()
-            for word in query_words:
-                if word in title_lower:
-                    # Find context around match
-                    idx = title_lower.find(word)
-                    start = max(0, idx - 30)
-                    end = min(len(paper.title), idx + len(word) + 30)
-                    snippet = paper.title[start:end]
-                    if start > 0:
-                        snippet = "..." + snippet
-                    if end < len(paper.title):
-                        snippet = snippet + "..."
-                    highlights.append(
-                        SearchHighlight(field="title", snippet=snippet)
-                    )
-                    break  # One highlight per field
+        # Title uses smaller context window (30 chars), abstract uses larger (50 chars)
+        title_highlight = self._find_highlight(paper.title, query_words, "title", 30)
+        if title_highlight:
+            highlights.append(title_highlight)
 
-        # Check abstract
-        if paper.abstract:
-            abstract_lower = paper.abstract.lower()
-            for word in query_words:
-                if word in abstract_lower:
-                    idx = abstract_lower.find(word)
-                    start = max(0, idx - 50)
-                    end = min(len(paper.abstract), idx + len(word) + 50)
-                    snippet = paper.abstract[start:end]
-                    if start > 0:
-                        snippet = "..." + snippet
-                    if end < len(paper.abstract):
-                        snippet = snippet + "..."
-                    highlights.append(
-                        SearchHighlight(field="abstract", snippet=snippet)
-                    )
-                    break
+        abstract_highlight = self._find_highlight(
+            paper.abstract, query_words, "abstract", 50
+        )
+        if abstract_highlight:
+            highlights.append(abstract_highlight)
 
         return highlights
+
+    def _find_highlight(
+        self,
+        text: str | None,
+        query_words: list[str],
+        field: str,
+        context_size: int,
+    ) -> SearchHighlight | None:
+        """Find a highlight snippet in text for query words."""
+        if not text:
+            return None
+
+        text_lower = text.lower()
+        for word in query_words:
+            if word not in text_lower:
+                continue
+
+            idx = text_lower.find(word)
+            start = max(0, idx - context_size)
+            end = min(len(text), idx + len(word) + context_size)
+
+            snippet = text[start:end]
+            if start > 0:
+                snippet = "..." + snippet
+            if end < len(text):
+                snippet = snippet + "..."
+
+            return SearchHighlight(field=field, snippet=snippet)
+
+        return None

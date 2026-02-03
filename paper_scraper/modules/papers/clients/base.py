@@ -35,7 +35,6 @@ class BaseAPIClient(ABC):
         Returns:
             List of normalized paper dictionaries.
         """
-        pass
 
     @abstractmethod
     async def get_by_id(self, identifier: str) -> dict | None:
@@ -47,7 +46,6 @@ class BaseAPIClient(ABC):
         Returns:
             Normalized paper dict or None if not found.
         """
-        pass
 
     @abstractmethod
     def normalize(self, raw_data: dict) -> dict:
@@ -59,4 +57,3 @@ class BaseAPIClient(ABC):
         Returns:
             Normalized paper dictionary with standard fields.
         """
-        pass

@@ -1,6 +1,5 @@
 """Service layer for audit logging."""
 
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -47,19 +46,7 @@ class AuditService:
         Returns:
             The created AuditLog entry.
         """
-        ip_address = None
-        user_agent = None
-
-        if request:
-            # Extract client IP (handle proxies)
-            forwarded = request.headers.get("X-Forwarded-For")
-            if forwarded:
-                ip_address = forwarded.split(",")[0].strip()
-            else:
-                ip_address = request.client.host if request.client else None
-
-            user_agent = request.headers.get("User-Agent", "")[:500]
-
+        ip_address, user_agent = self._extract_request_metadata(request)
         action_str = action.value if isinstance(action, AuditAction) else action
 
         audit_log = AuditLog(
@@ -158,23 +145,45 @@ class AuditService:
         logs = list(result.scalars().all())
         return [AuditLogResponse.model_validate(log) for log in logs]
 
-
-# Singleton instance for use without dependency injection
-# (e.g., in background tasks or middleware)
-class AuditServiceFactory:
-    """Factory for creating audit service instances."""
-
-    @staticmethod
-    def create(db: AsyncSession) -> AuditService:
-        """Create an audit service instance.
+    def _extract_request_metadata(
+        self, request: Request | None
+    ) -> tuple[str | None, str | None]:
+        """Extract IP address and user agent from request.
 
         Args:
-            db: Async database session.
+            request: FastAPI request object.
 
         Returns:
-            AuditService instance.
+            Tuple of (ip_address, user_agent).
         """
-        return AuditService(db)
+        if not request:
+            return None, None
+
+        forwarded = request.headers.get("X-Forwarded-For")
+        if forwarded:
+            ip_address = forwarded.split(",")[0].strip()
+        else:
+            ip_address = request.client.host if request.client else None
+
+        user_agent = request.headers.get("User-Agent", "")[:500]
+        return ip_address, user_agent
 
 
-audit_service = AuditServiceFactory()
+def create_audit_service(db: AsyncSession) -> AuditService:
+    """Create an audit service instance.
+
+    Use this factory function for creating AuditService instances
+    in background tasks or middleware where dependency injection
+    is not available.
+
+    Args:
+        db: Async database session.
+
+    Returns:
+        AuditService instance.
+    """
+    return AuditService(db)
+
+
+# Alias for backward compatibility
+audit_service = create_audit_service

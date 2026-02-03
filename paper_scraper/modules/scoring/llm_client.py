@@ -1,7 +1,12 @@
 """Provider-agnostic LLM client abstraction with Langfuse observability."""
 
+import asyncio
 import json
+import logging
+import re
 from abc import ABC, abstractmethod
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -10,6 +15,8 @@ from langfuse.decorators import observe
 
 from paper_scraper.core.config import settings
 from paper_scraper.core.exceptions import ExternalAPIError
+
+logger = logging.getLogger(__name__)
 
 # Initialize Langfuse client (disabled if no public key configured)
 langfuse = Langfuse(
@@ -20,6 +27,213 @@ langfuse = Langfuse(
     host=settings.LANGFUSE_HOST,
     enabled=bool(settings.LANGFUSE_PUBLIC_KEY),
 )
+
+
+# =============================================================================
+# Token Usage Tracking
+# =============================================================================
+
+
+@dataclass
+class TokenUsage:
+    """Token usage statistics from LLM response."""
+
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    model: str
+
+    @property
+    def estimated_cost_usd(self) -> float:
+        """Estimate cost in USD based on model pricing (approximate)."""
+        # Pricing per 1M tokens (approximate, as of 2026)
+        pricing = {
+            "gpt-5-mini": {"input": 0.15, "output": 0.60},
+            "gpt-4o": {"input": 2.50, "output": 10.00},
+            "gpt-4o-mini": {"input": 0.15, "output": 0.60},
+            "gpt-3.5-turbo": {"input": 0.50, "output": 1.50},
+            "claude-sonnet-4-20250514": {"input": 3.00, "output": 15.00},
+            "claude-3-haiku": {"input": 0.25, "output": 1.25},
+        }
+        model_pricing = pricing.get(self.model, {"input": 1.0, "output": 3.0})
+        return (
+            self.prompt_tokens * model_pricing["input"] / 1_000_000
+            + self.completion_tokens * model_pricing["output"] / 1_000_000
+        )
+
+
+@dataclass
+class LLMResponse:
+    """LLM response with content and metadata."""
+
+    content: str
+    usage: TokenUsage | None = None
+
+
+# =============================================================================
+# Retry Configuration
+# =============================================================================
+
+# HTTP status codes that are retryable
+RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+
+# Maximum retries for transient failures
+MAX_RETRIES = 3
+
+# Base delay for exponential backoff (seconds)
+BASE_RETRY_DELAY = 1.0
+
+# Maximum delay between retries (seconds)
+MAX_RETRY_DELAY = 30.0
+
+
+async def retry_with_backoff(
+    func,
+    max_retries: int = MAX_RETRIES,
+    base_delay: float = BASE_RETRY_DELAY,
+    max_delay: float = MAX_RETRY_DELAY,
+    retryable_errors: tuple = (httpx.HTTPStatusError, httpx.ConnectError, httpx.TimeoutException),
+):
+    """
+    Execute a function with exponential backoff retry logic.
+
+    Args:
+        func: Async function to execute
+        max_retries: Maximum number of retry attempts
+        base_delay: Initial delay in seconds
+        max_delay: Maximum delay between retries
+        retryable_errors: Tuple of exception types to retry
+
+    Returns:
+        Function result
+
+    Raises:
+        Last exception if all retries fail
+    """
+    last_exception = None
+
+    for attempt in range(max_retries + 1):
+        try:
+            return await func()
+        except retryable_errors as e:
+            last_exception = e
+
+            # Check if it's an HTTP error with retryable status
+            if isinstance(e, httpx.HTTPStatusError):
+                if e.response.status_code not in RETRYABLE_STATUS_CODES:
+                    raise  # Non-retryable HTTP error
+
+            if attempt < max_retries:
+                # Calculate delay with exponential backoff and jitter
+                delay = min(base_delay * (2**attempt), max_delay)
+                jitter = delay * 0.1 * (0.5 - asyncio.get_event_loop().time() % 1)
+                actual_delay = delay + jitter
+
+                logger.warning(
+                    f"LLM request failed (attempt {attempt + 1}/{max_retries + 1}), "
+                    f"retrying in {actual_delay:.2f}s: {type(e).__name__}: {e}"
+                )
+                await asyncio.sleep(actual_delay)
+            else:
+                logger.error(f"LLM request failed after {max_retries + 1} attempts: {e}")
+
+    raise last_exception  # type: ignore
+
+
+# =============================================================================
+# Prompt Sanitization
+# =============================================================================
+
+
+def sanitize_text_for_prompt(text: str | None, max_length: int = 2000) -> str:
+    """
+    Sanitize text for safe inclusion in LLM prompts.
+
+    Prevents prompt injection by:
+    - Escaping special control sequences
+    - Removing potential instruction overrides
+    - Truncating to max length
+
+    Args:
+        text: Text to sanitize
+        max_length: Maximum character length
+
+    Returns:
+        Sanitized text safe for prompt inclusion
+    """
+    if not text:
+        return ""
+
+    # Remove potential prompt injection patterns
+    dangerous_patterns = [
+        r"(?i)ignore\s+(all\s+)?(previous|above|prior)\s+(instructions?|prompts?|context)",
+        r"(?i)disregard\s+(all\s+)?(previous|above|prior)",
+        r"(?i)new\s+instructions?:",
+        r"(?i)system\s*prompt\s*override",
+        r"(?i)you\s+are\s+now\s+a",
+        r"(?i)forget\s+(everything|all)",
+        r"(?i)<\s*/?system\s*>",
+        r"(?i)\[INST\]",
+        r"(?i)\[/INST\]",
+        r"```.*?system.*?```",
+    ]
+
+    sanitized = text
+    for pattern in dangerous_patterns:
+        sanitized = re.sub(pattern, "[REDACTED]", sanitized)
+
+    # Escape any remaining special characters that might be interpreted
+    # Remove null bytes and other control characters (except newlines/tabs)
+    sanitized = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", sanitized)
+
+    # Truncate to max length
+    if len(sanitized) > max_length:
+        sanitized = sanitized[:max_length] + "..."
+
+    return sanitized
+
+
+# =============================================================================
+# Shared HTTP Client Manager
+# =============================================================================
+
+
+class HTTPClientManager:
+    """Manages shared HTTP clients for connection pooling."""
+
+    _clients: dict[str, httpx.AsyncClient] = {}
+
+    @classmethod
+    @asynccontextmanager
+    async def get_client(cls, base_url: str, timeout: float = 120.0):
+        """
+        Get or create a shared HTTP client for the given base URL.
+
+        Args:
+            base_url: Base URL for the API
+            timeout: Request timeout in seconds
+
+        Yields:
+            Shared AsyncClient instance
+        """
+        if base_url not in cls._clients:
+            cls._clients[base_url] = httpx.AsyncClient(
+                timeout=timeout,
+                limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
+            )
+        yield cls._clients[base_url]
+
+    @classmethod
+    async def close_all(cls):
+        """Close all HTTP clients."""
+        for client in cls._clients.values():
+            await client.aclose()
+        cls._clients.clear()
+
+
+# =============================================================================
+# Base LLM Client
+# =============================================================================
 
 
 class BaseLLMClient(ABC):
@@ -50,6 +264,30 @@ class BaseLLMClient(ABC):
         pass
 
     @abstractmethod
+    async def complete_with_usage(
+        self,
+        prompt: str,
+        system: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        json_mode: bool = False,
+    ) -> LLMResponse:
+        """
+        Generate a completion with token usage tracking.
+
+        Args:
+            prompt: The user prompt/query
+            system: Optional system prompt
+            temperature: Sampling temperature (0.0-1.0)
+            max_tokens: Maximum tokens in response
+            json_mode: If True, request JSON output
+
+        Returns:
+            LLMResponse with content and usage statistics
+        """
+        pass
+
+    @abstractmethod
     async def complete_json(
         self,
         prompt: str,
@@ -72,8 +310,13 @@ class BaseLLMClient(ABC):
         pass
 
 
+# =============================================================================
+# OpenAI Client
+# =============================================================================
+
+
 class OpenAIClient(BaseLLMClient):
-    """OpenAI API client with Langfuse observability."""
+    """OpenAI API client with Langfuse observability and retry logic."""
 
     def __init__(
         self,
@@ -96,6 +339,24 @@ class OpenAIClient(BaseLLMClient):
         json_mode: bool = False,
     ) -> str:
         """Generate completion using OpenAI API, tracked by Langfuse."""
+        response = await self.complete_with_usage(
+            prompt=prompt,
+            system=system,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            json_mode=json_mode,
+        )
+        return response.content
+
+    async def complete_with_usage(
+        self,
+        prompt: str,
+        system: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        json_mode: bool = False,
+    ) -> LLMResponse:
+        """Generate completion with token usage tracking."""
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
@@ -111,29 +372,48 @@ class OpenAIClient(BaseLLMClient):
         payload: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
-            "temperature": temperature or settings.LLM_TEMPERATURE,
+            "temperature": temperature if temperature is not None else settings.LLM_TEMPERATURE,
             "max_tokens": max_tokens or settings.LLM_MAX_TOKENS,
         }
 
         if json_mode:
             payload["response_format"] = {"type": "json_object"}
 
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(
-                f"{self.base_url}/chat/completions",
-                headers=headers,
-                json=payload,
+        async def make_request():
+            async with HTTPClientManager.get_client(self.base_url) as client:
+                response = await client.post(
+                    f"{self.base_url}/chat/completions",
+                    headers=headers,
+                    json=payload,
+                )
+                response.raise_for_status()
+                return response.json()
+
+        try:
+            data = await retry_with_backoff(make_request)
+        except httpx.HTTPStatusError as e:
+            raise ExternalAPIError(
+                service="OpenAI",
+                message=e.response.text,
+                status_code=e.response.status_code,
             )
 
-            if response.status_code != 200:
-                raise ExternalAPIError(
-                    service="OpenAI",
-                    message=response.text,
-                    status_code=response.status_code,
-                )
+        # Extract content and usage
+        content = data["choices"][0]["message"]["content"]
+        usage = None
+        if "usage" in data:
+            usage = TokenUsage(
+                prompt_tokens=data["usage"]["prompt_tokens"],
+                completion_tokens=data["usage"]["completion_tokens"],
+                total_tokens=data["usage"]["total_tokens"],
+                model=self.model,
+            )
+            logger.info(
+                f"OpenAI request completed: {usage.total_tokens} tokens, "
+                f"~${usage.estimated_cost_usd:.6f}"
+            )
 
-            data = response.json()
-            return data["choices"][0]["message"]["content"]
+        return LLMResponse(content=content, usage=usage)
 
     async def complete_json(
         self,
@@ -161,8 +441,13 @@ class OpenAIClient(BaseLLMClient):
             )
 
 
+# =============================================================================
+# Anthropic Client
+# =============================================================================
+
+
 class AnthropicClient(BaseLLMClient):
-    """Anthropic Claude API client with Langfuse observability."""
+    """Anthropic Claude API client with Langfuse observability and retry logic."""
 
     def __init__(
         self,
@@ -187,11 +472,33 @@ class AnthropicClient(BaseLLMClient):
         json_mode: bool = False,
     ) -> str:
         """Generate completion using Anthropic API, tracked by Langfuse."""
+        response = await self.complete_with_usage(
+            prompt=prompt,
+            system=system,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            json_mode=json_mode,
+        )
+        return response.content
+
+    async def complete_with_usage(
+        self,
+        prompt: str,
+        system: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        json_mode: bool = False,
+    ) -> LLMResponse:
+        """Generate completion with token usage tracking."""
         headers = {
             "x-api-key": self.api_key,
             "Content-Type": "application/json",
             "anthropic-version": "2023-06-01",
         }
+
+        actual_system = system
+        if json_mode:
+            actual_system = (system or "") + "\n\nYou MUST respond with valid JSON only. No other text."
 
         payload: dict[str, Any] = {
             "model": self.model,
@@ -199,27 +506,45 @@ class AnthropicClient(BaseLLMClient):
             "messages": [{"role": "user", "content": prompt}],
         }
 
-        if system:
-            payload["system"] = system
+        if actual_system:
+            payload["system"] = actual_system
         if temperature is not None:
             payload["temperature"] = temperature
 
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(
-                f"{self.base_url}/messages",
-                headers=headers,
-                json=payload,
+        async def make_request():
+            async with HTTPClientManager.get_client(self.base_url) as client:
+                response = await client.post(
+                    f"{self.base_url}/messages",
+                    headers=headers,
+                    json=payload,
+                )
+                response.raise_for_status()
+                return response.json()
+
+        try:
+            data = await retry_with_backoff(make_request)
+        except httpx.HTTPStatusError as e:
+            raise ExternalAPIError(
+                service="Anthropic",
+                message=e.response.text,
+                status_code=e.response.status_code,
             )
 
-            if response.status_code != 200:
-                raise ExternalAPIError(
-                    service="Anthropic",
-                    message=response.text,
-                    status_code=response.status_code,
-                )
+        content = data["content"][0]["text"]
+        usage = None
+        if "usage" in data:
+            usage = TokenUsage(
+                prompt_tokens=data["usage"]["input_tokens"],
+                completion_tokens=data["usage"]["output_tokens"],
+                total_tokens=data["usage"]["input_tokens"] + data["usage"]["output_tokens"],
+                model=self.model,
+            )
+            logger.info(
+                f"Anthropic request completed: {usage.total_tokens} tokens, "
+                f"~${usage.estimated_cost_usd:.6f}"
+            )
 
-            data = response.json()
-            return data["content"][0]["text"]
+        return LLMResponse(content=content, usage=usage)
 
     async def complete_json(
         self,
@@ -229,15 +554,12 @@ class AnthropicClient(BaseLLMClient):
         max_tokens: int | None = None,
     ) -> dict[str, Any]:
         """Generate JSON completion using Anthropic API."""
-        # Anthropic doesn't have native JSON mode, so we instruct via prompt
-        json_system = system or ""
-        json_system += "\n\nYou MUST respond with valid JSON only. No other text."
-
         response = await self.complete(
             prompt=prompt,
-            system=json_system,
+            system=system,
             temperature=temperature,
             max_tokens=max_tokens,
+            json_mode=True,
         )
 
         # Try to extract JSON from response
@@ -260,8 +582,146 @@ class AnthropicClient(BaseLLMClient):
             )
 
 
+# =============================================================================
+# Azure OpenAI Client
+# =============================================================================
+
+
+class AzureOpenAIClient(BaseLLMClient):
+    """Azure OpenAI API client with Langfuse observability and retry logic."""
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        deployment: str | None = None,
+        endpoint: str | None = None,
+        api_version: str | None = None,
+    ):
+        self.api_key = api_key or (
+            settings.AZURE_OPENAI_API_KEY.get_secret_value()
+            if settings.AZURE_OPENAI_API_KEY
+            else ""
+        )
+        self.deployment = deployment or settings.AZURE_OPENAI_DEPLOYMENT or settings.LLM_MODEL
+        self.endpoint = endpoint or settings.AZURE_OPENAI_ENDPOINT or ""
+        self.api_version = api_version or settings.AZURE_OPENAI_API_VERSION
+        self.base_url = f"{self.endpoint.rstrip('/')}/openai/deployments/{self.deployment}"
+
+    @observe(as_type="generation", name="azure-openai-completion")
+    async def complete(
+        self,
+        prompt: str,
+        system: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        json_mode: bool = False,
+    ) -> str:
+        """Generate completion using Azure OpenAI API, tracked by Langfuse."""
+        response = await self.complete_with_usage(
+            prompt=prompt,
+            system=system,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            json_mode=json_mode,
+        )
+        return response.content
+
+    async def complete_with_usage(
+        self,
+        prompt: str,
+        system: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        json_mode: bool = False,
+    ) -> LLMResponse:
+        """Generate completion with token usage tracking."""
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
+        headers = {
+            "api-key": self.api_key,
+            "Content-Type": "application/json",
+        }
+
+        payload: dict[str, Any] = {
+            "messages": messages,
+            "temperature": temperature if temperature is not None else settings.LLM_TEMPERATURE,
+            "max_tokens": max_tokens or settings.LLM_MAX_TOKENS,
+        }
+
+        if json_mode:
+            payload["response_format"] = {"type": "json_object"}
+
+        async def make_request():
+            async with HTTPClientManager.get_client(self.endpoint) as client:
+                response = await client.post(
+                    f"{self.base_url}/chat/completions?api-version={self.api_version}",
+                    headers=headers,
+                    json=payload,
+                )
+                response.raise_for_status()
+                return response.json()
+
+        try:
+            data = await retry_with_backoff(make_request)
+        except httpx.HTTPStatusError as e:
+            raise ExternalAPIError(
+                service="Azure OpenAI",
+                message=e.response.text,
+                status_code=e.response.status_code,
+            )
+
+        content = data["choices"][0]["message"]["content"]
+        usage = None
+        if "usage" in data:
+            usage = TokenUsage(
+                prompt_tokens=data["usage"]["prompt_tokens"],
+                completion_tokens=data["usage"]["completion_tokens"],
+                total_tokens=data["usage"]["total_tokens"],
+                model=self.deployment,
+            )
+            logger.info(
+                f"Azure OpenAI request completed: {usage.total_tokens} tokens, "
+                f"~${usage.estimated_cost_usd:.6f}"
+            )
+
+        return LLMResponse(content=content, usage=usage)
+
+    async def complete_json(
+        self,
+        prompt: str,
+        system: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> dict[str, Any]:
+        """Generate JSON completion using Azure OpenAI API."""
+        response = await self.complete(
+            prompt=prompt,
+            system=system,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            json_mode=True,
+        )
+
+        try:
+            return json.loads(response)
+        except json.JSONDecodeError as e:
+            raise ExternalAPIError(
+                service="Azure OpenAI",
+                message=f"Failed to parse JSON response: {e}",
+                details={"response": response},
+            )
+
+
+# =============================================================================
+# Ollama Client
+# =============================================================================
+
+
 class OllamaClient(BaseLLMClient):
-    """Ollama local LLM client with Langfuse observability."""
+    """Ollama local LLM client with Langfuse observability and retry logic."""
 
     def __init__(
         self,
@@ -281,6 +741,24 @@ class OllamaClient(BaseLLMClient):
         json_mode: bool = False,
     ) -> str:
         """Generate completion using Ollama API, tracked by Langfuse."""
+        response = await self.complete_with_usage(
+            prompt=prompt,
+            system=system,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            json_mode=json_mode,
+        )
+        return response.content
+
+    async def complete_with_usage(
+        self,
+        prompt: str,
+        system: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        json_mode: bool = False,
+    ) -> LLMResponse:
+        """Generate completion with token usage tracking."""
         payload: dict[str, Any] = {
             "model": self.model,
             "prompt": prompt,
@@ -298,21 +776,39 @@ class OllamaClient(BaseLLMClient):
         if json_mode:
             payload["format"] = "json"
 
-        async with httpx.AsyncClient(timeout=300.0) as client:
-            response = await client.post(
-                f"{self.base_url}/api/generate",
-                json=payload,
+        async def make_request():
+            async with HTTPClientManager.get_client(self.base_url, timeout=300.0) as client:
+                response = await client.post(
+                    f"{self.base_url}/api/generate",
+                    json=payload,
+                )
+                response.raise_for_status()
+                return response.json()
+
+        try:
+            data = await retry_with_backoff(make_request)
+        except httpx.HTTPStatusError as e:
+            raise ExternalAPIError(
+                service="Ollama",
+                message=e.response.text,
+                status_code=e.response.status_code,
             )
 
-            if response.status_code != 200:
-                raise ExternalAPIError(
-                    service="Ollama",
-                    message=response.text,
-                    status_code=response.status_code,
-                )
+        content = data["response"]
+        usage = None
+        # Ollama provides token counts in different fields
+        if "prompt_eval_count" in data or "eval_count" in data:
+            prompt_tokens = data.get("prompt_eval_count", 0)
+            completion_tokens = data.get("eval_count", 0)
+            usage = TokenUsage(
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=prompt_tokens + completion_tokens,
+                model=self.model,
+            )
+            logger.info(f"Ollama request completed: {usage.total_tokens} tokens")
 
-            data = response.json()
-            return data["response"]
+        return LLMResponse(content=content, usage=usage)
 
     async def complete_json(
         self,
@@ -340,6 +836,19 @@ class OllamaClient(BaseLLMClient):
             )
 
 
+# =============================================================================
+# Factory Function
+# =============================================================================
+
+# Registry of available LLM providers
+_LLM_PROVIDERS: dict[str, type[BaseLLMClient]] = {
+    "openai": OpenAIClient,
+    "anthropic": AnthropicClient,
+    "ollama": OllamaClient,
+    "azure": AzureOpenAIClient,
+}
+
+
 def get_llm_client(provider: str | None = None) -> BaseLLMClient:
     """
     Factory function to get LLM client based on provider setting.
@@ -352,19 +861,8 @@ def get_llm_client(provider: str | None = None) -> BaseLLMClient:
     """
     provider = provider or settings.LLM_PROVIDER
 
-    if provider == "openai":
-        return OpenAIClient()
-    elif provider == "anthropic":
-        return AnthropicClient()
-    elif provider == "ollama":
-        return OllamaClient()
-    elif provider == "azure":
-        # Azure uses OpenAI-compatible API with different endpoint
-        return OpenAIClient(
-            api_key=settings.AZURE_OPENAI_API_KEY.get_secret_value()
-            if settings.AZURE_OPENAI_API_KEY
-            else "",
-            model=settings.AZURE_OPENAI_DEPLOYMENT or settings.LLM_MODEL,
-        )
-    else:
+    client_class = _LLM_PROVIDERS.get(provider)
+    if client_class is None:
         raise ValueError(f"Unknown LLM provider: {provider}")
+
+    return client_class()

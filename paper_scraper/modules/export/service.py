@@ -3,8 +3,7 @@
 import csv
 import io
 import re
-from datetime import datetime
-from typing import Any
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import select
@@ -13,6 +12,12 @@ from sqlalchemy.orm import selectinload
 
 from paper_scraper.modules.papers.models import Paper, PaperAuthor
 from paper_scraper.modules.scoring.models import PaperScore
+
+
+def _get_sorted_author_names(paper: Paper) -> list[str]:
+    """Get author names sorted by position."""
+    sorted_authors = sorted(paper.authors, key=lambda x: x.position)
+    return [author.author.name for author in sorted_authors]
 
 
 class ExportService:
@@ -132,10 +137,7 @@ class ExportService:
             ]
 
             if include_authors:
-                authors = []
-                for pa in sorted(paper.authors, key=lambda x: x.position):
-                    authors.append(pa.author.name)
-                row.append("; ".join(authors))
+                row.append("; ".join(_get_sorted_author_names(paper)))
 
             if include_scores:
                 score = scores.get(paper.id)
@@ -186,19 +188,16 @@ class ExportService:
 
     def _generate_bibtex_entry(self, paper: Paper, include_abstract: bool) -> str:
         """Generate a single BibTeX entry."""
-        # Generate citation key
-        first_author = ""
-        if paper.authors:
-            sorted_authors = sorted(paper.authors, key=lambda x: x.position)
-            if sorted_authors:
-                first_author = sorted_authors[0].author.name.split()[-1]  # Last name
-                first_author = re.sub(r"[^a-zA-Z]", "", first_author)
+        author_names = _get_sorted_author_names(paper) if paper.authors else []
 
-        year = ""
-        if paper.publication_date:
-            year = str(paper.publication_date.year)
+        # Generate citation key from first author's last name and year
+        first_author_key = ""
+        if author_names:
+            last_name = author_names[0].split()[-1]
+            first_author_key = re.sub(r"[^a-zA-Z]", "", last_name).lower()
 
-        citation_key = f"{first_author.lower()}{year}" if first_author else str(paper.id)[:8]
+        year = str(paper.publication_date.year) if paper.publication_date else ""
+        citation_key = f"{first_author_key}{year}" if first_author_key else str(paper.id)[:8]
 
         # Build entry
         lines = [f"@article{{{citation_key},"]
@@ -207,9 +206,7 @@ class ExportService:
         lines.append(f"  title = {{{self._escape_bibtex(paper.title)}}},")
 
         # Authors
-        if paper.authors:
-            sorted_authors = sorted(paper.authors, key=lambda x: x.position)
-            author_names = [a.author.name for a in sorted_authors]
+        if author_names:
             lines.append(f"  author = {{{' and '.join(author_names)}}},")
 
         # Year and date
@@ -316,7 +313,7 @@ class ExportService:
         lines = [
             "=" * 80,
             "PAPER EXPORT REPORT",
-            f"Generated: {datetime.utcnow().isoformat()}",
+            f"Generated: {datetime.now(timezone.utc).isoformat()}",
             f"Total Papers: {len(papers)}",
             "=" * 80,
             "",
@@ -332,9 +329,7 @@ class ExportService:
                 lines.append(f"DOI: {paper.doi}")
 
             if paper.authors:
-                sorted_authors = sorted(paper.authors, key=lambda x: x.position)
-                author_names = [a.author.name for a in sorted_authors]
-                lines.append(f"Authors: {', '.join(author_names)}")
+                lines.append(f"Authors: {', '.join(_get_sorted_author_names(paper))}")
 
             if paper.journal:
                 lines.append(f"Journal: {paper.journal}")

@@ -12,9 +12,9 @@ from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 from paper_scraper.api.middleware import SecurityHeadersMiddleware, SlowAPIMiddleware, limiter
-from paper_scraper.core.database import engine as db_engine
 from paper_scraper.api.v1.router import api_router
 from paper_scraper.core.config import settings
+from paper_scraper.core.database import engine as db_engine
 from paper_scraper.core.exceptions import (
     DuplicateError,
     ForbiddenError,
@@ -49,6 +49,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan handler with proper resource management."""
     # Startup
     logger.info("Starting Paper Scraper API...")
+
+    # Critical security check: Ensure JWT secret is changed in production
+    if settings.is_production:
+        jwt_secret = settings.JWT_SECRET_KEY.get_secret_value()
+        if jwt_secret == "change-me-in-production":
+            raise RuntimeError(
+                "CRITICAL: JWT_SECRET_KEY must be changed in production! "
+                "Set a secure random value via environment variable."
+            )
 
     # Use the shared engine from database module (avoid duplicate initialization)
     app.state.db_engine = db_engine
@@ -119,99 +128,65 @@ app.add_middleware(SecurityHeadersMiddleware)
 # =============================================================================
 
 
-@app.exception_handler(NotFoundError)
-async def not_found_handler(request: Request, exc: NotFoundError) -> JSONResponse:
-    """Handle NotFoundError exceptions."""
-    return JSONResponse(
-        status_code=status.HTTP_404_NOT_FOUND,
-        content={
-            "error": exc.code,
-            "message": exc.message,
-            "details": exc.details,
-        },
-    )
+def _build_error_content(exc: PaperScraperException) -> dict:
+    """Build error response content, hiding details in production."""
+    content = {
+        "error": exc.code,
+        "message": exc.message,
+    }
+    if hasattr(exc, "field") and exc.field:
+        content["field"] = exc.field
+    if settings.DEBUG:
+        content["details"] = exc.details
+    return content
 
 
-@app.exception_handler(UnauthorizedError)
-async def unauthorized_handler(request: Request, exc: UnauthorizedError) -> JSONResponse:
-    """Handle UnauthorizedError exceptions."""
-    return JSONResponse(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        content={
-            "error": exc.code,
-            "message": exc.message,
-            "details": exc.details,
-        },
+def _create_exception_handler(
+    status_code: int,
+    headers: dict[str, str] | None = None,
+):
+    """Create an exception handler for a given status code."""
+    async def handler(request: Request, exc: PaperScraperException) -> JSONResponse:
+        return JSONResponse(
+            status_code=status_code,
+            content=_build_error_content(exc),
+            headers=headers,
+        )
+    return handler
+
+
+# Register exception handlers
+app.add_exception_handler(
+    NotFoundError,
+    _create_exception_handler(status.HTTP_404_NOT_FOUND),
+)
+app.add_exception_handler(
+    UnauthorizedError,
+    _create_exception_handler(
+        status.HTTP_401_UNAUTHORIZED,
         headers={"WWW-Authenticate": "Bearer"},
-    )
-
-
-@app.exception_handler(ForbiddenError)
-async def forbidden_handler(request: Request, exc: ForbiddenError) -> JSONResponse:
-    """Handle ForbiddenError exceptions."""
-    return JSONResponse(
-        status_code=status.HTTP_403_FORBIDDEN,
-        content={
-            "error": exc.code,
-            "message": exc.message,
-            "details": exc.details,
-        },
-    )
-
-
-@app.exception_handler(ValidationError)
-async def validation_handler(request: Request, exc: ValidationError) -> JSONResponse:
-    """Handle ValidationError exceptions."""
-    return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={
-            "error": exc.code,
-            "message": exc.message,
-            "field": exc.field,
-            "details": exc.details,
-        },
-    )
-
-
-@app.exception_handler(DuplicateError)
-async def duplicate_handler(request: Request, exc: DuplicateError) -> JSONResponse:
-    """Handle DuplicateError exceptions."""
-    return JSONResponse(
-        status_code=status.HTTP_409_CONFLICT,
-        content={
-            "error": exc.code,
-            "message": exc.message,
-            "details": exc.details,
-        },
-    )
-
-
-@app.exception_handler(RateLimitError)
-async def rate_limit_handler(request: Request, exc: RateLimitError) -> JSONResponse:
-    """Handle RateLimitError exceptions."""
-    return JSONResponse(
-        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-        content={
-            "error": exc.code,
-            "message": exc.message,
-            "details": exc.details,
-        },
-    )
-
-
-@app.exception_handler(PaperScraperException)
-async def paper_scraper_handler(
-    request: Request, exc: PaperScraperException
-) -> JSONResponse:
-    """Handle generic PaperScraperException."""
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={
-            "error": exc.code,
-            "message": exc.message,
-            "details": exc.details,
-        },
-    )
+    ),
+)
+app.add_exception_handler(
+    ForbiddenError,
+    _create_exception_handler(status.HTTP_403_FORBIDDEN),
+)
+app.add_exception_handler(
+    ValidationError,
+    _create_exception_handler(status.HTTP_422_UNPROCESSABLE_ENTITY),
+)
+app.add_exception_handler(
+    DuplicateError,
+    _create_exception_handler(status.HTTP_409_CONFLICT),
+)
+app.add_exception_handler(
+    RateLimitError,
+    _create_exception_handler(status.HTTP_429_TOO_MANY_REQUESTS),
+)
+app.add_exception_handler(
+    PaperScraperException,
+    _create_exception_handler(status.HTTP_500_INTERNAL_SERVER_ERROR),
+)
 
 
 # =============================================================================
@@ -221,8 +196,58 @@ async def paper_scraper_handler(
 
 @app.get("/health", tags=["Health"])
 async def health_check() -> dict[str, str]:
-    """Health check endpoint for container orchestration."""
+    """Basic health check endpoint (liveness probe)."""
     return {"status": "healthy", "service": settings.APP_NAME}
+
+
+@app.get("/health/live", tags=["Health"])
+async def liveness_check() -> dict[str, str]:
+    """Liveness probe - checks if the application is running."""
+    return {"status": "alive"}
+
+
+@app.get("/health/ready", tags=["Health"])
+async def readiness_check(request: Request) -> JSONResponse:
+    """Readiness probe - checks if the application can serve traffic."""
+    checks = {
+        "database": "unknown",
+        "redis": "unknown",
+    }
+    overall_healthy = True
+
+    # Check database
+    try:
+        from sqlalchemy import text
+        from paper_scraper.core.database import async_session_factory
+
+        async with async_session_factory() as session:
+            await session.execute(text("SELECT 1"))
+        checks["database"] = "healthy"
+    except Exception as e:
+        checks["database"] = f"unhealthy: {str(e)[:100]}"
+        overall_healthy = False
+
+    # Check Redis
+    try:
+        if hasattr(request.app.state, "redis") and request.app.state.redis:
+            await request.app.state.redis.ping()
+            checks["redis"] = "healthy"
+        else:
+            checks["redis"] = "not configured"
+    except Exception as e:
+        checks["redis"] = f"unhealthy: {str(e)[:100]}"
+        overall_healthy = False
+
+    status_code = status.HTTP_200_OK if overall_healthy else status.HTTP_503_SERVICE_UNAVAILABLE
+
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "status": "ready" if overall_healthy else "not ready",
+            "service": settings.APP_NAME,
+            "checks": checks,
+        },
+    )
 
 
 @app.get("/", tags=["Root"])

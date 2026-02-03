@@ -28,8 +28,6 @@ class ContactBase(BaseModel):
 class ContactCreate(ContactBase):
     """Schema for creating a contact log."""
 
-    pass
-
 
 class ContactUpdate(BaseModel):
     """Schema for updating a contact log."""

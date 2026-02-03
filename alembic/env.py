@@ -14,7 +14,12 @@ from paper_scraper.core.database import Base
 from paper_scraper.modules.auth.models import Organization, User  # noqa: F401
 from paper_scraper.modules.papers.models import Author, Paper, PaperAuthor  # noqa: F401
 
-# Try to import additional models (may not exist yet in early sprints)
+# Import additional models
+try:
+    from paper_scraper.modules.papers.notes import PaperNote  # noqa: F401
+except ImportError:
+    pass
+
 try:
     from paper_scraper.modules.scoring.models import PaperScore, ScoringJob  # noqa: F401
 except ImportError:
@@ -22,6 +27,26 @@ except ImportError:
 
 try:
     from paper_scraper.modules.projects.models import Project, PaperProjectStatus, PaperStageHistory  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    from paper_scraper.modules.authors.models import AuthorContact  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    from paper_scraper.modules.audit.models import AuditLog  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    from paper_scraper.modules.saved_searches.models import SavedSearch  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    from paper_scraper.modules.alerts.models import Alert, AlertResult  # noqa: F401
 except ImportError:
     pass
 

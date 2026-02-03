@@ -1,6 +1,6 @@
 """Service layer for authors module."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -37,9 +37,13 @@ class AuthorService:
     async def get_author(
         self,
         author_id: UUID,
+        organization_id: UUID | None = None,
     ) -> Author | None:
-        """Get an author by ID."""
-        result = await self.db.execute(select(Author).where(Author.id == author_id))
+        """Get an author by ID, optionally filtered by organization."""
+        query = select(Author).where(Author.id == author_id)
+        if organization_id:
+            query = query.where(Author.organization_id == organization_id)
+        result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
     async def get_author_profile(
@@ -48,7 +52,7 @@ class AuthorService:
         organization_id: UUID,
     ) -> AuthorProfileResponse | None:
         """Get author profile with computed stats."""
-        author = await self.get_author(author_id)
+        author = await self.get_author(author_id, organization_id)
         if not author:
             return None
 
@@ -67,21 +71,7 @@ class AuthorService:
         # Get contact stats for this org
         contact_stats = await self._get_contact_stats(author_id, organization_id)
 
-        return AuthorProfileResponse(
-            id=author.id,
-            name=author.name,
-            orcid=author.orcid,
-            openalex_id=author.openalex_id,
-            affiliations=author.affiliations,
-            h_index=author.h_index,
-            citation_count=author.citation_count,
-            works_count=author.works_count,
-            created_at=author.created_at,
-            updated_at=author.updated_at,
-            paper_count=paper_count,
-            recent_contacts_count=contact_stats.get("recent_count", 0),
-            last_contact_date=contact_stats.get("last_contact_date"),
-        )
+        return self._build_author_profile_response(author, paper_count, contact_stats)
 
     async def get_author_detail(
         self,
@@ -89,7 +79,7 @@ class AuthorService:
         organization_id: UUID,
     ) -> AuthorDetailResponse | None:
         """Get full author detail with papers and contacts."""
-        author = await self.get_author(author_id)
+        author = await self.get_author(author_id, organization_id)
         if not author:
             return None
 
@@ -153,20 +143,11 @@ class AuthorService:
         # Get contact stats
         contact_stats = await self._get_contact_stats(author_id, organization_id)
 
+        profile = self._build_author_profile_response(
+            author, len(papers), contact_stats
+        )
         return AuthorDetailResponse(
-            id=author.id,
-            name=author.name,
-            orcid=author.orcid,
-            openalex_id=author.openalex_id,
-            affiliations=author.affiliations,
-            h_index=author.h_index,
-            citation_count=author.citation_count,
-            works_count=author.works_count,
-            created_at=author.created_at,
-            updated_at=author.updated_at,
-            paper_count=len(papers),
-            recent_contacts_count=contact_stats.get("recent_count", 0),
-            last_contact_date=contact_stats.get("last_contact_date"),
+            **profile.model_dump(),
             papers=papers,
             contacts=contacts,
         )
@@ -178,15 +159,9 @@ class AuthorService:
         page_size: int = 20,
         search: str | None = None,
     ) -> AuthorListResponse:
-        """List authors with papers in this organization."""
-        # Base query - authors who have papers in this org
-        base_query = (
-            select(Author)
-            .join(PaperAuthor)
-            .join(Paper)
-            .where(Paper.organization_id == organization_id)
-            .distinct()
-        )
+        """List authors in this organization."""
+        # Base query - authors belonging to this organization
+        base_query = select(Author).where(Author.organization_id == organization_id)
 
         if search:
             search_filter = f"%{search}%"
@@ -221,21 +196,7 @@ class AuthorService:
             contact_stats = await self._get_contact_stats(author.id, organization_id)
 
             items.append(
-                AuthorProfileResponse(
-                    id=author.id,
-                    name=author.name,
-                    orcid=author.orcid,
-                    openalex_id=author.openalex_id,
-                    affiliations=author.affiliations,
-                    h_index=author.h_index,
-                    citation_count=author.citation_count,
-                    works_count=author.works_count,
-                    created_at=author.created_at,
-                    updated_at=author.updated_at,
-                    paper_count=paper_count,
-                    recent_contacts_count=contact_stats.get("recent_count", 0),
-                    last_contact_date=contact_stats.get("last_contact_date"),
-                )
+                self._build_author_profile_response(author, paper_count, contact_stats)
             )
 
         return AuthorListResponse(
@@ -258,8 +219,8 @@ class AuthorService:
         data: ContactCreate,
     ) -> AuthorContact:
         """Log a contact with an author."""
-        # Verify author exists
-        author = await self.get_author(author_id)
+        # Verify author exists and belongs to this organization (tenant isolation)
+        author = await self.get_author(author_id, organization_id)
         if not author:
             raise NotFoundError("Author", author_id)
 
@@ -268,7 +229,7 @@ class AuthorService:
             organization_id=organization_id,
             contacted_by_id=user_id,
             contact_type=data.contact_type,
-            contact_date=data.contact_date or datetime.utcnow(),
+            contact_date=data.contact_date or datetime.now(timezone.utc),
             subject=data.subject,
             notes=data.notes,
             outcome=data.outcome,
@@ -330,8 +291,8 @@ class AuthorService:
         organization_id: UUID,
     ) -> AuthorContactStats:
         """Get contact statistics for an author."""
-        # Verify author exists
-        author = await self.get_author(author_id)
+        # Verify author exists and belongs to this organization (tenant isolation)
+        author = await self.get_author(author_id, organization_id)
         if not author:
             raise NotFoundError("Author", author_id)
 
@@ -406,11 +367,13 @@ class AuthorService:
     async def enrich_author(
         self,
         author_id: UUID,
+        organization_id: UUID,
         source: str = "openalex",
         force_update: bool = False,
     ) -> EnrichmentResult:
         """Enrich author data from external sources."""
-        author = await self.get_author(author_id)
+        # Verify author exists and belongs to this organization (tenant isolation)
+        author = await self.get_author(author_id, organization_id)
         if not author:
             raise NotFoundError("Author", author_id)
 
@@ -533,12 +496,35 @@ class AuthorService:
     # Private Methods
     # =========================================================================
 
+    def _build_author_profile_response(
+        self,
+        author: Author,
+        paper_count: int,
+        contact_stats: dict,
+    ) -> AuthorProfileResponse:
+        """Build AuthorProfileResponse from author and stats data."""
+        return AuthorProfileResponse(
+            id=author.id,
+            name=author.name,
+            orcid=author.orcid,
+            openalex_id=author.openalex_id,
+            affiliations=author.affiliations,
+            h_index=author.h_index,
+            citation_count=author.citation_count,
+            works_count=author.works_count,
+            created_at=author.created_at,
+            updated_at=author.updated_at,
+            paper_count=paper_count,
+            recent_contacts_count=contact_stats.get("recent_count", 0),
+            last_contact_date=contact_stats.get("last_contact_date"),
+        )
+
     async def _get_contact_stats(
         self, author_id: UUID, organization_id: UUID
     ) -> dict:
         """Get basic contact stats for author profile."""
         # Recent contacts (last 30 days)
-        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
         recent_result = await self.db.execute(
             select(func.count()).where(
                 AuthorContact.author_id == author_id,

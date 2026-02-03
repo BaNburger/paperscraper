@@ -24,19 +24,11 @@ class NoveltyDimension(BaseDimension):
 
     def _parse_response(self, response: dict[str, Any]) -> DimensionResult:
         """Parse novelty-specific response fields."""
-        score = self._safe_get(response, "score", 5.0, float)
-        confidence = self._safe_get(response, "confidence", 0.5, float)
-        reasoning = self._safe_get(response, "reasoning", "No reasoning provided.", str)
-
-        # Clamp values to valid ranges
-        score = max(0.0, min(10.0, score))
-        confidence = max(0.0, min(1.0, confidence))
+        score, confidence, reasoning = self._extract_base_fields(response)
 
         details = {
             "key_factors": self._safe_get(response, "key_factors", [], list),
-            "comparison_to_sota": self._safe_get(
-                response, "comparison_to_sota", "", str
-            ),
+            "comparison_to_sota": self._safe_get(response, "comparison_to_sota", "", str),
         }
 
         return DimensionResult(

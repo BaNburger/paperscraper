@@ -159,3 +159,23 @@ class BaseDimension(ABC):
                 except (ValueError, TypeError):
                     value = default
         return value
+
+    def _extract_base_fields(self, response: dict[str, Any]) -> tuple[float, float, str]:
+        """
+        Extract and validate common scoring fields from LLM response.
+
+        Args:
+            response: Parsed JSON response from LLM
+
+        Returns:
+            Tuple of (score, confidence, reasoning) with values clamped to valid ranges
+        """
+        score = self._safe_get(response, "score", 5.0, float)
+        confidence = self._safe_get(response, "confidence", 0.5, float)
+        reasoning = self._safe_get(response, "reasoning", "No reasoning provided.", str)
+
+        # Clamp values to valid ranges
+        score = max(0.0, min(10.0, score))
+        confidence = max(0.0, min(1.0, confidence))
+
+        return score, confidence, reasoning

@@ -14,10 +14,10 @@ async def ingest_openalex_task(
     max_results: int = 100,
     filters: dict | None = None,
 ) -> dict[str, Any]:
-    """arq task: Ingest papers from OpenAlex.
+    """Ingest papers from OpenAlex.
 
     Args:
-        ctx: arq context (contains redis connection).
+        ctx: arq context.
         organization_id: UUID string of organization.
         query: OpenAlex search query.
         max_results: Maximum papers to import.
@@ -26,13 +26,11 @@ async def ingest_openalex_task(
     Returns:
         Ingestion result dict.
     """
-    org_id = UUID(organization_id)
-
     async with get_db_session() as db:
         service = PaperService(db)
         result = await service.ingest_from_openalex(
             query=query,
-            organization_id=org_id,
+            organization_id=UUID(organization_id),
             max_results=max_results,
             filters=filters,
         )

@@ -5,21 +5,26 @@ import { cn } from '@/lib/utils'
 import { scoringApi, papersApi } from '@/lib/api'
 import type { Paper, PaperScore } from '@/types'
 
+function getScoreColorClass(value: number): string {
+  if (value >= 8) return 'bg-green-500'
+  if (value >= 6) return 'bg-yellow-500'
+  if (value >= 4) return 'bg-orange-500'
+  return 'bg-red-500'
+}
+
 interface ScorePaperStepProps {
   paperIds: string[]
-  scoredPaperId: string | null
   onScored: (id: string) => void
   onComplete: () => void
   onSkip: () => void
 }
 
-export const ScorePaperStep = ({
+export function ScorePaperStep({
   paperIds,
-  scoredPaperId: _scoredPaperId,
   onScored,
   onComplete,
   onSkip,
-}: ScorePaperStepProps) => {
+}: ScorePaperStepProps): JSX.Element {
   const [papers, setPapers] = useState<Paper[]>([])
   const [selectedPaper, setSelectedPaper] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -113,13 +118,7 @@ export const ScorePaperStep = ({
                 <div
                   className={cn(
                     'h-full rounded-full transition-all',
-                    dim.value >= 8
-                      ? 'bg-green-500'
-                      : dim.value >= 6
-                      ? 'bg-yellow-500'
-                      : dim.value >= 4
-                      ? 'bg-orange-500'
-                      : 'bg-red-500'
+                    getScoreColorClass(dim.value)
                   )}
                   style={{ width: `${dim.value * 10}%` }}
                 />

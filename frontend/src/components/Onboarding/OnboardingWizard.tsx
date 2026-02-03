@@ -47,7 +47,7 @@ interface OnboardingWizardProps {
   onComplete: () => void
 }
 
-export const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
+export function OnboardingWizard({ onComplete }: OnboardingWizardProps): JSX.Element {
   const navigate = useNavigate()
   const [currentStep, setCurrentStep] = useState(0)
   const [state, setState] = useState<OnboardingState>({
@@ -110,7 +110,6 @@ export const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
         return (
           <ScorePaperStep
             paperIds={state.importedPaperIds}
-            scoredPaperId={state.scoredPaperId}
             onScored={(id) => updateState({ scoredPaperId: id })}
             onComplete={handleComplete}
             onSkip={handleComplete}

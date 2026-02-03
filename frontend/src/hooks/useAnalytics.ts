@@ -2,11 +2,13 @@ import { useQuery } from '@tanstack/react-query'
 import { analyticsApi, exportApi } from '@/lib/api'
 import type { ExportFormat } from '@/types'
 
+const ANALYTICS_STALE_TIME = 60000 // 1 minute
+
 export function useDashboardSummary() {
   return useQuery({
     queryKey: ['analytics', 'dashboard'],
     queryFn: () => analyticsApi.getDashboardSummary(),
-    staleTime: 60000, // 1 minute
+    staleTime: ANALYTICS_STALE_TIME,
   })
 }
 
@@ -14,19 +16,28 @@ export function useTeamOverview() {
   return useQuery({
     queryKey: ['analytics', 'team'],
     queryFn: () => analyticsApi.getTeamOverview(),
-    staleTime: 60000,
+    staleTime: ANALYTICS_STALE_TIME,
   })
 }
 
-export function usePaperAnalytics(days: number = 90) {
+export function usePaperAnalytics(days = 90) {
   return useQuery({
     queryKey: ['analytics', 'papers', days],
     queryFn: () => analyticsApi.getPaperAnalytics({ days }),
-    staleTime: 60000,
+    staleTime: ANALYTICS_STALE_TIME,
   })
 }
 
-// Export helpers
+function getExportTimestamp(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+const FILE_EXTENSIONS: Record<ExportFormat, string> = {
+  csv: 'csv',
+  bibtex: 'bib',
+  pdf: 'txt',
+}
+
 export function useExportCsv() {
   return async (paperIds?: string[], includeScores = true, includeAuthors = true) => {
     const blob = await exportApi.exportCsv({
@@ -34,8 +45,7 @@ export function useExportCsv() {
       include_scores: includeScores,
       include_authors: includeAuthors,
     })
-    const timestamp = new Date().toISOString().slice(0, 10)
-    exportApi.downloadFile(blob, `papers_export_${timestamp}.csv`)
+    exportApi.downloadFile(blob, `papers_export_${getExportTimestamp()}.csv`)
   }
 }
 
@@ -45,8 +55,7 @@ export function useExportBibtex() {
       paper_ids: paperIds,
       include_abstract: includeAbstract,
     })
-    const timestamp = new Date().toISOString().slice(0, 10)
-    exportApi.downloadFile(blob, `papers_export_${timestamp}.bib`)
+    exportApi.downloadFile(blob, `papers_export_${getExportTimestamp()}.bib`)
   }
 }
 
@@ -57,8 +66,7 @@ export function useExportPdf() {
       include_scores: includeScores,
       include_abstract: includeAbstract,
     })
-    const timestamp = new Date().toISOString().slice(0, 10)
-    exportApi.downloadFile(blob, `papers_report_${timestamp}.txt`)
+    exportApi.downloadFile(blob, `papers_report_${getExportTimestamp()}.txt`)
   }
 }
 
@@ -69,12 +77,6 @@ export function useBatchExport() {
     options?: { include_scores?: boolean; include_authors?: boolean }
   ) => {
     const blob = await exportApi.batchExport(paperIds, format, options)
-    const timestamp = new Date().toISOString().slice(0, 10)
-    const extensions: Record<ExportFormat, string> = {
-      csv: 'csv',
-      bibtex: 'bib',
-      pdf: 'txt',
-    }
-    exportApi.downloadFile(blob, `papers_export_${timestamp}.${extensions[format]}`)
+    exportApi.downloadFile(blob, `papers_export_${getExportTimestamp()}.${FILE_EXTENSIONS[format]}`)
   }
 }

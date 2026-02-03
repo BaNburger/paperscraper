@@ -4,7 +4,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, JSON, String, Text, Uuid, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, Text, Uuid, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from paper_scraper.core.database import Base
@@ -39,7 +40,7 @@ class SavedSearch(Base):
     mode: Mapped[str] = mapped_column(
         String(50), nullable=False, default="hybrid"
     )  # fulltext, semantic, hybrid
-    filters: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    filters: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
     # Sharing settings
     is_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

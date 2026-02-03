@@ -4,6 +4,8 @@ import { usePaper, usePaperScore, useScorePaper, useDeletePaper, useSimilarPaper
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { useToast } from '@/components/ui/Toast'
 import { AuthorBadge } from '@/components/AuthorBadge'
 import { AuthorModal } from '@/components/AuthorModal'
 import {
@@ -36,32 +38,52 @@ const scoreDimensions = [
 export function PaperDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const toast = useToast()
   const [showSimplified, setShowSimplified] = useState(false)
   const [selectedAuthorId, setSelectedAuthorId] = useState<string | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
-  const { data: paper, isLoading, error } = usePaper(id!)
-  const { data: score, isLoading: scoreLoading } = usePaperScore(id!)
-  const { data: similarData, isLoading: similarLoading } = useSimilarPapers(id!, 5)
+  // Early return if no id - prevents non-null assertion issues
+  if (!id) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <p className="text-destructive">Invalid paper ID</p>
+          <Link to="/papers">
+            <Button variant="link" className="mt-4">
+              Back to papers
+            </Button>
+          </Link>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const { data: paper, isLoading, error } = usePaper(id)
+  const { data: score, isLoading: scoreLoading } = usePaperScore(id)
+  const { data: similarData, isLoading: similarLoading } = useSimilarPapers(id, 5)
   const scorePaper = useScorePaper()
   const deletePaper = useDeletePaper()
   const generateSimplified = useGenerateSimplifiedAbstract()
 
   const handleScore = async () => {
     try {
-      await scorePaper.mutateAsync(id!)
+      await scorePaper.mutateAsync(id)
+      toast.success('Paper scored', 'AI scoring completed successfully')
     } catch (err) {
-      // Error handled by mutation
+      const message = err instanceof Error ? err.message : 'Failed to score paper'
+      toast.error('Scoring failed', message)
     }
   }
 
   const handleDelete = async () => {
-    if (window.confirm('Are you sure you want to delete this paper?')) {
-      try {
-        await deletePaper.mutateAsync(id!)
-        navigate('/papers')
-      } catch (err) {
-        // Error handled by mutation
-      }
+    try {
+      await deletePaper.mutateAsync(id)
+      toast.success('Paper deleted', 'The paper has been removed')
+      navigate('/papers')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete paper'
+      toast.error('Delete failed', message)
     }
   }
 
@@ -93,7 +115,7 @@ export function PaperDetailPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Go back">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -137,8 +159,9 @@ export function PaperDetailPage() {
           <Button
             variant="destructive"
             size="sm"
-            onClick={handleDelete}
+            onClick={() => setShowDeleteConfirm(true)}
             isLoading={deletePaper.isPending}
+            aria-label="Delete paper"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -182,7 +205,7 @@ export function PaperDetailPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => generateSimplified.mutate(id!)}
+                        onClick={() => generateSimplified.mutate(id)}
                         isLoading={generateSimplified.isPending}
                       >
                         <Sparkles className="h-4 w-4 mr-2" />
@@ -455,6 +478,19 @@ export function PaperDetailPage() {
           onClose={() => setSelectedAuthorId(null)}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Delete Paper"
+        description="Are you sure you want to delete this paper? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={handleDelete}
+        isLoading={deletePaper.isPending}
+        icon={<Trash2 className="h-6 w-6 text-destructive" />}
+      />
     </div>
   )
 }

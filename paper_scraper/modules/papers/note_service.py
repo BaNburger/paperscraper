@@ -25,19 +25,20 @@ def extract_mentions(content: str) -> list[UUID]:
         content: Note content with potential @mentions.
 
     Returns:
-        List of unique user UUIDs mentioned.
+        List of unique user UUIDs mentioned (preserves order).
     """
-    matches = MENTION_PATTERN.findall(content)
-    unique_ids = []
-    seen = set()
-    for match in matches:
+    seen: set[UUID] = set()
+    unique_ids: list[UUID] = []
+
+    for match in MENTION_PATTERN.findall(content):
         try:
             uid = UUID(match)
-            if uid not in seen:
-                unique_ids.append(uid)
-                seen.add(uid)
         except ValueError:
             continue
+        if uid not in seen:
+            seen.add(uid)
+            unique_ids.append(uid)
+
     return unique_ids
 
 
@@ -98,11 +99,14 @@ class NoteService:
         # Verify paper access
         await self._get_paper(paper_id, organization_id)
 
-        # Get notes with user info
+        # Get notes with user info (filter by organization for extra security)
         result = await self.db.execute(
             select(PaperNote)
             .options(selectinload(PaperNote.user))
-            .where(PaperNote.paper_id == paper_id)
+            .where(
+                PaperNote.paper_id == paper_id,
+                PaperNote.organization_id == organization_id,
+            )
             .order_by(PaperNote.created_at.desc())
         )
         notes = list(result.scalars().all())
@@ -141,6 +145,7 @@ class NoteService:
 
         # Create note
         note = PaperNote(
+            organization_id=organization_id,
             paper_id=paper_id,
             user_id=user_id,
             content=content,

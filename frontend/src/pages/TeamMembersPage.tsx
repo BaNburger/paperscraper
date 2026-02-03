@@ -311,7 +311,7 @@ export function TeamMembersPage() {
                       {!isCurrentUser(member.id) && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
+                            <Button variant="ghost" size="sm" aria-label="User actions menu">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -410,6 +410,7 @@ export function TeamMembersPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => cancelInvitationMutation.mutate(invitation.id)}
+                        aria-label="Cancel invitation"
                       >
                         <X className="h-4 w-4" />
                       </Button>

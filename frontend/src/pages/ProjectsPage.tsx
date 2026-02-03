@@ -9,6 +9,14 @@ import { Badge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { SkeletonCard } from '@/components/ui/Skeleton'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog'
 import { useToast } from '@/components/ui/Toast'
 import { FolderKanban, Plus, Trash2, AlertTriangle } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
@@ -35,7 +43,7 @@ export function ProjectsPage() {
       setNewProjectDescription('')
       setShowCreateModal(false)
       success('Project created', `"${newProjectName}" has been created successfully.`)
-    } catch (err) {
+    } catch {
       showError('Failed to create project', 'Please try again.')
     }
   }
@@ -46,7 +54,7 @@ export function ProjectsPage() {
       await deleteProject.mutateAsync(deleteConfirm.id)
       success('Project deleted', `"${deleteConfirm.name}" has been deleted.`)
       setDeleteConfirm(null)
-    } catch (err) {
+    } catch {
       showError('Failed to delete project', 'Please try again.')
     }
   }
@@ -149,6 +157,7 @@ export function ProjectsPage() {
                   e.preventDefault()
                   setDeleteConfirm({ id: project.id, name: project.name })
                 }}
+                aria-label="Delete project"
               >
                 <Trash2 className="h-4 w-4 text-destructive" />
               </Button>
@@ -170,54 +179,52 @@ export function ProjectsPage() {
         icon={<AlertTriangle className="h-6 w-6 text-destructive" />}
       />
 
-      {/* Create Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <Card className="w-full max-w-md mx-4">
-            <CardHeader>
-              <CardTitle>Create Project</CardTitle>
-              <CardDescription>
-                Projects help you organize papers through a review pipeline
-              </CardDescription>
-            </CardHeader>
-            <form onSubmit={handleCreate}>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Project Name</Label>
-                  <Input
-                    id="name"
-                    placeholder="e.g., Q1 2026 Review"
-                    value={newProjectName}
-                    onChange={(e) => setNewProjectName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="description">Description (optional)</Label>
-                  <Input
-                    id="description"
-                    placeholder="What is this project for?"
-                    value={newProjectDescription}
-                    onChange={(e) => setNewProjectDescription(e.target.value)}
-                  />
-                </div>
-              </CardContent>
-              <div className="flex justify-end gap-2 p-6 pt-0">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowCreateModal(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" isLoading={createProject.isPending}>
-                  Create Project
-                </Button>
+      {/* Create Project Dialog */}
+      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Project</DialogTitle>
+            <DialogDescription>
+              Projects help you organize papers through a review pipeline
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreate}>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Project Name</Label>
+                <Input
+                  id="name"
+                  placeholder="e.g., Q1 2026 Review"
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  required
+                />
               </div>
-            </form>
-          </Card>
-        </div>
-      )}
+              <div className="space-y-2">
+                <Label htmlFor="description">Description (optional)</Label>
+                <Input
+                  id="description"
+                  placeholder="What is this project for?"
+                  value={newProjectDescription}
+                  onChange={(e) => setNewProjectDescription(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowCreateModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" isLoading={createProject.isPending}>
+                Create Project
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

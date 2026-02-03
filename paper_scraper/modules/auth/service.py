@@ -47,6 +47,8 @@ from paper_scraper.modules.auth.schemas import (
     UserResponse,
     UserUpdate,
 )
+from paper_scraper.core.account_lockout import account_lockout
+from paper_scraper.core.token_blacklist import token_blacklist
 from paper_scraper.modules.email.service import email_service
 
 
@@ -217,6 +219,9 @@ class AuthService:
         user.hashed_password = get_password_hash(new_password)
         await self.db.flush()
 
+        # Invalidate all existing tokens for this user (security measure)
+        await token_blacklist.invalidate_user_tokens(str(user.id))
+
     # =========================================================================
     # Authentication Methods
     # =========================================================================
@@ -232,17 +237,37 @@ class AuthService:
             The authenticated User.
 
         Raises:
-            UnauthorizedError: If credentials are invalid.
+            UnauthorizedError: If credentials are invalid or account is locked.
         """
+        # Check if account is locked out
+        if await account_lockout.is_locked_out(email):
+            remaining = await account_lockout.get_lockout_remaining_seconds(email)
+            raise UnauthorizedError(
+                f"Account is temporarily locked due to multiple failed login attempts. "
+                f"Please try again in {remaining // 60 + 1} minutes."
+            )
+
         user = await self.get_user_by_email(email)
         if not user:
+            # Record failed attempt even for non-existent users to prevent enumeration
+            await account_lockout.record_failed_attempt(email)
             raise UnauthorizedError("Invalid email or password")
 
         if not verify_password(password, user.hashed_password):
+            # Record failed attempt
+            attempts, locked = await account_lockout.record_failed_attempt(email)
+            if locked:
+                raise UnauthorizedError(
+                    "Account has been locked due to multiple failed login attempts. "
+                    "Please try again in 15 minutes or contact support."
+                )
             raise UnauthorizedError("Invalid email or password")
 
         if not user.is_active:
             raise UnauthorizedError("User account is deactivated")
+
+        # Clear failed attempts on successful login
+        await account_lockout.record_successful_login(email)
 
         return user
 
@@ -332,6 +357,18 @@ class AuthService:
         user_id = payload.get("sub")
         if not user_id:
             raise UnauthorizedError("Invalid token payload")
+
+        # Check if specific token is blacklisted
+        jti = payload.get("jti")
+        if jti:
+            if await token_blacklist.is_token_blacklisted(jti):
+                raise UnauthorizedError("Token has been revoked")
+
+        # Check if all user tokens were invalidated
+        iat = payload.get("iat")
+        if iat:
+            if await token_blacklist.is_token_invalid_for_user(user_id, iat):
+                raise UnauthorizedError("Token has been invalidated")
 
         try:
             user = await self.get_user_by_id(UUID(user_id))
@@ -465,6 +502,9 @@ class AuthService:
         user.password_reset_token_expires_at = None
         await self.db.flush()
 
+        # Invalidate all existing tokens for this user (security measure)
+        await token_blacklist.invalidate_user_tokens(str(user.id))
+
         return user
 
     # =========================================================================
@@ -539,6 +579,26 @@ class AuthService:
 
         return invitation
 
+    async def _validate_pending_invitation(self, invitation: TeamInvitation) -> None:
+        """Validate that an invitation is pending and not expired.
+
+        Args:
+            invitation: The invitation to validate.
+
+        Raises:
+            ValidationError: If invitation is expired or already used.
+        """
+        if invitation.status != InvitationStatus.PENDING:
+            raise ValidationError(
+                f"This invitation has already been {invitation.status.value}",
+                field="token",
+            )
+
+        if is_token_expired(invitation.expires_at):
+            invitation.status = InvitationStatus.EXPIRED
+            await self.db.flush()
+            raise ValidationError("This invitation has expired", field="token")
+
     async def get_invitation_info(self, token: str) -> InvitationInfoResponse:
         """Get invitation info for accept-invite page.
 
@@ -563,18 +623,9 @@ class AuthService:
         invitation = result.scalar_one_or_none()
 
         if not invitation:
-            raise NotFoundError("Invitation", "token", token)
+            raise NotFoundError("Invitation", token)
 
-        if invitation.status != InvitationStatus.PENDING:
-            raise ValidationError(
-                f"This invitation has already been {invitation.status.value}",
-                field="token",
-            )
-
-        if is_token_expired(invitation.expires_at):
-            invitation.status = InvitationStatus.EXPIRED
-            await self.db.flush()
-            raise ValidationError("This invitation has expired", field="token")
+        await self._validate_pending_invitation(invitation)
 
         return InvitationInfoResponse(
             email=invitation.email,
@@ -611,18 +662,9 @@ class AuthService:
         invitation = result.scalar_one_or_none()
 
         if not invitation:
-            raise NotFoundError("Invitation", "token", token)
+            raise NotFoundError("Invitation", token)
 
-        if invitation.status != InvitationStatus.PENDING:
-            raise ValidationError(
-                f"This invitation has already been {invitation.status.value}",
-                field="token",
-            )
-
-        if is_token_expired(invitation.expires_at):
-            invitation.status = InvitationStatus.EXPIRED
-            await self.db.flush()
-            raise ValidationError("This invitation has expired", field="token")
+        await self._validate_pending_invitation(invitation)
 
         # Check if user already exists
         existing_user = await self.get_user_by_email(invitation.email)
@@ -644,10 +686,7 @@ class AuthService:
         invitation.status = InvitationStatus.ACCEPTED
         await self.db.flush()
 
-        # Create tokens
-        tokens = self.create_tokens(user)
-
-        return user, tokens
+        return user, self.create_tokens(user)
 
     async def list_pending_invitations(
         self,
@@ -695,7 +734,7 @@ class AuthService:
         invitation = result.scalar_one_or_none()
 
         if not invitation:
-            raise NotFoundError("Invitation", "id", str(invitation_id))
+            raise NotFoundError("Invitation", invitation_id)
 
         await self.db.delete(invitation)
         await self.db.flush()
@@ -770,7 +809,7 @@ class AuthService:
         user = result.scalar_one_or_none()
 
         if not user:
-            raise NotFoundError("User", "id", str(user_id))
+            raise NotFoundError("User", user_id)
 
         # Prevent self-demotion
         if user.id == current_user.id:
@@ -824,7 +863,7 @@ class AuthService:
         user = result.scalar_one_or_none()
 
         if not user:
-            raise NotFoundError("User", "id", str(user_id))
+            raise NotFoundError("User", user_id)
 
         if user.id == current_user.id:
             raise ForbiddenError("You cannot deactivate your own account")
@@ -832,6 +871,10 @@ class AuthService:
         user.is_active = False
         await self.db.flush()
         await self.db.refresh(user)
+
+        # Invalidate all tokens for the deactivated user
+        await token_blacklist.invalidate_user_tokens(str(user.id))
+
         return user
 
     async def reactivate_user(
@@ -860,7 +903,7 @@ class AuthService:
         user = result.scalar_one_or_none()
 
         if not user:
-            raise NotFoundError("User", "id", str(user_id))
+            raise NotFoundError("User", user_id)
 
         user.is_active = True
         await self.db.flush()
@@ -880,8 +923,6 @@ class AuthService:
         Returns:
             The updated User.
         """
-        from datetime import datetime, timezone
-
         user.onboarding_completed = True
         user.onboarding_completed_at = datetime.now(timezone.utc)
         await self.db.flush()
@@ -909,7 +950,7 @@ class AuthService:
         # Get user with organization
         user_with_org = await self.get_user_with_organization(user.id)
         if not user_with_org:
-            raise NotFoundError("User", "id", str(user.id))
+            raise NotFoundError("User", user.id)
 
         org_id = user.organization_id
 

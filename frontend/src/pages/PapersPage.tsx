@@ -170,17 +170,31 @@ export function PapersPage() {
     }
   }
 
+  const MAX_PDF_SIZE_MB = 50
+  const MAX_PDF_SIZE_BYTES = MAX_PDF_SIZE_MB * 1024 * 1024
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file && file.type === 'application/pdf') {
-      setSelectedFile(file)
-      setImportResult(null)
-    } else {
+    if (!file) return
+
+    if (file.type !== 'application/pdf') {
       setImportResult({ type: 'error', message: 'Please select a valid PDF file.' })
+      return
     }
+
+    if (file.size > MAX_PDF_SIZE_BYTES) {
+      setImportResult({
+        type: 'error',
+        message: `File is too large. Maximum size is ${MAX_PDF_SIZE_MB}MB.`,
+      })
+      return
+    }
+
+    setSelectedFile(file)
+    setImportResult(null)
   }
 
-  const isLoading_ =
+  const isImporting =
     ingestByDoi.isPending ||
     ingestFromOpenAlex.isPending ||
     ingestFromPubMed.isPending ||
@@ -211,7 +225,7 @@ export function PapersPage() {
               <Button
                 onClick={handleImportDoi}
                 isLoading={ingestByDoi.isPending}
-                disabled={!doiInput || isLoading_}
+                disabled={!doiInput || isImporting}
               >
                 <Download className="h-4 w-4 mr-2" />
                 Import
@@ -253,7 +267,7 @@ export function PapersPage() {
               <Button
                 onClick={handleImportOpenAlex}
                 isLoading={ingestFromOpenAlex.isPending}
-                disabled={!queryInput || isLoading_}
+                disabled={!queryInput || isImporting}
               >
                 <Download className="h-4 w-4 mr-2" />
                 Import
@@ -295,7 +309,7 @@ export function PapersPage() {
               <Button
                 onClick={handleImportPubMed}
                 isLoading={ingestFromPubMed.isPending}
-                disabled={!queryInput || isLoading_}
+                disabled={!queryInput || isImporting}
               >
                 <Download className="h-4 w-4 mr-2" />
                 Import
@@ -349,7 +363,7 @@ export function PapersPage() {
               <Button
                 onClick={handleImportArxiv}
                 isLoading={ingestFromArxiv.isPending}
-                disabled={!queryInput || isLoading_}
+                disabled={!queryInput || isImporting}
               >
                 <Download className="h-4 w-4 mr-2" />
                 Import
@@ -387,6 +401,7 @@ export function PapersPage() {
                           if (fileInputRef.current) fileInputRef.current.value = ''
                         }}
                         className="ml-2 p-1 hover:bg-muted rounded"
+                        aria-label="Remove selected file"
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -412,7 +427,7 @@ export function PapersPage() {
               <Button
                 onClick={handleUploadPdf}
                 isLoading={uploadPdf.isPending}
-                disabled={!selectedFile || isLoading_}
+                disabled={!selectedFile || isImporting}
               >
                 <Upload className="h-4 w-4 mr-2" />
                 Upload
@@ -593,7 +608,11 @@ export function PapersPage() {
           <Card className="w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Import Papers</CardTitle>
-              <button onClick={closeModal} className="p-1 hover:bg-muted rounded">
+              <button
+                onClick={closeModal}
+                className="p-1 hover:bg-muted rounded"
+                aria-label="Close modal"
+              >
                 <X className="h-5 w-5" />
               </button>
             </CardHeader>

@@ -25,7 +25,7 @@ You are an expert scientific reviewer assessing the novelty of research papers f
 
 {% for similar in similar_papers[:5] %}
 {{ loop.index }}. **{{ similar.title }}**
-   {% if similar.abstract %}Abstract: {{ similar.abstract[:300] }}...{% endif %}
+   {% if similar.abstract %}Abstract: {{ similar.abstract }}{% endif %}
    {% if similar.publication_date %}Published: {{ similar.publication_date }}{% endif %}
 
 {% endfor %}
@@ -46,6 +46,30 @@ Consider:
 2. Does it introduce new concepts, methods, or applications?
 3. Is it a first-in-class discovery or incremental improvement?
 4. How does it compare to the similar papers provided?
+
+## Example Responses
+
+Example 1 - High Novelty (Score: 8.5):
+```json
+{
+    "score": 8.5,
+    "confidence": 0.85,
+    "reasoning": "This paper introduces a fundamentally novel approach to protein folding prediction using quantum-inspired algorithms. Unlike existing deep learning methods that rely on sequence similarity, this approach directly models quantum mechanical interactions, enabling predictions for proteins with no known homologs.",
+    "key_factors": ["first quantum-inspired approach in this domain", "breaks dependency on sequence databases", "enables novel protein predictions"],
+    "comparison_to_sota": "While AlphaFold and similar methods achieve high accuracy on known protein families, they struggle with orphan proteins. This method addresses that gap with a completely new paradigm."
+}
+```
+
+Example 2 - Low Novelty (Score: 3.0):
+```json
+{
+    "score": 3.0,
+    "confidence": 0.90,
+    "reasoning": "This paper applies an existing transformer architecture to a new dataset in medical imaging. While the results are solid, the methodology closely follows previous work, with the main contribution being the collection and annotation of a new dataset rather than algorithmic innovation.",
+    "key_factors": ["standard methodology applied to new dataset", "no architectural innovations", "incremental improvement over baselines"],
+    "comparison_to_sota": "The approach mirrors several recent papers in the field, differing primarily in the specific medical condition studied rather than the underlying technology."
+}
+```
 
 ## Required JSON Response
 

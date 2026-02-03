@@ -3915,3 +3915,1232 @@ Before inviting external users:
 - [ ] Frontend critical paths tested
 - [ ] E2E tests passing
 - [ ] Manual QA completed
+
+---
+
+# Phase 4: Lovable Prototype Features (Sprints 16-19)
+
+> Features extracted from the Lovable prototype to achieve feature parity.
+> Source: `06_LOVABLE_FEATURES.md`
+
+---
+
+## Sprint 16: Researcher Groups & Collaboration ✅ READY
+
+### Goal
+Implement researcher grouping functionality with support for mailing lists, speaker pools, and AI-powered member suggestions.
+
+### User Stories
+- **G1**: As a TTO manager, I want to create researcher groups so I can organize researchers by expertise
+- **G2**: As an admin, I want to create mailing lists so I can send targeted communications
+- **G3**: As a user, I want AI to suggest group members based on keywords for efficient group creation
+- **G4**: As an event organizer, I want speaker pools so I can quickly find presenters
+
+---
+
+### Task 16.1: Researcher Groups Model
+
+**Create directory structure:**
+```
+paper_scraper/modules/groups/
+├── __init__.py
+├── models.py
+├── schemas.py
+├── service.py
+├── router.py
+└── prompts/
+    └── suggest_members.jinja2
+```
+
+**File: paper_scraper/modules/groups/models.py**
+```python
+"""SQLAlchemy models for researcher groups."""
+
+import enum
+from datetime import datetime
+from uuid import UUID, uuid4
+
+from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, Uuid, func
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from paper_scraper.core.database import Base
+
+
+class GroupType(str, enum.Enum):
+    """Type of researcher group."""
+    CUSTOM = "custom"
+    MAILING_LIST = "mailing_list"
+    SPEAKER_POOL = "speaker_pool"
+
+
+class ResearcherGroup(Base):
+    """Group of researchers for organization and outreach."""
+
+    __tablename__ = "researcher_groups"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    type: Mapped[GroupType] = mapped_column(
+        Enum(GroupType), default=GroupType.CUSTOM, nullable=False
+    )
+    keywords: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    created_by: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(),
+        onupdate=func.now(), nullable=False
+    )
+
+    # Relationships
+    members: Mapped[list["GroupMember"]] = relationship(
+        "GroupMember", back_populates="group", cascade="all, delete-orphan"
+    )
+    creator: Mapped["User"] = relationship("User", foreign_keys=[created_by])
+
+
+class GroupMember(Base):
+    """Association table for group membership."""
+
+    __tablename__ = "group_members"
+
+    group_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("researcher_groups.id", ondelete="CASCADE"),
+        primary_key=True
+    )
+    researcher_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("authors.id", ondelete="CASCADE"),
+        primary_key=True
+    )
+    added_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    added_by: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
+    # Relationships
+    group: Mapped["ResearcherGroup"] = relationship(
+        "ResearcherGroup", back_populates="members"
+    )
+    researcher: Mapped["Author"] = relationship("Author")
+```
+
+**Migration:**
+```bash
+alembic revision --autogenerate -m "add_researcher_groups"
+```
+
+---
+
+### Task 16.2: Researcher Groups Schemas
+
+**File: paper_scraper/modules/groups/schemas.py**
+```python
+"""Pydantic schemas for researcher groups."""
+
+from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel, Field
+
+from paper_scraper.modules.groups.models import GroupType
+
+
+class GroupMemberResponse(BaseModel):
+    """Response schema for group member."""
+    researcher_id: UUID
+    researcher_name: str
+    researcher_email: str | None = None
+    h_index: int | None = None
+    added_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class GroupBase(BaseModel):
+    """Base schema for group."""
+    name: str = Field(..., min_length=1, max_length=255)
+    description: str | None = None
+    type: GroupType = GroupType.CUSTOM
+    keywords: list[str] = Field(default_factory=list)
+
+
+class GroupCreate(GroupBase):
+    """Schema for creating a group."""
+    pass
+
+
+class GroupUpdate(BaseModel):
+    """Schema for updating a group."""
+    name: str | None = None
+    description: str | None = None
+    type: GroupType | None = None
+    keywords: list[str] | None = None
+
+
+class GroupResponse(GroupBase):
+    """Response schema for group."""
+    id: UUID
+    organization_id: UUID
+    created_by: UUID | None
+    created_at: datetime
+    member_count: int = 0
+
+    model_config = {"from_attributes": True}
+
+
+class GroupDetail(GroupResponse):
+    """Detailed response schema for group with members."""
+    members: list[GroupMemberResponse] = Field(default_factory=list)
+
+
+class GroupListResponse(BaseModel):
+    """Paginated list of groups."""
+    items: list[GroupResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+class AddMembersRequest(BaseModel):
+    """Request to add members to a group."""
+    researcher_ids: list[UUID]
+
+
+class RemoveMemberRequest(BaseModel):
+    """Request to remove a member from a group."""
+    researcher_id: UUID
+
+
+class SuggestMembersRequest(BaseModel):
+    """Request for AI-suggested members."""
+    keywords: list[str] = Field(..., min_length=1)
+    target_size: int = Field(default=10, ge=1, le=50)
+
+
+class SuggestedMember(BaseModel):
+    """AI-suggested group member."""
+    researcher_id: UUID
+    name: str
+    relevance_score: float = Field(..., ge=0, le=1)
+    matching_keywords: list[str]
+    affiliations: list[str] = Field(default_factory=list)
+
+
+class SuggestMembersResponse(BaseModel):
+    """Response for suggested members."""
+    suggestions: list[SuggestedMember]
+    query_keywords: list[str]
+
+
+class GroupExportResponse(BaseModel):
+    """Response for group export."""
+    group_name: str
+    member_count: int
+    export_url: str
+```
+
+---
+
+### Task 16.3: Researcher Groups Service
+
+**File: paper_scraper/modules/groups/service.py**
+```python
+"""Service layer for researcher groups."""
+
+from uuid import UUID
+
+from sqlalchemy import func, select, delete
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from paper_scraper.core.exceptions import NotFoundError, DuplicateError
+from paper_scraper.modules.authors.models import Author
+from paper_scraper.modules.groups.models import GroupMember, ResearcherGroup, GroupType
+from paper_scraper.modules.groups.schemas import (
+    GroupCreate, GroupUpdate, GroupListResponse, SuggestedMember
+)
+
+
+class GroupService:
+    """Service for managing researcher groups."""
+
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def list_groups(
+        self,
+        organization_id: UUID,
+        group_type: GroupType | None = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> GroupListResponse:
+        """List groups with optional type filter."""
+        query = select(ResearcherGroup).where(
+            ResearcherGroup.organization_id == organization_id
+        )
+
+        if group_type:
+            query = query.where(ResearcherGroup.type == group_type)
+
+        # Count total
+        count_query = select(func.count()).select_from(query.subquery())
+        total = (await self.db.execute(count_query)).scalar() or 0
+
+        # Paginate
+        query = query.order_by(ResearcherGroup.name)
+        query = query.offset((page - 1) * page_size).limit(page_size)
+
+        result = await self.db.execute(query)
+        groups = list(result.scalars().all())
+
+        # Add member counts
+        for group in groups:
+            count_result = await self.db.execute(
+                select(func.count()).where(GroupMember.group_id == group.id)
+            )
+            group.member_count = count_result.scalar() or 0
+
+        return GroupListResponse(
+            items=groups,
+            total=total,
+            page=page,
+            page_size=page_size,
+        )
+
+    async def get_group(
+        self, group_id: UUID, organization_id: UUID
+    ) -> ResearcherGroup:
+        """Get group with members."""
+        result = await self.db.execute(
+            select(ResearcherGroup)
+            .options(
+                selectinload(ResearcherGroup.members)
+                .selectinload(GroupMember.researcher)
+            )
+            .where(
+                ResearcherGroup.id == group_id,
+                ResearcherGroup.organization_id == organization_id,
+            )
+        )
+        group = result.scalar_one_or_none()
+        if not group:
+            raise NotFoundError("Group", "id", str(group_id))
+        return group
+
+    async def create_group(
+        self,
+        organization_id: UUID,
+        user_id: UUID,
+        data: GroupCreate,
+    ) -> ResearcherGroup:
+        """Create a new group."""
+        group = ResearcherGroup(
+            organization_id=organization_id,
+            created_by=user_id,
+            **data.model_dump(),
+        )
+        self.db.add(group)
+        await self.db.commit()
+        await self.db.refresh(group)
+        return group
+
+    async def update_group(
+        self,
+        group_id: UUID,
+        organization_id: UUID,
+        data: GroupUpdate,
+    ) -> ResearcherGroup:
+        """Update a group."""
+        group = await self.get_group(group_id, organization_id)
+
+        update_data = data.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(group, field, value)
+
+        await self.db.commit()
+        await self.db.refresh(group)
+        return group
+
+    async def delete_group(
+        self, group_id: UUID, organization_id: UUID
+    ) -> None:
+        """Delete a group."""
+        group = await self.get_group(group_id, organization_id)
+        await self.db.delete(group)
+        await self.db.commit()
+
+    async def add_members(
+        self,
+        group_id: UUID,
+        organization_id: UUID,
+        researcher_ids: list[UUID],
+        added_by: UUID,
+    ) -> int:
+        """Add members to a group."""
+        # Verify group exists
+        await self.get_group(group_id, organization_id)
+
+        added = 0
+        for researcher_id in researcher_ids:
+            # Check if already a member
+            existing = await self.db.execute(
+                select(GroupMember).where(
+                    GroupMember.group_id == group_id,
+                    GroupMember.researcher_id == researcher_id,
+                )
+            )
+            if existing.scalar_one_or_none():
+                continue
+
+            member = GroupMember(
+                group_id=group_id,
+                researcher_id=researcher_id,
+                added_by=added_by,
+            )
+            self.db.add(member)
+            added += 1
+
+        await self.db.commit()
+        return added
+
+    async def remove_member(
+        self,
+        group_id: UUID,
+        organization_id: UUID,
+        researcher_id: UUID,
+    ) -> None:
+        """Remove a member from a group."""
+        await self.get_group(group_id, organization_id)
+
+        await self.db.execute(
+            delete(GroupMember).where(
+                GroupMember.group_id == group_id,
+                GroupMember.researcher_id == researcher_id,
+            )
+        )
+        await self.db.commit()
+
+    async def suggest_members(
+        self,
+        organization_id: UUID,
+        keywords: list[str],
+        target_size: int = 10,
+    ) -> list[SuggestedMember]:
+        """AI-powered member suggestions based on keywords."""
+        # Use embedding similarity search
+        # For now, simplified implementation
+        query = (
+            select(Author)
+            .limit(target_size)
+        )
+        result = await self.db.execute(query)
+        authors = result.scalars().all()
+
+        suggestions = []
+        for author in authors:
+            suggestions.append(SuggestedMember(
+                researcher_id=author.id,
+                name=author.name,
+                relevance_score=0.8,  # Placeholder - implement embedding similarity
+                matching_keywords=keywords[:2],
+                affiliations=author.affiliations or [],
+            ))
+
+        return suggestions
+
+    async def export_group(
+        self, group_id: UUID, organization_id: UUID
+    ) -> bytes:
+        """Export group members as CSV."""
+        group = await self.get_group(group_id, organization_id)
+
+        import csv
+        import io
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Name", "Email", "H-Index", "Affiliations"])
+
+        for member in group.members:
+            researcher = member.researcher
+            writer.writerow([
+                researcher.name,
+                "",  # Email not in Author model yet
+                researcher.h_index or "",
+                ", ".join(researcher.affiliations or []),
+            ])
+
+        return output.getvalue().encode("utf-8")
+```
+
+---
+
+### Task 16.4: Researcher Groups Router
+
+**File: paper_scraper/modules/groups/router.py**
+```python
+"""FastAPI router for researcher groups."""
+
+from typing import Annotated
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, Query, Response, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from paper_scraper.api.dependencies import CurrentUser
+from paper_scraper.core.database import get_db
+from paper_scraper.modules.groups.models import GroupType
+from paper_scraper.modules.groups.schemas import (
+    AddMembersRequest,
+    GroupCreate,
+    GroupDetail,
+    GroupListResponse,
+    GroupResponse,
+    GroupUpdate,
+    SuggestMembersRequest,
+    SuggestMembersResponse,
+)
+from paper_scraper.modules.groups.service import GroupService
+
+router = APIRouter()
+
+
+def get_group_service(
+    db: Annotated[AsyncSession, Depends(get_db)]
+) -> GroupService:
+    return GroupService(db)
+
+
+@router.get("/", response_model=GroupListResponse)
+async def list_groups(
+    current_user: CurrentUser,
+    service: Annotated[GroupService, Depends(get_group_service)],
+    type: GroupType | None = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+):
+    """List researcher groups."""
+    return await service.list_groups(
+        current_user.organization_id,
+        group_type=type,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.post("/", response_model=GroupResponse, status_code=status.HTTP_201_CREATED)
+async def create_group(
+    data: GroupCreate,
+    current_user: CurrentUser,
+    service: Annotated[GroupService, Depends(get_group_service)],
+):
+    """Create a new researcher group."""
+    return await service.create_group(
+        current_user.organization_id,
+        current_user.id,
+        data,
+    )
+
+
+@router.get("/{group_id}", response_model=GroupDetail)
+async def get_group(
+    group_id: UUID,
+    current_user: CurrentUser,
+    service: Annotated[GroupService, Depends(get_group_service)],
+):
+    """Get group details with members."""
+    return await service.get_group(group_id, current_user.organization_id)
+
+
+@router.patch("/{group_id}", response_model=GroupResponse)
+async def update_group(
+    group_id: UUID,
+    data: GroupUpdate,
+    current_user: CurrentUser,
+    service: Annotated[GroupService, Depends(get_group_service)],
+):
+    """Update a group."""
+    return await service.update_group(
+        group_id, current_user.organization_id, data
+    )
+
+
+@router.delete("/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_group(
+    group_id: UUID,
+    current_user: CurrentUser,
+    service: Annotated[GroupService, Depends(get_group_service)],
+):
+    """Delete a group."""
+    await service.delete_group(group_id, current_user.organization_id)
+
+
+@router.post("/{group_id}/members", status_code=status.HTTP_201_CREATED)
+async def add_members(
+    group_id: UUID,
+    data: AddMembersRequest,
+    current_user: CurrentUser,
+    service: Annotated[GroupService, Depends(get_group_service)],
+):
+    """Add members to a group."""
+    added = await service.add_members(
+        group_id,
+        current_user.organization_id,
+        data.researcher_ids,
+        current_user.id,
+    )
+    return {"added": added}
+
+
+@router.delete("/{group_id}/members/{researcher_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_member(
+    group_id: UUID,
+    researcher_id: UUID,
+    current_user: CurrentUser,
+    service: Annotated[GroupService, Depends(get_group_service)],
+):
+    """Remove a member from a group."""
+    await service.remove_member(
+        group_id, current_user.organization_id, researcher_id
+    )
+
+
+@router.post("/suggest-members", response_model=SuggestMembersResponse)
+async def suggest_members(
+    data: SuggestMembersRequest,
+    current_user: CurrentUser,
+    service: Annotated[GroupService, Depends(get_group_service)],
+):
+    """Get AI-suggested members based on keywords."""
+    suggestions = await service.suggest_members(
+        current_user.organization_id,
+        data.keywords,
+        data.target_size,
+    )
+    return SuggestMembersResponse(
+        suggestions=suggestions,
+        query_keywords=data.keywords,
+    )
+
+
+@router.get("/{group_id}/export")
+async def export_group(
+    group_id: UUID,
+    current_user: CurrentUser,
+    service: Annotated[GroupService, Depends(get_group_service)],
+):
+    """Export group members as CSV."""
+    csv_data = await service.export_group(group_id, current_user.organization_id)
+    return Response(
+        content=csv_data,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=group_{group_id}.csv"},
+    )
+```
+
+---
+
+### Task 16.5: Register Groups Router
+
+**Update paper_scraper/api/v1/router.py:**
+```python
+from paper_scraper.modules.groups.router import router as groups_router
+
+api_router.include_router(groups_router, prefix="/groups", tags=["groups"])
+```
+
+---
+
+### Task 16.6: Tests
+
+**File: tests/test_groups.py**
+```python
+"""Tests for researcher groups module."""
+
+import pytest
+from httpx import AsyncClient
+
+
+@pytest.mark.asyncio
+async def test_create_group(client: AsyncClient, auth_headers: dict):
+    response = await client.post(
+        "/api/v1/groups/",
+        json={
+            "name": "AI Researchers",
+            "description": "Researchers working on AI",
+            "type": "custom",
+            "keywords": ["machine learning", "deep learning"],
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["name"] == "AI Researchers"
+    assert data["type"] == "custom"
+
+
+@pytest.mark.asyncio
+async def test_list_groups(client: AsyncClient, auth_headers: dict):
+    response = await client.get("/api/v1/groups/", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert "items" in data
+    assert "total" in data
+
+
+@pytest.mark.asyncio
+async def test_add_members(client: AsyncClient, auth_headers: dict, test_group_id: str, test_researcher_id: str):
+    response = await client.post(
+        f"/api/v1/groups/{test_group_id}/members",
+        json={"researcher_ids": [test_researcher_id]},
+        headers=auth_headers,
+    )
+    assert response.status_code == 201
+    assert response.json()["added"] == 1
+
+
+@pytest.mark.asyncio
+async def test_suggest_members(client: AsyncClient, auth_headers: dict):
+    response = await client.post(
+        "/api/v1/groups/suggest-members",
+        json={"keywords": ["machine learning"], "target_size": 5},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "suggestions" in data
+```
+
+---
+
+### Sprint 16 Definition of Done
+
+- [ ] `researcher_groups` table created with migration
+- [ ] `group_members` table created with migration
+- [ ] GroupService with full CRUD operations
+- [ ] Groups router registered at `/api/v1/groups`
+- [ ] AI-powered member suggestions endpoint
+- [ ] CSV export functionality
+- [ ] Tests passing with >80% coverage
+- [ ] API documentation updated
+
+---
+
+## Sprint 17: Technology Transfer Conversations
+
+### Goal
+Implement technology transfer conversation management with stage-based workflows, message threading, and AI-suggested next steps.
+
+### User Stories
+- **T1**: As a TTO staff, I want to track all conversations with researchers so I maintain context
+- **T2**: As a user, I want to see suggested next steps so I know what actions to take
+- **T3**: As a manager, I want to visualize conversation stages so I can monitor transfer progress
+- **T4**: As a team, I want message templates so we can send consistent communications
+- **T5**: As a user, I want to attach resources to conversations for easy reference
+- **T6**: As a team, I want @mentions so I can involve colleagues in conversations
+
+---
+
+### Task 17.1: Transfer Conversation Models
+
+**File: paper_scraper/modules/transfer/models.py**
+```python
+"""SQLAlchemy models for technology transfer."""
+
+import enum
+from datetime import datetime
+from uuid import UUID, uuid4
+
+from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, Uuid, func
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from paper_scraper.core.database import Base
+
+
+class TransferType(str, enum.Enum):
+    """Type of technology transfer."""
+    PATENT = "patent"
+    LICENSING = "licensing"
+    STARTUP = "startup"
+    PARTNERSHIP = "partnership"
+    OTHER = "other"
+
+
+class TransferStage(str, enum.Enum):
+    """Stage of transfer conversation."""
+    INITIAL_CONTACT = "initial_contact"
+    DISCOVERY = "discovery"
+    EVALUATION = "evaluation"
+    NEGOTIATION = "negotiation"
+    CLOSED_WON = "closed_won"
+    CLOSED_LOST = "closed_lost"
+
+
+class TransferConversation(Base):
+    """Technology transfer conversation."""
+
+    __tablename__ = "transfer_conversations"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False, index=True
+    )
+    paper_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("papers.id", ondelete="SET NULL"), nullable=True
+    )
+    researcher_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("authors.id", ondelete="SET NULL"), nullable=True
+    )
+
+    type: Mapped[TransferType] = mapped_column(
+        Enum(TransferType), nullable=False
+    )
+    stage: Mapped[TransferStage] = mapped_column(
+        Enum(TransferStage), default=TransferStage.INITIAL_CONTACT
+    )
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+
+    created_by: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("users.id"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    # Relationships
+    messages: Mapped[list["ConversationMessage"]] = relationship(
+        back_populates="conversation", cascade="all, delete-orphan"
+    )
+    resources: Mapped[list["ConversationResource"]] = relationship(
+        back_populates="conversation", cascade="all, delete-orphan"
+    )
+    stage_history: Mapped[list["StageChange"]] = relationship(
+        back_populates="conversation", cascade="all, delete-orphan"
+    )
+
+
+class ConversationMessage(Base):
+    """Message in a transfer conversation."""
+
+    __tablename__ = "conversation_messages"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    conversation_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("transfer_conversations.id", ondelete="CASCADE"),
+        nullable=False, index=True
+    )
+    sender_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("users.id"), nullable=False
+    )
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    mentions: Mapped[list] = mapped_column(JSONB, default=list)  # List of user IDs
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    # Relationships
+    conversation: Mapped["TransferConversation"] = relationship(back_populates="messages")
+    sender: Mapped["User"] = relationship("User")
+
+
+class ConversationResource(Base):
+    """Resource attached to a conversation."""
+
+    __tablename__ = "conversation_resources"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    conversation_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("transfer_conversations.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    file_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    resource_type: Mapped[str] = mapped_column(String(50), nullable=False)  # file, link, document
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    conversation: Mapped["TransferConversation"] = relationship(back_populates="resources")
+
+
+class StageChange(Base):
+    """History of stage changes."""
+
+    __tablename__ = "stage_changes"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    conversation_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("transfer_conversations.id", ondelete="CASCADE")
+    )
+    from_stage: Mapped[TransferStage] = mapped_column(Enum(TransferStage))
+    to_stage: Mapped[TransferStage] = mapped_column(Enum(TransferStage))
+    changed_by: Mapped[UUID] = mapped_column(Uuid, ForeignKey("users.id"))
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    changed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    conversation: Mapped["TransferConversation"] = relationship(back_populates="stage_history")
+
+
+class MessageTemplate(Base):
+    """Reusable message templates."""
+
+    __tablename__ = "message_templates"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("organizations.id", ondelete="CASCADE")
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    subject: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    stage: Mapped[TransferStage | None] = mapped_column(Enum(TransferStage), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+```
+
+---
+
+### Task 17.2-17.4: Service, Router, AI Next Steps
+
+*(Similar pattern to Sprint 16 - implement service layer, router, and AI prompt for next-step suggestions)*
+
+**Key Endpoints:**
+```
+GET    /api/v1/transfer/                    - List conversations
+POST   /api/v1/transfer/                    - Create conversation
+GET    /api/v1/transfer/{id}                - Get conversation detail
+PATCH  /api/v1/transfer/{id}                - Update stage
+POST   /api/v1/transfer/{id}/messages       - Add message
+POST   /api/v1/transfer/{id}/resources      - Attach resource
+GET    /api/v1/transfer/{id}/next-steps     - AI-suggested actions
+GET    /api/v1/transfer/templates           - List templates
+POST   /api/v1/transfer/templates           - Create template
+POST   /api/v1/transfer/{id}/messages/from-template - Use template
+```
+
+---
+
+## Sprint 18: Research Submission Portal
+
+### Goal
+Enable researchers to submit their own work for TTO review, with scoring and conversion to papers.
+
+### User Stories
+- **SUB1**: As a researcher, I want to submit my research for TTO review
+- **SUB2**: As a researcher, I want to track the status of my submissions
+- **SUB3**: As a researcher, I want AI analysis of my research's commercial potential
+
+---
+
+### Task 18.1: Submission Models
+
+**Key tables:**
+- `research_submissions` - Submission metadata
+- `submission_attachments` - Uploaded files
+- `submission_scores` - AI analysis results
+
+**Key Endpoints:**
+```
+GET    /api/v1/submissions/my               - Researcher's submissions
+POST   /api/v1/submissions/                 - Create submission
+GET    /api/v1/submissions/{id}             - Get submission
+PATCH  /api/v1/submissions/{id}             - Update draft
+POST   /api/v1/submissions/{id}/submit      - Submit for review
+POST   /api/v1/submissions/{id}/attachments - Upload files
+GET    /api/v1/submissions/                 - All submissions (TTO only)
+PATCH  /api/v1/submissions/{id}/review      - Approve/reject
+POST   /api/v1/submissions/{id}/analyze     - AI scoring
+POST   /api/v1/submissions/{id}/convert     - Convert to paper
+```
+
+---
+
+## Sprint 19: Gamification & Knowledge Management
+
+### Goal
+Implement badge/achievement system and personal/organizational knowledge sources for AI personalization.
+
+### User Stories
+- **GA1-GA3**: Badge system, celebrations, progress tracking
+- **KM1-KM2**: Personal and org knowledge sources
+
+---
+
+### Task 19.1: Badge System
+
+**Key tables:**
+- `badges` - Available badges with criteria
+- `user_badges` - Earned badges
+
+**Key Endpoints:**
+```
+GET    /api/v1/badges                       - All badges
+GET    /api/v1/users/me/badges              - My badges
+GET    /api/v1/users/me/stats               - My activity stats
+```
+
+---
+
+### Task 19.2: Knowledge Sources
+
+**Key tables:**
+- `knowledge_sources` - Personal and org knowledge
+
+**Key Endpoints:**
+```
+GET    /api/v1/knowledge/personal           - My knowledge sources
+POST   /api/v1/knowledge/personal           - Add source
+DELETE /api/v1/knowledge/personal/{id}      - Remove source
+GET    /api/v1/knowledge/organization       - Org sources (admin)
+POST   /api/v1/knowledge/organization       - Add org source (admin)
+```
+
+---
+
+# Phase 5: Advanced Features & Integration (Sprints 20-22)
+
+---
+
+## Sprint 20: 6-Dimension Scoring + Model Settings
+
+### Goal
+Complete the innovation radar with Team Readiness dimension and add multi-model AI configuration.
+
+### User Stories
+- **P2**: 6-dimension innovation radar
+- **M1-M4**: Model selection, usage tracking, data ownership
+
+---
+
+### Task 20.1: Team Readiness Scoring
+
+**File: paper_scraper/modules/scoring/prompts/team_readiness.jinja2**
+```jinja2
+You are an expert in evaluating research team readiness for commercialization.
+
+Analyze the following research paper and its authors:
+
+Paper Title: {{ paper.title }}
+Abstract: {{ paper.abstract }}
+
+Authors:
+{% for author in authors %}
+- {{ author.name }} (h-index: {{ author.h_index or 'N/A' }}, publications: {{ author.works_count or 'N/A' }})
+  Affiliations: {{ author.affiliations | join(', ') }}
+{% endfor %}
+
+Evaluate the team's readiness for commercialization on these criteria:
+1. Track record of successful research
+2. Industry collaboration experience
+3. Institutional support indicators
+4. Team composition and complementary skills
+5. Prior commercialization experience
+
+Respond in JSON:
+{
+  "score": <0-100>,
+  "evidence": ["...", "..."],
+  "strengths": ["...", "..."],
+  "gaps": ["...", "..."],
+  "explanation": "..."
+}
+```
+
+---
+
+### Task 20.2: Model Configuration
+
+**Key tables:**
+- `model_configurations` - AI model settings
+- `model_usage` - Usage tracking
+
+**Key Endpoints:**
+```
+GET    /api/v1/settings/models              - List models
+POST   /api/v1/settings/models              - Add model (admin)
+PATCH  /api/v1/settings/models/{id}         - Update model
+DELETE /api/v1/settings/models/{id}         - Remove model
+GET    /api/v1/settings/models/usage        - Usage stats
+GET    /api/v1/settings/models/{id}/hosting - Hosting info
+```
+
+---
+
+## Sprint 21: Developer API & Repository Management
+
+### Goal
+API key management, webhooks, and configurable data source management.
+
+### User Stories
+- **D1-D3**: API keys, MCP servers, webhooks
+- **RS1-RS3**: Repository source configuration
+
+---
+
+### Task 21.1: API Key Management
+
+**Key tables:**
+- `api_keys` - Hashed API keys with permissions
+
+**Key Endpoints:**
+```
+GET    /api/v1/developer/api-keys           - List keys
+POST   /api/v1/developer/api-keys           - Generate key
+DELETE /api/v1/developer/api-keys/{id}      - Revoke key
+```
+
+---
+
+### Task 21.2: Webhooks
+
+**Key tables:**
+- `webhooks` - Webhook configurations
+
+**Key Endpoints:**
+```
+GET    /api/v1/developer/webhooks           - List webhooks
+POST   /api/v1/developer/webhooks           - Create webhook
+POST   /api/v1/developer/webhooks/{id}/test - Test webhook
+DELETE /api/v1/developer/webhooks/{id}      - Remove webhook
+```
+
+---
+
+### Task 21.3: Repository Sources
+
+**Key tables:**
+- `repository_sources` - Data source configurations
+
+**Key Endpoints:**
+```
+GET    /api/v1/repositories/                - List sources
+POST   /api/v1/repositories/                - Add source
+PATCH  /api/v1/repositories/{id}            - Update source
+POST   /api/v1/repositories/{id}/sync       - Trigger sync
+GET    /api/v1/repositories/{id}/status     - Sync status
+```
+
+---
+
+## Sprint 22: Compliance & Governance
+
+### Goal
+Enhanced audit logging, data retention policies, and granular RBAC.
+
+### User Stories
+- **C1**: Audit logs for compliance
+- **C2**: GDPR compliance visibility
+- **C3**: Role-based access control
+
+---
+
+### Task 22.1: Enhanced Audit Logging
+
+Expand existing audit module to log:
+- All auth events
+- Paper status changes
+- Transfer stage changes
+- Settings modifications
+- Data exports
+
+**Key Endpoints:**
+```
+GET    /api/v1/compliance/audit-logs        - Search logs
+GET    /api/v1/compliance/audit-logs/export - Export logs
+```
+
+---
+
+### Task 22.2: Data Retention
+
+**Key tables:**
+- `retention_policies` - Per-entity retention rules
+
+**Key Endpoints:**
+```
+GET    /api/v1/compliance/retention         - List policies
+POST   /api/v1/compliance/retention         - Create policy
+DELETE /api/v1/compliance/retention/{id}    - Remove policy
+```
+
+---
+
+### Task 22.3: RBAC Permissions
+
+**Permissions Matrix:**
+```python
+PERMISSIONS = {
+    "papers:read": ["admin", "manager", "member", "researcher", "tto_manager", "tto_staff"],
+    "papers:write": ["admin", "manager", "tto_manager", "tto_staff"],
+    "papers:delete": ["admin", "tto_manager"],
+    "scoring:trigger": ["admin", "manager", "tto_manager", "tto_staff"],
+    "groups:manage": ["admin", "manager", "tto_manager"],
+    "transfer:manage": ["admin", "tto_manager", "tto_staff"],
+    "submissions:review": ["admin", "tto_manager", "tto_staff"],
+    "settings:admin": ["admin"],
+    "compliance:view": ["admin", "manager"],
+    "developer:manage": ["admin"],
+}
+```
+
+**Key Endpoints:**
+```
+GET    /api/v1/auth/permissions             - My permissions
+GET    /api/v1/auth/roles                   - Available roles
+```
+
+---
+
+## Feature Complete Checklist
+
+After Sprint 22, verify:
+
+### Core Features
+- [x] Paper ingestion (DOI, OpenAlex, PubMed, arXiv, PDF)
+- [x] 6-dimension AI scoring
+- [x] KanBan project management
+- [x] Full-text + semantic search
+- [x] Author intelligence
+- [x] Alert system
+
+### Lovable Parity (Phase 4)
+- [ ] Researcher groups with AI suggestions
+- [ ] Technology transfer conversations
+- [ ] Research submission portal
+- [ ] Badge/gamification system
+- [ ] Knowledge management
+
+### Advanced Features (Phase 5)
+- [ ] Multi-model AI configuration
+- [ ] Usage/cost tracking
+- [ ] API key management
+- [ ] Webhook integrations
+- [ ] Repository source management
+- [ ] Enhanced compliance/audit
+- [ ] Granular RBAC
+
+### Quality
+- [ ] Test coverage >80%
+- [ ] E2E tests for critical paths
+- [ ] API documentation complete
+- [ ] Performance targets met

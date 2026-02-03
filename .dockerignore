@@ -1,0 +1,103 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# Virtual environments
+.env
+.env.local
+.env.*.local
+.venv/
+venv/
+ENV/
+
+# Testing
+tests/
+e2e/
+*.test.py
+conftest.py
+pytest.ini
+.pytest_cache/
+
+# Documentation
+docs/
+*.md
+!README.md
+CHANGELOG*
+LICENSE*
+
+# Frontend (built separately)
+frontend/
+
+# Local development files
+docker-compose.override.yml
+docker-compose.local.yml
+*.local.*
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Security - never include
+*.pem
+*.key
+*.crt
+secrets/
+credentials/
+*.credentials
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+Jenkinsfile
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Alembic versions (included in Dockerfile explicitly)
+# but exclude migration test data
+alembic/versions/*.pyc

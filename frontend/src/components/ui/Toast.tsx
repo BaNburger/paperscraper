@@ -3,6 +3,8 @@ import {
   useContext,
   useState,
   useCallback,
+  useRef,
+  useEffect,
   type ReactNode,
 } from 'react'
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react'
@@ -30,7 +32,7 @@ interface ToastContextType {
 
 const ToastContext = createContext<ToastContextType | null>(null)
 
-export const useToast = () => {
+export function useToast(): ToastContextType {
   const context = useContext(ToastContext)
   if (!context) {
     throw new Error('useToast must be used within a ToastProvider')
@@ -57,7 +59,7 @@ interface ToastItemProps {
   onRemove: (id: string) => void
 }
 
-const ToastItem = ({ toast, onRemove }: ToastItemProps) => {
+function ToastItem({ toast, onRemove }: ToastItemProps): JSX.Element {
   return (
     <div
       className={cn(
@@ -87,10 +89,33 @@ interface ToastProviderProps {
   children: ReactNode
 }
 
-export const ToastProvider = ({ children }: ToastProviderProps) => {
+// Default durations by toast type (errors stay longer for readability)
+const DEFAULT_DURATIONS: Record<ToastType, number> = {
+  success: 5000,
+  info: 5000,
+  warning: 7000,
+  error: 10000,
+}
+
+export function ToastProvider({ children }: ToastProviderProps): JSX.Element {
   const [toasts, setToasts] = useState<Toast[]>([])
+  const timeoutRefs = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+
+  // Cleanup all timeouts on unmount
+  useEffect(() => {
+    return () => {
+      timeoutRefs.current.forEach((timeout) => clearTimeout(timeout))
+      timeoutRefs.current.clear()
+    }
+  }, [])
 
   const removeToast = useCallback((id: string) => {
+    // Clear the timeout for this toast if it exists
+    const timeout = timeoutRefs.current.get(id)
+    if (timeout) {
+      clearTimeout(timeout)
+      timeoutRefs.current.delete(id)
+    }
     setToasts((prev) => prev.filter((toast) => toast.id !== id))
   }, [])
 
@@ -100,9 +125,10 @@ export const ToastProvider = ({ children }: ToastProviderProps) => {
       const newToast = { ...toast, id }
       setToasts((prev) => [...prev, newToast])
 
-      const duration = toast.duration ?? 5000
+      const duration = toast.duration ?? DEFAULT_DURATIONS[toast.type]
       if (duration > 0) {
-        setTimeout(() => removeToast(id), duration)
+        const timeout = setTimeout(() => removeToast(id), duration)
+        timeoutRefs.current.set(id, timeout)
       }
     },
     [removeToast]

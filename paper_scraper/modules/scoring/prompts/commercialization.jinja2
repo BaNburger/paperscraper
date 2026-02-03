@@ -59,6 +59,48 @@ Consider:
    - Defensive value
    - Standards influence
 
+## Example Responses
+
+Example 1 - High Commercialization Potential (Score: 8.0):
+```json
+{
+    "score": 8.0,
+    "confidence": 0.82,
+    "reasoning": "This diagnostic platform has multiple viable paths to market. Licensing to major IVD companies offers quick revenue with minimal capital. Alternatively, a spinoff could capture higher value given the platform's extensibility to multiple disease areas. Low regulatory barriers (CLIA waiver eligible) and strong industry interest de-risk commercialization.",
+    "recommended_path": "licensing",
+    "alternative_paths": ["spinoff", "partnership"],
+    "entry_barriers": {
+        "regulatory": "low",
+        "capital": "low",
+        "market_access": "medium",
+        "competition": "medium"
+    },
+    "revenue_model_suggestions": ["Per-test royalties", "Upfront licensing fee + milestones", "Exclusive territorial licenses"],
+    "strategic_value": "platform",
+    "key_success_factors": ["Strong patent portfolio", "Clinical validation data", "Manufacturing partnership"]
+}
+```
+
+Example 2 - Low Commercialization Potential (Score: 3.5):
+```json
+{
+    "score": 3.5,
+    "confidence": 0.75,
+    "reasoning": "While the technology shows promise, commercialization faces significant headwinds. The semiconductor manufacturing equipment market is dominated by a few large players with entrenched customer relationships. The capital requirements for market entry are prohibitive, and the technology's advantages over existing solutions are incremental rather than transformative.",
+    "recommended_path": "licensing",
+    "alternative_paths": ["acquisition"],
+    "entry_barriers": {
+        "regulatory": "medium",
+        "capital": "high",
+        "market_access": "high",
+        "competition": "high"
+    },
+    "revenue_model_suggestions": ["Technology licensing", "Component supply agreement"],
+    "strategic_value": "incremental",
+    "key_success_factors": ["Partnership with established player", "Cost reduction demonstration", "Process compatibility validation"]
+}
+```
+
 ## Required JSON Response
 
 Respond with ONLY valid JSON in this exact format:

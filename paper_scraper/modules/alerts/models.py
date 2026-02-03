@@ -5,7 +5,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, Integer, JSON, String, Text, Uuid, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, Integer, String, Text, Uuid, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from paper_scraper.core.database import Base
@@ -129,7 +130,7 @@ class AlertResult(Base):
     new_papers: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     # Paper IDs that were included in this alert
-    paper_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    paper_ids: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
 
     # Delivery details
     delivered_at: Mapped[datetime | None] = mapped_column(

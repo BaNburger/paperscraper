@@ -48,6 +48,42 @@ Consider these patent criteria:
 4. **Enablement:** Is there enough detail to reproduce?
 5. **White Space:** Are there gaps in existing patent landscape?
 
+## Example Responses
+
+Example 1 - High IP Potential (Score: 8.0):
+```json
+{
+    "score": 8.0,
+    "confidence": 0.80,
+    "reasoning": "This research describes a novel catalytic process for ammonia synthesis at ambient temperature and pressure. The specific catalyst composition and reactor design appear to be distinct from existing prior art, offering significant white space for broad patent claims.",
+    "patentability_factors": {
+        "novelty": 9,
+        "non_obviousness": 8,
+        "utility": 9,
+        "enablement": 7
+    },
+    "prior_art_risk": "low",
+    "suggested_claim_scope": "broad"
+}
+```
+
+Example 2 - Low IP Potential (Score: 2.5):
+```json
+{
+    "score": 2.5,
+    "confidence": 0.85,
+    "reasoning": "This work presents a computational model for predicting drug interactions. While useful, the methodology combines well-known machine learning techniques with publicly available databases, making it difficult to establish non-obviousness over existing prior art.",
+    "patentability_factors": {
+        "novelty": 3,
+        "non_obviousness": 2,
+        "utility": 7,
+        "enablement": 8
+    },
+    "prior_art_risk": "high",
+    "suggested_claim_scope": "narrow"
+}
+```
+
 ## Required JSON Response
 
 Respond with ONLY valid JSON in this exact format:

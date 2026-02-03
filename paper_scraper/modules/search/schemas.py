@@ -235,3 +235,12 @@ class EmbeddingBackfillResult(BaseModel):
     papers_succeeded: int
     papers_failed: int
     errors: list[str] = Field(default_factory=list)
+
+
+class EmbeddingStats(BaseModel):
+    """Statistics about paper embeddings."""
+
+    total_papers: int
+    with_embedding: int
+    without_embedding: int
+    embedding_coverage: float = Field(description="Percentage of papers with embeddings")

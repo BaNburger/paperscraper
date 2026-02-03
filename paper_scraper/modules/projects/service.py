@@ -1,6 +1,7 @@
 """Service layer for projects module."""
 
-from datetime import datetime
+from collections import Counter
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
@@ -8,7 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from paper_scraper.core.exceptions import DuplicateError, NotFoundError
+from paper_scraper.core.exceptions import DuplicateError, NotFoundError, ValidationError
 from paper_scraper.modules.auth.models import User
 from paper_scraper.modules.papers.models import Paper
 from paper_scraper.modules.projects.models import (
@@ -131,12 +132,15 @@ class ProjectService:
 
         update_data = data.model_dump(exclude_unset=True)
 
-        if "stages" in update_data and update_data["stages"]:
-            update_data["stages"] = [s.model_dump() if hasattr(s, "model_dump") else s for s in update_data["stages"]]
+        # Convert nested Pydantic models to dicts
+        if stages := update_data.get("stages"):
+            update_data["stages"] = [
+                s.model_dump() if hasattr(s, "model_dump") else s for s in stages
+            ]
 
-        if "scoring_weights" in update_data and update_data["scoring_weights"]:
-            if hasattr(update_data["scoring_weights"], "model_dump"):
-                update_data["scoring_weights"] = update_data["scoring_weights"].model_dump()
+        if weights := update_data.get("scoring_weights"):
+            if hasattr(weights, "model_dump"):
+                update_data["scoring_weights"] = weights.model_dump()
 
         for key, value in update_data.items():
             if value is not None:
@@ -176,10 +180,7 @@ class ProjectService:
         user_id: UUID | None = None,
     ) -> PaperProjectStatus:
         """Add a paper to a project."""
-        # Verify project exists
-        project = await self.get_project(project_id, organization_id)
-        if not project:
-            raise NotFoundError("Project", project_id)
+        await self._require_project(project_id, organization_id)
 
         # Verify paper exists and belongs to org
         paper = await self._get_paper(paper_id, organization_id)
@@ -230,9 +231,7 @@ class ProjectService:
         user_id: UUID | None = None,
     ) -> dict[str, Any]:
         """Add multiple papers to a project."""
-        project = await self.get_project(project_id, organization_id)
-        if not project:
-            raise NotFoundError("Project", project_id)
+        await self._require_project(project_id, organization_id)
 
         added = 0
         skipped = 0
@@ -295,10 +294,7 @@ class ProjectService:
         organization_id: UUID,
     ) -> None:
         """Remove a paper from a project."""
-        # Verify project
-        project = await self.get_project(project_id, organization_id)
-        if not project:
-            raise NotFoundError("Project", project_id)
+        await self._require_project(project_id, organization_id)
 
         status = await self._get_paper_status(paper_id, project_id)
         if not status:
@@ -318,15 +314,12 @@ class ProjectService:
         user_id: UUID | None = None,
     ) -> PaperProjectStatus:
         """Move a paper to a different stage in the pipeline."""
-        # Verify project
-        project = await self.get_project(project_id, organization_id)
-        if not project:
-            raise NotFoundError("Project", project_id)
+        project = await self._require_project(project_id, organization_id)
 
         # Verify stage exists in project
         stage_names = [s["name"] for s in project.stages]
         if stage not in stage_names:
-            raise ValueError(f"Stage '{stage}' not found in project")
+            raise ValidationError(f"Stage '{stage}' not found in project", field="stage")
 
         status = await self._get_paper_status(paper_id, project_id)
         if not status:
@@ -336,7 +329,7 @@ class ProjectService:
 
         # Update stage
         status.stage = stage
-        status.stage_entered_at = datetime.utcnow()
+        status.stage_entered_at = datetime.now(timezone.utc)
 
         # Handle position
         if position is not None:
@@ -405,16 +398,25 @@ class ProjectService:
         tags: list[str] | None = None,
     ) -> PaperProjectStatus:
         """Update paper status metadata (assignment, notes, etc.)."""
-        # Verify project
-        project = await self.get_project(project_id, organization_id)
-        if not project:
-            raise NotFoundError("Project", project_id)
+        await self._require_project(project_id, organization_id)
 
         status = await self._get_paper_status(paper_id, project_id)
         if not status:
             raise NotFoundError("PaperProjectStatus", paper_id)
 
         if assigned_to_id is not None:
+            # Verify user belongs to the organization
+            user_result = await self.db.execute(
+                select(User).where(
+                    User.id == assigned_to_id,
+                    User.organization_id == organization_id,
+                )
+            )
+            if not user_result.scalar_one_or_none():
+                raise ValidationError(
+                    "Assigned user not found in organization",
+                    field="assigned_to_id",
+                )
             status.assigned_to_id = assigned_to_id
         if notes is not None:
             status.notes = notes
@@ -438,9 +440,7 @@ class ProjectService:
         include_scores: bool = True,
     ) -> KanBanBoardResponse:
         """Get complete KanBan board view for a project."""
-        project = await self.get_project(project_id, organization_id)
-        if not project:
-            raise NotFoundError("Project", project_id)
+        project = await self._require_project(project_id, organization_id)
 
         # Get all paper statuses with relationships
         result = await self.db.execute(
@@ -507,9 +507,7 @@ class ProjectService:
         organization_id: UUID,
     ) -> PaperInProjectResponse | None:
         """Get a paper's status in a project."""
-        project = await self.get_project(project_id, organization_id)
-        if not project:
-            raise NotFoundError("Project", project_id)
+        await self._require_project(project_id, organization_id)
 
         result = await self.db.execute(
             select(PaperProjectStatus)
@@ -545,9 +543,7 @@ class ProjectService:
         organization_id: UUID,
     ) -> list[StageHistoryEntry]:
         """Get stage transition history for a paper in a project."""
-        project = await self.get_project(project_id, organization_id)
-        if not project:
-            raise NotFoundError("Project", project_id)
+        await self._require_project(project_id, organization_id)
 
         status = await self._get_paper_status(paper_id, project_id)
         if not status:
@@ -585,9 +581,7 @@ class ProjectService:
         organization_id: UUID,
     ) -> ProjectStatistics:
         """Get statistics for a project."""
-        project = await self.get_project(project_id, organization_id)
-        if not project:
-            raise NotFoundError("Project", project_id)
+        project = await self._require_project(project_id, organization_id)
 
         # Get all statuses
         result = await self.db.execute(
@@ -597,27 +591,19 @@ class ProjectService:
         )
         statuses = list(result.scalars().all())
 
-        # Count by stage
-        papers_by_stage: dict[str, int] = {}
-        for stage_config in project.stages:
-            papers_by_stage[stage_config["name"]] = 0
-        for status in statuses:
-            if status.stage in papers_by_stage:
-                papers_by_stage[status.stage] += 1
+        # Initialize stage counts with zeros for all configured stages
+        stage_names = [stage["name"] for stage in project.stages]
+        papers_by_stage = dict.fromkeys(stage_names, 0)
+        papers_by_stage.update(Counter(s.stage for s in statuses if s.stage in papers_by_stage))
 
-        # Count by priority
-        papers_by_priority: dict[int, int] = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
-        for status in statuses:
-            papers_by_priority[status.priority] = (
-                papers_by_priority.get(status.priority, 0) + 1
-            )
+        # Count by priority (initialize all levels 1-5)
+        papers_by_priority = {i: 0 for i in range(1, 6)}
+        papers_by_priority.update(Counter(s.priority for s in statuses))
 
         # Count rejection reasons
-        rejection_reasons: dict[str, int] = {}
-        for status in statuses:
-            if status.rejection_reason:
-                reason = status.rejection_reason.value
-                rejection_reasons[reason] = rejection_reasons.get(reason, 0) + 1
+        rejection_reasons = dict(Counter(
+            s.rejection_reason.value for s in statuses if s.rejection_reason
+        ))
 
         return ProjectStatistics(
             project_id=project_id,
@@ -631,6 +617,17 @@ class ProjectService:
     # =========================================================================
     # Private Methods
     # =========================================================================
+
+    async def _require_project(
+        self,
+        project_id: UUID,
+        organization_id: UUID,
+    ) -> Project:
+        """Get project or raise NotFoundError if not found."""
+        project = await self.get_project(project_id, organization_id)
+        if not project:
+            raise NotFoundError("Project", project_id)
+        return project
 
     async def _get_paper(
         self,
@@ -701,6 +698,9 @@ class ProjectService:
                 new_position += 1
             status.position = new_position
             new_position += 1
+
+        # Flush position changes to ensure they persist
+        await self.db.flush()
 
     async def _get_latest_scores(
         self,

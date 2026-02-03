@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from paper_scraper.core.database import get_db
 from paper_scraper.core.exceptions import ForbiddenError, UnauthorizedError
 from paper_scraper.core.security import decode_token, validate_token_type
+from paper_scraper.core.token_blacklist import token_blacklist
 from paper_scraper.modules.auth.models import User, UserRole
 
 
@@ -51,6 +52,18 @@ async def get_current_user(
     if not user_id:
         raise UnauthorizedError("Invalid token payload")
 
+    # Check token blacklist (by JTI - specific token)
+    jti = payload.get("jti")
+    if jti:
+        if await token_blacklist.is_token_blacklisted(jti):
+            raise UnauthorizedError("Token has been revoked")
+
+    # Check user-level token invalidation (all tokens before timestamp)
+    iat = payload.get("iat")
+    if iat:
+        if await token_blacklist.is_token_invalid_for_user(user_id, iat):
+            raise UnauthorizedError("Token has been invalidated")
+
     # Fetch user from database
     try:
         result = await db.execute(select(User).where(User.id == UUID(user_id)))
@@ -65,20 +78,6 @@ async def get_current_user(
         raise UnauthorizedError("User account is deactivated")
 
     return user
-
-
-async def get_current_active_user(
-    current_user: Annotated[User, Depends(get_current_user)],
-) -> User:
-    """Get the current active user (alias for get_current_user with active check).
-
-    Args:
-        current_user: The authenticated user from get_current_user.
-
-    Returns:
-        The active User object.
-    """
-    return current_user
 
 
 async def get_organization_id(
@@ -102,7 +101,6 @@ async def get_organization_id(
 
 # Type aliases for cleaner dependency injection
 CurrentUser = Annotated[User, Depends(get_current_user)]
-CurrentActiveUser = Annotated[User, Depends(get_current_active_user)]
 OrganizationId = Annotated[UUID, Depends(get_organization_id)]
 
 

@@ -31,6 +31,10 @@ from paper_scraper.modules.papers.service import PaperService
 
 router = APIRouter()
 
+# PDF magic bytes: %PDF- (0x25 0x50 0x44 0x46 0x2D)
+_PDF_MAGIC = b"%PDF-"
+_PDF_MAX_SIZE = 50_000_000  # 50MB
+
 
 def get_paper_service(
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -160,19 +164,22 @@ async def ingest_from_openalex_async(
     Returns job ID for progress tracking.
     """
     redis = await arq.create_pool(settings.arq_redis_settings)
-    job = await redis.enqueue_job(
-        "ingest_openalex_task",
-        str(current_user.organization_id),
-        request.query,
-        request.max_results,
-        request.filters,
-    )
+    try:
+        job = await redis.enqueue_job(
+            "ingest_openalex_task",
+            str(current_user.organization_id),
+            request.query,
+            request.max_results,
+            request.filters,
+        )
 
-    return IngestJobResponse(
-        job_id=job.job_id,
-        status="queued",
-        message=f"Ingestion job queued for query: {request.query}",
-    )
+        return IngestJobResponse(
+            job_id=job.job_id,
+            status="queued",
+            message=f"Ingestion job queued for query: {request.query}",
+        )
+    finally:
+        await redis.close()
 
 
 @router.post(
@@ -212,6 +219,37 @@ async def ingest_from_arxiv(
     )
 
 
+def _validate_pdf_content(content: bytes) -> None:
+    """Validate that content is a valid PDF file.
+
+    Args:
+        content: The file content bytes.
+
+    Raises:
+        HTTPException: If content is not a valid PDF.
+    """
+    if len(content) < 5:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File is too small to be a valid PDF",
+        )
+
+    if not content.startswith(_PDF_MAGIC):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid PDF file: missing PDF header signature",
+        )
+
+    # Check for PDF end marker (%%EOF should be near the end)
+    # Some PDFs have data after %%EOF, so check last 1KB
+    last_chunk = content[-1024:] if len(content) > 1024 else content
+    if b"%%EOF" not in last_chunk:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid PDF file: missing EOF marker",
+        )
+
+
 @router.post(
     "/upload/pdf",
     response_model=PaperResponse,
@@ -227,6 +265,12 @@ async def upload_pdf(
     Upload a PDF file and extract paper metadata.
 
     The PDF will be stored in S3 and text extracted for search/scoring.
+
+    Security validations:
+    - File extension must be .pdf
+    - PDF magic bytes validated
+    - PDF EOF marker validated
+    - Maximum file size: 50MB
     """
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(
@@ -235,11 +279,14 @@ async def upload_pdf(
         )
 
     content = await file.read()
-    if len(content) > 50_000_000:  # 50MB limit
+    if len(content) > _PDF_MAX_SIZE:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="File too large (max 50MB)",
         )
+
+    # Validate PDF content (magic bytes and structure)
+    _validate_pdf_content(content)
 
     paper = await paper_service.ingest_from_pdf(
         file_content=content,

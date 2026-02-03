@@ -61,36 +61,24 @@ export function AuthorModal({ authorId, isOpen, onClose }: AuthorModalProps) {
 
   if (!isOpen) return null
 
-  const handleCreateContact = async () => {
-    try {
-      await createContact.mutateAsync({ authorId, data: contactForm })
-      setShowContactForm(false)
-      setContactForm({
-        contact_type: 'email',
-        subject: '',
-        notes: '',
-        outcome: undefined,
-      })
-    } catch (err) {
-      // Error handled by mutation
-    }
+  const handleCreateContact = async (): Promise<void> => {
+    await createContact.mutateAsync({ authorId, data: contactForm })
+    setShowContactForm(false)
+    setContactForm({
+      contact_type: 'email',
+      subject: '',
+      notes: '',
+      outcome: undefined,
+    })
   }
 
-  const handleEnrich = async () => {
-    try {
-      await enrichAuthor.mutateAsync({ authorId, source: 'openalex', forceUpdate: true })
-    } catch (err) {
-      // Error handled by mutation
-    }
+  const handleEnrich = async (): Promise<void> => {
+    await enrichAuthor.mutateAsync({ authorId, source: 'openalex', forceUpdate: true })
   }
 
-  const handleDeleteContact = async (contactId: string) => {
+  const handleDeleteContact = async (contactId: string): Promise<void> => {
     if (window.confirm('Delete this contact log?')) {
-      try {
-        await deleteContact.mutateAsync({ authorId, contactId })
-      } catch (err) {
-        // Error handled by mutation
-      }
+      await deleteContact.mutateAsync({ authorId, contactId })
     }
   }
 

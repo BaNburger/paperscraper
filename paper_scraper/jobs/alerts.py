@@ -2,67 +2,53 @@
 
 import logging
 from typing import Any
+from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from paper_scraper.core.database import get_db_session
+from paper_scraper.modules.alerts.models import Alert
 from paper_scraper.modules.alerts.service import AlertService
 
 logger = logging.getLogger(__name__)
 
 
-async def process_daily_alerts_task(ctx: dict[str, Any]) -> dict[str, Any]:
-    """Process all daily alerts.
-
-    This job should be scheduled to run once per day.
+async def _process_alerts_by_frequency(frequency: str) -> dict[str, Any]:
+    """Process alerts for a given frequency and log results.
 
     Args:
-        ctx: Worker context.
+        frequency: Alert frequency ('daily' or 'weekly').
 
     Returns:
         Dict with processing results.
     """
-    logger.info("Starting daily alert processing")
+    logger.info("Starting %s alert processing", frequency)
 
     async with get_db_session() as db:
         service = AlertService(db)
-        result = await service.process_alerts(frequency="daily")
+        result = await service.process_alerts(frequency=frequency)
 
     logger.info(
-        f"Daily alert processing complete: "
-        f"processed={result['processed']}, "
-        f"sent={result['sent']}, "
-        f"skipped={result['skipped']}, "
-        f"failed={result['failed']}"
+        "%s alert processing complete: processed=%d, sent=%d, skipped=%d, failed=%d",
+        frequency.capitalize(),
+        result["processed"],
+        result["sent"],
+        result["skipped"],
+        result["failed"],
     )
 
     return result
+
+
+async def process_daily_alerts_task(ctx: dict[str, Any]) -> dict[str, Any]:
+    """Process all daily alerts. Scheduled to run once per day."""
+    return await _process_alerts_by_frequency("daily")
 
 
 async def process_weekly_alerts_task(ctx: dict[str, Any]) -> dict[str, Any]:
-    """Process all weekly alerts.
-
-    This job should be scheduled to run once per week.
-
-    Args:
-        ctx: Worker context.
-
-    Returns:
-        Dict with processing results.
-    """
-    logger.info("Starting weekly alert processing")
-
-    async with get_db_session() as db:
-        service = AlertService(db)
-        result = await service.process_alerts(frequency="weekly")
-
-    logger.info(
-        f"Weekly alert processing complete: "
-        f"processed={result['processed']}, "
-        f"sent={result['sent']}, "
-        f"skipped={result['skipped']}, "
-        f"failed={result['failed']}"
-    )
-
-    return result
+    """Process all weekly alerts. Scheduled to run once per week."""
+    return await _process_alerts_by_frequency("weekly")
 
 
 async def process_immediate_alert_task(
@@ -80,17 +66,9 @@ async def process_immediate_alert_task(
     Returns:
         Dict with processing result.
     """
-    from uuid import UUID
-
-    logger.info(f"Processing immediate alert: {alert_id}")
+    logger.info("Processing immediate alert: %s", alert_id)
 
     async with get_db_session() as db:
-        from sqlalchemy import select
-        from sqlalchemy.orm import selectinload
-
-        from paper_scraper.modules.alerts.models import Alert
-
-        # Get the alert
         result = await db.execute(
             select(Alert)
             .options(
@@ -102,19 +80,16 @@ async def process_immediate_alert_task(
         alert = result.scalar_one_or_none()
 
         if not alert:
-            logger.warning(f"Alert not found: {alert_id}")
+            logger.warning("Alert not found: %s", alert_id)
             return {"status": "not_found", "alert_id": alert_id}
 
         if not alert.is_active:
-            logger.info(f"Alert is inactive: {alert_id}")
+            logger.info("Alert is inactive: %s", alert_id)
             return {"status": "inactive", "alert_id": alert_id}
 
         service = AlertService(db)
         status = await service._process_single_alert(alert)
 
-    logger.info(f"Immediate alert processing complete: {alert_id} -> {status}")
+    logger.info("Immediate alert processing complete: %s -> %s", alert_id, status)
 
-    return {
-        "status": status,
-        "alert_id": alert_id,
-    }
+    return {"status": status, "alert_id": alert_id}

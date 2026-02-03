@@ -35,7 +35,7 @@ interface OrganizationStepProps {
   onNext: () => void
 }
 
-export const OrganizationStep = ({ value, onChange, onNext }: OrganizationStepProps) => {
+export function OrganizationStep({ value, onChange, onNext }: OrganizationStepProps): JSX.Element {
   return (
     <div className="space-y-6">
       <p className="text-center text-muted-foreground">

@@ -62,8 +62,6 @@ class PaperBase(BaseModel):
 class PaperCreate(PaperBase):
     """Schema for manual paper creation."""
 
-    pass
-
 
 class PaperResponse(BaseModel):
     """Paper response schema."""

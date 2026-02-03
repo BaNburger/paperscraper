@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/components/ui/Toast'
 import type { UpdateUserRequest, ChangePasswordRequest } from '@/types'
 
-export const UserSettingsPage = () => {
+export function UserSettingsPage() {
   const { user } = useAuth()
   const { success, error: showError } = useToast()
 

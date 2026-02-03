@@ -42,6 +42,36 @@ Consider:
 5. **Adoption Barriers:** What obstacles exist for market adoption?
 6. **Trends:** Does this align with current market trends?
 
+## Example Responses
+
+Example 1 - High Marketability (Score: 8.5):
+```json
+{
+    "score": 8.5,
+    "confidence": 0.85,
+    "reasoning": "This research addresses a critical bottleneck in battery recycling, a market experiencing explosive growth driven by EV adoption. The technology enables >95% lithium recovery at lower cost than existing methods, with immediate applications across automotive, electronics, and energy storage industries.",
+    "target_industries": ["Electric Vehicles", "Consumer Electronics", "Grid Storage", "Mining"],
+    "market_size_estimate": "very_large",
+    "market_timing": "good",
+    "competitive_landscape": "emerging",
+    "key_trends_alignment": ["EV adoption acceleration", "Circular economy mandates", "Critical mineral supply concerns"]
+}
+```
+
+Example 2 - Low Marketability (Score: 3.0):
+```json
+{
+    "score": 3.0,
+    "confidence": 0.75,
+    "reasoning": "While scientifically interesting, this research on exotic superconducting materials requires extreme conditions (near absolute zero temperatures) that limit practical applications. The niche market for scientific instruments is small and dominated by established players with mature solutions.",
+    "target_industries": ["Scientific Research", "Quantum Computing R&D"],
+    "market_size_estimate": "small",
+    "market_timing": "too_early",
+    "competitive_landscape": "competitive",
+    "key_trends_alignment": ["Quantum computing interest"]
+}
+```
+
 ## Required JSON Response
 
 Respond with ONLY valid JSON in this exact format:
