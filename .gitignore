@@ -166,3 +166,10 @@ DevOps/
 
 # Development data and analysis (bulk downloads, research)
 DevData/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/

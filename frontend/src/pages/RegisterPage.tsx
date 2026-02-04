@@ -62,6 +62,7 @@ export function RegisterPage() {
               <Label htmlFor="fullName">Full Name</Label>
               <Input
                 id="fullName"
+                name="full_name"
                 type="text"
                 placeholder="John Doe"
                 value={fullName}
@@ -73,6 +74,7 @@ export function RegisterPage() {
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
                 placeholder="you@example.com"
                 value={email}
@@ -84,6 +86,7 @@ export function RegisterPage() {
               <Label htmlFor="organizationName">Organization Name</Label>
               <Input
                 id="organizationName"
+                name="organization_name"
                 type="text"
                 placeholder="Acme Research Lab"
                 value={organizationName}
@@ -95,6 +98,7 @@ export function RegisterPage() {
               <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
+                name="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

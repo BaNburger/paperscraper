@@ -19,7 +19,7 @@ const themeOptions: ThemeOption[] = [
   { value: 'system', label: 'System', icon: Monitor },
 ]
 
-export function Navbar(): JSX.Element {
+export function Navbar() {
   const { user, logout } = useAuth()
   const { theme, setTheme, resolvedTheme } = useTheme()
   const navigate = useNavigate()

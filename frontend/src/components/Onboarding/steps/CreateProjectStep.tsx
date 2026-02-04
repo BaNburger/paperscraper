@@ -24,7 +24,7 @@ export function CreateProjectStep({
   onProjectCreated,
   onNext,
   onSkip,
-}: CreateProjectStepProps): JSX.Element {
+}: CreateProjectStepProps) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [isLoading, setIsLoading] = useState(false)

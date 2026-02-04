@@ -6,7 +6,7 @@ interface AuthorBadgeProps {
   totalAuthors: number
 }
 
-export function AuthorBadge({ position, isCorresponding, totalAuthors }: AuthorBadgeProps): JSX.Element | null {
+export function AuthorBadge({ position, isCorresponding, totalAuthors }: AuthorBadgeProps) {
   const isFirstAuthor = position === 0
   const isSeniorAuthor = position === totalAuthors - 1 && totalAuthors > 1
 

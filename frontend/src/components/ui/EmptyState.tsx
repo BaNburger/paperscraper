@@ -24,7 +24,7 @@ export function EmptyState({
   action,
   secondaryAction,
   className,
-}: EmptyStateProps): JSX.Element {
+}: EmptyStateProps) {
   return (
     <div
       className={cn(

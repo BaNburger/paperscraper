@@ -131,6 +131,7 @@ class Settings(BaseSettings):
     # ==========================================================================
     RATE_LIMIT_REQUESTS_PER_MINUTE: int = 100
     RATE_LIMIT_SCORING_PER_MINUTE: int = 10
+    RATE_LIMIT_ENABLED: bool = True  # Set to False to disable rate limiting (for testing)
 
     # ==========================================================================
     # Email (Resend)

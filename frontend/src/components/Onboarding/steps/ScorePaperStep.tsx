@@ -24,7 +24,7 @@ export function ScorePaperStep({
   onScored,
   onComplete,
   onSkip,
-}: ScorePaperStepProps): JSX.Element {
+}: ScorePaperStepProps) {
   const [papers, setPapers] = useState<Paper[]>([])
   const [selectedPaper, setSelectedPaper] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)

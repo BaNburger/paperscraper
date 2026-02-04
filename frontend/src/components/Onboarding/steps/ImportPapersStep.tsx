@@ -20,7 +20,7 @@ export function ImportPapersStep({
   onImport,
   onNext,
   onSkip,
-}: ImportPapersStepProps): JSX.Element {
+}: ImportPapersStepProps) {
   const [method, setMethod] = useState<ImportMethod>('doi')
   const [doi, setDoi] = useState('')
   const [query, setQuery] = useState('')

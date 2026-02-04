@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
+import { SidebarProvider } from '@/contexts/SidebarContext'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { Layout } from '@/components/layout'
 import { ToastProvider } from '@/components/ui/Toast'
@@ -55,7 +56,9 @@ function App() {
                   <Route
                     element={
                       <ProtectedRoute>
-                        <Layout />
+                        <SidebarProvider>
+                          <Layout />
+                        </SidebarProvider>
                       </ProtectedRoute>
                     }
                   >

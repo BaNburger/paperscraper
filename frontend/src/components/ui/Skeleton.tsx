@@ -4,7 +4,7 @@ interface SkeletonProps {
   className?: string
 }
 
-export function Skeleton({ className }: SkeletonProps): JSX.Element {
+export function Skeleton({ className }: SkeletonProps) {
   return (
     <div
       className={cn('animate-pulse rounded-md bg-muted', className)}
@@ -12,11 +12,11 @@ export function Skeleton({ className }: SkeletonProps): JSX.Element {
   )
 }
 
-export function SkeletonText({ className }: SkeletonProps): JSX.Element {
+export function SkeletonText({ className }: SkeletonProps) {
   return <Skeleton className={cn('h-4 w-full', className)} />
 }
 
-export function SkeletonCard({ className }: SkeletonProps): JSX.Element {
+export function SkeletonCard({ className }: SkeletonProps) {
   return (
     <div className={cn('rounded-lg border bg-card p-6 space-y-4', className)}>
       <Skeleton className="h-6 w-3/4" />
@@ -34,7 +34,7 @@ interface SkeletonTableProps {
   rows?: number
 }
 
-export function SkeletonTable({ rows = 5 }: SkeletonTableProps): JSX.Element {
+export function SkeletonTable({ rows = 5 }: SkeletonTableProps) {
   return (
     <div className="space-y-3">
       <div className="flex gap-4 pb-3 border-b">
@@ -65,11 +65,11 @@ const avatarSizeClasses: Record<'sm' | 'md' | 'lg', string> = {
   lg: 'h-14 w-14',
 }
 
-export function SkeletonAvatar({ size = 'md' }: SkeletonAvatarProps): JSX.Element {
+export function SkeletonAvatar({ size = 'md' }: SkeletonAvatarProps) {
   return <Skeleton className={cn('rounded-full', avatarSizeClasses[size])} />
 }
 
-export function SkeletonKanban(): JSX.Element {
+export function SkeletonKanban() {
   return (
     <div className="flex gap-4 overflow-x-auto pb-4">
       {Array.from({ length: 4 }).map((_, columnIndex) => (
@@ -84,7 +84,7 @@ export function SkeletonKanban(): JSX.Element {
   )
 }
 
-export function SkeletonStats(): JSX.Element {
+export function SkeletonStats() {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       {Array.from({ length: 4 }).map((_, i) => (

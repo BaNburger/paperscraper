@@ -3,6 +3,7 @@
 from datetime import datetime
 from uuid import UUID
 
+import httpx
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -27,6 +28,25 @@ def _escape_like(text: str) -> str:
         Text with LIKE special characters (%, _) escaped.
     """
     return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _api_error_result(source: str, error: Exception) -> IngestResult:
+    """Create an IngestResult for API errors.
+
+    Args:
+        source: Name of the API source (e.g., "OpenAlex", "PubMed").
+        error: The exception that occurred.
+
+    Returns:
+        IngestResult with appropriate error message.
+    """
+    if isinstance(error, httpx.HTTPStatusError):
+        msg = f"{source} API error: {error.response.status_code}"
+    elif isinstance(error, httpx.RequestError):
+        msg = f"Network error connecting to {source}: {error}"
+    else:
+        msg = f"Error fetching from {source}: {error}"
+    return IngestResult(papers_created=0, papers_updated=0, papers_skipped=0, errors=[msg])
 
 
 class PaperService:
@@ -220,8 +240,11 @@ class PaperService:
         skipped = 0
         errors: list[str] = []
 
-        async with OpenAlexClient() as client:
-            papers_data = await client.search(query, max_results, filters)
+        try:
+            async with OpenAlexClient() as client:
+                papers_data = await client.search(query, max_results, filters)
+        except Exception as e:
+            return _api_error_result("OpenAlex", e)
 
         for paper_data in papers_data:
             try:
@@ -263,8 +286,11 @@ class PaperService:
         Returns:
             IngestResult with counts of created/skipped papers.
         """
-        async with PubMedClient() as client:
-            papers_data = await client.search(query, max_results)
+        try:
+            async with PubMedClient() as client:
+                papers_data = await client.search(query, max_results)
+        except Exception as e:
+            return _api_error_result("PubMed", e)
 
         return await self._ingest_papers_batch(
             papers_data, organization_id, PaperSource.PUBMED
@@ -288,8 +314,11 @@ class PaperService:
         Returns:
             IngestResult with counts of created/skipped papers.
         """
-        async with ArxivClient() as client:
-            papers_data = await client.search(query, max_results, category)
+        try:
+            async with ArxivClient() as client:
+                papers_data = await client.search(query, max_results, category)
+        except Exception as e:
+            return _api_error_result("arXiv", e)
 
         return await self._ingest_papers_batch(
             papers_data, organization_id, PaperSource.ARXIV

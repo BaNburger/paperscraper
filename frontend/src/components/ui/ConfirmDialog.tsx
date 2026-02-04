@@ -35,7 +35,7 @@ export function ConfirmDialog({
   variant = 'default',
   isLoading = false,
   icon,
-}: ConfirmDialogProps): JSX.Element {
+}: ConfirmDialogProps) {
   function handleCancel(): void {
     onCancel?.()
     onOpenChange(false)

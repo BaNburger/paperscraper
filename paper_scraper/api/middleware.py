@@ -10,10 +10,12 @@ from starlette.responses import Response
 from paper_scraper.core.config import settings
 
 # Rate limiter with Redis backend
+# When RATE_LIMIT_ENABLED is False, all requests are exempt (useful for E2E testing)
 limiter = Limiter(
     key_func=get_remote_address,
     default_limits=[f"{settings.RATE_LIMIT_REQUESTS_PER_MINUTE}/minute"],
     storage_uri=settings.REDIS_URL,
+    enabled=settings.RATE_LIMIT_ENABLED,
 )
 
 # Content Security Policy directives

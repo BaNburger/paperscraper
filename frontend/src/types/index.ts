@@ -237,6 +237,28 @@ export interface KanbanBoard {
   columns: KanbanColumn[]
 }
 
+// Backend API response types (different from frontend types)
+export interface BackendKanbanPaper {
+  status: PaperProjectStatus
+  paper: Paper
+  assigned_to?: { id: string; email: string; full_name?: string }
+  latest_score?: PaperScore
+}
+
+export interface BackendKanbanStage {
+  name: string
+  label: string
+  order: number
+  paper_count: number
+  papers: BackendKanbanPaper[]
+}
+
+export interface BackendKanbanResponse {
+  project: Project
+  stages: BackendKanbanStage[]
+  total_papers: number
+}
+
 export interface ProjectStatistics {
   total_papers: number
   by_stage: Record<string, number>

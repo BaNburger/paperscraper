@@ -59,7 +59,7 @@ interface ToastItemProps {
   onRemove: (id: string) => void
 }
 
-function ToastItem({ toast, onRemove }: ToastItemProps): JSX.Element {
+function ToastItem({ toast, onRemove }: ToastItemProps) {
   return (
     <div
       className={cn(
@@ -97,7 +97,7 @@ const DEFAULT_DURATIONS: Record<ToastType, number> = {
   error: 10000,
 }
 
-export function ToastProvider({ children }: ToastProviderProps): JSX.Element {
+export function ToastProvider({ children }: ToastProviderProps) {
   const [toasts, setToasts] = useState<Toast[]>([])
   const timeoutRefs = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 

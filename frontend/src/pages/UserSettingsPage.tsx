@@ -136,8 +136,9 @@ export function UserSettingsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>Role</Label>
+              <Label htmlFor="role">Role</Label>
               <Input
+                id="role"
                 value={user?.role || ''}
                 disabled
                 className="bg-muted capitalize"

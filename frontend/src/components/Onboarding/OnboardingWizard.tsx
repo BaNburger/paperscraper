@@ -47,7 +47,7 @@ interface OnboardingWizardProps {
   onComplete: () => void
 }
 
-export function OnboardingWizard({ onComplete }: OnboardingWizardProps): JSX.Element {
+export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const navigate = useNavigate()
   const [currentStep, setCurrentStep] = useState(0)
   const [state, setState] = useState<OnboardingState>({

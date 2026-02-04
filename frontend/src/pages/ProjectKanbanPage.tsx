@@ -237,7 +237,7 @@ export function ProjectKanbanPage() {
     )
   }
 
-  if (error || !kanban) {
+  if (error || !kanban || !kanban.columns) {
     return (
       <Card>
         <CardContent className="py-12 text-center">
