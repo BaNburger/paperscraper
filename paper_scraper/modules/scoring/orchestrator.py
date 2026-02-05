@@ -14,6 +14,7 @@ from paper_scraper.modules.scoring.dimensions import (
     IPPotentialDimension,
     MarketabilityDimension,
     NoveltyDimension,
+    TeamReadinessDimension,
 )
 from paper_scraper.modules.scoring.dimensions.base import PaperContext
 from paper_scraper.modules.scoring.llm_client import TokenUsage
@@ -25,11 +26,12 @@ logger = logging.getLogger(__name__)
 class ScoringWeights:
     """Weights for aggregating dimension scores."""
 
-    novelty: float = 0.20
-    ip_potential: float = 0.20
-    marketability: float = 0.20
-    feasibility: float = 0.20
-    commercialization: float = 0.20
+    novelty: float = 1.0 / 6
+    ip_potential: float = 1.0 / 6
+    marketability: float = 1.0 / 6
+    feasibility: float = 1.0 / 6
+    commercialization: float = 1.0 / 6
+    team_readiness: float = 1.0 / 6
 
     def __post_init__(self):
         """Validate weights sum to 1.0."""
@@ -39,6 +41,7 @@ class ScoringWeights:
             + self.marketability
             + self.feasibility
             + self.commercialization
+            + self.team_readiness
         )
         if abs(total - 1.0) > 0.001:
             raise ValueError(f"Weights must sum to 1.0, got {total}")
@@ -51,6 +54,7 @@ class ScoringWeights:
             "marketability": self.marketability,
             "feasibility": self.feasibility,
             "commercialization": self.commercialization,
+            "team_readiness": self.team_readiness,
         }
 
 
@@ -112,6 +116,11 @@ class AggregatedScore:
         """Get commercialization score."""
         return self.dimension_results.get("commercialization", DimensionResult("commercialization", 0, 0, "")).score
 
+    @property
+    def team_readiness(self) -> float:
+        """Get team readiness score."""
+        return self.dimension_results.get("team_readiness", DimensionResult("team_readiness", 0, 0, "")).score
+
 
 # Default concurrency limit for LLM calls (across all scoring dimensions)
 DEFAULT_CONCURRENCY_LIMIT = 5
@@ -150,6 +159,7 @@ class ScoringOrchestrator:
             "marketability": MarketabilityDimension(),
             "feasibility": FeasibilityDimension(),
             "commercialization": CommercializationDimension(),
+            "team_readiness": TeamReadinessDimension(),
         }
 
     async def score_paper(

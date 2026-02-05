@@ -200,6 +200,10 @@ class NextStep(BaseModel):
     action: str = Field(description="What action to take")
     priority: str = Field(description="high, medium, or low")
     rationale: str = Field(description="Why this step is recommended")
+    suggested_template: str | None = Field(
+        default=None,
+        description="Name of recommended message template to use",
+    )
 
 
 class NextStepsResponse(BaseModel):
@@ -208,6 +212,10 @@ class NextStepsResponse(BaseModel):
     conversation_id: UUID
     steps: list[NextStep]
     summary: str = Field(description="Brief summary of current conversation status")
+    stage_recommendation: str | None = Field(
+        default=None,
+        description="Recommendation to move to a different stage with reasoning",
+    )
 
 
 # Resolve forward references

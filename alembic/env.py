@@ -70,6 +70,13 @@ try:
 except ImportError:
     pass
 
+try:
+    from paper_scraper.modules.model_settings.models import (  # noqa: F401
+        ModelConfiguration, ModelUsage,
+    )
+except ImportError:
+    pass
+
 # Alembic Config object
 config = context.config
 

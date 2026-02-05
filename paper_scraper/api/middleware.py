@@ -37,6 +37,7 @@ _CSP_STRICT = {
 
 _CSP_DOCS = {
     **_CSP_BASE,
+    "style-src": "'self' 'unsafe-inline' https://cdn.jsdelivr.net",
     "script-src": "'self' 'unsafe-inline' https://cdn.jsdelivr.net",
     "font-src": "'self' https://cdn.jsdelivr.net",
     "frame-ancestors": "'self'",

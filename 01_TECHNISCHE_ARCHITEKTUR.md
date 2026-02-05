@@ -21,7 +21,7 @@ graph TB
         Router["API v1 Router"]
     end
 
-    subgraph Modules["Backend Module (13 API-Module + email Service)"]
+    subgraph Modules["Backend Module (17 API-Module + email Service)"]
         direction LR
         AUTH["auth"]
         PAP["papers"]
@@ -36,6 +36,10 @@ graph TB
         EXP["export"]
         GRP["groups"]
         TRF["transfer"]
+        SUB["submissions"]
+        BDG["badges"]
+        KNO["knowledge"]
+        MOD["model_settings"]
     end
 
     subgraph Data["Data Layer"]
@@ -46,9 +50,10 @@ graph TB
 
     subgraph Jobs["Background Jobs (arq)"]
         ING["Ingestion<br/>(OpenAlex)"]
-        SCJ["Scoring<br/>(5 Dimensionen)"]
+        SCJ["Scoring<br/>(6 Dimensionen)"]
         ALJ["Alerts<br/>(Daily/Weekly)"]
         EMB["Embeddings<br/>(Backfill)"]
+        BGD["Badges<br/>(Auto-Award)"]
     end
 
     subgraph External["Externe APIs"]
@@ -173,7 +178,7 @@ graph TB
 └──────────────────┘
 ```
 
-**Weitere Entities:** `PaperNote`, `SavedSearch`, `Alert`, `AlertResult`, `AuditLog`, `ScoringJob`, `PaperStageHistory`, `ResearcherGroup`, `GroupMember`
+**Weitere Entities:** `PaperNote`, `SavedSearch`, `Alert`, `AlertResult`, `AuditLog`, `ScoringJob`, `PaperStageHistory`, `ResearcherGroup`, `GroupMember`, `TransferConversation`, `TransferMessage`, `TransferResource`, `ResearchSubmission`, `Badge`, `UserBadge`, `KnowledgeSource`, `ModelConfiguration`, `ModelUsage`
 
 ### 2.2 Scoring-Dimensionen
 
@@ -184,13 +189,17 @@ graph TB
 | **Marketability** | 0-10 | Marktgrosse, Industrien, Trends |
 | **Feasibility** | 0-10 | TRL-Level, Time-to-Market, Dev-Kosten |
 | **Commercialization** | 0-10 | Empfohlener Pfad, Entry Barriers |
+| **Team Readiness** | 0-10 | Autoren-Track Record, Industry Experience, Institutional Support |
 
 **Scoring-Pipeline:**
 1. Paper → Embedding generieren (`text-embedding-3-small`, 1536d)
 2. Ahnliche Papers finden (pgvector, cosine distance)
-3. Pro Dimension: Jinja2-Prompt → LLM → JSON parsen
-4. Aggregieren (gewichteter Durchschnitt)
-5. Ergebnis in `paper_scores` speichern (inkl. `dimension_details` JSONB)
+3. Autoren-Metriken laden (h-index, works_count, affiliations)
+4. Pro Dimension: Jinja2-Prompt → LLM → JSON parsen
+5. Aggregieren (gewichteter Durchschnitt)
+6. Ergebnis in `paper_scores` speichern (inkl. `dimension_details` JSONB)
+
+**Innovation Radar:** 6-Achsen-Radar-Chart zur Visualisierung aller Dimensionen auf PaperDetailPage.
 
 ### 2.3 AI-generierte Inhalte
 
@@ -201,7 +210,7 @@ graph TB
 | **paper_type** | Klassifikation (original_research, review, case_study, etc.) | On-demand via `/classify` |
 | **embedding** | 1536d-Vektor (text-embedding-3-small) | Auto-generiert fur semantische Suche |
 
-**Prompt Templates** (`scoring/prompts/`): `novelty.jinja2`, `ip_potential.jinja2`, `marketability.jinja2`, `feasibility.jinja2`, `commercialization.jinja2`, `one_line_pitch.jinja2`, `simplified_abstract.jinja2`, `paper_classification.jinja2`
+**Prompt Templates** (`scoring/prompts/`): `novelty.jinja2`, `ip_potential.jinja2`, `marketability.jinja2`, `feasibility.jinja2`, `commercialization.jinja2`, `team_readiness.jinja2`, `one_line_pitch.jinja2`, `simplified_abstract.jinja2`, `paper_classification.jinja2`, `suggest_members.jinja2`, `transfer_next_steps.jinja2`
 
 ### 2.4 Externe Datenquellen
 
@@ -231,9 +240,12 @@ paper_scraper/
 │   ├── logging.py                # JSON-Formatter (Prod), structured logging
 │   ├── redis_base.py             # Base class fur Redis-backed Services
 │   ├── account_lockout.py        # Brute-Force-Schutz (Redis)
-│   └── token_blacklist.py        # JWT-Invalidierung (Redis)
+│   ├── token_blacklist.py        # JWT-Invalidierung (Redis)
+│   ├── permissions.py            # Granulares RBAC-System
+│   ├── storage.py                # S3/MinIO Storage Utilities
+│   └── csv_utils.py              # CSV-Export mit Injection-Schutz
 │
-├── modules/                       # 12 Feature-Module
+├── modules/                       # 17 Feature-Module
 │   ├── auth/                     # Authentication & User Management
 │   │   ├── models.py             # Organization, User, TeamInvitation
 │   │   ├── schemas.py            # Pydantic DTOs
@@ -264,11 +276,12 @@ paper_scraper/
 │   │   ├── embeddings.py         # text-embedding-3-small Integration
 │   │   ├── classifier.py         # Paper-Typ-Klassifikation
 │   │   ├── pitch_generator.py    # One-Line Pitch + Simplified Abstract
-│   │   ├── dimensions/           # 5 Scoring-Dimensionen
+│   │   ├── dimensions/           # 6 Scoring-Dimensionen
 │   │   │   ├── base.py, novelty.py, ip_potential.py
 │   │   │   ├── marketability.py, feasibility.py
-│   │   │   └── commercialization.py
-│   │   └── prompts/              # 8 Jinja2 Prompt-Templates
+│   │   │   ├── commercialization.py
+│   │   │   └── team_readiness.py # NEU: Autoren-basiertes Scoring
+│   │   └── prompts/              # 11 Jinja2 Prompt-Templates
 │   │
 │   ├── projects/                 # KanBan Pipeline Management
 │   │   ├── models.py             # Project, PaperProjectStatus, PaperStageHistory
@@ -302,21 +315,43 @@ paper_scraper/
 │   ├── email/                    # Transaktionale E-Mails (Resend)
 │   │   └── service.py
 │   │
-│   └── groups/                   # Forscher-Gruppen
-│       ├── models.py, schemas.py, service.py, router.py
+│   ├── groups/                   # Forscher-Gruppen & Collaboration
+│   │   ├── models.py             # ResearcherGroup, GroupMember
+│   │   ├── schemas.py, service.py, router.py
+│   │
+│   ├── transfer/                 # Technology Transfer Conversations
+│   │   ├── models.py             # TransferConversation, TransferMessage, TransferResource
+│   │   ├── schemas.py, service.py, router.py
+│   │
+│   ├── submissions/              # Research Submission Portal
+│   │   ├── models.py             # ResearchSubmission
+│   │   ├── schemas.py, service.py, router.py
+│   │
+│   ├── badges/                   # Gamification & Achievements
+│   │   ├── models.py             # Badge, UserBadge
+│   │   ├── schemas.py, service.py, router.py
+│   │
+│   ├── knowledge/                # Knowledge Management
+│   │   ├── models.py             # KnowledgeSource
+│   │   ├── schemas.py, service.py, router.py
+│   │
+│   └── model_settings/           # LLM Model Configuration
+│       ├── models.py             # ModelConfiguration, ModelUsage
+│       ├── schemas.py, service.py, router.py
 │
 ├── jobs/                         # Background Jobs (arq)
 │   ├── worker.py                 # WorkerSettings, Cron Jobs
 │   ├── ingestion.py              # OpenAlex Batch-Ingestion
 │   ├── scoring.py                # Paper Scoring + Embedding-Generierung
 │   ├── alerts.py                 # Daily/Weekly Alert-Verarbeitung
-│   └── search.py                 # Embedding-Backfill
+│   ├── search.py                 # Embedding-Backfill
+│   └── badges.py                 # Badge Auto-Award Engine
 │
 └── api/                          # API Layer
     ├── main.py                   # FastAPI App, Lifespan, Exception Handlers
     ├── dependencies.py           # DI (current_user, db session, RBAC)
-    ├── middleware.py              # SecurityHeaders, Rate Limiting (slowapi)
-    └── v1/router.py              # 12 Modul-Router aggregiert
+    ├── middleware.py             # SecurityHeaders, Rate Limiting (slowapi)
+    └── v1/router.py              # 17 Modul-Router aggregiert
 ```
 
 ### 3.2 LLM Abstraction Layer
@@ -416,17 +451,28 @@ frontend/src/
 │   ├── useAuthors.ts             # Author CRM + Contacts
 │   ├── useAlerts.ts              # Alert Management
 │   ├── useSavedSearches.ts       # Saved Searches
-│   └── useAnalytics.ts           # Dashboard Metriken
+│   ├── useAnalytics.ts           # Dashboard Metriken
+│   ├── useGroups.ts              # Forscher-Gruppen
+│   ├── useTransfer.ts            # Tech Transfer Conversations
+│   ├── useSubmissions.ts         # Research Submissions
+│   ├── useBadges.ts              # Gamification
+│   ├── useKnowledge.ts           # Knowledge Management
+│   └── useModelSettings.ts       # LLM Configuration
 │
-├── pages/                        # 17 Route Pages
+├── pages/                        # 24 Route Pages
 │   ├── LoginPage, RegisterPage, ForgotPasswordPage
 │   ├── ResetPasswordPage, VerifyEmailPage, AcceptInvitePage
 │   ├── DashboardPage, AnalyticsPage
 │   ├── PapersPage, PaperDetailPage
 │   ├── ProjectsPage, ProjectKanbanPage
 │   ├── SearchPage, SavedSearchesPage
+│   ├── GroupsPage                # Forscher-Gruppen
+│   ├── TransferPage, TransferDetailPage  # Tech Transfer
+│   ├── SubmissionsPage           # Research Portal
+│   ├── BadgesPage                # Gamification
+│   ├── KnowledgePage             # Knowledge Management
 │   ├── TeamMembersPage
-│   └── UserSettingsPage, OrganizationSettingsPage
+│   └── UserSettingsPage, OrganizationSettingsPage, ModelSettingsPage
 │
 ├── lib/
 │   ├── api.ts                    # Axios Client (11 API-Namespaces)
@@ -458,13 +504,20 @@ ErrorBoundary
 | `/` , `/dashboard` | DashboardPage | Dashboard-Ubersicht |
 | `/analytics` | AnalyticsPage | Team & Paper Metriken |
 | `/papers` | PapersPage | Paper-Liste mit Filtern |
-| `/papers/:id` | PaperDetailPage | Paper-Detail + Scores |
+| `/papers/:id` | PaperDetailPage | Paper-Detail + Scores + Innovation Radar |
 | `/projects` | ProjectsPage | Projekt-Liste |
 | `/projects/:id` | ProjectKanbanPage | KanBan-Board |
 | `/search` | SearchPage | Fulltext/Semantic Suche |
+| `/groups` | GroupsPage | Forscher-Gruppen |
+| `/transfer` | TransferPage | Tech Transfer Ubersicht |
+| `/transfer/:id` | TransferDetailPage | Conversation Detail |
+| `/submissions` | SubmissionsPage | Research Submissions |
+| `/badges` | BadgesPage | Gamification & Achievements |
+| `/knowledge` | KnowledgePage | Knowledge Management |
 | `/team` | TeamMembersPage | Team-Verwaltung |
 | `/settings` | UserSettingsPage | User-Einstellungen |
 | `/settings/organization` | OrganizationSettingsPage | Org-Einstellungen |
+| `/settings/models` | ModelSettingsPage | LLM-Konfiguration (Admin) |
 
 ### 4.4 API Client (`lib/api.ts`)
 
@@ -473,7 +526,7 @@ ErrorBoundary
 - **Response Interceptor:** Automatischer Token-Refresh bei 401, Request-Queue verhindert Race Conditions
 - **Token Storage:** `localStorage` (access + refresh Token)
 
-**11 API-Namespaces:** `authApi`, `papersApi`, `scoringApi`, `projectsApi`, `searchApi`, `authorsApi`, `analyticsApi`, `exportApi`, `savedSearchesApi`, `alertsApi`, `classificationApi`
+**17 API-Namespaces:** `authApi`, `papersApi`, `scoringApi`, `projectsApi`, `searchApi`, `authorsApi`, `analyticsApi`, `exportApi`, `savedSearchesApi`, `alertsApi`, `classificationApi`, `groupsApi`, `transferApi`, `submissionsApi`, `badgesApi`, `knowledgeApi`, `modelSettingsApi`
 
 ### 4.5 Key Libraries
 
@@ -802,7 +855,7 @@ CREATE TABLE group_members (
 
 ## 6. API Design
 
-### 6.1 Endpoint-Ubersicht (70+ Endpoints, 12 Module)
+### 6.1 Endpoint-Ubersicht (100+ Endpoints, 17 Module)
 
 ```
 /api/v1/
@@ -919,8 +972,54 @@ CREATE TABLE group_members (
 │   ├── GET    /pdf
 │   └── POST   /batch
 │
-└── /groups                            # Forscher-Gruppen
-    └── [CRUD Endpoints]
+├── /groups                            # Forscher-Gruppen
+│   ├── GET    /
+│   ├── POST   /
+│   ├── GET    /{id}
+│   ├── PATCH  /{id}
+│   ├── DELETE /{id}
+│   ├── POST   /{id}/members
+│   ├── DELETE /{id}/members/{researcher_id}
+│   └── GET    /{id}/suggestions
+│
+├── /transfer                          # Technology Transfer
+│   ├── GET    /conversations
+│   ├── POST   /conversations
+│   ├── GET    /conversations/{id}
+│   ├── PATCH  /conversations/{id}
+│   ├── DELETE /conversations/{id}
+│   ├── POST   /conversations/{id}/messages
+│   ├── GET    /conversations/{id}/messages
+│   ├── POST   /conversations/{id}/resources
+│   └── GET    /conversations/{id}/next-steps
+│
+├── /submissions                       # Research Submissions
+│   ├── GET    /
+│   ├── POST   /                        # Submit research
+│   ├── GET    /{id}
+│   ├── PATCH  /{id}/status            # Review submission
+│   └── POST   /{id}/analyze           # AI analysis
+│
+├── /badges                            # Gamification
+│   ├── GET    /                        # All available badges
+│   ├── GET    /my-badges               # User's earned badges
+│   ├── GET    /stats                   # User statistics
+│   └── GET    /leaderboard             # Organization leaderboard
+│
+├── /knowledge                         # Knowledge Management
+│   ├── GET    /sources
+│   ├── POST   /sources
+│   ├── GET    /sources/{id}
+│   ├── PATCH  /sources/{id}
+│   └── DELETE /sources/{id}
+│
+└── /settings/models                   # Model Configuration
+    ├── GET    /
+    ├── POST   /
+    ├── PATCH  /{id}
+    ├── DELETE /{id}
+    ├── GET    /usage
+    └── GET    /{id}/hosting
 ```
 
 **Auto-generierte Dokumentation:** `/docs` (Swagger UI), `/redoc`, `/openapi.json` (nur im DEBUG-Modus)

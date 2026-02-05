@@ -168,6 +168,8 @@ export interface PaperScore {
   feasibility_reasoning: string
   commercialization: number
   commercialization_reasoning: string
+  team_readiness: number
+  team_readiness_reasoning: string
   overall_score: number
   confidence: number
   model_version: string
@@ -446,6 +448,7 @@ export interface ScoringStats {
   average_marketability: number | null
   average_feasibility: number | null
   average_commercialization: number | null
+  average_team_readiness: number | null
   score_distribution: ScoreDistributionBucket[]
 }
 
@@ -648,6 +651,415 @@ export interface UpdateOrganizationRequest {
   name?: string
   type?: string
   settings?: Record<string, unknown>
+}
+
+// =============================================================================
+// Groups types
+// =============================================================================
+export type GroupType = 'custom' | 'mailing_list' | 'speaker_pool'
+
+export interface GroupMember {
+  researcher_id: string
+  researcher_name: string
+  researcher_email: string | null
+  h_index: number | null
+  added_at: string
+}
+
+export interface Group {
+  id: string
+  organization_id: string
+  name: string
+  description: string | null
+  type: GroupType
+  keywords: string[]
+  created_by: string | null
+  created_at: string
+  member_count: number
+}
+
+export interface GroupDetail extends Group {
+  members: GroupMember[]
+}
+
+export interface GroupListResponse {
+  items: Group[]
+  total: number
+  page: number
+  page_size: number
+}
+
+export interface CreateGroupRequest {
+  name: string
+  description?: string
+  type?: GroupType
+  keywords?: string[]
+}
+
+export interface UpdateGroupRequest {
+  name?: string
+  description?: string
+  type?: GroupType
+  keywords?: string[]
+}
+
+export interface SuggestedMember {
+  researcher_id: string
+  name: string
+  relevance_score: number
+  matching_keywords: string[]
+  affiliations: string[]
+}
+
+export interface SuggestMembersResponse {
+  suggestions: SuggestedMember[]
+  query_keywords: string[]
+}
+
+// =============================================================================
+// Transfer types
+// =============================================================================
+export type TransferType = 'patent' | 'licensing' | 'startup' | 'partnership' | 'other'
+export type TransferStage =
+  | 'initial_contact'
+  | 'discovery'
+  | 'evaluation'
+  | 'negotiation'
+  | 'closed_won'
+  | 'closed_lost'
+
+export interface Conversation {
+  id: string
+  organization_id: string
+  paper_id: string | null
+  researcher_id: string | null
+  type: TransferType
+  stage: TransferStage
+  title: string
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  message_count: number
+  resource_count: number
+}
+
+export interface ConversationMessage {
+  id: string
+  conversation_id: string
+  sender_id: string | null
+  content: string
+  mentions: string[]
+  created_at: string
+  sender_name: string | null
+}
+
+export interface ConversationResource {
+  id: string
+  conversation_id: string
+  name: string
+  url: string | null
+  file_path: string | null
+  resource_type: string
+  created_at: string
+}
+
+export interface StageChange {
+  id: string
+  conversation_id: string
+  from_stage: TransferStage
+  to_stage: TransferStage
+  changed_by: string | null
+  notes: string | null
+  changed_at: string
+  changed_by_name: string | null
+}
+
+export interface ConversationDetail extends Conversation {
+  messages: ConversationMessage[]
+  resources: ConversationResource[]
+  stage_history: StageChange[]
+  creator_name: string | null
+  paper_title: string | null
+  researcher_name: string | null
+}
+
+export interface ConversationListResponse {
+  items: Conversation[]
+  total: number
+  page: number
+  page_size: number
+  pages: number
+}
+
+export interface CreateConversationRequest {
+  title: string
+  type: TransferType
+  paper_id?: string
+  researcher_id?: string
+}
+
+export interface MessageTemplate {
+  id: string
+  organization_id: string
+  name: string
+  subject: string | null
+  content: string
+  stage: TransferStage | null
+  created_at: string
+}
+
+export interface NextStep {
+  action: string
+  priority: string
+  rationale: string
+}
+
+export interface NextStepsResponse {
+  conversation_id: string
+  steps: NextStep[]
+  summary: string
+}
+
+// =============================================================================
+// Submissions types
+// =============================================================================
+export type SubmissionStatus = 'draft' | 'submitted' | 'under_review' | 'approved' | 'rejected' | 'converted'
+export type AttachmentType = 'pdf' | 'supplementary' | 'patent_draft' | 'presentation' | 'other'
+
+export interface SubmissionUser {
+  id: string
+  full_name: string | null
+  email: string
+}
+
+export interface SubmissionAttachment {
+  id: string
+  filename: string
+  file_size: number
+  mime_type: string
+  attachment_type: AttachmentType
+  created_at: string
+}
+
+export interface SubmissionScore {
+  id: string
+  novelty: number
+  ip_potential: number
+  marketability: number
+  feasibility: number
+  commercialization: number
+  overall_score: number
+  overall_confidence: number
+  analysis_summary: string | null
+  dimension_details: Record<string, unknown>
+  model_version: string
+  created_at: string
+}
+
+export interface Submission {
+  id: string
+  organization_id: string
+  title: string
+  abstract: string | null
+  research_field: string | null
+  keywords: string[]
+  status: SubmissionStatus
+  doi: string | null
+  publication_venue: string | null
+  commercial_potential: string | null
+  prior_art_notes: string | null
+  ip_disclosure: string | null
+  review_notes: string | null
+  review_decision: string | null
+  reviewed_at: string | null
+  converted_paper_id: string | null
+  submitted_at: string | null
+  created_at: string
+  updated_at: string
+  submitted_by: SubmissionUser | null
+  reviewed_by: SubmissionUser | null
+}
+
+export interface SubmissionDetail extends Submission {
+  attachments: SubmissionAttachment[]
+  scores: SubmissionScore[]
+}
+
+export interface SubmissionListResponse {
+  items: Submission[]
+  total: number
+  page: number
+  page_size: number
+  pages: number
+}
+
+export interface CreateSubmissionRequest {
+  title: string
+  abstract?: string
+  research_field?: string
+  keywords?: string[]
+  doi?: string
+  publication_venue?: string
+  commercial_potential?: string
+  prior_art_notes?: string
+  ip_disclosure?: string
+}
+
+export interface UpdateSubmissionRequest {
+  title?: string
+  abstract?: string
+  research_field?: string
+  keywords?: string[]
+  doi?: string
+  publication_venue?: string
+  commercial_potential?: string
+  prior_art_notes?: string
+  ip_disclosure?: string
+}
+
+export interface SubmissionReviewRequest {
+  decision: 'approved' | 'rejected'
+  notes?: string
+}
+
+// =============================================================================
+// Badges types
+// =============================================================================
+export type BadgeCategory = 'import' | 'scoring' | 'collaboration' | 'exploration' | 'milestone'
+export type BadgeTier = 'bronze' | 'silver' | 'gold' | 'platinum'
+
+export interface Badge {
+  id: string
+  name: string
+  description: string
+  icon: string
+  category: BadgeCategory
+  tier: BadgeTier
+  threshold: number
+  points: number
+}
+
+export interface UserBadge {
+  id: string
+  badge_id: string
+  badge: Badge
+  earned_at: string
+  progress: number
+}
+
+export interface BadgeListResponse {
+  items: Badge[]
+  total: number
+}
+
+export interface UserBadgeListResponse {
+  items: UserBadge[]
+  total: number
+  total_points: number
+}
+
+export interface UserStats {
+  papers_imported: number
+  papers_scored: number
+  searches_performed: number
+  projects_created: number
+  notes_created: number
+  authors_contacted: number
+  badges_earned: number
+  total_points: number
+  level: number
+  level_progress: number
+}
+
+// =============================================================================
+// Knowledge types
+// =============================================================================
+export type KnowledgeScope = 'personal' | 'organization'
+export type KnowledgeType = 'research_focus' | 'industry_context' | 'evaluation_criteria' | 'domain_expertise' | 'custom'
+
+export interface KnowledgeSource {
+  id: string
+  organization_id: string
+  user_id: string | null
+  title: string
+  content: string
+  type: KnowledgeType
+  scope: KnowledgeScope
+  tags: string[]
+  created_at: string
+  updated_at: string
+}
+
+export interface KnowledgeSourceListResponse {
+  items: KnowledgeSource[]
+  total: number
+}
+
+export interface CreateKnowledgeSourceRequest {
+  title: string
+  content: string
+  type?: KnowledgeType
+  tags?: string[]
+}
+
+export interface UpdateKnowledgeSourceRequest {
+  title?: string
+  content?: string
+  type?: KnowledgeType
+  tags?: string[]
+}
+
+// =============================================================================
+// Model Settings types
+// =============================================================================
+export interface ModelConfiguration {
+  id: string
+  organization_id: string
+  provider: string
+  model_name: string
+  is_default: boolean
+  has_api_key: boolean
+  hosting_info: Record<string, unknown>
+  max_tokens: number
+  temperature: number
+  created_at: string
+  updated_at: string
+}
+
+export interface ModelConfigurationListResponse {
+  items: ModelConfiguration[]
+  total: number
+}
+
+export interface CreateModelConfigurationRequest {
+  provider: string
+  model_name: string
+  is_default?: boolean
+  api_key?: string
+  hosting_info?: Record<string, unknown>
+  max_tokens?: number
+  temperature?: number
+}
+
+export interface UpdateModelConfigurationRequest {
+  provider?: string
+  model_name?: string
+  is_default?: boolean
+  api_key?: string
+  hosting_info?: Record<string, unknown>
+  max_tokens?: number
+  temperature?: number
+}
+
+export interface UsageAggregation {
+  total_requests: number
+  total_input_tokens: number
+  total_output_tokens: number
+  total_tokens: number
+  total_cost_usd: number
+  by_operation: Record<string, { requests: number; tokens: number; cost_usd: number }>
+  by_model: Record<string, { requests: number; tokens: number; cost_usd: number }>
+  by_day: Array<{ date: string; requests: number; tokens: number; cost_usd: number }>
 }
 
 // API Error types

@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from paper_scraper.core.csv_utils import sanitize_csv_field
 from paper_scraper.modules.papers.models import Paper, PaperAuthor
 from paper_scraper.modules.scoring.models import PaperScore
 
@@ -123,21 +124,21 @@ class ExportService:
 
         writer.writerow(headers)
 
-        # Data rows
+        # Data rows — sanitize user-controlled text to prevent CSV injection
         for paper in papers:
             row = [
                 str(paper.id),
-                paper.doi or "",
-                paper.title,
-                paper.abstract or "",
+                sanitize_csv_field(paper.doi or ""),
+                sanitize_csv_field(paper.title),
+                sanitize_csv_field(paper.abstract or ""),
                 paper.source.value,
-                paper.journal or "",
+                sanitize_csv_field(paper.journal or ""),
                 paper.publication_date.isoformat() if paper.publication_date else "",
-                "; ".join(paper.keywords) if paper.keywords else "",
+                sanitize_csv_field("; ".join(paper.keywords) if paper.keywords else ""),
             ]
 
             if include_authors:
-                row.append("; ".join(_get_sorted_author_names(paper)))
+                row.append(sanitize_csv_field("; ".join(_get_sorted_author_names(paper))))
 
             if include_scores:
                 score = scores.get(paper.id)

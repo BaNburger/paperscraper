@@ -88,6 +88,16 @@ class SuggestMembersRequest(BaseModel):
 
     keywords: list[str] = Field(..., min_length=1)
     target_size: int = Field(default=10, ge=1, le=50)
+    group_name: str | None = Field(
+        default=None, description="Optional group name for enhanced suggestions"
+    )
+    group_description: str | None = Field(
+        default=None, description="Optional group description for enhanced suggestions"
+    )
+    use_llm_explanation: bool = Field(
+        default=False,
+        description="If True, use LLM to generate explanations (slower but more detailed)",
+    )
 
 
 class SuggestedMember(BaseModel):
@@ -98,6 +108,10 @@ class SuggestedMember(BaseModel):
     relevance_score: float = Field(..., ge=0, le=1)
     matching_keywords: list[str]
     affiliations: list[str] = Field(default_factory=list)
+    explanation: str | None = Field(
+        default=None,
+        description="LLM-generated explanation of why this researcher is a good fit",
+    )
 
 
 class SuggestMembersResponse(BaseModel):

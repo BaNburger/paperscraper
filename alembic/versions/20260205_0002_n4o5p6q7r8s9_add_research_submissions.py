@@ -24,7 +24,7 @@ def upgrade() -> None:
     submission_status_enum = postgresql.ENUM(
         "draft", "submitted", "under_review", "approved", "rejected", "converted",
         name="submissionstatus",
-        create_type=True,
+        create_type=False,
     )
     submission_status_enum.create(op.get_bind(), checkfirst=True)
 
@@ -32,7 +32,7 @@ def upgrade() -> None:
     attachment_type_enum = postgresql.ENUM(
         "pdf", "supplementary", "patent_draft", "presentation", "other",
         name="attachmenttype",
-        create_type=True,
+        create_type=False,
     )
     attachment_type_enum.create(op.get_bind(), checkfirst=True)
 

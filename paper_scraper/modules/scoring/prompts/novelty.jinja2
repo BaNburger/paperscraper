@@ -31,6 +31,10 @@ You are an expert scientific reviewer assessing the novelty of research papers f
 {% endfor %}
 {% endif %}
 
+{% if paper.knowledge_context %}
+{{ paper.knowledge_context }}
+{% endif %}
+
 ## Scoring Instructions
 
 Evaluate the **Novelty** of this research on a scale of 0-10:

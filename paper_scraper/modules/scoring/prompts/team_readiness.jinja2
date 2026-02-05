@@ -1,0 +1,99 @@
+You are an expert in evaluating research team readiness for commercialization and technology transfer.
+
+## Paper to Evaluate
+
+**Title:** {{ paper.title }}
+
+{% if paper.abstract %}
+**Abstract:** {{ paper.abstract }}
+{% endif %}
+
+{% if paper.keywords %}
+**Keywords:** {{ paper.keywords | join(', ') }}
+{% endif %}
+
+{% if paper.journal %}
+**Journal:** {{ paper.journal }}
+{% endif %}
+
+{% if paper.publication_date %}
+**Publication Date:** {{ paper.publication_date }}
+{% endif %}
+
+{% if authors %}
+## Authors
+
+{% for author in authors %}
+{{ loop.index }}. **{{ author.name }}**
+   {% if author.h_index %}h-index: {{ author.h_index }}{% endif %}
+   {% if author.works_count %}Publications: {{ author.works_count }}{% endif %}
+   {% if author.affiliations %}Affiliations: {{ author.affiliations | join(', ') }}{% endif %}
+
+{% endfor %}
+{% endif %}
+
+{% if similar_papers %}
+## Similar Papers (for comparison)
+
+{% for similar in similar_papers[:5] %}
+{{ loop.index }}. **{{ similar.title }}**
+   {% if similar.abstract %}Abstract: {{ similar.abstract }}{% endif %}
+   {% if similar.publication_date %}Published: {{ similar.publication_date }}{% endif %}
+
+{% endfor %}
+{% endif %}
+
+## Scoring Instructions
+
+Evaluate the **Team Readiness** for commercialization on a scale of 0-10:
+
+- **0-2 (Low):** Early-career team, no industry ties, single-discipline, no prior commercialization
+- **3-4 (Below Average):** Limited industry experience, mostly academic focus, small team
+- **5-6 (Average):** Some industry collaborations, reasonable track record, moderate team diversity
+- **7-8 (Above Average):** Strong industry ties, proven track record, complementary skill sets, institutional support
+- **9-10 (High):** Serial commercializers, extensive industry networks, multidisciplinary team, strong institutional backing
+
+Consider:
+1. Track record of successful research (h-index, publication count, citation metrics)
+2. Industry collaboration experience (affiliations, cross-sector partnerships)
+3. Institutional support indicators (university TTO, research center backing)
+4. Team composition and complementary skills (multidisciplinary, senior + junior mix)
+5. Prior commercialization experience (patents, spinoffs, licensing deals)
+
+## Example Responses
+
+Example 1 - High Team Readiness (Score: 8.0):
+```json
+{
+    "score": 8.0,
+    "confidence": 0.80,
+    "reasoning": "The team includes a senior researcher with h-index 45 from a top-tier research university, combined with co-authors from an industry R&D lab. The lead author has prior patent filings and the institutional affiliation suggests strong TTO support.",
+    "evidence": ["high h-index indicates research maturity", "industry co-author suggests existing commercial relationships", "university affiliation with known TTO program"],
+    "strengths": ["proven research track record", "industry-academia collaboration already established", "complementary expertise across authors"],
+    "gaps": ["no clear business development expertise on the team", "limited evidence of prior startup experience"]
+}
+```
+
+Example 2 - Low Team Readiness (Score: 3.0):
+```json
+{
+    "score": 3.0,
+    "confidence": 0.75,
+    "reasoning": "The team appears to be primarily academic with limited industry connections. All authors are from the same university department, suggesting narrow expertise. Publication count is modest, indicating early-career researchers.",
+    "evidence": ["all authors from same department", "low publication counts", "no industry affiliations detected"],
+    "strengths": ["focused expertise in the specific research area"],
+    "gaps": ["no industry partnerships", "limited commercialization experience", "narrow skill set within team", "would need significant external support for tech transfer"]
+}
+```
+
+## Required JSON Response
+
+Respond with ONLY valid JSON in this exact format:
+{
+    "score": <number 0-10>,
+    "confidence": <number 0-1>,
+    "reasoning": "<2-3 sentences explaining the score>",
+    "evidence": ["<evidence1>", "<evidence2>", "<evidence3>"],
+    "strengths": ["<strength1>", "<strength2>"],
+    "gaps": ["<gap1>", "<gap2>"]
+}

@@ -1,0 +1,32 @@
+Given the following research group description and keywords, evaluate these candidate researchers
+and explain why they would be a good fit based on their expertise and publication history.
+
+Group: {{ group_name }}
+{% if group_description %}Description: {{ group_description }}{% endif %}
+Keywords: {{ keywords | join(', ') }}
+
+Candidate researchers (ranked by embedding similarity):
+{% for author in candidates %}
+{{ loop.index }}. {{ author.name }}
+   Affiliations: {{ author.affiliations | join(', ') if author.affiliations else 'Unknown' }}
+   H-Index: {{ author.h_index or 'N/A' }}
+   Citation Count: {{ author.citation_count or 'N/A' }}
+   Works Count: {{ author.works_count or 'N/A' }}
+{% endfor %}
+
+For each candidate, provide:
+1. A relevance score (0-100) based on how well they match the group focus
+2. A brief explanation (1-2 sentences) of why they would be a good fit
+3. Key matching areas of expertise
+
+Respond with a JSON object:
+{
+  "candidates": [
+    {
+      "name": "Researcher Name",
+      "relevance_score": 85,
+      "explanation": "Brief explanation of fit...",
+      "matching_keywords": ["keyword1", "keyword2"]
+    }
+  ]
+}

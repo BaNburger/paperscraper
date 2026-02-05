@@ -1,15 +1,21 @@
 import { NavLink } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import {
+  ArrowRightLeft,
   BarChart3,
+  BookOpen,
+  Bot,
   ChevronLeft,
   ChevronRight,
   FileText,
   FolderKanban,
   Home,
+  Inbox,
   Search,
   Settings,
+  Trophy,
   Users,
+  UsersRound,
 } from 'lucide-react'
 import { useSidebar } from '@/contexts/SidebarContext'
 import { Button } from '@/components/ui/Button'
@@ -19,12 +25,18 @@ const navItems = [
   { to: '/papers', icon: FileText, label: 'Papers' },
   { to: '/projects', icon: FolderKanban, label: 'Projects' },
   { to: '/search', icon: Search, label: 'Search' },
+  { to: '/groups', icon: UsersRound, label: 'Groups' },
+  { to: '/transfer', icon: ArrowRightLeft, label: 'Transfer' },
+  { to: '/submissions', icon: Inbox, label: 'Submissions' },
   { to: '/analytics', icon: BarChart3, label: 'Analytics' },
 ]
 
 const bottomNavItems = [
+  { to: '/badges', icon: Trophy, label: 'Badges' },
   { to: '/team', icon: Users, label: 'Team' },
+  { to: '/knowledge', icon: BookOpen, label: 'Knowledge' },
   { to: '/settings', icon: Settings, label: 'Settings' },
+  { to: '/settings/models', icon: Bot, label: 'AI Models' },
 ]
 
 export function Sidebar() {

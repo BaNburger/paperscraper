@@ -4,14 +4,16 @@ from typing import Annotated
 from uuid import UUID
 
 import arq
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from paper_scraper.api.dependencies import CurrentUser
+from paper_scraper.api.dependencies import CurrentUser, require_permission
 from paper_scraper.api.middleware import limiter
+from paper_scraper.core.permissions import Permission
 from paper_scraper.core.config import settings
 from paper_scraper.core.database import get_db
 from paper_scraper.core.exceptions import NotFoundError
+from paper_scraper.jobs.badges import trigger_badge_check
 from paper_scraper.modules.scoring.classifier import PaperClassifier
 from paper_scraper.modules.scoring.schemas import (
     BatchScoreRequest,
@@ -53,6 +55,7 @@ def get_classifier(
     response_model=PaperScoreResponse,
     status_code=status.HTTP_200_OK,
     summary="Score a paper",
+    dependencies=[Depends(require_permission(Permission.SCORING_TRIGGER))],
 )
 @limiter.limit(f"{settings.RATE_LIMIT_SCORING_PER_MINUTE}/minute")
 async def score_paper(
@@ -60,6 +63,7 @@ async def score_paper(
     paper_id: UUID,
     current_user: CurrentUser,
     scoring_service: Annotated[ScoringService, Depends(get_scoring_service)],
+    background_tasks: BackgroundTasks,
     score_request: ScoreRequest | None = None,
 ) -> PaperScoreResponse:
     """
@@ -77,6 +81,13 @@ async def score_paper(
         weights=score_request.weights,
         dimensions=score_request.dimensions,
         force_rescore=score_request.force_rescore,
+    )
+    # Trigger badge check for paper scoring
+    background_tasks.add_task(
+        trigger_badge_check,
+        current_user.id,
+        current_user.organization_id,
+        "paper_scored",
     )
     return PaperScoreResponse.model_validate(score)
 
@@ -164,6 +175,7 @@ async def list_scores(
     response_model=ScoringJobResponse,
     status_code=status.HTTP_202_ACCEPTED,
     summary="Start batch scoring job",
+    dependencies=[Depends(require_permission(Permission.SCORING_TRIGGER))],
 )
 async def batch_score(
     request: BatchScoreRequest,
@@ -252,6 +264,7 @@ async def get_job(
     "/papers/{paper_id}/embedding",
     response_model=EmbeddingResponse,
     summary="Generate paper embedding",
+    dependencies=[Depends(require_permission(Permission.SCORING_TRIGGER))],
 )
 async def generate_embedding(
     paper_id: UUID,
@@ -314,6 +327,7 @@ async def backfill_embeddings(
     "/papers/{paper_id}/classify",
     response_model=ClassificationResponse,
     summary="Classify paper type",
+    dependencies=[Depends(require_permission(Permission.SCORING_TRIGGER))],
 )
 async def classify_paper(
     paper_id: UUID,

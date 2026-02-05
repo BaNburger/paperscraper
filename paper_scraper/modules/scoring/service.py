@@ -1,5 +1,6 @@
 """Service layer for scoring module."""
 
+import logging
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
@@ -7,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.core.exceptions import NotFoundError
+from paper_scraper.modules.model_settings.models import ModelUsage
 from paper_scraper.modules.papers.models import Paper
 from paper_scraper.modules.scoring.dimensions.base import PaperContext
 from paper_scraper.modules.scoring.embeddings import generate_paper_embedding
@@ -23,6 +25,8 @@ from paper_scraper.modules.scoring.schemas import (
     ScoringJobResponse,
     ScoringWeightsSchema,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class ScoringService:
@@ -43,6 +47,8 @@ class ScoringService:
         weights: ScoringWeightsSchema | None = None,
         dimensions: list[str] | None = None,
         force_rescore: bool = False,
+        use_knowledge_context: bool = True,
+        user_id: UUID | None = None,
     ) -> PaperScore:
         """
         Score a paper across all dimensions.
@@ -53,6 +59,8 @@ class ScoringService:
             weights: Optional custom scoring weights
             dimensions: Optional specific dimensions to score
             force_rescore: If True, rescore even if recent score exists
+            use_knowledge_context: If True, inject org knowledge into prompts
+            user_id: Optional user ID for personal knowledge context
 
         Returns:
             PaperScore model with results
@@ -83,6 +91,21 @@ class ScoringService:
         paper_context = PaperContext.from_paper(paper)
         similar_contexts = [PaperContext.from_paper(p) for p in similar_papers]
 
+        # Fetch knowledge context if enabled
+        knowledge_context = ""
+        if use_knowledge_context:
+            knowledge_context = await self._get_knowledge_context(
+                organization_id=organization_id,
+                user_id=user_id,
+                keywords=paper.keywords,
+            )
+            if knowledge_context:
+                paper_context.knowledge_context = knowledge_context
+                logger.debug(
+                    f"Injected knowledge context ({len(knowledge_context)} chars) "
+                    f"for paper {paper_id}"
+                )
+
         # Get orchestrator with custom weights if provided
         orchestrator = self.orchestrator
         if weights:
@@ -92,6 +115,7 @@ class ScoringService:
                 marketability=weights.marketability,
                 feasibility=weights.feasibility,
                 commercialization=weights.commercialization,
+                team_readiness=weights.team_readiness,
             )
             orchestrator = orchestrator.with_weights(scoring_weights)
 
@@ -103,8 +127,48 @@ class ScoringService:
         )
 
         # Save score to database
-        score = await self._save_score(paper, organization_id, result)
+        score = await self._save_score(paper, organization_id, result, knowledge_context)
+
+        # Log usage if tracked
+        if result.usage and result.usage.total_tokens > 0:
+            await self._log_usage(organization_id, result)
+
         return score
+
+    async def _get_knowledge_context(
+        self,
+        organization_id: UUID,
+        user_id: UUID | None,
+        keywords: list | None,
+    ) -> str:
+        """Fetch and format knowledge context for scoring prompts.
+
+        Args:
+            organization_id: Organization UUID.
+            user_id: Optional user UUID for personal knowledge.
+            keywords: Optional keywords to filter relevant sources.
+
+        Returns:
+            Formatted knowledge context string, or empty if none found.
+        """
+        try:
+            from paper_scraper.modules.knowledge.service import KnowledgeService
+
+            knowledge_service = KnowledgeService(self.db)
+            sources = await knowledge_service.get_relevant_sources_for_scoring(
+                organization_id=organization_id,
+                user_id=user_id,
+                keywords=keywords if keywords else None,
+                limit=5,
+            )
+
+            if sources:
+                return knowledge_service.format_knowledge_for_prompt(sources)
+            return ""
+
+        except Exception as e:
+            logger.warning(f"Failed to fetch knowledge context: {e}")
+            return ""
 
     async def get_latest_score(
         self,
@@ -441,6 +505,7 @@ class ScoringService:
         paper: Paper,
         organization_id: UUID,
         result: AggregatedScore,
+        knowledge_context: str = "",
     ) -> PaperScore:
         """Save scoring result to database."""
         # Extract dimension details for storage
@@ -453,6 +518,13 @@ class ScoringService:
                 "details": dim_result.details,
             }
 
+        # Add metadata about knowledge context usage
+        if knowledge_context:
+            dimension_details["_metadata"] = {
+                "knowledge_context_used": True,
+                "knowledge_context_length": len(knowledge_context),
+            }
+
         score = PaperScore(
             paper_id=paper.id,
             organization_id=organization_id,
@@ -461,6 +533,7 @@ class ScoringService:
             marketability=result.marketability,
             feasibility=result.feasibility,
             commercialization=result.commercialization,
+            team_readiness=result.team_readiness,
             overall_score=result.overall_score,
             overall_confidence=result.overall_confidence,
             model_version=result.model_version,
@@ -472,3 +545,22 @@ class ScoringService:
         await self.db.commit()
         await self.db.refresh(score)
         return score
+
+    async def _log_usage(
+        self,
+        organization_id: UUID,
+        result: AggregatedScore,
+    ) -> None:
+        """Log LLM usage from a scoring operation to ModelUsage table."""
+        if not result.usage:
+            return
+
+        usage = ModelUsage(
+            organization_id=organization_id,
+            operation="scoring",
+            input_tokens=result.usage.total_prompt_tokens,
+            output_tokens=result.usage.total_completion_tokens,
+            cost_usd=result.usage.estimated_cost_usd,
+        )
+        self.db.add(usage)
+        await self.db.commit()

@@ -20,6 +20,10 @@ You are an expert technology assessment specialist evaluating the technical feas
 **Publication Date:** {{ paper.publication_date }}
 {% endif %}
 
+{% if paper.knowledge_context %}
+{{ paper.knowledge_context }}
+{% endif %}
+
 ## Scoring Instructions
 
 Evaluate the **Feasibility** of commercializing this research on a scale of 0-10:

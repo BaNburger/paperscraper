@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.core.database import get_db
 from paper_scraper.core.exceptions import ForbiddenError, UnauthorizedError
+from paper_scraper.core.permissions import Permission, check_permission
 from paper_scraper.core.security import decode_token, validate_token_type
 from paper_scraper.core.token_blacklist import token_blacklist
 from paper_scraper.modules.auth.models import User, UserRole
@@ -140,6 +141,31 @@ async def require_manager_or_admin(
     if current_user.role not in (UserRole.ADMIN, UserRole.MANAGER):
         raise ForbiddenError("This action requires manager or admin privileges")
     return current_user
+
+
+def require_permission(*permissions: Permission):
+    """FastAPI dependency factory that checks the current user has **all**
+    of the specified permissions.
+
+    Usage as a route dependency::
+
+        @router.post("/papers/{id}/score",
+                      dependencies=[Depends(require_permission(Permission.SCORING_TRIGGER))])
+        async def score_paper(...): ...
+
+    Or as a parameter dependency (returns the User)::
+
+        async def delete_paper(
+            _auth: Annotated[User, Depends(require_permission(Permission.PAPERS_DELETE))],
+            ...
+        ): ...
+    """
+
+    async def _check(current_user: CurrentUser) -> User:
+        check_permission(current_user.role.value, *permissions)
+        return current_user
+
+    return _check
 
 
 # Type aliases for role-based dependencies

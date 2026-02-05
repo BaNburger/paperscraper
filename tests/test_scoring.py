@@ -247,13 +247,15 @@ class TestScoringOrchestrator:
     """Test scoring orchestrator."""
 
     def test_default_weights(self):
-        """Test default equal weights."""
+        """Test default equal weights (6 dimensions)."""
         weights = ScoringWeights()
-        assert weights.novelty == 0.20
-        assert weights.ip_potential == 0.20
-        assert weights.marketability == 0.20
-        assert weights.feasibility == 0.20
-        assert weights.commercialization == 0.20
+        expected = 1 / 6
+        assert abs(weights.novelty - expected) < 1e-10
+        assert abs(weights.ip_potential - expected) < 1e-10
+        assert abs(weights.marketability - expected) < 1e-10
+        assert abs(weights.feasibility - expected) < 1e-10
+        assert abs(weights.commercialization - expected) < 1e-10
+        assert abs(weights.team_readiness - expected) < 1e-10
 
     def test_custom_weights_validation(self):
         """Test that weights must sum to 1.0."""
@@ -264,19 +266,21 @@ class TestScoringOrchestrator:
                 marketability=0.5,
                 feasibility=0.5,
                 commercialization=0.5,
+                team_readiness=0.5,
             )
 
     def test_valid_custom_weights(self):
         """Test valid custom weights."""
         weights = ScoringWeights(
-            novelty=0.30,
-            ip_potential=0.25,
+            novelty=0.25,
+            ip_potential=0.20,
             marketability=0.20,
             feasibility=0.15,
             commercialization=0.10,
+            team_readiness=0.10,
         )
-        assert weights.novelty == 0.30
-        assert weights.commercialization == 0.10
+        assert weights.novelty == 0.25
+        assert weights.team_readiness == 0.10
 
     @pytest.mark.asyncio
     async def test_score_paper(self, sample_paper_context):
@@ -300,7 +304,7 @@ class TestScoringOrchestrator:
         assert result.paper_id == sample_paper_context.id
         assert result.overall_score == 7.0  # All scores are 7.0
         assert result.overall_confidence == 0.8
-        assert len(result.dimension_results) == 5
+        assert len(result.dimension_results) == 6
 
     @pytest.mark.asyncio
     async def test_score_paper_partial_dimensions(self, sample_paper_context):
@@ -340,13 +344,14 @@ class TestScoringSchemas:
 
     def test_weights_schema_validation(self):
         """Test weight schema validation."""
-        # Valid weights
+        # Valid weights (6 dimensions summing to 1.0)
         valid = ScoringWeightsSchema(
             novelty=0.25,
-            ip_potential=0.25,
+            ip_potential=0.20,
             marketability=0.20,
             feasibility=0.15,
-            commercialization=0.15,
+            commercialization=0.10,
+            team_readiness=0.10,
         )
         assert valid.novelty == 0.25
 

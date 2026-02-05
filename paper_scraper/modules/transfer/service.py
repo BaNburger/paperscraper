@@ -1,8 +1,11 @@
 """Service layer for technology transfer conversations."""
 
 import logging
+from datetime import datetime, timezone
+from pathlib import Path
 from uuid import UUID
 
+from jinja2 import Environment, FileSystemLoader
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -38,6 +41,13 @@ from paper_scraper.modules.transfer.schemas import (
 
 logger = logging.getLogger(__name__)
 
+# Load Jinja2 environment for prompt templates
+_PROMPTS_DIR = Path(__file__).parent.parent / "scoring" / "prompts"
+_jinja_env = Environment(
+    loader=FileSystemLoader(_PROMPTS_DIR),
+    autoescape=False,
+)
+
 
 class TransferService:
     """Service for technology transfer conversation management."""
@@ -66,8 +76,10 @@ class TransferService:
             base_query = base_query.where(TransferConversation.stage == stage)
 
         if search:
+            # Escape SQL LIKE special characters to prevent unexpected matching
+            escaped_search = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
             base_query = base_query.where(
-                TransferConversation.title.ilike(f"%{search}%")
+                TransferConversation.title.ilike(f"%{escaped_search}%", escape="\\")
             )
 
         # Count total
@@ -98,8 +110,9 @@ class TransferService:
         if stage:
             query = query.where(TransferConversation.stage == stage)
         if search:
+            # Use the same escaped search variable to prevent SQL LIKE injection
             query = query.where(
-                TransferConversation.title.ilike(f"%{search}%")
+                TransferConversation.title.ilike(f"%{escaped_search}%", escape="\\")
             )
 
         query = query.order_by(TransferConversation.updated_at.desc())
@@ -274,7 +287,7 @@ class TransferService:
             created_by=user_id,
         )
         self.db.add(conversation)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(conversation)
         return conversation
 
@@ -308,7 +321,7 @@ class TransferService:
 
         # Update the conversation
         conv.stage = data.stage
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(conv)
         return conv
 
@@ -335,7 +348,7 @@ class TransferService:
             mentions=[str(uid) for uid in data.mentions],
         )
         self.db.add(message)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(message)
         return message
 
@@ -363,7 +376,7 @@ class TransferService:
             mentions=[str(uid) for uid in (mentions or [])],
         )
         self.db.add(message)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(message)
         return message
 
@@ -390,8 +403,42 @@ class TransferService:
             resource_type=data.resource_type,
         )
         self.db.add(resource)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(resource)
+        return resource
+
+    async def get_resource(
+        self,
+        conversation_id: UUID,
+        resource_id: UUID,
+        organization_id: UUID,
+    ) -> ConversationResource:
+        """Get a resource by ID with tenant isolation.
+
+        Args:
+            conversation_id: Conversation UUID.
+            resource_id: Resource UUID.
+            organization_id: Organization UUID for tenant isolation.
+
+        Returns:
+            ConversationResource.
+
+        Raises:
+            NotFoundError: If conversation or resource not found.
+        """
+        conv = await self.get_conversation(conversation_id, organization_id)
+        if not conv:
+            raise NotFoundError("TransferConversation", conversation_id)
+
+        result = await self.db.execute(
+            select(ConversationResource).where(
+                ConversationResource.id == resource_id,
+                ConversationResource.conversation_id == conversation_id,
+            )
+        )
+        resource = result.scalar_one_or_none()
+        if not resource:
+            raise NotFoundError("ConversationResource", resource_id)
         return resource
 
     # =========================================================================
@@ -444,7 +491,7 @@ class TransferService:
             stage=data.stage,
         )
         self.db.add(template)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(template)
         return template
 
@@ -463,7 +510,7 @@ class TransferService:
         for key, value in update_data.items():
             setattr(template, key, value)
 
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(template)
         return template
 
@@ -478,7 +525,7 @@ class TransferService:
             raise NotFoundError("MessageTemplate", template_id)
 
         await self.db.delete(template)
-        await self.db.commit()
+        await self.db.flush()
 
     # =========================================================================
     # AI Next Steps
@@ -489,7 +536,14 @@ class TransferService:
         conversation_id: UUID,
         organization_id: UUID,
     ) -> NextStepsResponse:
-        """Get AI-suggested next steps for a conversation."""
+        """Get AI-suggested next steps for a conversation.
+
+        Enhanced version that includes:
+        - Full conversation history (last 15 messages)
+        - Stage-specific suggestion templates
+        - Message template recommendations
+        - Researcher profile and paper context
+        """
         detail = await self.get_conversation_detail(conversation_id, organization_id)
         if not detail:
             raise NotFoundError("TransferConversation", conversation_id)
@@ -502,51 +556,76 @@ class TransferService:
 
             llm = get_llm_client()
 
-            # Build context for the LLM
-            messages_text = "\n".join(
-                f"[{m.sender_name or 'Unknown'}]: {sanitize_text_for_prompt(m.content, max_length=500)}"
-                for m in detail.messages[-10:]  # Last 10 messages
-            )
+            # Get available message templates for current stage
+            templates = await self.list_templates(organization_id, stage=detail.stage)
 
-            stage_history_text = "\n".join(
-                f"- {sc.from_stage.value} -> {sc.to_stage.value}"
-                + (f" (Note: {sc.notes})" if sc.notes else "")
+            # Get additional context: paper abstract and researcher details
+            paper_context = await self._get_paper_context(detail.paper_id)
+            researcher_context = await self._get_researcher_context(detail.researcher_id)
+
+            # Calculate days in current stage
+            days_in_stage = 0
+            if detail.stage_history:
+                latest_change = detail.stage_history[0]  # Most recent
+                days_in_stage = (datetime.now(timezone.utc) - latest_change.changed_at).days
+            else:
+                days_in_stage = (datetime.now(timezone.utc) - detail.created_at).days
+
+            # Build message data for prompt (sanitize all user-controllable fields)
+            messages_data = [
+                {
+                    "timestamp": m.created_at.strftime("%Y-%m-%d %H:%M"),
+                    "sender": sanitize_text_for_prompt(m.sender_name or "Unknown", max_length=100),
+                    "content": sanitize_text_for_prompt(m.content, max_length=500),
+                }
+                for m in detail.messages[-15:]  # Last 15 messages
+            ]
+
+            # Build stage history for prompt
+            stage_history_data = [
+                {
+                    "from_stage": sc.from_stage.value,
+                    "to_stage": sc.to_stage.value,
+                    "notes": sc.notes,
+                }
                 for sc in detail.stage_history[:5]
+            ]
+
+            # Build template data for prompt
+            template_data = [
+                {"name": t.name, "subject": t.subject}
+                for t in templates
+            ]
+
+            # Render enhanced prompt
+            template = _jinja_env.get_template("transfer_next_steps.jinja2")
+            prompt = template.render(
+                title=sanitize_text_for_prompt(detail.title, max_length=200),
+                type=detail.type.value,
+                stage=detail.stage.value,
+                days_in_stage=days_in_stage,
+                paper_title=sanitize_text_for_prompt(paper_context.get("title"), max_length=200) if paper_context else None,
+                paper_abstract=sanitize_text_for_prompt(paper_context.get("abstract"), max_length=500) if paper_context else None,
+                researcher_name=sanitize_text_for_prompt(researcher_context.get("name"), max_length=100) if researcher_context else None,
+                researcher_affiliations=researcher_context.get("affiliations") if researcher_context else None,
+                researcher_h_index=researcher_context.get("h_index") if researcher_context else None,
+                messages=messages_data,
+                stage_history=stage_history_data,
+                available_templates=template_data,
             )
-
-            prompt = f"""Analyze this technology transfer conversation and suggest next steps.
-
-Conversation: {sanitize_text_for_prompt(detail.title, max_length=200)}
-Type: {detail.type.value}
-Current Stage: {detail.stage.value}
-Paper: {sanitize_text_for_prompt(detail.paper_title, max_length=200) if detail.paper_title else 'N/A'}
-Researcher: {sanitize_text_for_prompt(detail.researcher_name, max_length=200) if detail.researcher_name else 'N/A'}
-
-Recent Messages:
-{messages_text or 'No messages yet.'}
-
-Stage History:
-{stage_history_text or 'No stage transitions yet.'}
-
-Respond with a JSON object containing:
-- "summary": brief status summary (1-2 sentences)
-- "steps": array of 3-5 next steps, each with:
-  - "action": what to do
-  - "priority": "high", "medium", or "low"
-  - "rationale": why this step matters
-"""
 
             system_prompt = (
                 "You are an expert technology transfer advisor helping TTO staff "
                 "manage conversations with researchers and industry partners. "
-                "Provide practical, actionable next steps based on the conversation context."
+                "Provide practical, actionable next steps based on the full conversation context. "
+                "Consider the stage-specific priorities and recommend specific message templates when appropriate."
             )
 
             result = await llm.complete_json(
                 prompt=prompt,
                 system=system_prompt,
                 temperature=0.3,
-                max_tokens=1000,
+                max_tokens=1500,
             )
 
             steps = [
@@ -554,6 +633,7 @@ Respond with a JSON object containing:
                     action=s.get("action", ""),
                     priority=s.get("priority", "medium"),
                     rationale=s.get("rationale", ""),
+                    suggested_template=s.get("suggested_template"),
                 )
                 for s in result.get("steps", [])
             ]
@@ -562,15 +642,46 @@ Respond with a JSON object containing:
                 conversation_id=conversation_id,
                 steps=steps,
                 summary=result.get("summary", "Unable to generate summary."),
+                stage_recommendation=result.get("stage_recommendation"),
             )
 
         except (ImportError, ConnectionError, TimeoutError, ValueError, KeyError) as e:
             logger.warning(f"AI next-steps generation failed: {e}")
-            # Return fallback based on current stage
             return self._get_fallback_next_steps(detail)
         except Exception as e:
             logger.exception(f"Unexpected error in AI next-steps: {e}")
             return self._get_fallback_next_steps(detail)
+
+    async def _get_paper_context(self, paper_id: UUID | None) -> dict | None:
+        """Get paper context for next-steps prompt."""
+        if not paper_id:
+            return None
+
+        result = await self.db.execute(
+            select(Paper.title, Paper.abstract).where(Paper.id == paper_id)
+        )
+        row = result.first()
+        if row:
+            return {"title": row.title, "abstract": row.abstract}
+        return None
+
+    async def _get_researcher_context(self, researcher_id: UUID | None) -> dict | None:
+        """Get researcher context for next-steps prompt."""
+        if not researcher_id:
+            return None
+
+        result = await self.db.execute(
+            select(Author.name, Author.affiliations, Author.h_index)
+            .where(Author.id == researcher_id)
+        )
+        row = result.first()
+        if row:
+            return {
+                "name": row.name,
+                "affiliations": row.affiliations,
+                "h_index": row.h_index,
+            }
+        return None
 
     # =========================================================================
     # Private Methods

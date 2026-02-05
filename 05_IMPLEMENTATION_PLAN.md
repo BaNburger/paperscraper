@@ -49,32 +49,67 @@
 
 | Sprint | Focus | Duration | Status |
 |--------|-------|----------|--------|
-| 20 | Critical Fixes & Deployment Readiness | 1 week | 🔲 Pending |
-| 21 | Phase 4 Frontend Integration | 2 weeks | 🔲 Pending |
+| 20 | Critical Fixes & Deployment Readiness | 1 week | ✅ Complete |
+| 21 | Phase 4 Frontend Integration | 2 weeks | ✅ Complete |
 
 ### Phase 6: Security & AI Advancement (Sprints 22-24)
 
 | Sprint | Focus | Duration | Status |
 |--------|-------|----------|--------|
-| 22 | Security Hardening & RBAC | 2 weeks | 🔲 Pending |
-| 23 | 6-Dimension Scoring + Model Settings | 2 weeks | 🔲 Pending |
-| 24 | AI Intelligence Enhancements | 2 weeks | 🔲 Pending |
+| 22 | Security Hardening & RBAC | 2 weeks | ✅ Complete |
+| 23 | 6-Dimension Scoring + Model Settings | 2 weeks | ✅ Complete |
+| 24 | AI Intelligence Enhancements | 2 weeks | ✅ Complete |
 
 ### Phase 7: Platform & Developer Experience (Sprints 25-27)
 
 | Sprint | Focus | Duration | Status |
 |--------|-------|----------|--------|
-| 25 | Developer API & Repository Management | 2 weeks | 🔲 Pending |
-| 26 | UX Polish & Keyboard Navigation | 2 weeks | 🔲 Pending |
-| 27 | Analytics & Reporting Expansion | 2 weeks | 🔲 Pending |
+| 25 | Developer API, MCP Server & Repository Management | 2 weeks | 🔲 Pending |
+| 26 | UX Polish, Keyboard Nav & Mobile Responsiveness | 2 weeks | 🔲 Pending |
+| 27 | Analytics, Reporting & AI Insights | 2 weeks | 🔲 Pending |
 
 ### Phase 8: Enterprise Readiness (Sprints 28-30)
 
 | Sprint | Focus | Duration | Status |
 |--------|-------|----------|--------|
-| 28 | Compliance, Governance & Data Retention | 2 weeks | 🔲 Pending |
+| 28 | Compliance, Governance, Data Retention & SOC2 | 2 weeks | 🔲 Pending |
 | 29 | Internationalization & Platform Features | 2 weeks | 🔲 Pending |
 | 30 | Technical Debt & Quality | 2 weeks | 🔲 Pending |
+
+---
+
+## Improvement Summary (February 2026 Review)
+
+### Completed Since Last Review
+- **17 Backend Modules** operational (was 12 planned)
+- **6 Scoring Dimensions** (added Team Readiness)
+- **24 Frontend Pages** with full routing
+- **Granular RBAC** via `core/permissions.py`
+- **CSV Injection Protection** via `core/csv_utils.py`
+- **Innovation Radar** chart component
+- **Model Configuration** module for org-level LLM settings
+- **Badge Auto-Award** engine (`jobs/badges.py`)
+
+### Key Additions to Upcoming Sprints
+| Sprint | New Items Added |
+|--------|-----------------|
+| **25** | MCP Server Protocol for AI agent integrations (Claude Code, GPT) |
+| **26** | Mobile responsiveness for key pages, touch-friendly KanBan |
+| **27** | AI-powered insights, metric recommendations |
+| **28** | SOC2 Type II preparation checklist and dashboard |
+
+### Remaining AI Integration Gaps
+| ID | Feature | Status | Notes |
+|----|---------|--------|-------|
+| **AI-001** | Embedding-based group suggestions | Prompt ready | Needs pgvector integration in `groups/service.py` |
+| **AI-005** | Knowledge-enhanced scoring | Planned | Inject knowledge sources into scoring prompts |
+
+### Technical Debt Addressed
+- ✅ TD-006: Transfer module migration
+- ✅ TD-004: Submission file storage (MinIO)
+- ✅ TD-008: Transfer resource storage
+- ✅ TD-009: Badge auto-award engine
+- Remaining items deferred to Sprint 30
 
 ---
 
@@ -87,8 +122,8 @@
 | Paper Management | P1-P7 | 1-6 | ✅ Backend, ✅ Frontend |
 | KanBan Board | K1-K4 | 4 | ✅ Backend, ✅ Frontend |
 | Researcher Management | R1-R5 | 10 | ✅ Backend, ✅ Frontend |
-| Researcher Groups | G1-G4 | 16 (backend), **21** (frontend) | ✅ Backend, 🔲 Frontend |
-| Technology Transfer | T1-T6 | 17 (backend), **21** (frontend) | ✅ Backend, 🔲 Frontend |
+| Researcher Groups | G1-G4 | 16 (backend), 21 (frontend) | ✅ Backend, ✅ Frontend |
+| Technology Transfer | T1-T6 | 17 (backend), 21 (frontend) | ✅ Backend, ✅ Frontend |
 | Search & Discovery | S1-S2 | 5, 11 | ✅ Complete |
 | Search & Discovery | S3-S4 | **26, 27** | 🔲 Preview panel, Peer comparison |
 | Reports & Analytics | A1, A3 | 12 | ✅ Complete |
@@ -101,17 +136,15 @@
 | Organization Settings | O2 (branding) | **29** | 🔲 Branding |
 | Organization Settings | O3 (billing) | **29** | 🔲 Billing |
 | Organization Settings | O4 (integrations) | **25** | 🔲 API integrations |
-| Model Settings | M1-M4 | **23** | 🔲 Pending |
+| Model Settings | M1-M4 | 23 | ✅ Complete |
 | Repository Settings | RS1-RS3 | **25** | 🔲 Pending |
 | Developer Settings | D1-D3 | **25** | 🔲 Pending |
-| Compliance & Governance | C1-C3 | **22, 28** | 🔲 RBAC in 22, Full in 28 |
+| Compliance & Governance | C1-C2 | 22 | ✅ RBAC & Audit Logging |
+| Compliance & Governance | C3 (SOC2) | **28** | 🔲 SOC2 Preparation |
 | Keyboard Shortcuts | KB1-KB3 | **26** | 🔲 Pending |
-| Gamification | GA1-GA3 | 19 (backend), **21, 26** (frontend) | ✅ Backend, 🔲 Frontend |
-| Research Submission | SUB1-SUB3 | 18 (backend), **21** (frontend) | ✅ Backend, 🔲 Frontend |
-| Knowledge Management | KM1-KM2 | 19 (backend), **21** (frontend) | ✅ Backend, 🔲 Frontend |
-| Gamification | GA1-GA3 | 19 ✅ |
-| Research Submission | SUB1-SUB3 | 18 ✅ |
-| Knowledge Management | KM1-KM2 | 19 |
+| Gamification | GA1-GA3 | 19 (backend), 21 (frontend) | ✅ Backend, ✅ Frontend |
+| Research Submission | SUB1-SUB3 | 18 (backend), 21 (frontend) | ✅ Backend, ✅ Frontend |
+| Knowledge Management | KM1-KM2 | 19 (backend), 21 (frontend) | ✅ Backend, ✅ Frontend |
 
 ---
 
@@ -5441,6 +5474,47 @@ npx playwright test --grep "rbac"
 
 ---
 
+### Sprint 22 Implementation Summary
+
+**Status: ✅ Complete**
+
+**Files Created:**
+- `paper_scraper/core/permissions.py` — Permission enum (15 permissions), ROLE_PERMISSIONS mapping, `check_permission()`, `get_permissions_for_role()`
+- `paper_scraper/core/csv_utils.py` — `sanitize_csv_field()` with pipe/newline protection
+- `tests/test_permissions.py` — 21 tests (unit + integration + enforcement)
+- `tests/test_csv_utils.py` — 15 tests
+
+**Files Modified:**
+- `paper_scraper/api/dependencies.py` — Added `require_permission()` factory
+- `paper_scraper/modules/audit/models.py` — 14 new AuditAction enum values
+- `paper_scraper/modules/groups/router.py` — RBAC + audit logging (with Request context)
+- `paper_scraper/modules/transfer/router.py` — RBAC + audit logging
+- `paper_scraper/modules/submissions/router.py` — RBAC + audit logging
+- `paper_scraper/modules/knowledge/router.py` — RBAC + audit logging
+- `paper_scraper/modules/scoring/router.py` — RBAC enforcement
+- `paper_scraper/modules/papers/router.py` — RBAC on delete
+- `paper_scraper/modules/auth/router.py` — `/permissions` and `/roles` (admin-only) endpoints
+- `paper_scraper/modules/export/service.py` — CSV sanitization
+- `paper_scraper/modules/groups/service.py` — CSV sanitization in export
+- `frontend/src/pages/OrganizationSettingsPage.tsx` — PermissionMatrix with error state, deterministic role ordering, staleTime
+- `frontend/src/lib/api.ts` — `getMyPermissions()`, `getRoles()` methods
+
+**Security Fixes Applied (from review):**
+- SEC-22-01: Generic ForbiddenError message (no permission name leakage)
+- SEC-22-02: `/roles` endpoint restricted to admin-only
+- SEC-22-05: CSV sanitization handles `|` pipe and embedded newlines
+- Audit logging added to `update_group` (was missing)
+- All group audit calls include `request=` for IP/user-agent tracking
+
+**Test Results:** 35 passed, frontend build clean
+
+**Known Deferred Items (future sprints):**
+- RBAC coverage for pre-existing routers (projects, export, search, analytics)
+- `BADGES_MANAGE`, `SETTINGS_ADMIN`, `COMPLIANCE_VIEW`, `DEVELOPER_MANAGE` permissions defined but not yet enforced on endpoints
+- Audit logging for transfer templates, resources, and project operations
+
+---
+
 ## Sprint 23: 6-Dimension Scoring + Model Settings
 
 ### Goal
@@ -5709,7 +5783,7 @@ scoring_context = {
 ## Sprint 25: Developer API & Repository Management
 
 ### Goal
-Enable external integrations via API keys and webhooks, and make data source configuration dynamic.
+Enable external integrations via API keys, webhooks, and MCP server protocol support. Make data source configuration dynamic.
 
 ### User Stories
 - **D1-D3**: API keys, MCP servers, webhooks
@@ -5717,6 +5791,12 @@ Enable external integrations via API keys and webhooks, and make data source con
 
 ### Duration
 2 weeks
+
+### Priority Order
+1. **API Key Management** (HIGH) - Enables programmatic access
+2. **MCP Server Protocol** (HIGH) - Enables AI agent integrations (Claude Code, etc.)
+3. **Webhook Integrations** (MEDIUM) - Event-driven external notifications
+4. **Repository Sources** (MEDIUM) - Dynamic data source management
 
 ---
 
@@ -5750,6 +5830,61 @@ DELETE /api/v1/developer/api-keys/{id}      - Revoke key
 ```
 
 **API key authentication middleware:** Accept `X-API-Key` header, hash and look up in database.
+
+---
+
+### Task 25.1b: MCP Server Protocol Support
+
+**Goal:** Enable AI agents (Claude Code, GPT, etc.) to interact with Paper Scraper via MCP (Model Context Protocol).
+
+**File: paper_scraper/mcp/server.py**
+```python
+"""MCP Server for Paper Scraper - enables AI agent integrations."""
+
+from mcp.server import Server
+from mcp.types import Tool, Resource
+
+app = Server("paper-scraper")
+
+# Tools for AI agents
+@app.tool("search_papers")
+async def search_papers(query: str, mode: str = "hybrid") -> list:
+    """Search the paper library."""
+    ...
+
+@app.tool("get_paper_details")
+async def get_paper_details(paper_id: str) -> dict:
+    """Get full paper details including scores."""
+    ...
+
+@app.tool("score_paper")
+async def score_paper(paper_id: str) -> dict:
+    """Trigger AI scoring for a paper."""
+    ...
+
+@app.tool("import_paper_by_doi")
+async def import_paper(doi: str) -> dict:
+    """Import a paper by DOI."""
+    ...
+
+# Resources for context
+@app.resource("papers")
+async def list_papers() -> list:
+    """List recent papers in the library."""
+    ...
+```
+
+**Authentication:** Uses API key from Task 25.1 via `X-API-Key` header.
+
+**MCP Tools exposed:**
+- `search_papers` - Search with filters
+- `get_paper_details` - Full paper info
+- `score_paper` - Trigger scoring
+- `import_paper_by_doi` - Import paper
+- `list_projects` - List KanBan projects
+- `move_paper_stage` - Move paper in pipeline
+
+**Deployment:** Can run as standalone MCP server or embedded in main API.
 
 ---
 
@@ -5831,7 +5966,7 @@ DELETE /api/v1/repositories/{id}            - Remove source
 ## Sprint 26: UX Polish & Keyboard Navigation
 
 ### Goal
-Add power-user features: command palette, keyboard shortcuts, notification inbox, and search enhancements.
+Add power-user features: command palette, keyboard shortcuts, notification inbox, search enhancements, and mobile responsiveness.
 
 ### User Stories
 - **KB1**: Command palette (Cmd+K / Ctrl+K)
@@ -5840,9 +5975,18 @@ Add power-user features: command palette, keyboard shortcuts, notification inbox
 - **S3**: Search result preview panel
 - **N3**: Click alerts to navigate to items
 - **K3, GA2**: Celebration animations
+- **UX1** (NEW): Mobile-responsive dashboard and key pages
 
 ### Duration
 2 weeks
+
+### Priority Order
+1. **Command Palette** (HIGH) - Power-user productivity boost
+2. **Notification Center** (HIGH) - User engagement
+3. **Mobile Responsiveness** (HIGH) - Accessibility for on-the-go usage
+4. **Keyboard Shortcuts** (MEDIUM) - Power-user efficiency
+5. **Search Preview Panel** (MEDIUM) - Faster paper evaluation
+6. **Celebration Animations** (LOW) - Delight factor
 
 ---
 
@@ -5917,6 +6061,32 @@ Update **frontend/src/pages/SearchPage.tsx**:
 - Confetti animation (use canvas-confetti or react-confetti)
 - Trigger conditions: complete KanBan batch, earn badge, high-score paper, complete onboarding
 - Brief, non-blocking overlay
+
+---
+
+### Task 26.6: Mobile Responsiveness
+
+**Priority pages to make mobile-friendly:**
+1. **Dashboard** - Stack cards vertically, collapsible quick actions
+2. **Papers List** - Card view instead of table on mobile
+3. **Paper Detail** - Full-width scores, collapsible sections
+4. **Search** - Full-width search bar, stacked filters
+5. **Sidebar** - Bottom navigation on mobile, hamburger menu
+
+**Implementation approach:**
+- TailwindCSS responsive utilities (`sm:`, `md:`, `lg:`)
+- `useMobileBreakpoint()` hook for conditional rendering
+- Touch-friendly targets (min 44px tap area)
+- Swipe gestures for KanBan on touch devices
+
+**File: frontend/src/hooks/useMobileBreakpoint.ts**
+```typescript
+export function useMobileBreakpoint() {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  // ... resize listener
+  return isMobile;
+}
+```
 
 ---
 
@@ -6014,14 +6184,21 @@ POST   /api/v1/reports/scheduled/{id}/run  - Run report immediately
 ## Sprint 28: Compliance, Governance & Data Retention
 
 ### Goal
-Enterprise compliance features: enhanced audit logging, data retention policies, and compliance dashboard.
+Enterprise compliance features: enhanced audit logging, data retention policies, compliance dashboard, and SOC2 preparation.
 
 ### User Stories
 - **C1**: Audit logs for compliance reporting
 - **C2**: GDPR data processing transparency
+- **C3** (NEW): SOC2 Type II preparation checklist
 
 ### Duration
 2 weeks
+
+### Priority Order
+1. **Enhanced Audit Logging** (HIGH) - Compliance foundation
+2. **Data Retention Policies** (HIGH) - GDPR/regulatory requirement
+3. **Compliance Dashboard** (MEDIUM) - Admin visibility
+4. **SOC2 Preparation** (MEDIUM) - Enterprise readiness
 
 ---
 
@@ -6085,6 +6262,47 @@ POST   /api/v1/compliance/retention/apply       - Apply now (admin, dry-run opti
 **Sidebar navigation:** Add "Compliance" under admin section
 
 **Migration:** `alembic revision --autogenerate -m "add_retention_policies"`
+
+---
+
+### Task 28.4: SOC2 Type II Preparation
+
+**Compliance checklist implementation:**
+
+**File: paper_scraper/modules/compliance/soc2.py**
+```python
+SOC2_CONTROLS = {
+    "CC1": {
+        "name": "Control Environment",
+        "controls": [
+            {"id": "CC1.1", "desc": "Organizational structure documented", "status": "implemented"},
+            {"id": "CC1.2", "desc": "Code of conduct established", "status": "pending"},
+        ]
+    },
+    "CC6": {
+        "name": "Logical and Physical Access",
+        "controls": [
+            {"id": "CC6.1", "desc": "Unique user identification", "status": "implemented"},
+            {"id": "CC6.2", "desc": "Access authorization documented", "status": "implemented"},
+            {"id": "CC6.3", "desc": "Access removal on termination", "status": "implemented"},
+        ]
+    },
+    # ... more control categories
+}
+```
+
+**Frontend: Compliance Dashboard SOC2 tab**
+- Visual checklist of SOC2 control categories
+- Implementation status (Implemented, In Progress, Pending)
+- Evidence links for each control
+- Export as PDF for auditor review
+
+**Backend endpoint:**
+```
+GET /api/v1/compliance/soc2/status     - SOC2 control status
+GET /api/v1/compliance/soc2/evidence   - Control evidence links
+POST /api/v1/compliance/soc2/export    - Generate auditor report
+```
 
 ---
 
@@ -6309,7 +6527,7 @@ After Sprint 30, verify:
 
 ### Core Features (Phases 1-3)
 - [x] Paper ingestion (DOI, OpenAlex, PubMed, arXiv, PDF)
-- [x] 5-dimension AI scoring
+- [x] 6-dimension AI scoring (includes Team Readiness)
 - [x] KanBan project management with drag-and-drop
 - [x] Full-text + semantic search
 - [x] Author intelligence + CRM
@@ -6323,22 +6541,22 @@ After Sprint 30, verify:
 - [x] Knowledge management (backend)
 
 ### Stabilization & Frontend (Phase 5)
-- [ ] Transfer module Alembic migration (TD-006)
-- [ ] File storage for submissions/transfer (TD-004, TD-008)
-- [ ] Frontend pages: Groups, Transfer, Submissions, Badges, Knowledge
-- [ ] TanStack Query hooks for all new modules
+- [x] Transfer module Alembic migration (TD-006)
+- [x] File storage for submissions/transfer (TD-004, TD-008)
+- [x] Frontend pages: Groups, Transfer, Submissions, Badges, Knowledge
+- [x] TanStack Query hooks for all new modules
 
 ### Security & AI (Phase 6)
-- [ ] Granular RBAC permissions system
-- [ ] Audit logging for all modules
-- [ ] CSV injection protection
-- [ ] 6-dimension scoring (Team Readiness)
-- [ ] Innovation Radar chart component
-- [ ] Model configuration + usage tracking
-- [ ] Model Settings UI
-- [ ] Embedding-based group suggestions
-- [ ] Badge auto-award engine
-- [ ] Knowledge-enhanced scoring
+- [x] Granular RBAC permissions system (core/permissions.py)
+- [x] Audit logging for all modules
+- [x] CSV injection protection (core/csv_utils.py)
+- [x] 6-dimension scoring (Team Readiness)
+- [x] Innovation Radar chart component
+- [x] Model configuration + usage tracking
+- [x] Model Settings UI
+- [x] Badge auto-award engine (jobs/badges.py)
+- [ ] Embedding-based group suggestions (AI-001) - prompt exists, needs pgvector integration
+- [ ] Knowledge-enhanced scoring (AI-005/TD-010) - needs scoring orchestrator integration
 
 ### Platform & DX (Phase 7)
 - [ ] API key management

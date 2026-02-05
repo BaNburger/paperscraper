@@ -2,6 +2,13 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import DOMPurify from 'dompurify'
 import { useSearchMutation } from '@/hooks'
+
+// Restrictive DOMPurify config for search highlights - only allow text formatting tags
+const SANITIZE_CONFIG = {
+  ALLOWED_TAGS: ['em', 'strong', 'mark', 'b', 'i'],
+  ALLOWED_ATTR: [],
+  KEEP_CONTENT: true,
+}
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -181,7 +188,7 @@ export function SearchPage() {
                             {item.highlights.title ? (
                               <span
                                 dangerouslySetInnerHTML={{
-                                  __html: DOMPurify.sanitize(item.highlights.title),
+                                  __html: DOMPurify.sanitize(item.highlights.title, SANITIZE_CONFIG),
                                 }}
                               />
                             ) : (
@@ -192,7 +199,7 @@ export function SearchPage() {
                             {item.highlights.abstract ? (
                               <span
                                 dangerouslySetInnerHTML={{
-                                  __html: DOMPurify.sanitize(item.highlights.abstract),
+                                  __html: DOMPurify.sanitize(item.highlights.abstract, SANITIZE_CONFIG),
                                 }}
                               />
                             ) : (

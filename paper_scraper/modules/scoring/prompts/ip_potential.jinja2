@@ -31,6 +31,10 @@ You are an expert intellectual property analyst assessing the patent potential o
 {% endfor %}
 {% endif %}
 
+{% if paper.knowledge_context %}
+{{ paper.knowledge_context }}
+{% endif %}
+
 ## Scoring Instructions
 
 Evaluate the **IP Potential** (patentability) of this research on a scale of 0-10:

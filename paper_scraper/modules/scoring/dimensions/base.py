@@ -43,6 +43,7 @@ class PaperContext:
     doi: str | None = None
     citations_count: int | None = None
     references_count: int | None = None
+    knowledge_context: str | None = None  # Organization knowledge injected into prompts
 
     @classmethod
     def from_paper(cls, paper: Any) -> "PaperContext":

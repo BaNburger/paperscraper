@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Building2,
   Users,
@@ -8,6 +8,7 @@ import {
   Loader2,
   Check,
   AlertTriangle,
+  ShieldCheck,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { authApi } from '@/lib/api'
@@ -47,6 +48,118 @@ const subscriptionFeatures = {
     scoring: 'Unlimited scoring',
     projects: 'Unlimited projects',
   },
+}
+
+const PERMISSION_LABELS: Record<string, string> = {
+  'papers:read': 'View Papers',
+  'papers:write': 'Create/Edit Papers',
+  'papers:delete': 'Delete Papers',
+  'scoring:trigger': 'Trigger AI Scoring',
+  'groups:read': 'View Groups',
+  'groups:manage': 'Manage Groups',
+  'transfer:read': 'View Transfers',
+  'transfer:manage': 'Manage Transfers',
+  'submissions:read': 'View Submissions',
+  'submissions:review': 'Review Submissions',
+  'badges:manage': 'Manage Badges',
+  'knowledge:manage': 'Manage Knowledge',
+  'settings:admin': 'Admin Settings',
+  'compliance:view': 'View Compliance',
+  'developer:manage': 'Developer API',
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  admin: 'Admin',
+  manager: 'Manager',
+  member: 'Member',
+  viewer: 'Viewer',
+}
+
+const ROLE_ORDER = ['admin', 'manager', 'member', 'viewer']
+
+function PermissionMatrix() {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['roles-permissions'],
+    queryFn: () => authApi.getRoles(),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const { data: myPerms } = useQuery({
+    queryKey: ['my-permissions'],
+    queryFn: () => authApi.getMyPermissions(),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  if (isLoading || !data) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-md bg-red-50 p-4 text-sm text-red-600">
+        Failed to load role permissions. Please try again later.
+      </div>
+    )
+  }
+
+  const roles = ROLE_ORDER.filter((r) => r in data.roles)
+  const allPermissions = [...new Set(roles.flatMap((r) => data.roles[r]))]
+
+  return (
+    <div className="space-y-4">
+      {myPerms && (
+        <div className="rounded-md bg-muted/50 p-3 text-sm">
+          <span className="font-medium">Your role:</span>{' '}
+          <Badge variant="secondary" className="ml-1">
+            {ROLE_LABELS[myPerms.role] || myPerms.role}
+          </Badge>
+          <span className="ml-2 text-muted-foreground">
+            ({myPerms.permissions.length} permissions)
+          </span>
+        </div>
+      )}
+
+      <div className="overflow-x-auto rounded-md border">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b bg-muted/50">
+              <th className="px-3 py-2 text-left font-medium">Permission</th>
+              {roles.map((role) => (
+                <th key={role} className="px-3 py-2 text-center font-medium">
+                  {ROLE_LABELS[role] || role}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {allPermissions.map((perm) => (
+              <tr key={perm} className="border-b last:border-0">
+                <td className="px-3 py-2 text-muted-foreground">
+                  {PERMISSION_LABELS[perm] || perm}
+                </td>
+                {roles.map((role) => {
+                  const has = data.roles[role]?.includes(perm)
+                  return (
+                    <td key={role} className="px-3 py-2 text-center">
+                      {has ? (
+                        <Check className="mx-auto h-4 w-4 text-green-600" />
+                      ) : (
+                        <span className="text-muted-foreground/30">&mdash;</span>
+                      )}
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
 }
 
 export function OrganizationSettingsPage() {
@@ -198,6 +311,22 @@ export function OrganizationSettingsPage() {
               Go to the Team Members page to invite new users, manage roles,
               and view pending invitations.
             </p>
+          </CardContent>
+        </Card>
+
+        {/* Role Permissions Matrix */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5" />
+              <CardTitle>Role Permissions</CardTitle>
+            </div>
+            <CardDescription>
+              What each role can do in your organization
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PermissionMatrix />
           </CardContent>
         </Card>
 

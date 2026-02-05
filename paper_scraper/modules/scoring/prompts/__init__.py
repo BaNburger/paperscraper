@@ -49,10 +49,17 @@ class SanitizedPaperContext:
     doi: str
     citations_count: int | None
     references_count: int | None
+    knowledge_context: str  # Organization knowledge for enhanced scoring
 
     @classmethod
     def from_paper_context(cls, paper, max_abstract_length: int = MAX_ABSTRACT_LENGTH):
         """Create sanitized context from PaperContext."""
+        # Get knowledge context if available on the paper context
+        knowledge_ctx = getattr(paper, "knowledge_context", None) or ""
+        if knowledge_ctx:
+            # Sanitize but allow more length for knowledge
+            knowledge_ctx = sanitize_text_for_prompt(knowledge_ctx, max_length=3000)
+
         return cls(
             id=str(paper.id),
             title=sanitize_text_for_prompt(paper.title, max_length=500),
@@ -63,6 +70,7 @@ class SanitizedPaperContext:
             doi=str(paper.doi) if paper.doi else "",
             citations_count=paper.citations_count,
             references_count=paper.references_count,
+            knowledge_context=knowledge_ctx,
         )
 
 

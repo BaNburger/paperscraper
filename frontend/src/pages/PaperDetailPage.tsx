@@ -8,6 +8,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/components/ui/Toast'
 import { AuthorBadge } from '@/components/AuthorBadge'
 import { AuthorModal } from '@/components/AuthorModal'
+import { InnovationRadar } from '@/components/InnovationRadar'
 import {
   ArrowLeft,
   ExternalLink,
@@ -24,6 +25,7 @@ import {
   Rocket,
   Sparkles,
   ChevronRight,
+  UserCheck,
 } from 'lucide-react'
 import { formatDate, getScoreColor, cn } from '@/lib/utils'
 
@@ -33,6 +35,7 @@ const scoreDimensions = [
   { key: 'marketability', label: 'Marketability', icon: Target, color: 'bg-emerald-500', textColor: 'text-emerald-600' },
   { key: 'feasibility', label: 'Feasibility', icon: Wrench, color: 'bg-amber-500', textColor: 'text-amber-600' },
   { key: 'commercialization', label: 'Commercialization', icon: Rocket, color: 'bg-pink-500', textColor: 'text-pink-600' },
+  { key: 'team_readiness', label: 'Team Readiness', icon: UserCheck, color: 'bg-cyan-500', textColor: 'text-cyan-600' },
 ]
 
 export function PaperDetailPage() {
@@ -338,6 +341,19 @@ export function PaperDetailPage() {
                       Confidence: {(score.confidence * 100).toFixed(0)}%
                     </p>
                   </div>
+
+                  {/* Innovation Radar */}
+                  <InnovationRadar
+                    scores={{
+                      novelty: score.novelty,
+                      ip_potential: score.ip_potential,
+                      marketability: score.marketability,
+                      feasibility: score.feasibility,
+                      commercialization: score.commercialization,
+                      team_readiness: score.team_readiness,
+                    }}
+                    size={220}
+                  />
 
                   {/* Dimension Bars */}
                   <div className="space-y-3">

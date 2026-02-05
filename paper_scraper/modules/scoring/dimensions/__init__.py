@@ -8,6 +8,7 @@ from paper_scraper.modules.scoring.dimensions.feasibility import FeasibilityDime
 from paper_scraper.modules.scoring.dimensions.ip_potential import IPPotentialDimension
 from paper_scraper.modules.scoring.dimensions.marketability import MarketabilityDimension
 from paper_scraper.modules.scoring.dimensions.novelty import NoveltyDimension
+from paper_scraper.modules.scoring.dimensions.team_readiness import TeamReadinessDimension
 
 __all__ = [
     "BaseDimension",
@@ -17,4 +18,5 @@ __all__ = [
     "MarketabilityDimension",
     "FeasibilityDimension",
     "CommercializationDimension",
+    "TeamReadinessDimension",
 ]

@@ -31,6 +31,7 @@ from paper_scraper.modules.submissions.models import (  # noqa: F401
 )
 from paper_scraper.modules.badges.models import Badge, UserBadge  # noqa: F401
 from paper_scraper.modules.knowledge.models import KnowledgeSource  # noqa: F401
+from paper_scraper.modules.model_settings.models import ModelConfiguration, ModelUsage  # noqa: F401
 from paper_scraper.core.security import get_password_hash
 
 # Register SQLite type compiler for PostgreSQL JSONB so tests can run

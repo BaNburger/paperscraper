@@ -24,7 +24,7 @@ def upgrade() -> None:
     badge_category_enum = postgresql.ENUM(
         "import", "scoring", "collaboration", "exploration", "milestone",
         name="badgecategory",
-        create_type=True,
+        create_type=False,
     )
     badge_category_enum.create(op.get_bind(), checkfirst=True)
 
@@ -32,7 +32,7 @@ def upgrade() -> None:
     badge_tier_enum = postgresql.ENUM(
         "bronze", "silver", "gold", "platinum",
         name="badgetier",
-        create_type=True,
+        create_type=False,
     )
     badge_tier_enum.create(op.get_bind(), checkfirst=True)
 
@@ -40,7 +40,7 @@ def upgrade() -> None:
     knowledge_scope_enum = postgresql.ENUM(
         "personal", "organization",
         name="knowledgescope",
-        create_type=True,
+        create_type=False,
     )
     knowledge_scope_enum.create(op.get_bind(), checkfirst=True)
 
@@ -49,7 +49,7 @@ def upgrade() -> None:
         "research_focus", "industry_context", "evaluation_criteria",
         "domain_expertise", "custom",
         name="knowledgetype",
-        create_type=True,
+        create_type=False,
     )
     knowledge_type_enum.create(op.get_bind(), checkfirst=True)
 

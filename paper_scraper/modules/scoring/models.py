@@ -42,6 +42,7 @@ class PaperScore(Base):
     marketability: Mapped[float] = mapped_column(Float, nullable=False)
     feasibility: Mapped[float] = mapped_column(Float, nullable=False)
     commercialization: Mapped[float] = mapped_column(Float, nullable=False)
+    team_readiness: Mapped[float] = mapped_column(Float, nullable=False, server_default="0")
 
     # Aggregated score
     overall_score: Mapped[float] = mapped_column(Float, nullable=False)

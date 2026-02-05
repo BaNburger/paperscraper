@@ -24,6 +24,10 @@ You are an expert market analyst assessing the commercial potential of research 
 **Citations:** {{ paper.citations_count }}
 {% endif %}
 
+{% if paper.knowledge_context %}
+{{ paper.knowledge_context }}
+{% endif %}
+
 ## Scoring Instructions
 
 Evaluate the **Marketability** of this research on a scale of 0-10:

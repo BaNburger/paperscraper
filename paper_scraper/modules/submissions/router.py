@@ -1,14 +1,18 @@
 """FastAPI router for research submissions endpoints."""
 
+import logging
 import os
 from typing import Annotated
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from paper_scraper.api.dependencies import CurrentUser, ManagerOrAdminUser
+from paper_scraper.api.dependencies import CurrentUser, ManagerOrAdminUser, require_permission
 from paper_scraper.core.database import get_db
+from paper_scraper.core.permissions import Permission
+from paper_scraper.core.storage import get_storage_service
 from paper_scraper.modules.papers.schemas import PaperResponse
 from paper_scraper.modules.submissions.models import AttachmentType, SubmissionStatus
 from paper_scraper.modules.submissions.schemas import (
@@ -21,7 +25,11 @@ from paper_scraper.modules.submissions.schemas import (
     SubmissionScoreResponse,
     SubmissionUpdate,
 )
+from paper_scraper.modules.audit.models import AuditAction
+from paper_scraper.modules.audit.service import AuditService
 from paper_scraper.modules.submissions.service import SubmissionService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -46,6 +54,12 @@ def get_submission_service(
     return SubmissionService(db)
 
 
+def get_audit_service(
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> AuditService:
+    return AuditService(db)
+
+
 # =============================================================================
 # Researcher Endpoints
 # =============================================================================
@@ -55,6 +69,7 @@ def get_submission_service(
     "/my",
     response_model=SubmissionListResponse,
     summary="List my submissions",
+    dependencies=[Depends(require_permission(Permission.SUBMISSIONS_READ))],
 )
 async def list_my_submissions(
     current_user: CurrentUser,
@@ -78,17 +93,27 @@ async def list_my_submissions(
     response_model=SubmissionResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create submission",
+    dependencies=[Depends(require_permission(Permission.SUBMISSIONS_READ))],
 )
 async def create_submission(
     request: SubmissionCreate,
     current_user: CurrentUser,
     service: Annotated[SubmissionService, Depends(get_submission_service)],
+    audit: Annotated[AuditService, Depends(get_audit_service)],
 ) -> SubmissionResponse:
     """Create a new research submission as a draft."""
     submission = await service.create_submission(
         data=request,
         user_id=current_user.id,
         organization_id=current_user.organization_id,
+    )
+    await audit.log(
+        action=AuditAction.SUBMISSION_CREATE,
+        user_id=current_user.id,
+        organization_id=current_user.organization_id,
+        resource_type="submission",
+        resource_id=submission.id,
+        details={"title": submission.title},
     )
     return submission  # type: ignore
 
@@ -97,6 +122,7 @@ async def create_submission(
     "/{submission_id}",
     response_model=SubmissionDetail,
     summary="Get submission",
+    dependencies=[Depends(require_permission(Permission.SUBMISSIONS_READ))],
 )
 async def get_submission(
     submission_id: UUID,
@@ -214,8 +240,20 @@ async def upload_attachment(
     storage_filename = f"{unique_prefix}_{safe_filename}"
     file_path = f"submissions/{submission_id}/{storage_filename}"
 
-    # TODO: Persist content to MinIO/S3 storage using file_path as key
-    # For now, we record the intended storage path in the database
+    # Persist to MinIO/S3 storage
+    storage = get_storage_service()
+    try:
+        storage.upload_file(
+            file_content=content,
+            key=file_path,
+            content_type=content_type,
+        )
+    except Exception as e:
+        logger.error("Failed to upload file to storage: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to upload file to storage",
+        ) from e
 
     attachment = await service.add_attachment(
         submission_id=submission_id,
@@ -230,6 +268,39 @@ async def upload_attachment(
     return attachment  # type: ignore
 
 
+@router.get(
+    "/{submission_id}/attachments/{attachment_id}/download",
+    summary="Download attachment",
+)
+async def download_attachment(
+    submission_id: UUID,
+    attachment_id: UUID,
+    current_user: CurrentUser,
+    service: Annotated[SubmissionService, Depends(get_submission_service)],
+) -> RedirectResponse:
+    """Download a submission attachment via pre-signed URL.
+
+    Redirects to a time-limited pre-signed S3 URL.
+    """
+    attachment = await service.get_attachment(
+        submission_id=submission_id,
+        attachment_id=attachment_id,
+        organization_id=current_user.organization_id,
+    )
+
+    storage = get_storage_service()
+    try:
+        url = storage.get_download_url(attachment.file_path, expires_in=3600)
+    except Exception as e:
+        logger.error("Failed to generate download URL: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to generate download URL",
+        ) from e
+
+    return RedirectResponse(url=url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
+
 # =============================================================================
 # TTO Review Endpoints
 # =============================================================================
@@ -239,6 +310,7 @@ async def upload_attachment(
     "/",
     response_model=SubmissionListResponse,
     summary="List all submissions (TTO)",
+    dependencies=[Depends(require_permission(Permission.SUBMISSIONS_REVIEW))],
 )
 async def list_all_submissions(
     current_user: ManagerOrAdminUser,
@@ -260,12 +332,14 @@ async def list_all_submissions(
     "/{submission_id}/review",
     response_model=SubmissionResponse,
     summary="Review submission",
+    dependencies=[Depends(require_permission(Permission.SUBMISSIONS_REVIEW))],
 )
 async def review_submission(
     submission_id: UUID,
     request: SubmissionReview,
     current_user: ManagerOrAdminUser,
     service: Annotated[SubmissionService, Depends(get_submission_service)],
+    audit: Annotated[AuditService, Depends(get_audit_service)],
 ) -> SubmissionResponse:
     """Approve or reject a submission (manager/admin only)."""
     submission = await service.review_submission(
@@ -275,6 +349,14 @@ async def review_submission(
         decision=request.decision,
         notes=request.notes,
     )
+    await audit.log(
+        action=AuditAction.SUBMISSION_REVIEW,
+        user_id=current_user.id,
+        organization_id=current_user.organization_id,
+        resource_type="submission",
+        resource_id=submission_id,
+        details={"decision": request.decision, "new_status": submission.status},
+    )
     return submission  # type: ignore
 
 
@@ -282,6 +364,7 @@ async def review_submission(
     "/{submission_id}/analyze",
     response_model=SubmissionScoreResponse,
     summary="AI analysis",
+    dependencies=[Depends(require_permission(Permission.SUBMISSIONS_REVIEW))],
 )
 async def analyze_submission(
     submission_id: UUID,
@@ -301,6 +384,7 @@ async def analyze_submission(
     response_model=PaperResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Convert to paper",
+    dependencies=[Depends(require_permission(Permission.SUBMISSIONS_REVIEW))],
 )
 async def convert_to_paper(
     submission_id: UUID,

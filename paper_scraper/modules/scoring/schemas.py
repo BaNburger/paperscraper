@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 # =============================================================================
@@ -15,27 +15,27 @@ from pydantic import BaseModel, Field, field_validator
 class ScoringWeightsSchema(BaseModel):
     """Schema for scoring dimension weights."""
 
-    novelty: float = Field(default=0.20, ge=0.0, le=1.0)
-    ip_potential: float = Field(default=0.20, ge=0.0, le=1.0)
-    marketability: float = Field(default=0.20, ge=0.0, le=1.0)
-    feasibility: float = Field(default=0.20, ge=0.0, le=1.0)
-    commercialization: float = Field(default=0.20, ge=0.0, le=1.0)
+    novelty: float = Field(default=1.0 / 6, ge=0.0, le=1.0)
+    ip_potential: float = Field(default=1.0 / 6, ge=0.0, le=1.0)
+    marketability: float = Field(default=1.0 / 6, ge=0.0, le=1.0)
+    feasibility: float = Field(default=1.0 / 6, ge=0.0, le=1.0)
+    commercialization: float = Field(default=1.0 / 6, ge=0.0, le=1.0)
+    team_readiness: float = Field(default=1.0 / 6, ge=0.0, le=1.0)
 
-    @field_validator("commercialization")
-    @classmethod
-    def validate_weights_sum(cls, v: float, info) -> float:
+    @model_validator(mode="after")
+    def validate_weights_sum(self) -> "ScoringWeightsSchema":
         """Validate that all weights sum to 1.0."""
-        data = info.data
         total = (
-            data.get("novelty", 0.2)
-            + data.get("ip_potential", 0.2)
-            + data.get("marketability", 0.2)
-            + data.get("feasibility", 0.2)
-            + v
+            self.novelty
+            + self.ip_potential
+            + self.marketability
+            + self.feasibility
+            + self.commercialization
+            + self.team_readiness
         )
         if abs(total - 1.0) > 0.01:
             raise ValueError(f"Weights must sum to 1.0, got {total}")
-        return v
+        return self
 
 
 # =============================================================================
@@ -98,6 +98,7 @@ class EnhancedPaperScoreResponse(BaseModel):
     marketability: DimensionScoreDetail
     feasibility: DimensionScoreDetail
     commercialization: DimensionScoreDetail
+    team_readiness: DimensionScoreDetail
 
     model_version: str
     created_at: datetime
@@ -156,6 +157,7 @@ class PaperScoreResponse(BaseModel):
     marketability: float
     feasibility: float
     commercialization: float
+    team_readiness: float = 0.0
 
     # Aggregate
     overall_score: float
@@ -181,6 +183,7 @@ class PaperScoreSummary(BaseModel):
     marketability: float
     feasibility: float
     commercialization: float
+    team_readiness: float = 0.0
     model_version: str
     created_at: datetime
 
@@ -412,6 +415,19 @@ class CommercializationLLMResponse(BaseLLMScoringResponse):
         return _coerce_to_string_list(v)
 
 
+class TeamReadinessLLMResponse(BaseLLMScoringResponse):
+    """Schema for team readiness dimension LLM response."""
+
+    evidence: list[str] = Field(default_factory=list, description="Evidence for the assessment")
+    strengths: list[str] = Field(default_factory=list, description="Team strengths")
+    gaps: list[str] = Field(default_factory=list, description="Identified gaps")
+
+    @field_validator("evidence", "strengths", "gaps", mode="before")
+    @classmethod
+    def validate_list_fields(cls, v: Any) -> list[str]:
+        return _coerce_to_string_list(v)
+
+
 class ClassificationLLMResponse(BaseModel):
     """Schema for paper classification LLM response."""
 
@@ -475,6 +491,7 @@ LLM_DIMENSION_SCHEMAS: dict[str, type[BaseLLMScoringResponse]] = {
     "marketability": MarketabilityLLMResponse,
     "feasibility": FeasibilityLLMResponse,
     "commercialization": CommercializationLLMResponse,
+    "team_readiness": TeamReadinessLLMResponse,
 }
 
 

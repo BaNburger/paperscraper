@@ -6,9 +6,11 @@
 
 ### Kernwertversprechen
 - **Papers automatisch importieren** aus OpenAlex, PubMed, arXiv, via DOI oder PDF
-- **5-dimensionales AI-Scoring**: Novelty, IP-Potential, Marketability, Feasibility, Commercialization
+- **6-dimensionales AI-Scoring**: Novelty, IP-Potential, Marketability, Feasibility, Commercialization, Team Readiness
 - **KanBan-Pipeline** für strukturiertes Paper-Management
 - **Semantische Suche** zur Entdeckung ähnlicher Forschung
+- **Technology Transfer Workflows** für Researcher-Outreach
+- **Gamification & Badges** für Team-Engagement
 
 ---
 
@@ -38,17 +40,25 @@ paper_scraper/
 │   │   ├── security.py         # JWT, password hashing
 │   │   └── exceptions.py       # Custom exceptions
 │   │
-│   ├── modules/
+│   ├── modules/                # 17 Feature-Module
 │   │   ├── analytics/          # Team & paper metrics, dashboard
+│   │   ├── alerts/             # Search alerts & notifications
 │   │   ├── audit/              # Security audit logging (GDPR compliance)
 │   │   ├── auth/               # User, Organization, JWT, Team Invitations, GDPR
 │   │   ├── authors/            # Author CRM, contacts
+│   │   ├── badges/             # Gamification & achievements
 │   │   ├── email/              # Transactional emails (Resend)
 │   │   ├── export/             # CSV, PDF, BibTeX export
+│   │   ├── groups/             # Researcher groups & collaboration
+│   │   ├── knowledge/          # Knowledge management
+│   │   ├── model_settings/     # LLM model configuration
 │   │   ├── papers/             # Paper, Author, Ingestion
 │   │   ├── projects/           # KanBan, Pipeline
-│   │   ├── scoring/            # AI Scoring Pipeline
-│   │   └── search/             # Fulltext, Semantic
+│   │   ├── saved_searches/     # Saved searches & sharing
+│   │   ├── scoring/            # AI Scoring Pipeline (6 dimensions)
+│   │   ├── search/             # Fulltext, Semantic
+│   │   ├── submissions/        # Research submission portal
+│   │   └── transfer/           # Technology transfer conversations
 │   │
 │   ├── jobs/                   # arq Background Tasks (async-native)
 │   │   ├── worker.py           # arq WorkerSettings
@@ -304,11 +314,41 @@ audit_logs (
 │   ├── GET  /team           # Team overview and activity
 │   └── GET  /papers         # Paper import trends & scoring stats
 │
-└── /export
-    ├── GET  /csv            # Export papers to CSV
-    ├── GET  /bibtex         # Export papers to BibTeX
-    ├── GET  /pdf            # Export papers to PDF report
-    └── POST /batch          # Batch export with format selection
+├── /export
+│   ├── GET  /csv            # Export papers to CSV
+│   ├── GET  /bibtex         # Export papers to BibTeX
+│   ├── GET  /pdf            # Export papers to PDF report
+│   └── POST /batch          # Batch export with format selection
+│
+├── /groups                  # Researcher Groups
+│   ├── GET  /               # List groups
+│   ├── POST /               # Create group
+│   ├── POST /{id}/members   # Add members
+│   └── GET  /{id}/suggestions  # AI-based member suggestions
+│
+├── /transfer                # Technology Transfer
+│   ├── GET  /conversations  # List conversations
+│   ├── POST /conversations  # Start conversation
+│   ├── POST /{id}/messages  # Send message
+│   └── GET  /{id}/next-steps  # AI-suggested next steps
+│
+├── /submissions             # Research Submissions
+│   ├── GET  /               # List submissions
+│   ├── POST /               # Submit research
+│   └── POST /{id}/analyze   # AI analysis
+│
+├── /badges                  # Gamification
+│   ├── GET  /               # All badges
+│   ├── GET  /my-badges      # User's badges
+│   └── GET  /leaderboard    # Organization leaderboard
+│
+├── /knowledge               # Knowledge Management
+│   └── [CRUD for knowledge sources]
+│
+└── /settings/models         # Model Configuration
+    ├── GET  /               # List models
+    ├── POST /               # Add model
+    └── GET  /usage          # Usage stats
 ```
 
 ---
@@ -322,13 +362,17 @@ audit_logs (
 | **Marketability** | 0-10 | Marktgröße, Industrien, Trends |
 | **Feasibility** | 0-10 | TRL-Level, Time-to-Market, Dev-Kosten |
 | **Commercialization** | 0-10 | Empfohlener Pfad, Entry Barriers |
+| **Team Readiness** | 0-10 | Autoren Track Record, Industry Experience, Institutional Support |
 
 **Scoring-Pipeline:**
 1. Paper → Embedding generieren
 2. Ähnliche Papers finden (pgvector)
-3. Pro Dimension: Prompt → LLM → Parse JSON
-4. Aggregieren (gewichteter Durchschnitt)
-5. In DB speichern
+3. Autoren-Metriken laden (h-index, works_count)
+4. Pro Dimension: Prompt → LLM → Parse JSON
+5. Aggregieren (gewichteter Durchschnitt)
+6. In DB speichern
+
+**Innovation Radar:** 6-Achsen-Radar-Chart visualisiert alle Dimensionen auf PaperDetailPage.
 
 ---
 
@@ -398,14 +442,21 @@ arq paper_scraper.jobs.worker.WorkerSettings
 |-------|-------|
 | `core/config.py` | Alle Environment Variables |
 | `core/security.py` | JWT, Passwort-Hashing, Token-Generierung |
+| `core/permissions.py` | Granulares RBAC-System |
+| `core/csv_utils.py` | CSV-Export mit Injection-Schutz |
+| `core/storage.py` | S3/MinIO Storage Utilities |
 | `api/middleware.py` | Rate Limiting, Security Headers |
 | `modules/auth/service.py` | Auth-Service mit User Management, GDPR |
 | `modules/audit/service.py` | Audit Logging Service |
 | `modules/email/service.py` | E-Mail-Service (Resend) |
-| `modules/scoring/prompts/` | LLM Prompt Templates |
+| `modules/scoring/prompts/` | LLM Prompt Templates (11 Templates) |
 | `modules/scoring/llm_client.py` | LLM Provider Abstraktion |
-| `frontend/src/lib/api.ts` | API Client |
+| `modules/scoring/dimensions/` | 6 Scoring-Dimensionen |
+| `modules/model_settings/` | Org-Level LLM-Konfiguration |
+| `jobs/badges.py` | Badge Auto-Award Engine |
+| `frontend/src/lib/api.ts` | API Client (17 Namespaces) |
 | `frontend/src/components/ui/` | Shadcn/UI-style Components |
+| `frontend/src/components/InnovationRadar.tsx` | 6-Axis Score Visualization |
 | `frontend/src/components/Onboarding/` | Onboarding Wizard (4-step) |
 | `frontend/vitest.config.ts` | Vitest Unit Test Configuration |
 | `e2e/playwright.config.ts` | Playwright E2E Test Configuration |

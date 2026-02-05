@@ -243,6 +243,7 @@ Update the implementation plan to mark Sprint $ARGUMENTS as complete:
 - Change status from "Pending" to "Complete"
 - Add any notes about implementation decisions
 - Document any deviations from the original plan
+- Note suggested tasks for future sprints
 
 ### 4.3: Summary Report
 

@@ -49,6 +49,31 @@ class AuditAction(str, Enum):
     API_KEY_CREATE = "api_key_create"
     API_KEY_REVOKE = "api_key_revoke"
 
+    # Group operations
+    GROUP_CREATE = "group_create"
+    GROUP_UPDATE = "group_update"
+    GROUP_DELETE = "group_delete"
+    GROUP_MEMBER_ADD = "group_member_add"
+    GROUP_MEMBER_REMOVE = "group_member_remove"
+
+    # Transfer operations
+    TRANSFER_CREATE = "transfer_create"
+    TRANSFER_STAGE_CHANGE = "transfer_stage_change"
+    TRANSFER_MESSAGE_SEND = "transfer_message_send"
+
+    # Submission operations
+    SUBMISSION_CREATE = "submission_create"
+    SUBMISSION_STATUS_CHANGE = "submission_status_change"
+    SUBMISSION_REVIEW = "submission_review"
+
+    # Badge operations
+    BADGE_AWARD = "badge_award"
+
+    # Knowledge operations
+    KNOWLEDGE_CREATE = "knowledge_create"
+    KNOWLEDGE_UPDATE = "knowledge_update"
+    KNOWLEDGE_DELETE = "knowledge_delete"
+
     # Admin actions
     ORGANIZATION_UPDATE = "organization_update"
     SUBSCRIPTION_CHANGE = "subscription_change"

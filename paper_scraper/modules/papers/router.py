@@ -4,13 +4,15 @@ from typing import Annotated
 from uuid import UUID
 
 import arq
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from paper_scraper.api.dependencies import CurrentUser
+from paper_scraper.api.dependencies import CurrentUser, require_permission
 from paper_scraper.core.config import settings
+from paper_scraper.core.permissions import Permission
 from paper_scraper.core.database import get_db
 from paper_scraper.core.exceptions import NotFoundError
+from paper_scraper.jobs.badges import trigger_badge_check
 from paper_scraper.modules.papers.note_service import NoteService
 from paper_scraper.modules.papers.schemas import (
     IngestArxivRequest,
@@ -92,6 +94,7 @@ async def get_paper(
     "/{paper_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete paper",
+    dependencies=[Depends(require_permission(Permission.PAPERS_DELETE))],
 )
 async def delete_paper(
     paper_id: UUID,
@@ -114,6 +117,7 @@ async def ingest_by_doi(
     request: IngestDOIRequest,
     current_user: CurrentUser,
     paper_service: Annotated[PaperService, Depends(get_paper_service)],
+    background_tasks: BackgroundTasks,
 ) -> PaperResponse:
     """Import a single paper by DOI.
 
@@ -122,6 +126,13 @@ async def ingest_by_doi(
     paper = await paper_service.ingest_by_doi(
         doi=request.doi,
         organization_id=current_user.organization_id,
+    )
+    # Trigger badge check for paper import
+    background_tasks.add_task(
+        trigger_badge_check,
+        current_user.id,
+        current_user.organization_id,
+        "paper_imported",
     )
     return paper  # type: ignore
 
@@ -136,17 +147,27 @@ async def ingest_from_openalex(
     request: IngestOpenAlexRequest,
     current_user: CurrentUser,
     paper_service: Annotated[PaperService, Depends(get_paper_service)],
+    background_tasks: BackgroundTasks,
 ) -> IngestResult:
     """Synchronous batch import from OpenAlex.
 
     For large imports (>100 papers), use the async job endpoint.
     """
-    return await paper_service.ingest_from_openalex(
+    result = await paper_service.ingest_from_openalex(
         query=request.query,
         organization_id=current_user.organization_id,
         max_results=request.max_results,
         filters=request.filters,
     )
+    # Trigger badge check for paper import
+    if result.papers_created > 0:
+        background_tasks.add_task(
+            trigger_badge_check,
+            current_user.id,
+            current_user.organization_id,
+            "paper_imported",
+        )
+    return result
 
 
 @router.post(

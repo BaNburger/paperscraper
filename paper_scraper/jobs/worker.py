@@ -12,6 +12,10 @@ from paper_scraper.jobs.alerts import (
     process_immediate_alert_task,
     process_weekly_alerts_task,
 )
+from paper_scraper.jobs.badges import (
+    batch_check_badges_task,
+    check_and_award_badges_task,
+)
 from paper_scraper.jobs.ingestion import ingest_openalex_task
 from paper_scraper.jobs.scoring import (
     generate_embeddings_batch_task,
@@ -91,6 +95,8 @@ class WorkerSettings:
         process_daily_alerts_task,
         process_weekly_alerts_task,
         process_immediate_alert_task,
+        check_and_award_badges_task,
+        batch_check_badges_task,
     ]
 
     # Cron jobs for scheduled tasks

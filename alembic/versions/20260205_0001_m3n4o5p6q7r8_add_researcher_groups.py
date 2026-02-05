@@ -20,11 +20,11 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     """Create researcher_groups and group_members tables."""
-    # Create GroupType enum
+    # Create GroupType enum (create_type=False since we create it manually with checkfirst)
     group_type_enum = postgresql.ENUM(
         "custom", "mailing_list", "speaker_pool",
         name="grouptype",
-        create_type=True,
+        create_type=False,
     )
     group_type_enum.create(op.get_bind(), checkfirst=True)
 

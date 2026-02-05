@@ -9,21 +9,28 @@ import { ToastProvider } from '@/components/ui/Toast'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import {
   AnalyticsPage,
+  BadgesPage,
   LoginPage,
   RegisterPage,
   DashboardPage,
+  GroupsPage,
+  KnowledgePage,
   PapersPage,
   PaperDetailPage,
   ProjectsPage,
   ProjectKanbanPage,
   SearchPage,
+  SubmissionsPage,
   ForgotPasswordPage,
   ResetPasswordPage,
+  TransferPage,
+  TransferDetailPage,
   VerifyEmailPage,
   AcceptInvitePage,
   TeamMembersPage,
   UserSettingsPage,
   OrganizationSettingsPage,
+  ModelSettingsPage,
 } from '@/pages'
 
 const queryClient = new QueryClient({
@@ -70,9 +77,16 @@ function App() {
                     <Route path="/projects" element={<ProjectsPage />} />
                     <Route path="/projects/:id" element={<ProjectKanbanPage />} />
                     <Route path="/search" element={<SearchPage />} />
+                    <Route path="/groups" element={<GroupsPage />} />
+                    <Route path="/transfer" element={<TransferPage />} />
+                    <Route path="/transfer/:id" element={<TransferDetailPage />} />
+                    <Route path="/submissions" element={<SubmissionsPage />} />
+                    <Route path="/badges" element={<BadgesPage />} />
+                    <Route path="/knowledge" element={<KnowledgePage />} />
                     <Route path="/team" element={<TeamMembersPage />} />
                     <Route path="/settings" element={<UserSettingsPage />} />
                     <Route path="/settings/organization" element={<OrganizationSettingsPage />} />
+                    <Route path="/settings/models" element={<ModelSettingsPage />} />
                   </Route>
                 </Routes>
               </ToastProvider>

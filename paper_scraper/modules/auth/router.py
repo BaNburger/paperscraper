@@ -796,3 +796,44 @@ async def delete_account(
         password=delete_request.password,
         delete_organization=delete_request.delete_organization,
     )
+
+
+# =============================================================================
+# RBAC Permission Endpoints
+# =============================================================================
+
+
+@router.get(
+    "/permissions",
+    summary="List current user's permissions",
+)
+async def get_my_permissions(
+    current_user: CurrentUser,
+) -> dict:
+    """Return the effective permissions for the current user based on their role."""
+    from paper_scraper.core.permissions import get_permissions_for_role
+
+    perms = get_permissions_for_role(current_user.role.value)
+    return {
+        "role": current_user.role.value,
+        "permissions": [p.value for p in perms],
+    }
+
+
+@router.get(
+    "/roles",
+    summary="List available roles and their permissions",
+    dependencies=[Depends(require_admin)],
+)
+async def list_roles(
+    current_user: CurrentUser,
+) -> dict:
+    """Return all available roles and their associated permissions (admin only)."""
+    from paper_scraper.core.permissions import ROLE_PERMISSIONS
+
+    return {
+        "roles": {
+            role: [p.value for p in perms]
+            for role, perms in ROLE_PERMISSIONS.items()
+        },
+    }

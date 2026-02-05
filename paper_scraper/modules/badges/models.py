@@ -40,10 +40,13 @@ class Badge(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     icon: Mapped[str] = mapped_column(String(100), nullable=False, default="trophy")
     category: Mapped[BadgeCategory] = mapped_column(
-        Enum(BadgeCategory), nullable=False
+        Enum(BadgeCategory, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
     )
     tier: Mapped[BadgeTier] = mapped_column(
-        Enum(BadgeTier), nullable=False, default=BadgeTier.BRONZE
+        Enum(BadgeTier, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        default=BadgeTier.BRONZE,
     )
     criteria: Mapped[dict] = mapped_column(
         JSONB, nullable=False, default=dict

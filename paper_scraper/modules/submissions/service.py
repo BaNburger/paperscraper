@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -32,6 +33,8 @@ from paper_scraper.modules.submissions.schemas import (
     SubmissionListResponse,
     SubmissionUpdate,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class SubmissionService:
@@ -267,6 +270,39 @@ class SubmissionService:
         await self.db.refresh(attachment)
         return attachment
 
+    async def get_attachment(
+        self,
+        submission_id: UUID,
+        attachment_id: UUID,
+        organization_id: UUID,
+    ) -> SubmissionAttachment:
+        """Get an attachment by ID with tenant isolation.
+
+        Args:
+            submission_id: Submission UUID.
+            attachment_id: Attachment UUID.
+            organization_id: Organization UUID for tenant isolation.
+
+        Returns:
+            SubmissionAttachment.
+
+        Raises:
+            NotFoundError: If submission or attachment not found.
+        """
+        # Verify submission belongs to org
+        await self._get_submission(submission_id, organization_id)
+
+        result = await self.db.execute(
+            select(SubmissionAttachment).where(
+                SubmissionAttachment.id == attachment_id,
+                SubmissionAttachment.submission_id == submission_id,
+            )
+        )
+        attachment = result.scalar_one_or_none()
+        if not attachment:
+            raise NotFoundError("Attachment", attachment_id)
+        return attachment
+
     # =========================================================================
     # TTO Review Endpoints
     # =========================================================================
@@ -353,7 +389,8 @@ class SubmissionService:
         """Run AI scoring analysis on a submission.
 
         Uses the scoring orchestrator to analyze the submission's
-        commercial potential across all dimensions.
+        commercial potential across all dimensions. Finds similar papers
+        using pgvector embedding similarity for richer analysis context.
 
         Args:
             submission_id: Submission UUID.
@@ -371,9 +408,17 @@ class SubmissionService:
         if not submission.abstract:
             raise ValidationError("Submission must have an abstract for AI analysis")
 
-        # Import orchestrator lazily to avoid circular imports
+        # Import lazily to avoid circular imports
         from paper_scraper.modules.scoring.dimensions.base import PaperContext
+        from paper_scraper.modules.scoring.embeddings import generate_paper_embedding
         from paper_scraper.modules.scoring.orchestrator import ScoringOrchestrator
+
+        # Find similar papers using embedding similarity
+        similar_papers = await self._find_similar_papers_for_submission(
+            submission=submission,
+            organization_id=organization_id,
+            limit=5,
+        )
 
         # Create a paper-like context from submission
         paper_context = PaperContext(
@@ -385,11 +430,34 @@ class SubmissionService:
             doi=submission.doi,
         )
 
+        # Convert similar papers to contexts
+        similar_contexts = [PaperContext.from_paper(p) for p in similar_papers]
+
         orchestrator = ScoringOrchestrator()
         result = await orchestrator.score_paper(
             paper=paper_context,
-            similar_papers=[],
+            similar_papers=similar_contexts,
         )
+
+        # Build dimension details including similar papers info
+        dimension_details = {}
+        for dim_name, dim_result in result.dimension_results.items():
+            dimension_details[dim_name] = {
+                "score": dim_result.score,
+                "confidence": dim_result.confidence,
+                "reasoning": dim_result.reasoning,
+                "details": dim_result.details,
+            }
+
+        # Add similar papers metadata to analysis
+        similar_papers_summary = [
+            {
+                "id": str(p.id),
+                "title": p.title[:100],
+                "doi": p.doi,
+            }
+            for p in similar_papers
+        ]
 
         # Save submission score
         score = SubmissionScore(
@@ -403,20 +471,63 @@ class SubmissionService:
             overall_confidence=result.overall_confidence,
             model_version=result.model_version,
             dimension_details={
-                dim_name: {
-                    "score": dim_result.score,
-                    "confidence": dim_result.confidence,
-                    "reasoning": dim_result.reasoning,
-                    "details": dim_result.details,
-                }
-                for dim_name, dim_result in result.dimension_results.items()
+                **dimension_details,
+                "_similar_papers": similar_papers_summary,
             },
-            analysis_summary=self._generate_analysis_summary(result),
+            analysis_summary=self._generate_analysis_summary(result, len(similar_papers)),
         )
         self.db.add(score)
         await self.db.flush()
         await self.db.refresh(score)
         return score
+
+    async def _find_similar_papers_for_submission(
+        self,
+        submission: ResearchSubmission,
+        organization_id: UUID,
+        limit: int = 5,
+    ) -> list[Paper]:
+        """Find similar papers using embedding similarity.
+
+        Generates an embedding for the submission abstract and uses
+        pgvector cosine distance to find similar papers in the library.
+
+        Args:
+            submission: The submission to analyze.
+            organization_id: Organization UUID for tenant isolation.
+            limit: Maximum number of similar papers to return.
+
+        Returns:
+            List of similar Paper objects.
+        """
+        if not submission.abstract:
+            return []
+
+        try:
+            from paper_scraper.modules.scoring.embeddings import generate_paper_embedding
+
+            # Generate embedding for submission
+            embedding = await generate_paper_embedding(
+                title=submission.title,
+                abstract=submission.abstract,
+                keywords=submission.keywords,
+            )
+
+            # Find similar papers using pgvector cosine distance
+            result = await self.db.execute(
+                select(Paper)
+                .where(
+                    Paper.organization_id == organization_id,
+                    Paper.embedding.is_not(None),
+                )
+                .order_by(Paper.embedding.cosine_distance(embedding))
+                .limit(limit)
+            )
+            return list(result.scalars().all())
+
+        except Exception as e:
+            logger.warning(f"Failed to find similar papers for submission: {e}")
+            return []
 
     # =========================================================================
     # Conversion
@@ -589,11 +700,15 @@ class SubmissionService:
         )
 
     @staticmethod
-    def _generate_analysis_summary(result: AggregatedScore) -> str:
+    def _generate_analysis_summary(
+        result: AggregatedScore,
+        similar_papers_count: int = 0,
+    ) -> str:
         """Generate a human-readable summary from scoring results.
 
         Args:
             result: AggregatedScore from the orchestrator.
+            similar_papers_count: Number of similar papers used for context.
 
         Returns:
             Summary string.
@@ -618,5 +733,10 @@ class SubmissionService:
             f"Strongest dimension: {top} ({dimensions[top]:.1f}/10). "
             f"Area for improvement: {low} ({dimensions[low]:.1f}/10)."
         )
+
+        if similar_papers_count > 0:
+            summary_parts.append(
+                f"Analysis informed by {similar_papers_count} similar papers in your library."
+            )
 
         return " ".join(summary_parts)
