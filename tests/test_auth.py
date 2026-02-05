@@ -29,7 +29,7 @@ class TestRegistration:
             "/api/v1/auth/register",
             json={
                 "email": "newuser@example.com",
-                "password": "securepassword123",
+                "password": "SecurePassword123",
                 "full_name": "New User",
                 "organization_name": "New Organization",
                 "organization_type": "university",
@@ -48,7 +48,7 @@ class TestRegistration:
             "/api/v1/auth/register",
             json={
                 "email": test_user.email,
-                "password": "securepassword123",
+                "password": "SecurePassword123",
                 "full_name": "Duplicate User",
                 "organization_name": "Another Org",
                 "organization_type": "university",
@@ -65,7 +65,7 @@ class TestRegistration:
             "/api/v1/auth/register",
             json={
                 "email": "invalid-email",
-                "password": "securepassword123",
+                "password": "SecurePassword123",
                 "full_name": "Invalid User",
                 "organization_name": "Some Org",
                 "organization_type": "university",
@@ -228,7 +228,7 @@ class TestChangePassword:
             "/api/v1/auth/change-password",
             json={
                 "current_password": "testpassword123",
-                "new_password": "newpassword456",
+                "new_password": "NewPassword456",
             },
         )
         assert response.status_code == 204
@@ -243,7 +243,7 @@ class TestChangePassword:
             "/api/v1/auth/change-password",
             json={
                 "current_password": "wrongpassword",
-                "new_password": "newpassword456",
+                "new_password": "NewPassword456",
             },
         )
         assert response.status_code == 422
@@ -381,7 +381,7 @@ class TestTeamInvitations:
             "/api/v1/auth/accept-invite",
             json={
                 "token": "invalid-token",
-                "password": "securepassword123",
+                "password": "SecurePassword123",
             },
         )
         assert response.status_code == 404

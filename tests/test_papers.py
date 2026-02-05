@@ -689,8 +689,8 @@ class TestPaperIngestionService:
             "citations_count": 100,
         }
 
-        paper = await service.create_paper(
-            paper_data=paper_data,
+        paper = await service._create_paper_from_data(
+            data=paper_data,
             organization_id=test_user.organization_id,
         )
 

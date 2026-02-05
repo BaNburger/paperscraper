@@ -33,7 +33,7 @@ async def second_organization(db_session: AsyncSession) -> Organization:
     """Create a second organization for tenant isolation tests."""
     organization = Organization(
         name="Second Organization",
-        type="company",
+        type="corporate",
     )
     db_session.add(organization)
     await db_session.flush()

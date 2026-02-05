@@ -1,362 +1,515 @@
-# Paper Scraper - Best Practice Technische Architektur
+# Paper Scraper - Technische Architektur
 
 ## Executive Summary
 
-Diese Architektur definiert einen pragmatischen, inkrementellen Ansatz zur Entwicklung von Paper Scraper. Statt einer überdimensionierten Enterprise-Architektur fokussieren wir uns auf eine **MVP-first, Scale-later** Strategie, die mit Claude Code effizient implementiert werden kann.
+Paper Scraper ist eine AI-powered SaaS-Plattform zur automatisierten Analyse wissenschaftlicher Publikationen. Die Architektur folgt einem **MVP-first, Scale-later** Ansatz mit modularem Monolith, async-first Backend und provider-agnostischer AI-Integration.
+
+---
+
+## Systemarchitektur
+
+```mermaid
+graph TB
+    subgraph Client["Frontend (React 19 + TypeScript)"]
+        FE["Vite 7 + TailwindCSS 4<br/>Shadcn/UI + TanStack Query 5"]
+    end
+
+    subgraph APILayer["API Layer (FastAPI)"]
+        CORS["CORS Middleware"]
+        RL["Rate Limiting (slowapi + Redis)"]
+        SH["Security Headers (CSP, HSTS, X-Frame-Options)"]
+        Router["API v1 Router"]
+    end
+
+    subgraph Modules["Backend Module (13 API-Module + email Service)"]
+        direction LR
+        AUTH["auth"]
+        PAP["papers"]
+        SCO["scoring"]
+        PRJ["projects"]
+        SEA["search"]
+        AUT["authors"]
+        ALR["alerts"]
+        SAV["saved_searches"]
+        ANA["analytics"]
+        AUD["audit"]
+        EXP["export"]
+        GRP["groups"]
+        TRF["transfer"]
+    end
+
+    subgraph Data["Data Layer"]
+        PG[("PostgreSQL 16<br/>+ pgvector (HNSW)")]
+        RD[("Redis 7<br/>Queue + Cache")]
+        S3[("MinIO / S3<br/>PDFs + Exports")]
+    end
+
+    subgraph Jobs["Background Jobs (arq)"]
+        ING["Ingestion<br/>(OpenAlex)"]
+        SCJ["Scoring<br/>(5 Dimensionen)"]
+        ALJ["Alerts<br/>(Daily/Weekly)"]
+        EMB["Embeddings<br/>(Backfill)"]
+    end
+
+    subgraph External["Externe APIs"]
+        OA["OpenAlex"]
+        CR["Crossref"]
+        PM["PubMed"]
+        AX["arXiv"]
+    end
+
+    subgraph LLM["LLM Provider"]
+        OAI["OpenAI (GPT-5 mini)"]
+        ANT["Anthropic Claude"]
+        AZR["Azure OpenAI"]
+        OLL["Ollama (lokal)"]
+    end
+
+    subgraph Monitor["Monitoring"]
+        LF["Langfuse<br/>LLM Observability"]
+        SEN["Sentry<br/>Error Tracking"]
+    end
+
+    Client -->|"HTTP/JSON"| CORS
+    CORS --> RL --> SH --> Router
+    Router --> Modules
+    Modules --> PG
+    Modules --> RD
+    Modules --> S3
+    Modules -.->|"enqueue"| Jobs
+    Jobs --> PG
+    Jobs --> External
+    SCO --> LLM
+    SCO -.-> LF
+    APILayer -.-> SEN
+```
 
 ---
 
 ## 1. Architekturprinzipien
 
-### 1.1 Leitprinzipien
-
 | Prinzip | Beschreibung | Rationale |
 |---------|--------------|-----------|
-| **Monolith-First** | Start mit modularem Monolith, kein Microservices-Overhead | Schnelle Iteration, einfaches Debugging, geringere Komplexität |
-| **API-First Design** | Alle Funktionen als REST/GraphQL APIs | Ermöglicht spätere Aufteilung, Frontend-Unabhängigkeit |
-| **Composable AI** | LLM-Aufrufe als austauschbare Module | Provider-Wechsel (OpenAI→Claude→lokale Modelle) ohne Refactoring |
-| **Data Lake Architecture** | Rohdaten immer erhalten, verarbeitete Daten separat | Ermöglicht Neuberechnung bei Modell-Updates |
-| **Feature Flags** | Alle neuen Features togglebar | A/B-Testing, schrittweises Rollout |
+| **Monolith-First** | Modularer Monolith, kein Microservices-Overhead | Schnelle Iteration, einfaches Debugging, geringere Komplexitat |
+| **API-First Design** | Alle Funktionen als REST APIs (OpenAPI auto-generiert) | Frontend-Unabhangigkeit, klare Schnittstellen |
+| **Composable AI** | LLM-Aufrufe als austauschbare Module | Provider-Wechsel (OpenAI, Anthropic, Azure, Ollama) ohne Refactoring |
+| **Async-First** | Alle I/O-Operationen async/await | Hoher Durchsatz, nicht-blockierendes Backend |
+| **Tenant Isolation** | Alle Queries nach `organization_id` gefiltert | Datenisolierung zwischen Organisationen |
 
-### 1.2 Technology Stack Entscheidungen
+### Technology Stack
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        FRONTEND                                  │
-│  React 18 + TypeScript + Vite + TailwindCSS + Shadcn/UI         │
-│  (Alternativ: Next.js für SSR wenn SEO relevant)                │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      API GATEWAY                                 │
-│  FastAPI (Python 3.11+) + Pydantic v2 + async/await             │
-│  OpenAPI auto-generation, Type Safety, High Performance         │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-          ┌───────────────────┼───────────────────┐
-          ▼                   ▼                   ▼
-┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│   CORE MODULES  │  │   AI PIPELINE   │  │  BACKGROUND     │
-│                 │  │                 │  │  JOBS           │
-│  • Auth/Users   │  │  • Paper Parser │  │  • arq (async)  │
-│  • Papers       │  │  • Scoring      │  │  • Ingestion    │
-│  • Projects     │  │  • Embeddings   │  │  • Alerts       │
-│  • KanBan       │  │  • RAG          │  │  • Reports      │
-└─────────────────┘  └─────────────────┘  └─────────────────┘
-          │                   │                   │
-          └───────────────────┼───────────────────┘
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      DATA LAYER                                  │
-│  PostgreSQL (Primary) + pgvector + Redis (Cache/Queue)          │
-│  S3-kompatibel (MinIO/Cloudflare R2) für PDFs                   │
-└─────────────────────────────────────────────────────────────────┘
-```
+| Layer | Technologie |
+|-------|-------------|
+| **Frontend** | React 19, TypeScript 5.9, Vite 7, TailwindCSS 4, Shadcn/UI-style |
+| **State Management** | TanStack React Query 5 (Server State), React Context (UI State) |
+| **API** | FastAPI (Python 3.11+), Pydantic v2, async/await |
+| **Database** | PostgreSQL 16 + pgvector (HNSW), SQLAlchemy 2 (async) |
+| **Queue** | arq (async-native) + Redis 7 |
+| **Storage** | MinIO (S3-kompatibel) fur PDFs |
+| **AI/LLM** | GPT-5 mini (Default), text-embedding-3-small, Multi-Provider |
+| **Email** | Resend (transaktional) |
+| **Monitoring** | Langfuse (LLM), Sentry (Errors) |
+| **Testing** | pytest + pytest-asyncio (Backend), Vitest (Frontend), Playwright (E2E) |
 
 ---
 
-## 2. Domänenmodell
+## 2. Domanenmodell
 
 ### 2.1 Core Entities
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│                        ORGANIZATION                             │
-│  id, name, type (university|vc|corporate), subscription_tier   │
+│                        ORGANIZATION                            │
+│  id, name, type (university|vc|corporate|research_institute)  │
+│  subscription_tier (free|starter|professional|enterprise)     │
+│  settings (JSONB)                                             │
 └────────────────────────────────────────────────────────────────┘
-                              │
-          ┌───────────────────┼───────────────────┐
-          ▼                   ▼                   ▼
-┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│      USER       │  │    PROJECT      │  │   DATA SOURCE   │
-│                 │  │                 │  │                 │
-│  email, role    │  │  name, filters  │  │  type (pubmed,  │
-│  preferences    │  │  scoring_config │  │  arxiv, custom) │
-└─────────────────┘  └─────────────────┘  └─────────────────┘
-                              │
-                              ▼
+          │                                           │
+          ▼                                           ▼
+┌──────────────────────┐                   ┌──────────────────────┐
+│        USER          │                   │   TEAM_INVITATION    │
+│                      │                   │                      │
+│  email, full_name    │                   │  email, role, token  │
+│  role (admin|        │                   │  status (pending|    │
+│   manager|member|    │                   │   accepted|declined| │
+│   viewer)            │                   │   expired)           │
+│  email_verified      │                   │  expires_at          │
+│  onboarding_completed│                   └──────────────────────┘
+└──────────────────────┘
+          │
+          ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                         PAPER                                    │
-│  doi, title, abstract, authors[], affiliations[], pub_date      │
-│  source_url, full_text_url, pdf_path, raw_metadata{}            │
+│                          PAPER                                   │
+│  doi, title, abstract, source, publication_date                 │
+│  journal, keywords, mesh_terms, citations_count                 │
+│  embedding vector(1536), pdf_path (S3)                          │
+│  one_line_pitch, simplified_abstract, paper_type                │
+│  organization_id (Tenant Isolation)                              │
 └─────────────────────────────────────────────────────────────────┘
-                              │
-          ┌───────────────────┼───────────────────┐
-          ▼                   ▼                   ▼
-┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│   PAPER_SCORE   │  │  PAPER_STATUS   │  │    AUTHOR       │
-│                 │  │                 │  │                 │
-│  novelty: 0-10  │  │  stage (kanban) │  │  orcid, h_index │
-│  ip_potential   │  │  assigned_to    │  │  affiliations[] │
-│  marketability  │  │  rejection_rsn  │  │  contact_email  │
-│  feasibility    │  │  notes[]        │  │  last_contact   │
-│  commercializ.  │  │  last_action_at │  │  profile_data{} │
-└─────────────────┘  └─────────────────┘  └─────────────────┘
-
-### 2.4 AI-Generated Content
-
-Papers can have AI-generated content fields:
-
-| Field | Description | Generation |
-|-------|-------------|------------|
-| **one_line_pitch** | Max 15-word compelling pitch | On-demand via `/generate-pitch` endpoint |
-| **embedding** | 1536d vector (text-embedding-3-small) | Auto-generated for semantic search |
+          │
+    ┌─────┼──────────────────┬──────────────────────┐
+    ▼     ▼                  ▼                      ▼
+┌────────────┐  ┌──────────────────┐  ┌──────────────────────┐
+│   AUTHOR   │  │   PAPER_SCORE    │  │  PAPER_PROJECT_STATUS│
+│            │  │                  │  │                      │
+│  orcid     │  │  novelty: 0-10   │  │  stage (kanban)      │
+│  openalex_id│ │  ip_potential    │  │  assigned_to         │
+│  h_index   │  │  marketability   │  │  rejection_reason    │
+│  works_count│ │  feasibility     │  │  priority            │
+│  embedding │  │  commercializat. │  │  tags                │
+│  vector(768)│ │  overall_score   │  └──────────────────────┘
+│            │  │  dimension_      │
+│            │  │    details(JSONB)│
+└────────────┘  └──────────────────┘
+     │
+     ▼
+┌──────────────────┐
+│ AUTHOR_CONTACT   │
+│                  │
+│  contact_type    │
+│  subject, notes  │
+│  outcome         │
+│  follow_up_date  │
+└──────────────────┘
 ```
 
-### 2.2 Scoring-Dimensionen (Details)
+**Weitere Entities:** `PaperNote`, `SavedSearch`, `Alert`, `AlertResult`, `AuditLog`, `ScoringJob`, `PaperStageHistory`, `ResearcherGroup`, `GroupMember`
 
-```python
-class PaperScore(BaseModel):
-    """5-Dimensionales Scoring nach Business Plan"""
+### 2.2 Scoring-Dimensionen
 
-    # Dimension 1: Technologische Neuheit
-    novelty: float  # 0-10
-    novelty_explanation: str
-    novelty_evidence: list[str]  # Zitate aus Paper
+| Dimension | Score | Was wird bewertet? |
+|-----------|-------|-------------------|
+| **Novelty** | 0-10 | Technologische Neuheit vs. State-of-Art |
+| **IP-Potential** | 0-10 | Patentierbarkeit, Prior Art, White Spaces |
+| **Marketability** | 0-10 | Marktgrosse, Industrien, Trends |
+| **Feasibility** | 0-10 | TRL-Level, Time-to-Market, Dev-Kosten |
+| **Commercialization** | 0-10 | Empfohlener Pfad, Entry Barriers |
 
-    # Dimension 2: IP-Potential (Patentierbarkeit)
-    ip_potential: float  # 0-10
-    ip_prior_art_found: bool
-    ip_freedom_to_operate: float  # 0-10
-    ip_white_spaces: list[str]  # Identifizierte Lücken
+**Scoring-Pipeline:**
+1. Paper → Embedding generieren (`text-embedding-3-small`, 1536d)
+2. Ahnliche Papers finden (pgvector, cosine distance)
+3. Pro Dimension: Jinja2-Prompt → LLM → JSON parsen
+4. Aggregieren (gewichteter Durchschnitt)
+5. Ergebnis in `paper_scores` speichern (inkl. `dimension_details` JSONB)
 
-    # Dimension 3: Marktrelevanz
-    marketability: float  # 0-10
-    market_size_estimate: str  # "€10M-50M", etc.
-    target_industries: list[str]
-    market_signals: list[str]  # News, Trends
+### 2.3 AI-generierte Inhalte
 
-    # Dimension 4: Umsetzbarkeit
-    feasibility: float  # 0-10
-    trl_level: int  # 1-9 (Technology Readiness Level)
-    time_to_market_years: float
-    estimated_dev_cost: str
+| Feld | Beschreibung | Generierung |
+|------|-------------|------------|
+| **one_line_pitch** | Max 15-Wort Business-Pitch | On-demand via `/generate-pitch` |
+| **simplified_abstract** | Vereinfachte Zusammenfassung | On-demand via `/generate-simplified-abstract` |
+| **paper_type** | Klassifikation (original_research, review, case_study, etc.) | On-demand via `/classify` |
+| **embedding** | 1536d-Vektor (text-embedding-3-small) | Auto-generiert fur semantische Suche |
 
-    # Dimension 5: Kommerzialisierungspotential
-    commercialization: float  # 0-10
-    recommended_path: str  # "patent", "license", "spinoff"
-    entry_barriers: list[str]
+**Prompt Templates** (`scoring/prompts/`): `novelty.jinja2`, `ip_potential.jinja2`, `marketability.jinja2`, `feasibility.jinja2`, `commercialization.jinja2`, `one_line_pitch.jinja2`, `simplified_abstract.jinja2`, `paper_classification.jinja2`
 
-    # Meta
-    overall_score: float  # Gewichteter Durchschnitt
-    confidence: float  # 0-1, wie sicher ist die Bewertung
-    scored_at: datetime
-    model_version: str
-```
-
----
-
-## 2.3 External Data Sources (Open APIs)
-
-Die Plattform nutzt primär offene APIs für Daten-Ingestion:
+### 2.4 Externe Datenquellen
 
 | API | Zweck | Authentifizierung | Rate Limits | Status |
 |-----|-------|------------------|-------------|--------|
-| **OpenAlex** | Paper/Autor-Metadaten (primär) | Email (polite pool) | 100k/Tag | Implementiert |
-| **Crossref** | DOI-Auflösung | Email (polite pool) | Polite: 50 req/s | Implementiert |
+| **OpenAlex** | Paper/Autor-Metadaten (primar) | Email (polite pool) | 100k/Tag | Implementiert |
+| **Crossref** | DOI-Auflosung | Email (polite pool) | Polite: 50 req/s | Implementiert |
 | **PubMed/NCBI** | Biomedizinische Literatur | API Key (optional) | 3 req/s (ohne Key) | Implementiert |
 | **arXiv** | Preprints (STEM) | Keine | 1 req/3s | Implementiert |
 | **PDF Upload** | Manuelle Paper-Uploads | — | — | Implementiert |
-| **EPO OPS** | Patentdaten, Prior Art | OAuth 2.0 (Free tier: 4GB/Woche) | 5 req/s | Geplant |
+| **EPO OPS** | Patentdaten, Prior Art | OAuth 2.0 | 5 req/s | Geplant |
 | **Semantic Scholar** | Zitationen, Influence | API Key (optional) | 100 req/s | Geplant |
-
-### Konfiguration
-
-```python
-# core/config.py - External API Settings
-OPENALEX_EMAIL: str = "noreply@example.com"
-OPENALEX_BASE_URL: str = "https://api.openalex.org"
-
-EPO_OPS_KEY: str | None = None
-EPO_OPS_SECRET: SecretStr | None = None
-EPO_OPS_BASE_URL: str = "https://ops.epo.org/3.2"
-
-ARXIV_BASE_URL: str = "http://export.arxiv.org/api"
-
-PUBMED_API_KEY: str | None = None
-PUBMED_BASE_URL: str = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
-
-CROSSREF_EMAIL: str = "noreply@example.com"
-CROSSREF_BASE_URL: str = "https://api.crossref.org"
-
-SEMANTIC_SCHOLAR_API_KEY: str | None = None
-SEMANTIC_SCHOLAR_BASE_URL: str = "https://api.semanticscholar.org/graph/v1"
-```
-
-### Vector Data Strategy
-
-| Datentyp | Dimension | Speicher | Verwendung |
-|----------|-----------|----------|------------|
-| Paper Embeddings | 1536d (OpenAI) | pgvector | Semantische Suche, Ähnlichkeit |
-| Author Embeddings | 768d | pgvector | Expertensuche, Kollaboration |
-| Patent Claims | 1536d | pgvector | Prior Art Detection |
-| Query Embeddings | Variabel | In-Memory/Redis | Echtzeit-Suche |
 
 ---
 
-## 3. Modulare Systemarchitektur
+## 3. Backend-Architektur
 
-### 3.1 Backend Module
+### 3.1 Modulstruktur
 
 ```
 paper_scraper/
-├── core/                      # Shared utilities
-│   ├── config.py             # Pydantic Settings
-│   ├── database.py           # SQLAlchemy async session
-│   ├── security.py           # Auth, JWT, API Keys
-│   └── exceptions.py         # Custom exceptions
+├── core/                          # Shared Infrastructure
+│   ├── config.py                 # Pydantic Settings (100+ env vars)
+│   ├── database.py               # AsyncSQLAlchemy engine + session
+│   ├── security.py               # JWT (access/refresh), bcrypt, Token-Generierung
+│   ├── exceptions.py             # Custom Exceptions (8 Typen)
+│   ├── logging.py                # JSON-Formatter (Prod), structured logging
+│   ├── redis_base.py             # Base class fur Redis-backed Services
+│   ├── account_lockout.py        # Brute-Force-Schutz (Redis)
+│   └── token_blacklist.py        # JWT-Invalidierung (Redis)
 │
-├── modules/
-│   ├── auth/                 # Authentication & Authorization
-│   │   ├── models.py         # User, Organization, Role
-│   │   ├── schemas.py        # Pydantic DTOs
-│   │   ├── service.py        # Business logic
-│   │   └── router.py         # FastAPI endpoints
+├── modules/                       # 12 Feature-Module
+│   ├── auth/                     # Authentication & User Management
+│   │   ├── models.py             # Organization, User, TeamInvitation
+│   │   ├── schemas.py            # Pydantic DTOs
+│   │   ├── service.py            # Auth-Logik, GDPR, Team-Management
+│   │   └── router.py             # 20+ Endpoints
 │   │
-│   ├── papers/               # Paper Management
-│   │   ├── models.py         # Paper, Author, PaperScore
+│   ├── papers/                   # Paper Management & Ingestion
+│   │   ├── models.py             # Paper, Author, PaperAuthor
+│   │   ├── schemas.py
+│   │   ├── service.py            # CRUD, Ingestion-Orchestrierung
+│   │   ├── router.py
+│   │   ├── notes.py              # PaperNote Model
+│   │   ├── note_service.py       # Notes CRUD
+│   │   ├── pdf_service.py        # PDF Upload → MinIO + Textextraktion
+│   │   └── clients/              # Externe API-Clients
+│   │       ├── openalex.py
+│   │       ├── crossref.py
+│   │       ├── pubmed.py
+│   │       └── arxiv.py
+│   │
+│   ├── scoring/                  # AI Scoring Pipeline
+│   │   ├── models.py             # PaperScore, ScoringJob
 │   │   ├── schemas.py
 │   │   ├── service.py
 │   │   ├── router.py
-│   │   └── ingestion/        # Data ingestion sub-module
-│   │       ├── sources/      # PubMed, arXiv, Semantic Scholar
-│   │       ├── parsers/      # PDF, XML, JSON parsers
-│   │       └── pipeline.py   # Orchestration
-│   │
-│   ├── scoring/              # AI Scoring Pipeline
-│   │   ├── dimensions/       # Ein Modul pro Dimension
-│   │   │   ├── novelty.py
-│   │   │   ├── ip_potential.py
-│   │   │   ├── marketability.py
-│   │   │   ├── feasibility.py
+│   │   ├── orchestrator.py       # Scoring-Pipeline-Koordination
+│   │   ├── llm_client.py         # Provider-agnostische LLM-Abstraktion
+│   │   ├── embeddings.py         # text-embedding-3-small Integration
+│   │   ├── classifier.py         # Paper-Typ-Klassifikation
+│   │   ├── pitch_generator.py    # One-Line Pitch + Simplified Abstract
+│   │   ├── dimensions/           # 5 Scoring-Dimensionen
+│   │   │   ├── base.py, novelty.py, ip_potential.py
+│   │   │   ├── marketability.py, feasibility.py
 │   │   │   └── commercialization.py
-│   │   ├── prompts/          # Prompt Templates (Langfuse-kompatibel)
-│   │   ├── llm_client.py     # Abstraction über OpenAI/Claude/etc.
-│   │   └── orchestrator.py   # Scoring Pipeline
+│   │   └── prompts/              # 8 Jinja2 Prompt-Templates
 │   │
-│   ├── projects/             # Project/Pipeline Management
-│   │   ├── models.py         # Project, Stage, PaperStatus
-│   │   ├── kanban.py         # KanBan-specific logic
-│   │   └── router.py
+│   ├── projects/                 # KanBan Pipeline Management
+│   │   ├── models.py             # Project, PaperProjectStatus, PaperStageHistory
+│   │   ├── schemas.py, service.py, router.py
 │   │
-│   ├── search/               # Search & Discovery
-│   │   ├── vector_store.py   # pgvector operations
-│   │   ├── semantic.py       # Embedding-based search
-│   │   ├── filters.py        # Structured filtering
-│   │   └── router.py
+│   ├── search/                   # Fulltext + Semantische Suche
+│   │   ├── schemas.py, service.py, router.py
 │   │
-│   └── notifications/        # Alerts & Notifications
-│       ├── models.py
-│       ├── email.py
-│       ├── slack.py
-│       └── scheduler.py
+│   ├── authors/                  # Author CRM & Enrichment
+│   │   ├── models.py             # AuthorContact
+│   │   ├── schemas.py, service.py, router.py
+│   │
+│   ├── saved_searches/           # Gespeicherte Suchen & Sharing
+│   │   ├── models.py, schemas.py, service.py, router.py
+│   │
+│   ├── alerts/                   # Such-Alerts & Benachrichtigungen
+│   │   ├── models.py             # Alert, AlertResult
+│   │   ├── schemas.py, service.py, router.py
+│   │   └── email_service.py      # Alert-E-Mail-Versand
+│   │
+│   ├── analytics/                # Dashboard & Team Metriken
+│   │   ├── schemas.py, service.py, router.py
+│   │
+│   ├── audit/                    # Security Audit Logging (GDPR)
+│   │   ├── models.py             # AuditLog
+│   │   ├── schemas.py, service.py, router.py
+│   │
+│   ├── export/                   # Datenexport (CSV, BibTeX, PDF)
+│   │   ├── schemas.py, service.py, router.py
+│   │
+│   ├── email/                    # Transaktionale E-Mails (Resend)
+│   │   └── service.py
+│   │
+│   └── groups/                   # Forscher-Gruppen
+│       ├── models.py, schemas.py, service.py, router.py
 │
-├── jobs/                     # Background Jobs (arq - async-native)
-│   ├── worker.py             # arq worker settings
-│   ├── ingestion.py          # Scheduled paper ingestion
-│   ├── scoring.py            # Batch scoring
-│   ├── alerts.py             # Alert processing
-│   └── reports.py            # Report generation
+├── jobs/                         # Background Jobs (arq)
+│   ├── worker.py                 # WorkerSettings, Cron Jobs
+│   ├── ingestion.py              # OpenAlex Batch-Ingestion
+│   ├── scoring.py                # Paper Scoring + Embedding-Generierung
+│   ├── alerts.py                 # Daily/Weekly Alert-Verarbeitung
+│   └── search.py                 # Embedding-Backfill
 │
-└── api/                      # API Layer
-    ├── main.py               # FastAPI app
-    ├── dependencies.py       # Dependency injection
-    ├── middleware.py         # Logging, CORS, etc.
-    └── v1/                   # API version
-        └── router.py         # All route aggregation
+└── api/                          # API Layer
+    ├── main.py                   # FastAPI App, Lifespan, Exception Handlers
+    ├── dependencies.py           # DI (current_user, db session, RBAC)
+    ├── middleware.py              # SecurityHeaders, Rate Limiting (slowapi)
+    └── v1/router.py              # 12 Modul-Router aggregiert
 ```
 
-### 3.2 AI/LLM Abstraction Layer
+### 3.2 LLM Abstraction Layer
+
+Provider-agnostische Abstraktion mit Langfuse-Observability, exponential Backoff und Prompt-Injection-Schutz.
 
 ```python
-# scoring/llm_client.py
+# scoring/llm_client.py — 869 Zeilen
 
-from abc import ABC, abstractmethod
-from typing import AsyncIterator
-
-class LLMClient(ABC):
-    """Abstract base for LLM providers"""
+class BaseLLMClient(ABC):
+    """Abstrakte Basisklasse fur LLM-Provider."""
 
     @abstractmethod
-    async def complete(
-        self,
-        prompt: str,
-        system: str = None,
-        temperature: float = 0.3,
-        max_tokens: int = 2000
-    ) -> str:
-        pass
+    async def complete(self, prompt: str, system: str | None = None,
+                       temperature: float | None = None,
+                       max_tokens: int | None = None,
+                       json_mode: bool = False) -> str: ...
 
     @abstractmethod
-    async def stream(
-        self,
-        prompt: str,
-        system: str = None
-    ) -> AsyncIterator[str]:
-        pass
+    async def complete_with_usage(self, ...) -> LLMResponse: ...
 
-class OpenAIClient(LLMClient):
-    """OpenAI implementation (default: GPT-5 mini)"""
+    @abstractmethod
+    async def complete_json(self, ...) -> dict[str, Any]: ...
 
-    def __init__(self, model: str = None):
-        self.client = AsyncOpenAI()
-        self.model = model or settings.LLM_MODEL  # Default: gpt-5-mini
 
-    async def complete(self, prompt: str, **kwargs) -> str:
-        response = await self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": kwargs.get("system", "")},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=kwargs.get("temperature", settings.LLM_TEMPERATURE),
-            max_tokens=kwargs.get("max_tokens", settings.LLM_MAX_TOKENS)
-        )
-        return response.choices[0].message.content
+# Verfugbare Provider
+_LLM_PROVIDERS = {
+    "openai": OpenAIClient,       # Default: GPT-5 mini
+    "anthropic": AnthropicClient,  # Claude Sonnet 4
+    "azure": AzureOpenAIClient,
+    "ollama": OllamaClient,        # Lokal fur Entwicklung
+}
 
-class AnthropicClient(LLMClient):
-    """Anthropic Claude implementation"""
-    # Similar implementation
-
-class AzureOpenAIClient(LLMClient):
-    """Azure OpenAI implementation"""
-    # Similar implementation
-
-class LocalOllamaClient(LLMClient):
-    """Local Ollama for development/testing"""
-    # Similar implementation
-
-# Factory - provider-agnostic with configurable default
-def get_llm_client(provider: str = None, model: str = None) -> LLMClient:
+def get_llm_client(provider: str | None = None) -> BaseLLMClient:
+    """Factory — waehlt Provider basierend auf LLM_PROVIDER Setting."""
     provider = provider or settings.LLM_PROVIDER
-    clients = {
-        "openai": OpenAIClient,
-        "anthropic": AnthropicClient,
-        "azure": AzureOpenAIClient,
-        "ollama": LocalOllamaClient
-    }
-    return clients[provider](model=model)
+    return _LLM_PROVIDERS[provider]()
 ```
+
+**Features:**
+- `@observe` Decorator (Langfuse) auf allen LLM-Aufrufen
+- `retry_with_backoff()` mit exponential Backoff (max 3 Retries)
+- `sanitize_text_for_prompt()` zum Schutz vor Prompt Injection
+- `HTTPClientManager` fur Connection Pooling
+- `TokenUsage` + `LLMResponse` Dataclasses mit Kostenberechnung
+
+### 3.3 Background Jobs (arq)
+
+| Job | Zweck | Trigger |
+|-----|-------|---------|
+| `score_paper_task` | Einzelnes Paper AI-scoren | On-demand (API) |
+| `score_papers_batch_task` | Batch-Scoring | On-demand (API) |
+| `generate_embeddings_batch_task` | Vektor-Embeddings generieren | On-demand |
+| `backfill_embeddings_task` | Fehlende Embeddings nachfuellen | On-demand |
+| `ingest_openalex_task` | OpenAlex Paper-Import | On-demand (API) |
+| `process_daily_alerts_task` | Tagliche Such-Alerts | **Cron: 6:00 UTC taglich** |
+| `process_weekly_alerts_task` | Wochentliche Such-Alerts | **Cron: Montag 6:00 UTC** |
+| `process_immediate_alert_task` | Sofort-Alerts | On-demand |
+
+**Worker-Konfiguration:** Max 10 Jobs parallel, 600s Timeout, 500ms Poll-Intervall, Queue `paperscraper:queue`
 
 ---
 
-## 4. Datenbank-Schema
+## 4. Frontend-Architektur
 
-### 4.1 PostgreSQL + pgvector
+### 4.1 Struktur
+
+```
+frontend/src/
+├── App.tsx                       # Root: Routing, Provider-Hierarchie
+├── main.tsx                      # Entry Point
+├── index.css                     # TailwindCSS 4 Styles
+│
+├── contexts/                     # React Context Provider
+│   ├── AuthContext.tsx            # User, login/register/logout, Token-Mgmt
+│   ├── ThemeContext.tsx           # Dark/Light/System Theme
+│   └── SidebarContext.tsx         # Sidebar Collapse State
+│
+├── components/
+│   ├── layout/                   # Application Shell
+│   │   ├── Layout.tsx            # Main Layout (Navbar + Sidebar + <Outlet />)
+│   │   ├── Navbar.tsx            # Top Navbar mit User-Menu
+│   │   └── Sidebar.tsx           # Navigation (<aside>)
+│   ├── ui/                       # Shadcn/UI-style Komponenten
+│   │   ├── Button, Card, Input, Label, Badge, Table
+│   │   ├── Dialog, DropdownMenu, Select
+│   │   ├── ConfirmDialog, EmptyState, Skeleton, Toast
+│   │   └── ToastProvider
+│   ├── Onboarding/               # 4-Step Onboarding Wizard
+│   ├── ProtectedRoute.tsx        # Auth Guard
+│   └── ErrorBoundary.tsx         # React Error Boundary
+│
+├── hooks/                        # TanStack Query Hooks
+│   ├── usePapers.ts              # Paper CRUD + Ingestion + Scoring
+│   ├── useProjects.ts            # Projects + KanBan + Drag & Drop
+│   ├── useSearch.ts              # Fulltext/Semantic/Hybrid Suche
+│   ├── useAuthors.ts             # Author CRM + Contacts
+│   ├── useAlerts.ts              # Alert Management
+│   ├── useSavedSearches.ts       # Saved Searches
+│   └── useAnalytics.ts           # Dashboard Metriken
+│
+├── pages/                        # 17 Route Pages
+│   ├── LoginPage, RegisterPage, ForgotPasswordPage
+│   ├── ResetPasswordPage, VerifyEmailPage, AcceptInvitePage
+│   ├── DashboardPage, AnalyticsPage
+│   ├── PapersPage, PaperDetailPage
+│   ├── ProjectsPage, ProjectKanbanPage
+│   ├── SearchPage, SavedSearchesPage
+│   ├── TeamMembersPage
+│   └── UserSettingsPage, OrganizationSettingsPage
+│
+├── lib/
+│   ├── api.ts                    # Axios Client (11 API-Namespaces)
+│   └── utils.ts                  # cn(), formatDate(), Score-Helpers
+│
+└── types/index.ts                # TypeScript Definitionen (~700 Zeilen)
+```
+
+### 4.2 Provider-Hierarchie
+
+```
+ErrorBoundary
+  └── ThemeProvider (dark/light/system)
+       └── QueryClientProvider (staleTime: 60s, retry: 1)
+            └── BrowserRouter
+                 └── AuthProvider (JWT Token-Mgmt, localStorage)
+                      └── ToastProvider
+                           └── Routes
+```
+
+### 4.3 Routing
+
+**Public Routes:** `/login`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email`, `/accept-invite`
+
+**Protected Routes** (Auth + Layout mit Sidebar):
+
+| Route | Page | Beschreibung |
+|-------|------|-------------|
+| `/` , `/dashboard` | DashboardPage | Dashboard-Ubersicht |
+| `/analytics` | AnalyticsPage | Team & Paper Metriken |
+| `/papers` | PapersPage | Paper-Liste mit Filtern |
+| `/papers/:id` | PaperDetailPage | Paper-Detail + Scores |
+| `/projects` | ProjectsPage | Projekt-Liste |
+| `/projects/:id` | ProjectKanbanPage | KanBan-Board |
+| `/search` | SearchPage | Fulltext/Semantic Suche |
+| `/team` | TeamMembersPage | Team-Verwaltung |
+| `/settings` | UserSettingsPage | User-Einstellungen |
+| `/settings/organization` | OrganizationSettingsPage | Org-Einstellungen |
+
+### 4.4 API Client (`lib/api.ts`)
+
+- **Axios Instance** mit Base-URL `/api/v1` (Vite Proxy → `localhost:8000`)
+- **Request Interceptor:** Auto-Attach `Authorization: Bearer {token}`
+- **Response Interceptor:** Automatischer Token-Refresh bei 401, Request-Queue verhindert Race Conditions
+- **Token Storage:** `localStorage` (access + refresh Token)
+
+**11 API-Namespaces:** `authApi`, `papersApi`, `scoringApi`, `projectsApi`, `searchApi`, `authorsApi`, `analyticsApi`, `exportApi`, `savedSearchesApi`, `alertsApi`, `classificationApi`
+
+### 4.5 Key Libraries
+
+| Library | Version | Zweck |
+|---------|---------|-------|
+| React | 19.2 | UI Framework |
+| React Router | 7.13 | Client-Side Routing |
+| TanStack React Query | 5.90 | Server State Management |
+| Axios | 1.13 | HTTP Client |
+| Zod | 4.3 | Runtime Validation |
+| TailwindCSS | 4.1 | Utility-First CSS |
+| @dnd-kit | 6.3 / 10.0 | Drag & Drop (KanBan) |
+| Lucide React | 0.563 | Icons |
+| date-fns | 4.1 | Datumsformatierung |
+| DOMPurify | 3.3 | XSS-Sanitisierung |
+
+---
+
+## 5. Datenbank-Schema
+
+### 5.1 PostgreSQL 16 + pgvector
 
 ```sql
 -- Extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "vector";
-CREATE EXTENSION IF NOT EXISTS "pg_trgm";  -- Fuzzy text search
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
+-- ============================================================
 -- Organizations & Users
+-- ============================================================
 CREATE TABLE organizations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
-    type VARCHAR(50) NOT NULL CHECK (type IN ('university', 'vc', 'corporate', 'research_institute')),
-    subscription_tier VARCHAR(50) DEFAULT 'free',
+    type VARCHAR(50) NOT NULL,            -- university, vc, corporate, research_institute
+    subscription_tier VARCHAR(50) DEFAULT 'free',  -- free, starter, professional, enterprise
     settings JSONB DEFAULT '{}',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -368,585 +521,535 @@ CREATE TABLE users (
     email VARCHAR(255) UNIQUE NOT NULL,
     hashed_password VARCHAR(255),
     full_name VARCHAR(255),
-    role VARCHAR(50) DEFAULT 'member',
+    role VARCHAR(50) DEFAULT 'member',    -- admin, manager, member, viewer
     preferences JSONB DEFAULT '{}',
     is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Papers Core
-CREATE TABLE papers (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    doi VARCHAR(255) UNIQUE,
-    title TEXT NOT NULL,
-    abstract TEXT,
-    publication_date DATE,
-    source VARCHAR(50),  -- 'pubmed', 'arxiv', 'semantic_scholar', etc.
-    source_id VARCHAR(255),  -- Original ID from source
-    source_url TEXT,
-    pdf_url TEXT,
-    pdf_path TEXT,  -- S3 path
-    full_text TEXT,
-    raw_metadata JSONB,
-    embedding vector(1536),  -- OpenAI ada-002 dimension
+    email_verified BOOLEAN DEFAULT false,
+    email_verification_token VARCHAR(255),
+    email_verification_token_expires_at TIMESTAMPTZ,
+    password_reset_token VARCHAR(255),
+    password_reset_token_expires_at TIMESTAMPTZ,
+    onboarding_completed BOOLEAN DEFAULT false,
+    onboarding_completed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- HNSW index for better performance (auto-tuning, no retraining needed)
-CREATE INDEX idx_papers_embedding ON papers USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
+CREATE TABLE team_invitations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id UUID REFERENCES organizations(id),
+    email VARCHAR(255) NOT NULL,
+    role VARCHAR(50) DEFAULT 'member',
+    token VARCHAR(255) UNIQUE NOT NULL,
+    created_by_id UUID REFERENCES users(id),
+    status VARCHAR(20) DEFAULT 'pending', -- pending, accepted, declined, expired
+    expires_at TIMESTAMPTZ NOT NULL,      -- 7 Tage Gultigkeit
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================
+-- Papers & Authors
+-- ============================================================
+CREATE TABLE papers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id UUID REFERENCES organizations(id),   -- Tenant Isolation
+    doi VARCHAR(255),
+    source VARCHAR(50),                   -- doi, openalex, pubmed, arxiv, crossref, pdf, manual
+    source_id VARCHAR(255),
+    title TEXT NOT NULL,
+    abstract TEXT,
+    publication_date DATE,
+    journal VARCHAR(500),
+    volume VARCHAR(50),
+    issue VARCHAR(50),
+    pages VARCHAR(50),
+    keywords JSONB DEFAULT '[]',
+    mesh_terms JSONB DEFAULT '[]',
+    references_count INTEGER DEFAULT 0,
+    citations_count INTEGER DEFAULT 0,
+    pdf_path TEXT,                         -- S3/MinIO Pfad
+    full_text TEXT,
+    embedding vector(1536),               -- text-embedding-3-small
+    raw_metadata JSONB,
+    one_line_pitch TEXT,                   -- AI-generiert
+    simplified_abstract TEXT,             -- AI-generiert
+    paper_type VARCHAR(50),               -- original_research, review, case_study, etc.
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_papers_embedding ON papers
+    USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 CREATE INDEX idx_papers_title_trgm ON papers USING gin (title gin_trgm_ops);
-CREATE INDEX idx_papers_abstract_trgm ON papers USING gin (abstract gin_trgm_ops);
-CREATE INDEX idx_papers_source ON papers (source, source_id);
+CREATE INDEX idx_papers_org ON papers (organization_id);
 CREATE INDEX idx_papers_doi ON papers (doi) WHERE doi IS NOT NULL;
 
--- Authors
 CREATE TABLE authors (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    orcid VARCHAR(50) UNIQUE,
+    organization_id UUID REFERENCES organizations(id),
+    orcid VARCHAR(50),
+    openalex_id VARCHAR(50),
     name VARCHAR(255) NOT NULL,
-    normalized_name VARCHAR(255),  -- For matching
-    email VARCHAR(255),
     affiliations JSONB DEFAULT '[]',
     h_index INTEGER,
     citation_count INTEGER,
-    profile_data JSONB DEFAULT '{}',
-    last_contact_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    works_count INTEGER,
+    embedding vector(768),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE paper_authors (
     paper_id UUID REFERENCES papers(id) ON DELETE CASCADE,
     author_id UUID REFERENCES authors(id) ON DELETE CASCADE,
-    position INTEGER,  -- 1 = first author, -1 = last author
+    position INTEGER,
     is_corresponding BOOLEAN DEFAULT false,
     PRIMARY KEY (paper_id, author_id)
 );
 
+CREATE TABLE paper_notes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id UUID REFERENCES organizations(id),
+    paper_id UUID REFERENCES papers(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id),
+    content TEXT NOT NULL,
+    mentions JSONB DEFAULT '[]',          -- @mention Support
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================
 -- Scoring
+-- ============================================================
 CREATE TABLE paper_scores (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     paper_id UUID REFERENCES papers(id) ON DELETE CASCADE,
-    organization_id UUID REFERENCES organizations(id),  -- Custom scoring per org
-
-    -- 5 Dimensions
-    novelty DECIMAL(3,1),
-    novelty_explanation TEXT,
-    novelty_evidence JSONB,
-
-    ip_potential DECIMAL(3,1),
-    ip_prior_art_found BOOLEAN,
-    ip_freedom_to_operate DECIMAL(3,1),
-    ip_white_spaces JSONB,
-
-    marketability DECIMAL(3,1),
-    market_size_estimate VARCHAR(50),
-    target_industries JSONB,
-    market_signals JSONB,
-
-    feasibility DECIMAL(3,1),
-    trl_level INTEGER,
-    time_to_market_years DECIMAL(3,1),
-    estimated_dev_cost VARCHAR(50),
-
-    commercialization DECIMAL(3,1),
-    recommended_path VARCHAR(50),
-    entry_barriers JSONB,
-
-    -- Aggregates
-    overall_score DECIMAL(3,1),
-    confidence DECIMAL(3,2),
-
-    -- Meta
+    organization_id UUID REFERENCES organizations(id),
+    novelty FLOAT,
+    ip_potential FLOAT,
+    marketability FLOAT,
+    feasibility FLOAT,
+    commercialization FLOAT,
+    overall_score FLOAT,
+    overall_confidence FLOAT,
     model_version VARCHAR(50),
-    prompt_version VARCHAR(50),
-    raw_llm_response JSONB,  -- For debugging
-    scored_at TIMESTAMPTZ DEFAULT NOW(),
-
+    weights JSONB,                        -- Dimension-Gewichtungen
+    dimension_details JSONB,              -- Detaillierte Ergebnisse pro Dimension
+    errors JSONB,                         -- Fehler bei einzelnen Dimensionen
+    created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE (paper_id, organization_id)
 );
 
+-- ============================================================
 -- Projects & KanBan
+-- ============================================================
 CREATE TABLE projects (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     organization_id UUID REFERENCES organizations(id),
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    filters JSONB DEFAULT '{}',  -- Saved search filters
-    scoring_weights JSONB DEFAULT '{}',  -- Custom dimension weights
-    stages JSONB DEFAULT '["inbox", "screening", "evaluation", "outreach", "archived"]',
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    stages JSONB DEFAULT '["inbox","screening","evaluation","outreach","archived"]',
+    scoring_weights JSONB DEFAULT '{}',
+    settings JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE paper_project_status (
+CREATE TABLE paper_project_statuses (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     paper_id UUID REFERENCES papers(id),
     project_id UUID REFERENCES projects(id),
     stage VARCHAR(50) DEFAULT 'inbox',
-    assigned_to UUID REFERENCES users(id),
+    position INTEGER DEFAULT 0,
+    assigned_to_id UUID REFERENCES users(id),
+    notes TEXT,
+    rejection_reason VARCHAR(50),
+    rejection_notes TEXT,
     priority INTEGER DEFAULT 0,
-    rejection_reason TEXT,
-    notes JSONB DEFAULT '[]',
-    last_action_at TIMESTAMPTZ DEFAULT NOW(),
+    tags JSONB DEFAULT '[]',
+    stage_entered_at TIMESTAMPTZ DEFAULT NOW(),
     created_at TIMESTAMPTZ DEFAULT NOW(),
-
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE (paper_id, project_id)
 );
 
--- Audit & Activity
-CREATE TABLE activity_log (
+CREATE TABLE paper_stage_history (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES users(id),
-    entity_type VARCHAR(50),
-    entity_id UUID,
-    action VARCHAR(50),
-    details JSONB,
+    paper_project_status_id UUID REFERENCES paper_project_statuses(id),
+    changed_by_id UUID REFERENCES users(id),
+    from_stage VARCHAR(50),
+    to_stage VARCHAR(50),
+    comment TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_activity_log_entity ON activity_log (entity_type, entity_id);
-CREATE INDEX idx_activity_log_user ON activity_log (user_id, created_at DESC);
+-- ============================================================
+-- Saved Searches & Alerts
+-- ============================================================
+CREATE TABLE saved_searches (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id UUID REFERENCES organizations(id),
+    created_by_id UUID REFERENCES users(id),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    query TEXT,
+    mode VARCHAR(20),                     -- fulltext, semantic, hybrid
+    filters JSONB DEFAULT '{}',
+    is_public BOOLEAN DEFAULT false,
+    share_token VARCHAR(255),
+    alert_enabled BOOLEAN DEFAULT false,
+    alert_frequency VARCHAR(20),
+    last_alert_at TIMESTAMPTZ,
+    run_count INTEGER DEFAULT 0,
+    last_run_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE alerts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id UUID REFERENCES organizations(id),
+    user_id UUID REFERENCES users(id),
+    saved_search_id UUID REFERENCES saved_searches(id),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    channel VARCHAR(20) DEFAULT 'email',  -- email, in_app
+    is_active BOOLEAN DEFAULT true,
+    frequency VARCHAR(20),                -- daily, weekly, immediate
+    min_results INTEGER DEFAULT 1,
+    last_triggered_at TIMESTAMPTZ,
+    trigger_count INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE alert_results (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    alert_id UUID REFERENCES alerts(id) ON DELETE CASCADE,
+    status VARCHAR(20) DEFAULT 'pending', -- pending, sent, failed, skipped
+    papers_found INTEGER DEFAULT 0,
+    new_papers INTEGER DEFAULT 0,
+    paper_ids JSONB DEFAULT '[]',
+    delivered_at TIMESTAMPTZ,
+    error_message TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================
+-- Author CRM
+-- ============================================================
+CREATE TABLE author_contacts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    author_id UUID REFERENCES authors(id) ON DELETE CASCADE,
+    organization_id UUID REFERENCES organizations(id),
+    contacted_by_id UUID REFERENCES users(id),
+    contact_type VARCHAR(50),             -- email, phone, meeting, conference, linkedin
+    contact_date DATE,
+    subject VARCHAR(500),
+    notes TEXT,
+    outcome VARCHAR(50),                  -- positive, neutral, negative, no_response, follow_up
+    follow_up_date DATE,
+    paper_id UUID REFERENCES papers(id),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================
+-- Audit Logging (GDPR/Security Compliance)
+-- ============================================================
+CREATE TABLE audit_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID,
+    organization_id UUID,
+    action VARCHAR(100) NOT NULL,
+    resource_type VARCHAR(100),
+    resource_id UUID,
+    details JSONB,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_audit_logs_org ON audit_logs (organization_id, created_at DESC);
+CREATE INDEX idx_audit_logs_user ON audit_logs (user_id, created_at DESC);
+
+-- ============================================================
+-- Researcher Groups
+-- ============================================================
+CREATE TABLE researcher_groups (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id UUID REFERENCES organizations(id),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    type VARCHAR(50) DEFAULT 'custom',    -- custom, mailing_list, speaker_pool
+    keywords JSONB DEFAULT '[]',
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE group_members (
+    group_id UUID REFERENCES researcher_groups(id) ON DELETE CASCADE,
+    researcher_id UUID REFERENCES authors(id) ON DELETE CASCADE,
+    added_at TIMESTAMPTZ DEFAULT NOW(),
+    added_by UUID REFERENCES users(id),
+    PRIMARY KEY (group_id, researcher_id)
+);
 ```
 
 ---
 
-## 5. API Design
+## 6. API Design
 
-### 5.1 RESTful Endpoints
+### 6.1 Endpoint-Ubersicht (70+ Endpoints, 12 Module)
 
-```yaml
-# OpenAPI Specification (Auszug)
-
-openapi: 3.0.3
-info:
-  title: Paper Scraper API
-  version: 1.0.0
-
-paths:
-  # Papers
-  /api/v1/papers:
-    get:
-      summary: List papers with filtering
-      parameters:
-        - name: q
-          in: query
-          description: Full-text search
-        - name: source
-          in: query
-          description: Filter by source (pubmed, arxiv, etc.)
-        - name: min_score
-          in: query
-          description: Minimum overall score
-        - name: dimensions
-          in: query
-          description: Filter by specific dimension scores (JSON)
-        - name: date_from
-          in: query
-        - name: date_to
-          in: query
-        - name: limit
-          in: query
-          default: 20
-        - name: offset
-          in: query
-          default: 0
-      responses:
-        200:
-          description: Paginated paper list
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PaperListResponse'
-
-  /api/v1/papers/ingest/doi:
-    post:
-      summary: Ingest single paper by DOI
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/IngestByDOI'
-
-  /api/v1/papers/ingest/openalex:
-    post:
-      summary: Batch import from OpenAlex search
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/IngestOpenAlexRequest'
-
-  /api/v1/papers/ingest/pubmed:
-    post:
-      summary: Batch import from PubMed search
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/IngestPubMedRequest'
-
-  /api/v1/papers/ingest/arxiv:
-    post:
-      summary: Batch import from arXiv search
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/IngestArxivRequest'
-
-  /api/v1/papers/upload/pdf:
-    post:
-      summary: Upload PDF file
-      requestBody:
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                file:
-                  type: string
-                  format: binary
-
-  /api/v1/papers/{paper_id}:
-    get:
-      summary: Get paper details with scores
-
-  /api/v1/papers/{paper_id}/score:
-    post:
-      summary: Trigger scoring for a paper
-      requestBody:
-        content:
-          application/json:
-            schema:
-              properties:
-                dimensions:
-                  type: array
-                  items:
-                    type: string
-                    enum: [novelty, ip_potential, marketability, feasibility, commercialization]
-                force_rescore:
-                  type: boolean
-                  default: false
-
-  /api/v1/papers/search/semantic:
-    post:
-      summary: Semantic similarity search
-      requestBody:
-        content:
-          application/json:
-            schema:
-              properties:
-                query:
-                  type: string
-                  description: Natural language query
-                top_k:
-                  type: integer
-                  default: 10
-
-  # Projects & KanBan
-  /api/v1/projects:
-    get:
-      summary: List projects
-    post:
-      summary: Create project
-
-  /api/v1/projects/{project_id}/papers:
-    get:
-      summary: Get papers in project (KanBan view)
-      parameters:
-        - name: stage
-          in: query
-    post:
-      summary: Add paper to project
-
-  /api/v1/projects/{project_id}/papers/{paper_id}/move:
-    post:
-      summary: Move paper to different stage
-      requestBody:
-        content:
-          application/json:
-            schema:
-              properties:
-                to_stage:
-                  type: string
-                rejection_reason:
-                  type: string
-                  description: Required when moving to rejected
-
-  # Analytics
-  /api/v1/analytics/dashboard:
-    get:
-      summary: Dashboard metrics for organization
-
-  /api/v1/analytics/trends:
-    get:
-      summary: Research trend analysis
-
-components:
-  schemas:
-    Paper:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        doi:
-          type: string
-        title:
-          type: string
-        abstract:
-          type: string
-        authors:
-          type: array
-          items:
-            $ref: '#/components/schemas/Author'
-        scores:
-          $ref: '#/components/schemas/PaperScore'
-        # ... etc
-
-    PaperScore:
-      type: object
-      properties:
-        overall_score:
-          type: number
-        novelty:
-          type: number
-        ip_potential:
-          type: number
-        marketability:
-          type: number
-        feasibility:
-          type: number
-        commercialization:
-          type: number
-        confidence:
-          type: number
-        one_line_pitch:
-          type: string
-        simplified_abstract:
-          type: string
 ```
+/api/v1/
+├── /auth                              # Authentication & User Management
+│   ├── POST   /register
+│   ├── POST   /login
+│   ├── POST   /refresh
+│   ├── GET    /me
+│   ├── PATCH  /me
+│   ├── POST   /change-password
+│   ├── POST   /forgot-password
+│   ├── POST   /reset-password
+│   ├── POST   /verify-email
+│   ├── POST   /resend-verification
+│   ├── POST   /invite                 # Team-Einladung (Admin)
+│   ├── GET    /invitation/{token}
+│   ├── POST   /accept-invite
+│   ├── GET    /invitations
+│   ├── DELETE /invitations/{id}
+│   ├── GET    /users                   # Org-User-Liste (Admin)
+│   ├── PATCH  /users/{id}/role
+│   ├── POST   /users/{id}/deactivate
+│   ├── POST   /users/{id}/reactivate
+│   ├── POST   /onboarding/complete
+│   ├── GET    /export-data             # GDPR Datenexport
+│   └── DELETE /delete-account          # GDPR Account-Loschung
+│
+├── /papers                            # Paper Management
+│   ├── GET    /
+│   ├── GET    /{id}
+│   ├── DELETE /{id}
+│   ├── POST   /ingest/doi
+│   ├── POST   /ingest/openalex
+│   ├── POST   /ingest/pubmed
+│   ├── POST   /ingest/arxiv
+│   ├── POST   /upload/pdf
+│   ├── POST   /{id}/generate-pitch
+│   ├── POST   /{id}/generate-simplified-abstract
+│   ├── GET    /{id}/notes
+│   ├── POST   /{id}/notes
+│   ├── PUT    /{id}/notes/{note_id}
+│   └── DELETE /{id}/notes/{note_id}
+│
+├── /authors                           # Author CRM
+│   ├── GET    /
+│   ├── GET    /{id}
+│   ├── GET    /{id}/detail
+│   ├── POST   /{id}/contacts
+│   ├── PATCH  /{id}/contacts/{cid}
+│   ├── DELETE /{id}/contacts/{cid}
+│   ├── GET    /{id}/contacts/stats
+│   └── POST   /{id}/enrich
+│
+├── /scoring                           # AI Scoring
+│   ├── POST   /papers/{id}/score
+│   ├── GET    /papers/{id}/scores
+│   ├── POST   /papers/{id}/classify
+│   ├── POST   /classification/batch
+│   └── GET    /classification/unclassified
+│
+├── /projects                          # KanBan Pipeline
+│   ├── GET    /
+│   ├── POST   /
+│   ├── GET    /{id}
+│   ├── PATCH  /{id}
+│   ├── DELETE /{id}
+│   ├── GET    /{id}/kanban
+│   ├── GET    /{id}/statistics
+│   ├── POST   /{id}/papers
+│   ├── DELETE /{id}/papers/{paper_id}
+│   ├── PATCH  /{id}/papers/{paper_id}/move
+│   ├── PATCH  /{id}/papers/{paper_id}/status
+│   └── POST   /{id}/papers/{paper_id}/reject
+│
+├── /search                            # Unified Search
+│   ├── POST   /                        # Fulltext/Semantic/Hybrid
+│   ├── GET    /similar/{paper_id}
+│   └── GET    /embeddings/stats
+│
+├── /saved-searches                    # Gespeicherte Suchen
+│   ├── GET    /
+│   ├── POST   /
+│   ├── GET    /{id}
+│   ├── PATCH  /{id}
+│   ├── DELETE /{id}
+│   ├── POST   /{id}/share
+│   ├── DELETE /{id}/share
+│   ├── POST   /{id}/run
+│   └── GET    /shared/{token}          # Offentlicher Zugriff
+│
+├── /alerts                            # Such-Alerts
+│   ├── GET    /
+│   ├── POST   /
+│   ├── GET    /{id}
+│   ├── PATCH  /{id}
+│   ├── DELETE /{id}
+│   ├── GET    /{id}/results
+│   ├── POST   /{id}/test              # Dry Run
+│   └── POST   /{id}/trigger           # Manueller Trigger
+│
+├── /analytics                         # Metriken
+│   ├── GET    /dashboard
+│   ├── GET    /team
+│   └── GET    /papers
+│
+├── /audit                             # Audit Logging
+│   ├── GET    /                        # Alle Logs (Admin)
+│   ├── GET    /users/{id}              # User-Aktivitat (Admin)
+│   └── GET    /my-activity             # Eigene Aktivitat
+│
+├── /export                            # Datenexport
+│   ├── GET    /csv
+│   ├── GET    /bibtex
+│   ├── GET    /pdf
+│   └── POST   /batch
+│
+└── /groups                            # Forscher-Gruppen
+    └── [CRUD Endpoints]
+```
+
+**Auto-generierte Dokumentation:** `/docs` (Swagger UI), `/redoc`, `/openapi.json` (nur im DEBUG-Modus)
 
 ---
 
-## 6. Deployment & Infrastructure
+## 7. Deployment & Infrastructure
 
-### 6.1 Container-basiertes Deployment
+### 7.1 Docker Compose (Development)
 
-```yaml
-# docker-compose.yml (Development)
+| Service | Image | Port | Health Check | Memory |
+|---------|-------|------|-------------|--------|
+| **db** | `pgvector/pgvector:pg16` | 5432 | `pg_isready` | 1G |
+| **redis** | `redis:7-alpine` | 6379 | `redis-cli ping` | 256M |
+| **minio** | `minio/minio:latest` | 9000 (API), 9001 (Console) | HTTP `/minio/health/live` | 512M |
+| **api** | Custom Dockerfile | 8000 | HTTP `/health` | 1G |
+| **worker** | Custom Dockerfile | — | Process check (`arq`) | 1G |
+| **frontend** | Custom Dockerfile | 3000 | HTTP `/health` (optional, `profiles: [frontend]`) | 128M |
 
-version: '3.8'
+Alle Services haben `restart: unless-stopped`, Health Checks, und Resource Limits.
 
-services:
-  api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/paperscraper
-      - REDIS_URL=redis://redis:6379/0
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - S3_ENDPOINT=http://minio:9000
-    depends_on:
-      - db
-      - redis
-      - minio
-    volumes:
-      - ./paper_scraper:/app/paper_scraper
-    command: uvicorn paper_scraper.api.main:app --host 0.0.0.0 --reload
+**Umgebungsvariablen:** Via `.env` Datei, keine hardcodierten Passwörter. `RATE_LIMIT_ENABLED=false` fur E2E-Tests.
 
-  worker:
-    build: .
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/paperscraper
-      - REDIS_URL=redis://redis:6379/0
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-    depends_on:
-      - db
-      - redis
-    command: arq paper_scraper.jobs.worker.WorkerSettings
+### 7.2 Production-Architektur
 
-  db:
-    image: pgvector/pgvector:pg16
-    environment:
-      - POSTGRES_DB=paperscraper
-      - POSTGRES_PASSWORD=postgres
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+```mermaid
+graph TB
+    CDN["CDN (Cloudflare)<br/>Static Assets + Edge Caching"]
+    LB["Load Balancer (Traefik/nginx)<br/>SSL Termination, Rate Limiting"]
+    API1["API Server 1"]
+    API2["API Server 2"]
+    API3["API Server N"]
+    PG[("PostgreSQL (Managed)<br/>+ pgvector")]
+    RD[("Redis (Managed)<br/>Cache + Queue")]
+    S3[("Object Storage (S3/R2)<br/>PDFs, Exports")]
+    WRK["arq Workers (Auto-Scaling)<br/>Ingestion | Scoring | Alerts"]
+    MON["Monitoring<br/>Sentry + Langfuse"]
 
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-
-  minio:
-    image: minio/minio
-    environment:
-      - MINIO_ROOT_USER=minio
-      - MINIO_ROOT_PASSWORD=minio123
-    command: server /data --console-address ":9001"
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio_data:/data
-
-  frontend:
-    build:
-      context: ./frontend
-    ports:
-      - "3000:3000"
-    environment:
-      - VITE_API_URL=http://localhost:8000
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-
-volumes:
-  postgres_data:
-  minio_data:
+    CDN --> LB
+    LB --> API1
+    LB --> API2
+    LB --> API3
+    API1 --> PG
+    API1 --> RD
+    API1 --> S3
+    API2 --> PG
+    API2 --> RD
+    API3 --> PG
+    API3 --> RD
+    WRK --> PG
+    WRK --> RD
+    API1 -.-> MON
+    WRK -.-> MON
 ```
 
-### 6.2 Production Infrastructure (Cloud-agnostic)
+### 7.3 Production Hardening
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      CDN (Cloudflare)                           │
-│                   Static Assets + Edge Caching                  │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                   Load Balancer (Traefik/nginx)                 │
-│                     SSL Termination, Rate Limiting              │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-          ┌───────────────────┼───────────────────┐
-          ▼                   ▼                   ▼
-┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│   API Server    │  │   API Server    │  │   API Server    │
-│   (Container)   │  │   (Container)   │  │   (Container)   │
-│   Auto-scaling  │  │   Auto-scaling  │  │   Auto-scaling  │
-└─────────────────┘  └─────────────────┘  └─────────────────┘
-          │                   │                   │
-          └───────────────────┼───────────────────┘
-                              │
-          ┌───────────────────┼───────────────────┐
-          ▼                   ▼                   ▼
-┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│   PostgreSQL    │  │     Redis       │  │  Object Storage │
-│   (Managed)     │  │   (Managed)     │  │  (S3/R2/MinIO)  │
-│   + pgvector    │  │   Cache+Queue   │  │   PDFs, Exports │
-└─────────────────┘  └─────────────────┘  └─────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                     arq Workers (Auto-scaling)                  │
-│              Ingestion | Scoring | Alerts | Reports             │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                    Monitoring & Observability                   │
-│   Grafana + Prometheus | Sentry | Langfuse (LLM Monitoring)    │
-└─────────────────────────────────────────────────────────────────┘
-
-### 6.3 Production Hardening (Implemented)
-
-| Component | Implementation | Configuration |
+| Komponente | Implementation | Konfiguration |
 |-----------|----------------|---------------|
-| **LLM Observability** | Langfuse `@observe` decorator | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` |
+| **LLM Observability** | Langfuse `@observe` Decorator | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` |
 | **Error Tracking** | Sentry SDK (FastAPI + SQLAlchemy) | `SENTRY_DSN` |
-| **Rate Limiting** | slowapi middleware (Redis-backed) | `RATE_LIMIT_REQUESTS_PER_MINUTE` |
-| **Structured Logging** | JSON formatter (production), human-readable (dev) | `LOG_LEVEL`, `ENVIRONMENT` |
-| **Lifecycle Management** | FastAPI lifespan handler | DB pool, Redis connection |
-
-**Rate Limits:**
-- General endpoints: 100 req/min (configurable)
-- Scoring endpoints: 10 req/min (LLM-expensive)
-
-**Logging Format (Production):**
-```json
-{
-  "timestamp": "2026-01-30T12:00:00.000Z",
-  "level": "INFO",
-  "logger": "paper_scraper.api.main",
-  "message": "Starting Paper Scraper API...",
-  "module": "main",
-  "function": "lifespan",
-  "line": 49
-}
-```
-```
+| **Rate Limiting** | slowapi Middleware (Redis-backed) | 100 req/min (general), 10 req/min (scoring) |
+| **Security Headers** | `SecurityHeadersMiddleware` | CSP, X-Frame-Options, HSTS, Referrer-Policy |
+| **Structured Logging** | JSON-Formatter (Prod), human-readable (Dev) | `LOG_LEVEL`, `APP_ENV` |
+| **Health Checks** | `/health`, `/health/live`, `/health/ready` | Pruft DB + Redis Connectivity |
+| **Exception Handling** | Custom Exception-Hierarchie | 8 Typen → HTTP Status Codes (404, 401, 403, etc.) |
+| **Lifecycle Management** | FastAPI Lifespan Handler | DB Pool, Redis Connection, JWT Validation |
 
 ---
 
-## 7. Sicherheit & Compliance
+## 8. Sicherheit & Compliance
 
-### 7.1 Security Layers
+### 8.1 Security Layers
 
 | Layer | Implementation | Details |
 |-------|----------------|---------|
-| **Authentication** | JWT + API Keys | Short-lived JWTs (15min), Refresh Tokens (7d) |
-| **Authorization** | RBAC | Roles: admin, manager, member, viewer |
-| **API Security** | Rate Limiting | 100 req/min (free), 1000 req/min (paid) |
-| **Data Encryption** | TLS 1.3 + AES-256 | In transit + at rest |
-| **Audit Logging** | Activity Log | All data mutations tracked |
-| **GDPR Compliance** | Data Export/Delete | User kann alle Daten exportieren/löschen |
+| **JWT Authentication** | Access + Refresh Tokens | Access: 30min, Refresh: 7 Tage |
+| **RBAC** | 4 Rollen | admin, manager, member, viewer |
+| **Rate Limiting** | slowapi + Redis | Per-User oder Per-IP, konfigurierbar |
+| **Security Headers** | OWASP-empfohlen | CSP (strict + relaxed fur /docs), X-Content-Type-Options, X-Frame-Options (DENY), X-XSS-Protection, Referrer-Policy, Permissions-Policy (camera, mic, geo, usb deaktiviert) |
+| **HSTS** | Nur Production | `max-age=31536000; includeSubDomains; preload` |
+| **Account Lockout** | Redis-backed | Schutz vor Brute-Force |
+| **Token Blacklist** | Redis-backed JTI | Invalidierung bei Logout, Passwort-Anderung, Deaktivierung |
+| **Email-Verifizierung** | Secure Tokens | 24h Gultigkeit |
+| **Passwort-Reset** | Secure Tokens | 1h Gultigkeit |
+| **Team-Einladungen** | Secure Tokens | 7 Tage Gultigkeit |
+| **Prompt Injection Schutz** | `sanitize_text_for_prompt()` | Regex-basierte Sanitisierung von User-Text fur LLM-Prompts |
+| **GDPR Compliance** | Export + Delete | `/export-data` und `/delete-account` Endpoints |
+| **Audit Logging** | `AuditLog` Tabelle | Alle sicherheitsrelevanten Aktionen mit IP, User Agent |
+| **Datenverschlusselung** | TLS 1.3 + bcrypt | In Transit (TLS), Passworter (bcrypt), Secrets (Pydantic `SecretStr`) |
+| **CORS** | Konfigurierbar | Production: keine localhost-Origins erlaubt |
+| **API Cache Control** | No-Store fur `/api/` | Verhindert Caching sensitiver API-Daten |
 
-### 7.2 Multi-Tenancy
+### 8.2 Multi-Tenancy
+
+Tenant-Isolation uber `organization_id` in allen relevanten Tabellen. Der `current_user` Dependency liefert die `organization_id` aus dem JWT-Token:
 
 ```python
-# Tenant Isolation via Row-Level Security
-
-class TenantMiddleware:
-    """Inject organization_id into all queries"""
-
-    async def __call__(self, request: Request, call_next):
-        # Extract org from JWT
-        org_id = get_org_from_token(request)
-
-        # Set in context for SQLAlchemy
-        request.state.organization_id = org_id
-
-        response = await call_next(request)
-        return response
-
-# In queries
-async def get_papers(
-    db: AsyncSession,
-    org_id: UUID,
-    filters: PaperFilters
-) -> list[Paper]:
-    query = select(Paper).where(
-        Paper.organization_id == org_id  # Automatic tenant filter
-    )
-    # ... add filters
+# Alle Queries automatisch tenant-isoliert
+async def get_papers(db: AsyncSession, org_id: UUID) -> list[Paper]:
+    query = select(Paper).where(Paper.organization_id == org_id)
+    result = await db.execute(query)
+    return result.scalars().all()
 ```
 
 ---
 
-## 8. Entscheidungsmatrix: Build vs. Buy
+## 9. Entscheidungsmatrix: Build vs. Buy
 
 | Komponente | Entscheidung | Rationale |
 |------------|--------------|-----------|
-| **Database** | Self-hosted PostgreSQL + pgvector | Volle Kontrolle, kosteneffizient, keine Vendor-Abhängigkeit |
-| **Auth** | Custom JWT Implementation | Kein Vendor Lock-in, vollständige Kontrolle |
-| **Job Queue** | arq (async-native) | Async/await nativ, einfacher als Celery für async codebase |
-| **LLM** | GPT-5 mini (Default) → Multi-Provider | Provider-agnostisch, kosteneffizient, Abstraktion erlaubt Wechsel |
-| **Embeddings** | text-embedding-3-small | Gute Qualität, kosteneffizient |
-| **Data Sources** | Open APIs (OpenAlex, EPO OPS, arXiv, etc.) | Kostenlos, umfassende Abdeckung |
-| **PDF Parsing** | PyMuPDF + eigene Pipeline | Kontrolle über Qualität, kein Vendor Lock-in |
-| **Email** | Resend oder Postmark | Zuverlässig, gute DX |
+| **Database** | PostgreSQL + pgvector (self-hosted) | Volle Kontrolle, kosteneffizient, keine Vendor-Abhangigkeit |
+| **Auth** | Custom JWT Implementation | Kein Vendor Lock-in, vollstandige Kontrolle |
+| **Job Queue** | arq (async-native) | Async/await nativ, einfacher als Celery |
+| **LLM** | GPT-5 mini (Default) → Multi-Provider | Provider-agnostisch, kosteneffizient |
+| **Embeddings** | text-embedding-3-small | Gute Qualitat, kosteneffizient |
+| **Data Sources** | Open APIs (OpenAlex, Crossref, PubMed, arXiv) | Kostenlos, umfassende Abdeckung |
+| **PDF Parsing** | PyMuPDF + eigene Pipeline | Kontrolle uber Qualitat, kein Vendor Lock-in |
+| **Email** | Resend | Zuverlassig, gute DX, einfache Integration |
 | **Search** | pgvector (HNSW) + pg_trgm | Kein extra Service, skaliert bis 10M+ Dokumente |
 | **Monitoring** | Sentry + Langfuse | Error Tracking + LLM Observability |
 | **CI/CD** | GitHub Actions | Kostenlos, gut integriert |
 
 ---
 
-## 9. Nächste Schritte
+## 10. Referenzen
 
-Siehe `02_USER_STORIES.md` für die priorisierten User Stories und `03_CLAUDE_CODE_GUIDE.md` für die Implementierungsanleitung mit Claude Code.
+- `02_USER_STORIES.md` — Priorisierter Backlog
+- `03_CLAUDE_CODE_GUIDE.md` — Entwicklungs-Workflow
+- `04_ARCHITECTURE_DECISIONS.md` — Architecture Decision Records (ADRs)
+- `05_IMPLEMENTATION_PLAN.md` — Sprint-Plan
+- `DEPLOYMENT.md` — Deployment & Operations Guide

@@ -1,6 +1,7 @@
 """Tests for Sprint 11: Search & Discovery Enhancements."""
 
 import pytest
+import pytest_asyncio
 from datetime import datetime
 from uuid import uuid4
 
@@ -17,6 +18,34 @@ from paper_scraper.modules.papers.models import Paper, PaperSource, PaperType
 
 
 # =============================================================================
+# Module-level fixtures (shared across test classes)
+# =============================================================================
+
+
+@pytest_asyncio.fixture
+async def sample_saved_search(
+    db_session: AsyncSession,
+    test_organization,
+    test_user,
+) -> SavedSearch:
+    """Create a sample saved search for testing."""
+    saved_search = SavedSearch(
+        organization_id=test_organization.id,
+        created_by_id=test_user.id,
+        name="Test Search",
+        description="A test saved search",
+        query="machine learning",
+        mode="hybrid",
+        filters={"sources": ["openalex"]},
+        is_public=False,
+        alert_enabled=False,
+    )
+    db_session.add(saved_search)
+    await db_session.flush()
+    return saved_search
+
+
+# =============================================================================
 # Saved Searches Tests
 # =============================================================================
 
@@ -28,29 +57,6 @@ class TestSavedSearchService:
     async def saved_search_service(self, db_session: AsyncSession) -> SavedSearchService:
         """Get SavedSearchService instance."""
         return SavedSearchService(db_session)
-
-    @pytest.fixture
-    async def sample_saved_search(
-        self,
-        db_session: AsyncSession,
-        test_organization,
-        test_user,
-    ) -> SavedSearch:
-        """Create a sample saved search for testing."""
-        saved_search = SavedSearch(
-            organization_id=test_organization.id,
-            created_by_id=test_user.id,
-            name="Test Search",
-            description="A test saved search",
-            query="machine learning",
-            mode="hybrid",
-            filters={"sources": ["openalex"]},
-            is_public=False,
-            alert_enabled=False,
-        )
-        db_session.add(saved_search)
-        await db_session.flush()
-        return saved_search
 
     async def test_create_saved_search(
         self,
@@ -142,7 +148,7 @@ class TestSavedSearchService:
         test_user,
     ):
         """Test listing saved searches."""
-        results, total = await saved_search_service.list(
+        results, total = await saved_search_service.list_searches(
             organization_id=test_organization.id,
             user_id=test_user.id,
         )
@@ -260,7 +266,7 @@ class TestAlertService:
         test_user,
     ):
         """Test listing alerts."""
-        results, total = await alert_service.list(
+        results, total = await alert_service.list_alerts(
             organization_id=test_organization.id,
             user_id=test_user.id,
         )

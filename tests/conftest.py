@@ -21,7 +21,24 @@ from paper_scraper.modules.projects.models import (  # noqa: F401
     Project,
 )
 from paper_scraper.modules.scoring.models import PaperScore, ScoringJob  # noqa: F401
+from paper_scraper.modules.groups.models import ResearcherGroup, GroupMember  # noqa: F401
+from paper_scraper.modules.transfer.models import (  # noqa: F401
+    TransferConversation, ConversationMessage, ConversationResource,
+    StageChange, MessageTemplate,
+)
+from paper_scraper.modules.submissions.models import (  # noqa: F401
+    ResearchSubmission, SubmissionAttachment, SubmissionScore,
+)
+from paper_scraper.modules.badges.models import Badge, UserBadge  # noqa: F401
+from paper_scraper.modules.knowledge.models import KnowledgeSource  # noqa: F401
 from paper_scraper.core.security import get_password_hash
+
+# Register SQLite type compiler for PostgreSQL JSONB so tests can run
+# against in-memory SQLite instead of requiring a PostgreSQL instance.
+from sqlalchemy.dialects.sqlite.base import SQLiteTypeCompiler
+
+if not hasattr(SQLiteTypeCompiler, "visit_JSONB"):
+    SQLiteTypeCompiler.visit_JSONB = SQLiteTypeCompiler.visit_JSON
 
 
 # Test database URL - uses in-memory SQLite for fast tests

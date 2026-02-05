@@ -40,18 +40,41 @@
 
 | Sprint | Focus | Duration | Status |
 |--------|-------|----------|--------|
-| 16 | Researcher Groups & Collaboration | 2 weeks | 🔲 Pending |
-| 17 | Technology Transfer Conversations | 2 weeks | 🔲 Pending |
-| 18 | Research Submission Portal | 2 weeks | 🔲 Pending |
-| 19 | Gamification & Knowledge Management | 2 weeks | 🔲 Pending |
+| 16 | Researcher Groups & Collaboration | 2 weeks | ✅ Complete |
+| 17 | Technology Transfer Conversations | 2 weeks | ✅ Complete |
+| 18 | Research Submission Portal | 2 weeks | ✅ Complete |
+| 19 | Gamification & Knowledge Management | 2 weeks | ✅ Complete |
 
-### Phase 5: Advanced Features & Integration (Sprints 20-22)
+### Phase 5: Stabilization & Frontend Integration (Sprints 20-21)
 
 | Sprint | Focus | Duration | Status |
 |--------|-------|----------|--------|
-| 20 | 6-Dimension Scoring + Model Settings | 2 weeks | 🔲 Pending |
-| 21 | Developer API & Repository Management | 2 weeks | 🔲 Pending |
-| 22 | Compliance & Governance | 2 weeks | 🔲 Pending |
+| 20 | Critical Fixes & Deployment Readiness | 1 week | 🔲 Pending |
+| 21 | Phase 4 Frontend Integration | 2 weeks | 🔲 Pending |
+
+### Phase 6: Security & AI Advancement (Sprints 22-24)
+
+| Sprint | Focus | Duration | Status |
+|--------|-------|----------|--------|
+| 22 | Security Hardening & RBAC | 2 weeks | 🔲 Pending |
+| 23 | 6-Dimension Scoring + Model Settings | 2 weeks | 🔲 Pending |
+| 24 | AI Intelligence Enhancements | 2 weeks | 🔲 Pending |
+
+### Phase 7: Platform & Developer Experience (Sprints 25-27)
+
+| Sprint | Focus | Duration | Status |
+|--------|-------|----------|--------|
+| 25 | Developer API & Repository Management | 2 weeks | 🔲 Pending |
+| 26 | UX Polish & Keyboard Navigation | 2 weeks | 🔲 Pending |
+| 27 | Analytics & Reporting Expansion | 2 weeks | 🔲 Pending |
+
+### Phase 8: Enterprise Readiness (Sprints 28-30)
+
+| Sprint | Focus | Duration | Status |
+|--------|-------|----------|--------|
+| 28 | Compliance, Governance & Data Retention | 2 weeks | 🔲 Pending |
+| 29 | Internationalization & Platform Features | 2 weeks | 🔲 Pending |
+| 30 | Technical Debt & Quality | 2 weeks | 🔲 Pending |
 
 ---
 
@@ -59,25 +82,35 @@
 
 > Source: `06_LOVABLE_FEATURES.md` - 64 user stories across 18 domains
 
-| Domain | Story IDs | Sprint |
-|--------|-----------|--------|
-| Paper Management | P1-P7 | 1-6 ✅ |
-| KanBan Board | K1-K4 | 4 ✅ |
-| Researcher Management | R1-R5 | 10 ✅ |
-| Researcher Groups | G1-G4 | 16 |
-| Technology Transfer | T1-T6 | 17 |
-| Search & Discovery | S1-S4 | 5, 11 ✅ |
-| Reports & Analytics | A1-A5 | 12 ✅ |
-| Alerts & Notifications | N1-N4 | 11 ✅ |
-| User Settings | U1-U4 | 13-14 ✅ |
-| Organization Settings | O1-O4 | 13 ✅ |
-| Model Settings | M1-M4 | 20 |
-| Repository Settings | RS1-RS3 | 21 |
-| Developer Settings | D1-D3 | 21 |
-| Compliance & Governance | C1-C3 | 22 |
-| Keyboard Shortcuts | KB1-KB3 | 14 ✅ |
-| Gamification | GA1-GA3 | 19 |
-| Research Submission | SUB1-SUB3 | 18 |
+| Domain | Story IDs | Sprint | Status |
+|--------|-----------|--------|--------|
+| Paper Management | P1-P7 | 1-6 | ✅ Backend, ✅ Frontend |
+| KanBan Board | K1-K4 | 4 | ✅ Backend, ✅ Frontend |
+| Researcher Management | R1-R5 | 10 | ✅ Backend, ✅ Frontend |
+| Researcher Groups | G1-G4 | 16 (backend), **21** (frontend) | ✅ Backend, 🔲 Frontend |
+| Technology Transfer | T1-T6 | 17 (backend), **21** (frontend) | ✅ Backend, 🔲 Frontend |
+| Search & Discovery | S1-S2 | 5, 11 | ✅ Complete |
+| Search & Discovery | S3-S4 | **26, 27** | 🔲 Preview panel, Peer comparison |
+| Reports & Analytics | A1, A3 | 12 | ✅ Complete |
+| Reports & Analytics | A2, A4, A5 | **27** | 🔲 Funnel, Scheduled, Benchmarks |
+| Alerts & Notifications | N1-N2, N4 | 11 | ✅ Backend |
+| Alerts & Notifications | N3 | **26** | 🔲 Notification center UI |
+| User Settings | U1-U2, U4 | 13-14 | ✅ Complete |
+| User Settings | U3 (i18n) | **29** | 🔲 Language selection |
+| Organization Settings | O1 | 13 | ✅ User management |
+| Organization Settings | O2 (branding) | **29** | 🔲 Branding |
+| Organization Settings | O3 (billing) | **29** | 🔲 Billing |
+| Organization Settings | O4 (integrations) | **25** | 🔲 API integrations |
+| Model Settings | M1-M4 | **23** | 🔲 Pending |
+| Repository Settings | RS1-RS3 | **25** | 🔲 Pending |
+| Developer Settings | D1-D3 | **25** | 🔲 Pending |
+| Compliance & Governance | C1-C3 | **22, 28** | 🔲 RBAC in 22, Full in 28 |
+| Keyboard Shortcuts | KB1-KB3 | **26** | 🔲 Pending |
+| Gamification | GA1-GA3 | 19 (backend), **21, 26** (frontend) | ✅ Backend, 🔲 Frontend |
+| Research Submission | SUB1-SUB3 | 18 (backend), **21** (frontend) | ✅ Backend, 🔲 Frontend |
+| Knowledge Management | KM1-KM2 | 19 (backend), **21** (frontend) | ✅ Backend, 🔲 Frontend |
+| Gamification | GA1-GA3 | 19 ✅ |
+| Research Submission | SUB1-SUB3 | 18 ✅ |
 | Knowledge Management | KM1-KM2 | 19 |
 
 ---
@@ -3925,7 +3958,7 @@ Before inviting external users:
 
 ---
 
-## Sprint 16: Researcher Groups & Collaboration ✅ READY
+## Sprint 16: Researcher Groups & Collaboration ✅ COMPLETE
 
 ### Goal
 Implement researcher grouping functionality with support for mailing lists, speaker pools, and AI-powered member suggestions.
@@ -4626,18 +4659,31 @@ async def test_suggest_members(client: AsyncClient, auth_headers: dict):
 
 ### Sprint 16 Definition of Done
 
-- [ ] `researcher_groups` table created with migration
-- [ ] `group_members` table created with migration
-- [ ] GroupService with full CRUD operations
-- [ ] Groups router registered at `/api/v1/groups`
-- [ ] AI-powered member suggestions endpoint
-- [ ] CSV export functionality
-- [ ] Tests passing with >80% coverage
-- [ ] API documentation updated
+- [x] `researcher_groups` table created with migration
+- [x] `group_members` table created with migration
+- [x] GroupService with full CRUD operations
+- [x] Groups router registered at `/api/v1/groups`
+- [x] AI-powered member suggestions endpoint
+- [x] CSV export functionality
+- [x] Tests passing (51 tests, service + router + tenant isolation + error paths)
+- [x] API documentation updated
+- [x] Tenant isolation verified in `add_members()` (researcher org validation)
+- [x] `GroupUpdate` name validation (min_length/max_length)
+
+### Future Enhancements (identified during Sprint 16 review)
+
+| ID | Enhancement | Priority | Description |
+|----|-------------|----------|-------------|
+| **GRP-F1** | Embedding-based member suggestions | HIGH | `suggest_members()` currently returns authors without relevance ranking. Implement pgvector embedding similarity search: generate embedding from keywords, find authors with similar paper embeddings, compute real relevance scores. Requires `suggest_members.jinja2` prompt template. |
+| **GRP-F2** | CSV injection protection | MEDIUM | The CSV export endpoint writes user-controlled data (author names, affiliations) directly to CSV. Sanitize fields that begin with `=`, `+`, `-`, `@`, `\t`, `\r` to prevent formula injection in spreadsheet applications. |
+| **GRP-F3** | Rate limiting on expensive endpoints | MEDIUM | `/suggest-members` and `/{id}/export` perform multiple DB queries. Add endpoint-specific rate limits (e.g., 10/min for suggestions, 30/min for exports) using the existing slowapi middleware. |
+| **GRP-F4** | Bulk operations | LOW | Add batch add/remove members endpoint to reduce N+1 queries when managing large groups. Current implementation loops per-researcher with individual DB queries. |
+| **GRP-F5** | Group analytics | LOW | Add member count trends, group activity metrics, and mailing list engagement tracking. Integrate with the existing analytics module dashboard. |
+| **GRP-F6** | Audit logging for group operations | MEDIUM | Add audit log entries for group create/update/delete, member add/remove using the existing `audit` module. Important for compliance (Sprint 22). |
 
 ---
 
-## Sprint 17: Technology Transfer Conversations
+## Sprint 17: Technology Transfer Conversations ✅ COMPLETE
 
 ### Goal
 Implement technology transfer conversation management with stage-based workflows, message threading, and AI-suggested next steps.
@@ -4840,7 +4886,7 @@ POST   /api/v1/transfer/{id}/messages/from-template - Use template
 
 ---
 
-## Sprint 18: Research Submission Portal
+## Sprint 18: Research Submission Portal ✅ COMPLETE
 
 ### Goal
 Enable researchers to submit their own work for TTO review, with scoring and conversion to papers.
@@ -4873,9 +4919,20 @@ POST   /api/v1/submissions/{id}/analyze     - AI scoring
 POST   /api/v1/submissions/{id}/convert     - Convert to paper
 ```
 
+### Future Enhancements (identified during Sprint 18 review)
+
+| ID | Enhancement | Priority | Description |
+|----|-------------|----------|-------------|
+| **SUB-F1** | MinIO/S3 file storage | HIGH | Attachments are currently validated but not persisted to object storage. Integrate MinIO client in `router.py` upload endpoint to store files in `submissions/{org_id}/{submission_id}/` bucket path. |
+| **SUB-F2** | Attachment download endpoint | HIGH | Add `GET /submissions/{id}/attachments/{attachment_id}/download` to serve files from MinIO with signed URLs or streaming response. |
+| **SUB-F3** | Similar papers context for scoring | MEDIUM | `service.py:analyze_submission` passes `similar_papers=[]` to the scoring orchestrator. Use pgvector embedding search to find related papers and provide richer context for AI analysis. |
+| **SUB-F4** | Stream-to-storage uploads | MEDIUM | Current upload reads file into memory (up to 50MB). Implement chunked streaming directly to MinIO to reduce memory pressure under concurrent uploads. |
+| **SUB-F5** | Audit logging | MEDIUM | Add audit log entries for submission lifecycle events (create, submit, review, convert) using the existing `audit` module. |
+| **SUB-F6** | Batch operations | LOW | Batch approve/reject for TTO reviewers processing multiple submissions. Batch export of submission data (CSV/PDF). |
+
 ---
 
-## Sprint 19: Gamification & Knowledge Management
+## Sprint 19: Gamification & Knowledge Management ✅ COMPLETE
 
 ### Goal
 Implement badge/achievement system and personal/organizational knowledge sources for AI personalization.
@@ -4917,22 +4974,491 @@ POST   /api/v1/knowledge/organization       - Add org source (admin)
 
 ---
 
-# Phase 5: Advanced Features & Integration (Sprints 20-22)
+### Phase 4 Implementation Summary
+
+**Completed**: All 4 sprints (16-19) are fully implemented with models, schemas, services, routers, and tests.
+
+| Sprint | Tests | Migration | Status |
+|--------|-------|-----------|--------|
+| 16 - Groups | 34 pass | ✅ `20260205_0001_add_researcher_groups.py` | Complete |
+| 17 - Transfer | 40 pass | ❌ **Missing** (see TD-006) | Complete (migration needed) |
+| 18 - Submissions | 52 pass | ✅ `20260205_0002_add_research_submissions.py` | Complete |
+| 19 - Badges/Knowledge | 60 pass | ✅ `20260205_0003_add_badges_and_knowledge.py` | Complete |
+
+**Total Phase 4 tests**: 186 passing
+
+**Deferred to future sprints:**
+- AI-powered group member suggestions (AI-001) - currently returns mock data
+- MinIO file storage for submissions and transfer resources (TD-004, TD-008)
+- Automated badge awarding via background jobs or events (TD-009)
+- Knowledge source integration with scoring pipeline (TD-010, AI-005)
+- Granular RBAC for all new modules (SEC-F1, Sprint 22 scope)
+- Audit logging for new modules (SEC-F3, Sprint 22 scope)
+- Badge stats query optimization: 7 sequential COUNT queries in `get_user_stats()` (TD-011)
+- Organization-level custom badges (TD-012)
+- Search activity tracking for `searches_performed` stat (TD-013)
+- Pagination support for badge and knowledge list endpoints (TD-014)
 
 ---
 
-## Sprint 20: 6-Dimension Scoring + Model Settings
+# Phase 5: Stabilization & Frontend Integration (Sprints 20-21)
+
+---
+
+## Sprint 20: Critical Fixes & Deployment Readiness
 
 ### Goal
-Complete the innovation radar with Team Readiness dimension and add multi-model AI configuration.
+Fix blocking deployment issues and broken features from Phase 4. This is a short stabilization sprint.
+
+### Resolves
+- **TD-006** (HIGH): Transfer module missing Alembic migration
+- **TD-004** (HIGH): Submission file uploads not persisted
+- **TD-008** (MEDIUM): Transfer resource file storage missing
+
+### Duration
+1 week
+
+---
+
+### Task 20.1: Transfer Module Migration (TD-006)
+
+The transfer module (Sprint 17) has no Alembic migration. Tables `transfer_conversations`, `conversation_messages`, `conversation_resources`, `stage_changes`, and `message_templates` will not exist on a fresh deploy.
+
+**Steps:**
+1. Ensure PostgreSQL + all models imported in `alembic/env.py`
+2. Run `alembic revision --autogenerate -m "add_transfer_conversations"`
+3. Review generated migration for correctness
+4. Verify `alembic upgrade head` succeeds on a clean database
+
+**Verification:**
+```bash
+alembic upgrade head
+# All tables should be created including transfer_* tables
+```
+
+---
+
+### Task 20.2: MinIO/S3 File Storage Service
+
+Create a shared file storage utility for both submissions and transfer resources.
+
+**File: paper_scraper/core/storage.py**
+```python
+"""S3-compatible file storage service (MinIO)."""
+
+from uuid import UUID
+import boto3
+from botocore.exceptions import ClientError
+from paper_scraper.core.config import settings
+
+
+class StorageService:
+    """Service for file upload/download to S3-compatible storage."""
+
+    def __init__(self):
+        self.client = boto3.client(
+            "s3",
+            endpoint_url=settings.MINIO_ENDPOINT,
+            aws_access_key_id=settings.MINIO_ACCESS_KEY,
+            aws_secret_access_key=settings.MINIO_SECRET_KEY,
+        )
+        self.bucket = settings.MINIO_BUCKET
+
+    async def upload_file(
+        self, file_content: bytes, key: str, content_type: str = "application/octet-stream"
+    ) -> str:
+        """Upload file and return the storage key."""
+        self.client.put_object(
+            Bucket=self.bucket, Key=key, Body=file_content, ContentType=content_type
+        )
+        return key
+
+    async def get_download_url(self, key: str, expires_in: int = 3600) -> str:
+        """Generate a pre-signed download URL."""
+        return self.client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": self.bucket, "Key": key},
+            ExpiresIn=expires_in,
+        )
+
+    async def delete_file(self, key: str) -> None:
+        """Delete a file from storage."""
+        self.client.delete_object(Bucket=self.bucket, Key=key)
+```
+
+---
+
+### Task 20.3: Integrate File Storage into Submissions (TD-004)
+
+Update `submissions/router.py` to persist uploaded files using `StorageService`:
+- Store files to MinIO under `submissions/{submission_id}/{filename}`
+- Save the storage key in `SubmissionAttachment.file_path`
+- Add download endpoint for submission attachments
+
+**Updated endpoints:**
+```
+POST   /api/v1/submissions/{id}/attachments             - Upload file to MinIO
+GET    /api/v1/submissions/{id}/attachments/{aid}/download - Download attachment
+```
+
+---
+
+### Task 20.4: Integrate File Storage into Transfer Resources (TD-008)
+
+Update `transfer/router.py` to support file uploads for conversation resources:
+- Store files to MinIO under `transfer/{conversation_id}/{filename}`
+- Save the storage key in `ConversationResource.file_path`
+- Add download endpoint for resources
+
+**Updated endpoints:**
+```
+POST   /api/v1/transfer/{id}/resources/upload        - Upload resource file
+GET    /api/v1/transfer/{id}/resources/{rid}/download - Download resource
+```
+
+---
+
+### Task 20.5: Verification
+
+```bash
+# Run migrations
+alembic upgrade head
+
+# Run existing tests
+pytest tests/ -v
+
+# Verify MinIO integration
+# Upload a test file via submissions endpoint
+# Download it back and verify content matches
+```
+
+---
+
+## Sprint 21: Phase 4 Frontend Integration
+
+### Goal
+Build frontend pages for all Phase 4 backend modules (groups, transfer, submissions, badges, knowledge). These backends were implemented in Sprints 16-19 but have no UI.
+
+### User Stories
+- **G1-G4**: Researcher group management UI
+- **T1-T6**: Technology transfer conversation UI
+- **SUB1-SUB3**: Research submission portal UI
+- **GA1, GA3**: Badges and gamification display
+- **KM1-KM2**: Knowledge management UI
+
+### Duration
+2 weeks
+
+---
+
+### Task 21.1: TanStack Query Hooks for New Modules
+
+Create hooks following existing patterns in `frontend/src/hooks/`:
+
+**File: frontend/src/hooks/useGroups.ts**
+- `useGroups()`, `useGroup(id)`, `useCreateGroup()`, `useUpdateGroup()`, `useDeleteGroup()`
+- `useGroupMembers(id)`, `useAddMembers()`, `useRemoveMembers()`
+- `useSuggestMembers(groupId, keywords)`
+
+**File: frontend/src/hooks/useTransfer.ts**
+- `useConversations()`, `useConversation(id)`, `useCreateConversation()`
+- `useConversationMessages(id)`, `useSendMessage()`
+- `useStageChanges(id)`, `useChangeStage()`
+- `useNextSteps(id)`, `useMessageTemplates()`
+
+**File: frontend/src/hooks/useSubmissions.ts**
+- `useSubmissions()`, `useSubmission(id)`, `useCreateSubmission()`
+- `useUpdateSubmissionStatus()`, `useSubmissionScore(id)`
+- `useUploadAttachment()`, `useAnalyzeSubmission()`
+
+**File: frontend/src/hooks/useBadges.ts**
+- `useBadges()`, `useUserBadges(userId)`, `useUserStats()`
+- `useBadgeLeaderboard()`
+
+**File: frontend/src/hooks/useKnowledge.ts**
+- `useKnowledgeSources()`, `useCreateKnowledgeSource()`
+- `useUpdateKnowledgeSource()`, `useDeleteKnowledgeSource()`
+
+---
+
+### Task 21.2: Researcher Groups Page
+
+**File: frontend/src/pages/GroupsPage.tsx**
+- List all researcher groups with member counts and type badges (custom, mailing_list, speaker_pool)
+- Create group dialog (name, description, type)
+- Group detail view with member list
+- Add/remove members interface
+- AI-powered member suggestions (calls `suggest_members` endpoint)
+- Export group as CSV
+
+**Sidebar navigation:** Add "Groups" link under "Authors" section
+
+---
+
+### Task 21.3: Technology Transfer Page
+
+**File: frontend/src/pages/TransferPage.tsx**
+- List conversations with stage badges and status indicators
+- Create new conversation (link to researcher, paper, transfer type)
+
+**File: frontend/src/pages/TransferDetailPage.tsx**
+- Stage-based workflow visualization (pipeline/timeline)
+- Message thread with sender identification
+- Attached resources list with file upload
+- AI-suggested next steps panel
+- Stage change with notes
+- Message templates dropdown
+
+**Sidebar navigation:** Add "Transfer" as main section
+
+---
+
+### Task 21.4: Research Submissions Page
+
+**File: frontend/src/pages/SubmissionsPage.tsx**
+- List submissions with status badges (draft, submitted, under_review, approved, rejected, converted)
+- Create submission form (title, abstract, research_area, keywords, attachments)
+- Submission detail with:
+  - Status workflow visualization
+  - AI analysis results and commercialization score
+  - File attachments with download
+  - Reviewer actions (approve/reject/request changes)
+- "My Submissions" filter tab for researchers
+
+**Sidebar navigation:** Add "Submissions" under main section
+
+---
+
+### Task 21.5: Badges & Gamification Page
+
+**File: frontend/src/pages/BadgesPage.tsx**
+- Badge gallery showing all available badges by category (import, scoring, collaboration, exploration, milestone)
+- Earned vs locked badge visualization
+- User stats dashboard (papers_imported, papers_scored, etc.)
+- Leaderboard table
+- Badge detail with criteria description and tier progress (bronze/silver/gold/platinum)
+
+**Sidebar navigation:** Add "Badges" under user section or as a profile tab
+
+---
+
+### Task 21.6: Knowledge Management Page
+
+**File: frontend/src/pages/KnowledgePage.tsx**
+- List knowledge sources (personal + organizational)
+- Create/edit knowledge source form (name, type, content, scope)
+- Source types: research_focus, industry_context, evaluation_criteria, domain_expertise
+- Scope toggle: personal vs organizational (admin only for organizational)
+- Delete with confirmation
+
+**Sidebar navigation:** Add "Knowledge" under settings section
+
+---
+
+### Task 21.7: Sidebar & Router Updates
+
+**File: frontend/src/components/layout/Sidebar.tsx**
+- Add navigation items for Groups, Transfer, Submissions, Badges, Knowledge
+
+**File: frontend/src/App.tsx**
+- Add routes for all new pages
+- Wrap in ProtectedRoute
+
+---
+
+### Task 21.8: Verification
+
+```bash
+cd frontend && npm run build
+cd frontend && npx tsc --noEmit
+cd frontend && npm test
+npx playwright test
+```
+
+---
+
+# Phase 6: Security & AI Advancement (Sprints 22-24)
+
+---
+
+## Sprint 22: Security Hardening & RBAC
+
+### Goal
+Implement granular role-based access control, extend audit logging to all modules, and fix security gaps.
+
+### Resolves
+- **SEC-F1** (HIGH): Granular RBAC
+- **SEC-F2** (MEDIUM): CSV injection protection
+- **SEC-F3** (MEDIUM): Audit logging for new modules
+
+### User Stories
+- **C1**: Audit logs for compliance
+- **C3**: Role-based access control
+
+### Duration
+2 weeks
+
+---
+
+### Task 22.1: RBAC Permissions System
+
+**File: paper_scraper/core/permissions.py**
+```python
+"""Role-based access control system."""
+
+from enum import Enum
+from fastapi import HTTPException, status
+
+class Permission(str, Enum):
+    PAPERS_READ = "papers:read"
+    PAPERS_WRITE = "papers:write"
+    PAPERS_DELETE = "papers:delete"
+    SCORING_TRIGGER = "scoring:trigger"
+    GROUPS_READ = "groups:read"
+    GROUPS_MANAGE = "groups:manage"
+    TRANSFER_READ = "transfer:read"
+    TRANSFER_MANAGE = "transfer:manage"
+    SUBMISSIONS_READ = "submissions:read"
+    SUBMISSIONS_REVIEW = "submissions:review"
+    BADGES_MANAGE = "badges:manage"
+    KNOWLEDGE_MANAGE = "knowledge:manage"
+    SETTINGS_ADMIN = "settings:admin"
+    COMPLIANCE_VIEW = "compliance:view"
+    DEVELOPER_MANAGE = "developer:manage"
+
+ROLE_PERMISSIONS: dict[str, list[Permission]] = {
+    "admin": list(Permission),  # all permissions
+    "manager": [
+        Permission.PAPERS_READ, Permission.PAPERS_WRITE,
+        Permission.SCORING_TRIGGER,
+        Permission.GROUPS_READ, Permission.GROUPS_MANAGE,
+        Permission.TRANSFER_READ, Permission.TRANSFER_MANAGE,
+        Permission.SUBMISSIONS_READ, Permission.SUBMISSIONS_REVIEW,
+        Permission.KNOWLEDGE_MANAGE, Permission.COMPLIANCE_VIEW,
+    ],
+    "tto_manager": [
+        Permission.PAPERS_READ, Permission.PAPERS_WRITE, Permission.PAPERS_DELETE,
+        Permission.SCORING_TRIGGER,
+        Permission.GROUPS_READ, Permission.GROUPS_MANAGE,
+        Permission.TRANSFER_READ, Permission.TRANSFER_MANAGE,
+        Permission.SUBMISSIONS_READ, Permission.SUBMISSIONS_REVIEW,
+    ],
+    "tto_staff": [
+        Permission.PAPERS_READ, Permission.PAPERS_WRITE,
+        Permission.SCORING_TRIGGER, Permission.GROUPS_READ,
+        Permission.TRANSFER_READ, Permission.TRANSFER_MANAGE,
+        Permission.SUBMISSIONS_READ,
+    ],
+    "member": [
+        Permission.PAPERS_READ, Permission.PAPERS_WRITE,
+        Permission.SCORING_TRIGGER, Permission.GROUPS_READ,
+        Permission.TRANSFER_READ, Permission.SUBMISSIONS_READ,
+    ],
+    "researcher": [
+        Permission.PAPERS_READ, Permission.GROUPS_READ,
+        Permission.SUBMISSIONS_READ,
+    ],
+    "viewer": [
+        Permission.PAPERS_READ, Permission.GROUPS_READ,
+    ],
+}
+
+def require_permission(*permissions: Permission):
+    """FastAPI dependency that checks user has required permissions."""
+    # Check current_user.role against ROLE_PERMISSIONS
+    ...
+```
+
+---
+
+### Task 22.2: Apply RBAC to All Routers
+
+Add `require_permission()` dependency to all endpoints:
+- `groups/router.py` - `groups:read` for GET, `groups:manage` for POST/PATCH/DELETE
+- `transfer/router.py` - `transfer:read` for GET, `transfer:manage` for mutations
+- `submissions/router.py` - `submissions:read` for GET, `submissions:review` for status changes
+- `badges/router.py` - `badges:manage` for create/update/delete (admin only)
+- `knowledge/router.py` - `knowledge:manage` for organizational scope mutations
+- `scoring/router.py` - `scoring:trigger` for score/classify endpoints
+- `papers/router.py` - `papers:delete` restricted to admin/tto_manager
+
+**New endpoints:**
+```
+GET    /api/v1/auth/permissions         - List current user's permissions
+GET    /api/v1/auth/roles               - List available roles and their permissions
+```
+
+---
+
+### Task 22.3: Audit Logging for New Modules (SEC-F3)
+
+Integrate audit logging into modules that currently don't emit events:
+- **groups**: Group create/update/delete, member add/remove
+- **transfer**: Conversation create, stage change, message send
+- **submissions**: Submission create, status change, review actions
+- **badges**: Badge award events
+- **knowledge**: Source create/update/delete
+
+Use existing `audit/service.py` patterns. Add new `AuditAction` enum values as needed.
+
+---
+
+### Task 22.4: CSV Injection Protection (SEC-F2)
+
+**File: paper_scraper/core/csv_utils.py**
+```python
+"""CSV export utilities with injection protection."""
+
+def sanitize_csv_field(value: str) -> str:
+    """Prefix dangerous characters to prevent formula injection."""
+    if value and value[0] in ('=', '+', '-', '@', '\t', '\r'):
+        return f"'{value}"
+    return value
+```
+
+Apply to:
+- `export/service.py` - CSV export
+- `groups/service.py` - Group member CSV export
+
+---
+
+### Task 22.5: Permissions UI
+
+Update `frontend/src/pages/OrganizationSettingsPage.tsx`:
+- Show permission matrix for each role
+- Display current user's effective permissions
+- Admin: visual indicator of what each role can/cannot do
+
+---
+
+### Task 22.6: Verification
+
+```bash
+pytest tests/test_permissions.py -v
+# Verify unauthorized access is denied per role
+npx playwright test --grep "rbac"
+```
+
+---
+
+## Sprint 23: 6-Dimension Scoring + Model Settings
+
+### Goal
+Complete the innovation radar with a 6th scoring dimension (Team Readiness) and add multi-model AI configuration.
+
+### Resolves
+- **AI-003**: Team Readiness scoring dimension
 
 ### User Stories
 - **P2**: 6-dimension innovation radar
 - **M1-M4**: Model selection, usage tracking, data ownership
 
+### Duration
+2 weeks
+
 ---
 
-### Task 20.1: Team Readiness Scoring
+### Task 23.1: Team Readiness Scoring Dimension
 
 **File: paper_scraper/modules/scoring/prompts/team_readiness.jinja2**
 ```jinja2
@@ -4958,7 +5484,7 @@ Evaluate the team's readiness for commercialization on these criteria:
 
 Respond in JSON:
 {
-  "score": <0-100>,
+  "score": <0-10>,
   "evidence": ["...", "..."],
   "strengths": ["...", "..."],
   "gaps": ["...", "..."],
@@ -4966,181 +5492,877 @@ Respond in JSON:
 }
 ```
 
----
+**File: paper_scraper/modules/scoring/dimensions/team_readiness.py**
+- Load author metrics from the database (h-index, works_count, affiliations)
+- Render prompt with author data
+- Call LLM and parse response
+- Follow existing dimension scorer pattern (see `novelty.py`)
 
-### Task 20.2: Model Configuration
+**Migration:** Add `team_readiness` column to `paper_scores` table.
 
-**Key tables:**
-- `model_configurations` - AI model settings
-- `model_usage` - Usage tracking
+**Update `orchestrator.py`:** Register 6th dimension in scoring pipeline.
 
-**Key Endpoints:**
-```
-GET    /api/v1/settings/models              - List models
-POST   /api/v1/settings/models              - Add model (admin)
-PATCH  /api/v1/settings/models/{id}         - Update model
-DELETE /api/v1/settings/models/{id}         - Remove model
-GET    /api/v1/settings/models/usage        - Usage stats
-GET    /api/v1/settings/models/{id}/hosting - Hosting info
-```
+**Update `schemas.py`:** Add `team_readiness` field to score schemas.
 
 ---
 
-## Sprint 21: Developer API & Repository Management
+### Task 23.2: Innovation Radar Chart Component
+
+**File: frontend/src/components/InnovationRadar.tsx**
+- 6-axis radar/spider chart showing all scoring dimensions
+- Dimensions: Novelty, IP Potential, Marketability, Feasibility, Commercialization, Team Readiness
+- Use recharts or chart.js for rendering
+- Show on PaperDetailPage
+- Tooltip with dimension explanations
+
+---
+
+### Task 23.3: Model Configuration Backend
+
+**New module: paper_scraper/modules/model_settings/**
+
+**Models:**
+```python
+class ModelConfiguration(Base):
+    """AI model configuration per organization."""
+    __tablename__ = "model_configurations"
+
+    id: Mapped[UUID]
+    organization_id: Mapped[UUID]
+    provider: Mapped[str]          # openai, anthropic, azure, ollama
+    model_name: Mapped[str]        # gpt-5-mini, claude-sonnet-4-5-20250929, etc.
+    is_default: Mapped[bool]
+    api_key_encrypted: Mapped[str | None]
+    hosting_info: Mapped[dict]     # region, compliance details
+    max_tokens: Mapped[int]
+    temperature: Mapped[float]
+    created_at: Mapped[datetime]
+
+class ModelUsage(Base):
+    """Track model usage and costs per organization."""
+    __tablename__ = "model_usage"
+
+    id: Mapped[UUID]
+    organization_id: Mapped[UUID]
+    model_configuration_id: Mapped[UUID]
+    user_id: Mapped[UUID]
+    operation: Mapped[str]         # scoring, pitch, classification, embedding
+    input_tokens: Mapped[int]
+    output_tokens: Mapped[int]
+    cost_usd: Mapped[float]
+    created_at: Mapped[datetime]
+```
+
+**Endpoints:**
+```
+GET    /api/v1/settings/models              - List configured models
+POST   /api/v1/settings/models              - Add model configuration (admin)
+PATCH  /api/v1/settings/models/{id}         - Update model config
+DELETE /api/v1/settings/models/{id}         - Remove model config
+GET    /api/v1/settings/models/usage        - Usage stats (aggregated)
+GET    /api/v1/settings/models/{id}/hosting - Hosting/compliance info
+```
+
+**Migration:** `alembic revision --autogenerate -m "add_model_configurations"`
+
+---
+
+### Task 23.4: Usage Tracking Integration
+
+Update `scoring/llm_client.py` to log every LLM call to `ModelUsage`:
+- Record input/output tokens
+- Calculate cost based on model pricing
+- Associate with user and operation type
+
+---
+
+### Task 23.5: Model Settings Frontend Page
+
+**File: frontend/src/pages/ModelSettingsPage.tsx**
+- List configured models with provider icons
+- Add/edit model configuration form
+- Set default model
+- Usage dashboard: charts showing token usage, cost over time, by operation type
+- Hosting information display (where data is processed)
+- Data ownership settings
+
+**File: frontend/src/hooks/useModelSettings.ts**
+
+**Sidebar navigation:** Add "Model Settings" under settings section (admin only)
+
+---
+
+## Sprint 24: AI Intelligence Enhancements
 
 ### Goal
-API key management, webhooks, and configurable data source management.
+Upgrade AI-powered features across all modules with real embedding-based intelligence.
+
+### Resolves
+- **AI-001** (HIGH): Real embedding-based group member suggestions
+- **AI-002** (MEDIUM): pgvector similar papers for submission analysis
+- **AI-004** (MEDIUM): Enhanced transfer next-steps AI
+- **AI-005** / **TD-010** (LOW/MEDIUM): Knowledge-enhanced scoring
+- **TD-009** (MEDIUM): Badge auto-award engine
+
+### Duration
+2 weeks
+
+---
+
+### Task 24.1: Embedding-Based Group Member Suggestions (AI-001)
+
+**File: paper_scraper/modules/scoring/prompts/suggest_members.jinja2**
+```jinja2
+Given the following research group description and keywords, suggest researchers
+who would be a good fit based on their expertise and publication history.
+
+Group: {{ group.name }}
+Description: {{ group.description }}
+Keywords: {{ keywords | join(', ') }}
+
+Candidate researchers:
+{% for author in candidates %}
+- {{ author.name }}: {{ author.affiliations | join(', ') }}
+  Recent topics: {{ author.recent_keywords | join(', ') }}
+{% endfor %}
+
+Rank the top candidates and explain why they fit.
+```
+
+**Implementation in `groups/service.py`:**
+1. Generate embedding for group keywords
+2. Use pgvector to find authors with similar research embeddings
+3. Optionally pass top candidates through LLM for explanation
+4. Replace current mock `suggest_members()` implementation
+
+---
+
+### Task 24.2: Similar Papers for Submission Analysis (AI-002)
+
+**Update `submissions/service.py:analyze_submission()`:**
+1. Generate embedding for submission abstract
+2. Use pgvector cosine similarity to find top-5 related papers
+3. Pass similar papers as context to the analysis prompt
+4. Return richer analysis with comparison to existing research
+
+---
+
+### Task 24.3: Enhanced Transfer Next-Steps AI (AI-004)
+
+**Update `transfer/service.py:get_next_steps()`:**
+1. Include full conversation history (last N messages) in prompt
+2. Add stage-specific suggestion templates
+3. Recommend message templates based on current stage and transfer type
+4. Consider researcher profile and paper context
+
+---
+
+### Task 24.4: Badge Auto-Award Engine (TD-009)
+
+**File: paper_scraper/jobs/badges.py**
+```python
+"""Background job for automated badge awarding."""
+
+BADGE_CRITERIA = {
+    "first_import": {"stat": "papers_imported", "threshold": 1, "tier": "bronze"},
+    "import_veteran": {"stat": "papers_imported", "threshold": 50, "tier": "silver"},
+    "scoring_initiate": {"stat": "papers_scored", "threshold": 1, "tier": "bronze"},
+    "scoring_master": {"stat": "papers_scored", "threshold": 100, "tier": "gold"},
+    "collaborator": {"stat": "groups_created", "threshold": 5, "tier": "silver"},
+}
+
+async def check_and_award_badges(ctx, user_id: str, org_id: str):
+    """Check user stats against badge criteria and award earned badges."""
+    ...
+```
+
+**Integration points:**
+- After paper import: trigger badge check
+- After scoring: trigger badge check
+- After group creation: trigger badge check
+- Register in `jobs/worker.py`
+
+---
+
+### Task 24.5: Knowledge-Enhanced Scoring (TD-010, AI-005)
+
+**Update scoring pipeline to inject knowledge context:**
+1. Before scoring a paper, query knowledge sources for the organization
+2. Filter by relevance (match knowledge source type to scoring dimension)
+3. Inject relevant knowledge into scoring prompts as additional context
+
+```python
+# scoring/orchestrator.py
+knowledge_sources = await knowledge_service.get_relevant_sources(db, org_id, paper.keywords)
+scoring_context = {
+    "industry_context": [ks.content for ks in knowledge_sources if ks.type == "industry_context"],
+    "evaluation_criteria": [ks.content for ks in knowledge_sources if ks.type == "evaluation_criteria"],
+}
+```
+
+---
+
+# Phase 7: Platform & Developer Experience (Sprints 25-27)
+
+---
+
+## Sprint 25: Developer API & Repository Management
+
+### Goal
+Enable external integrations via API keys and webhooks, and make data source configuration dynamic.
 
 ### User Stories
 - **D1-D3**: API keys, MCP servers, webhooks
 - **RS1-RS3**: Repository source configuration
 
+### Duration
+2 weeks
+
 ---
 
-### Task 21.1: API Key Management
+### Task 25.1: API Key Management
 
-**Key tables:**
-- `api_keys` - Hashed API keys with permissions
+**New module: paper_scraper/modules/developer/**
 
-**Key Endpoints:**
+**Models:**
+```python
+class APIKey(Base):
+    __tablename__ = "api_keys"
+
+    id: Mapped[UUID]
+    organization_id: Mapped[UUID]
+    created_by_id: Mapped[UUID]
+    name: Mapped[str]              # Descriptive name
+    key_hash: Mapped[str]          # SHA-256 hash (never store plaintext)
+    key_prefix: Mapped[str]        # First 8 chars for identification
+    permissions: Mapped[list]      # List of Permission enums
+    expires_at: Mapped[datetime | None]
+    last_used_at: Mapped[datetime | None]
+    is_active: Mapped[bool]
+    created_at: Mapped[datetime]
 ```
-GET    /api/v1/developer/api-keys           - List keys
-POST   /api/v1/developer/api-keys           - Generate key
+
+**Endpoints:**
+```
+GET    /api/v1/developer/api-keys           - List keys (shows prefix only)
+POST   /api/v1/developer/api-keys           - Generate key (returns full key ONCE)
 DELETE /api/v1/developer/api-keys/{id}      - Revoke key
 ```
 
+**API key authentication middleware:** Accept `X-API-Key` header, hash and look up in database.
+
 ---
 
-### Task 21.2: Webhooks
+### Task 25.2: Webhook Configuration
 
-**Key tables:**
-- `webhooks` - Webhook configurations
+**Models:**
+```python
+class Webhook(Base):
+    __tablename__ = "webhooks"
 
-**Key Endpoints:**
+    id: Mapped[UUID]
+    organization_id: Mapped[UUID]
+    url: Mapped[str]
+    events: Mapped[list]           # ["paper.created", "paper.scored", "submission.created", ...]
+    secret: Mapped[str]            # HMAC signing secret
+    is_active: Mapped[bool]
+    last_triggered_at: Mapped[datetime | None]
+    failure_count: Mapped[int]
+    created_at: Mapped[datetime]
+```
+
+**Endpoints:**
 ```
 GET    /api/v1/developer/webhooks           - List webhooks
 POST   /api/v1/developer/webhooks           - Create webhook
-POST   /api/v1/developer/webhooks/{id}/test - Test webhook
-DELETE /api/v1/developer/webhooks/{id}      - Remove webhook
+PATCH  /api/v1/developer/webhooks/{id}      - Update webhook
+POST   /api/v1/developer/webhooks/{id}/test - Send test event
+DELETE /api/v1/developer/webhooks/{id}      - Delete webhook
 ```
+
+**Webhook dispatch:** Fire-and-forget via arq job, HMAC signature, retry with exponential backoff (3 attempts), auto-disable after 10 consecutive failures.
 
 ---
 
-### Task 21.3: Repository Sources
+### Task 25.3: Repository Source Management
 
-**Key tables:**
-- `repository_sources` - Data source configurations
+**Models:**
+```python
+class RepositorySource(Base):
+    __tablename__ = "repository_sources"
 
-**Key Endpoints:**
+    id: Mapped[UUID]
+    organization_id: Mapped[UUID]
+    name: Mapped[str]              # e.g., "OpenAlex - Biotech"
+    provider: Mapped[str]          # openalex, pubmed, arxiv, crossref
+    config: Mapped[dict]           # Provider-specific settings (query, filters)
+    schedule: Mapped[str | None]   # cron expression for auto-sync
+    is_active: Mapped[bool]
+    last_sync_at: Mapped[datetime | None]
+    last_sync_result: Mapped[dict | None]
+    created_at: Mapped[datetime]
+```
+
+**Endpoints:**
 ```
 GET    /api/v1/repositories/                - List sources
 POST   /api/v1/repositories/                - Add source
 PATCH  /api/v1/repositories/{id}            - Update source
-POST   /api/v1/repositories/{id}/sync       - Trigger sync
+POST   /api/v1/repositories/{id}/sync       - Trigger manual sync
 GET    /api/v1/repositories/{id}/status     - Sync status
+DELETE /api/v1/repositories/{id}            - Remove source
 ```
 
 ---
 
-## Sprint 22: Compliance & Governance
+### Task 25.4: Developer Settings Frontend Page
+
+**File: frontend/src/pages/DeveloperSettingsPage.tsx**
+- **API Keys tab**: List keys, generate new, revoke existing. Show key only once on creation.
+- **Webhooks tab**: Configure webhook URLs, select events, test delivery.
+- **Repositories tab**: Configure data sources with sync schedules, trigger manual sync.
+
+**File: frontend/src/hooks/useDeveloper.ts**
+
+**Migration:** `alembic revision --autogenerate -m "add_api_keys_webhooks_repositories"`
+
+---
+
+## Sprint 26: UX Polish & Keyboard Navigation
 
 ### Goal
-Enhanced audit logging, data retention policies, and granular RBAC.
+Add power-user features: command palette, keyboard shortcuts, notification inbox, and search enhancements.
 
 ### User Stories
-- **C1**: Audit logs for compliance
-- **C2**: GDPR compliance visibility
-- **C3**: Role-based access control
+- **KB1**: Command palette (Cmd+K / Ctrl+K)
+- **KB2**: Keyboard shortcuts for common actions
+- **KB3**: Accessibility / screen reader support
+- **S3**: Search result preview panel
+- **N3**: Click alerts to navigate to items
+- **K3, GA2**: Celebration animations
+
+### Duration
+2 weeks
 
 ---
 
-### Task 22.1: Enhanced Audit Logging
+### Task 26.1: Command Palette
 
-Expand existing audit module to log:
-- All auth events
-- Paper status changes
-- Transfer stage changes
-- Settings modifications
-- Data exports
+**File: frontend/src/components/CommandPalette.tsx**
+- Global shortcut: `Cmd+K` / `Ctrl+K`
+- Search across: pages, papers, projects, authors, groups, settings
+- Recent items section
+- Action shortcuts (e.g., "New project", "Import paper")
+- Keyboard navigation: arrow keys, enter to select, escape to close
+- Use cmdk library or build custom with Radix Dialog
 
-**Key Endpoints:**
+**Integration:** Mount in App.tsx as a global component.
+
+---
+
+### Task 26.2: Global Keyboard Shortcuts
+
+**File: frontend/src/hooks/useKeyboardShortcuts.ts**
+```typescript
+const SHORTCUTS = {
+  "g d": "Navigate to Dashboard",
+  "g p": "Navigate to Papers",
+  "g k": "Navigate to Projects (KanBan)",
+  "g s": "Navigate to Search",
+  "g a": "Navigate to Analytics",
+  "g t": "Navigate to Transfer",
+  "n p": "New Paper Import",
+  "n j": "New Project",
+  "/": "Focus search",
+  "?": "Show keyboard shortcuts help",
+};
 ```
-GET    /api/v1/compliance/audit-logs        - Search logs
-GET    /api/v1/compliance/audit-logs/export - Export logs
+
+**File: frontend/src/components/KeyboardShortcutsDialog.tsx**
+- Shows all available shortcuts in a modal
+- Triggered by `?` key or from help menu
+
+---
+
+### Task 26.3: Notification Center / Alert Inbox
+
+**File: frontend/src/components/NotificationCenter.tsx**
+- Dropdown in Navbar (bell icon with unread count badge)
+- Alert timeline: chronological list of triggered alerts
+- Each alert shows: type icon, title, timestamp, score badge (if paper alert)
+- Click to navigate to the relevant item
+- Mark as read/unread
+- "View all" link to dedicated alerts page
+
+**File: frontend/src/pages/NotificationsPage.tsx**
+- Full-page view of all notifications/alerts
+- Filter by type, importance flags
+- Bulk mark as read
+
+---
+
+### Task 26.4: Search Result Preview Panel
+
+Update **frontend/src/pages/SearchPage.tsx**:
+- Split layout: results list on left, preview panel on right
+- Clicking a result shows full details in preview without navigating away
+- Preview panel shows: full abstract, scores, authors, actions
+- Keyboard navigation: up/down to move through results
+
+---
+
+### Task 26.5: Celebration Animations
+
+**File: frontend/src/components/CelebrationOverlay.tsx**
+- Confetti animation (use canvas-confetti or react-confetti)
+- Trigger conditions: complete KanBan batch, earn badge, high-score paper, complete onboarding
+- Brief, non-blocking overlay
+
+---
+
+## Sprint 27: Analytics & Reporting Expansion
+
+### Goal
+Add advanced analytics views: innovation funnel, benchmarks, scheduled reports, and peer comparisons.
+
+### User Stories
+- **A2**: Innovation funnel visualization
+- **A4**: Scheduled/recurring reports
+- **A5**: Benchmark comparisons
+- **S4**: Peer comparison charts
+
+### Duration
+2 weeks
+
+---
+
+### Task 27.1: Innovation Funnel Tab
+
+**Update frontend/src/pages/AnalyticsPage.tsx** - Add "Innovation Funnel" tab:
+- Funnel visualization: Papers Imported -> Screened -> Scored -> In Pipeline -> Contacted -> Transferred
+- Show conversion rates between stages
+- Filter by time period and project
+
+**Backend endpoint:**
+```
+GET /api/v1/analytics/funnel?project_id=...&start_date=...&end_date=...
 ```
 
 ---
 
-### Task 22.2: Data Retention
+### Task 27.2: Benchmark Comparisons Tab
 
-**Key tables:**
-- `retention_policies` - Per-entity retention rules
+**Update frontend/src/pages/AnalyticsPage.tsx** - Add "Benchmarks" tab:
+- Compare organization metrics against aggregated anonymized averages
+- Metrics: papers per month, scoring velocity, pipeline conversion rate
+- Bar charts showing org vs. benchmark
 
-**Key Endpoints:**
+**Backend endpoint:**
 ```
-GET    /api/v1/compliance/retention         - List policies
-POST   /api/v1/compliance/retention         - Create policy
-DELETE /api/v1/compliance/retention/{id}    - Remove policy
+GET /api/v1/analytics/benchmarks
 ```
 
 ---
 
-### Task 22.3: RBAC Permissions
+### Task 27.3: Scheduled Reports
 
-**Permissions Matrix:**
+**Models:**
 ```python
-PERMISSIONS = {
-    "papers:read": ["admin", "manager", "member", "researcher", "tto_manager", "tto_staff"],
-    "papers:write": ["admin", "manager", "tto_manager", "tto_staff"],
-    "papers:delete": ["admin", "tto_manager"],
-    "scoring:trigger": ["admin", "manager", "tto_manager", "tto_staff"],
-    "groups:manage": ["admin", "manager", "tto_manager"],
-    "transfer:manage": ["admin", "tto_manager", "tto_staff"],
-    "submissions:review": ["admin", "tto_manager", "tto_staff"],
-    "settings:admin": ["admin"],
-    "compliance:view": ["admin", "manager"],
-    "developer:manage": ["admin"],
-}
+class ScheduledReport(Base):
+    __tablename__ = "scheduled_reports"
+
+    id: Mapped[UUID]
+    organization_id: Mapped[UUID]
+    created_by_id: Mapped[UUID]
+    name: Mapped[str]
+    report_type: Mapped[str]       # dashboard_summary, paper_trends, team_activity
+    schedule: Mapped[str]          # cron expression
+    recipients: Mapped[list]       # email addresses
+    filters: Mapped[dict]
+    format: Mapped[str]            # pdf, csv
+    is_active: Mapped[bool]
+    last_sent_at: Mapped[datetime | None]
+    created_at: Mapped[datetime]
 ```
 
-**Key Endpoints:**
+**Endpoints:**
 ```
-GET    /api/v1/auth/permissions             - My permissions
-GET    /api/v1/auth/roles                   - Available roles
+GET    /api/v1/reports/scheduled           - List scheduled reports
+POST   /api/v1/reports/scheduled           - Create scheduled report
+PATCH  /api/v1/reports/scheduled/{id}      - Update report config
+DELETE /api/v1/reports/scheduled/{id}      - Delete scheduled report
+POST   /api/v1/reports/scheduled/{id}/run  - Run report immediately
 ```
+
+**Background job:** `jobs/reports.py` - arq cron job that checks for due reports and generates/emails them.
+
+---
+
+### Task 27.4: Peer Comparison Charts
+
+**Update frontend/src/pages/SearchPage.tsx:**
+- "Compare" button to select 2-5 papers for side-by-side comparison
+- Radar chart overlay of selected papers' scores
+- Table comparison of key metrics
+
+---
+
+# Phase 8: Enterprise Readiness (Sprints 28-30)
+
+---
+
+## Sprint 28: Compliance, Governance & Data Retention
+
+### Goal
+Enterprise compliance features: enhanced audit logging, data retention policies, and compliance dashboard.
+
+### User Stories
+- **C1**: Audit logs for compliance reporting
+- **C2**: GDPR data processing transparency
+
+### Duration
+2 weeks
+
+---
+
+### Task 28.1: Enhanced Audit Logging
+
+Expand audit coverage comprehensively:
+- All authentication events (login, logout, password change, token refresh)
+- Paper lifecycle events (import, score, stage change, delete)
+- Transfer stage changes and messages
+- Settings modifications (org settings, model config, repository sources)
+- Data exports (who exported what, when)
+- API key usage (create, revoke, authenticate via API key)
+
+**New endpoints:**
+```
+GET    /api/v1/compliance/audit-logs            - Search/filter audit logs (admin)
+GET    /api/v1/compliance/audit-logs/export      - Export audit logs as CSV
+GET    /api/v1/compliance/audit-logs/summary     - Aggregated audit statistics
+```
+
+---
+
+### Task 28.2: Data Retention Policies
+
+**Models:**
+```python
+class RetentionPolicy(Base):
+    __tablename__ = "retention_policies"
+
+    id: Mapped[UUID]
+    organization_id: Mapped[UUID]
+    entity_type: Mapped[str]       # papers, audit_logs, conversations, submissions
+    retention_days: Mapped[int]
+    action: Mapped[str]            # archive, anonymize, delete
+    is_active: Mapped[bool]
+    last_applied_at: Mapped[datetime | None]
+    created_at: Mapped[datetime]
+```
+
+**Endpoints:**
+```
+GET    /api/v1/compliance/retention             - List policies
+POST   /api/v1/compliance/retention             - Create policy (admin)
+PATCH  /api/v1/compliance/retention/{id}        - Update policy
+DELETE /api/v1/compliance/retention/{id}        - Remove policy
+POST   /api/v1/compliance/retention/apply       - Apply now (admin, dry-run option)
+```
+
+**Background job:** `jobs/retention.py` - arq cron job that applies retention policies nightly.
+
+---
+
+### Task 28.3: Compliance Dashboard Frontend
+
+**File: frontend/src/pages/CompliancePage.tsx**
+- **Audit Logs tab**: Searchable/filterable log viewer with pagination
+- **Data Retention tab**: Configure retention policies per entity type
+- **Data Processing tab**: Show where data is processed (hosting info from model settings), GDPR transparency
+- **Export tab**: Export audit logs, generate compliance reports
+
+**Sidebar navigation:** Add "Compliance" under admin section
+
+**Migration:** `alembic revision --autogenerate -m "add_retention_policies"`
+
+---
+
+## Sprint 29: Internationalization & Platform Features
+
+### Goal
+Add multi-language support, organization branding, and additional data source integrations.
+
+### User Stories
+- **U3**: Language selection
+- **O2**: Organization branding
+- **P5**: Related patents display (EPO OPS)
+
+### Duration
+2 weeks
+
+---
+
+### Task 29.1: i18n Framework Setup
+
+**Install:**
+```bash
+cd frontend && npm install react-i18next i18next i18next-browser-languagedetector
+```
+
+**Directory: frontend/src/locales/**
+```
+locales/
+├── en/translation.json
+├── de/translation.json
+└── i18n.ts
+```
+
+**Implementation:**
+1. Configure i18next with language detection
+2. Extract all user-facing strings to translation files (EN + DE to start)
+3. Add `useTranslation()` hook to components
+4. Language selector in UserSettingsPage
+
+**Priority pages for translation:** Navigation, Dashboard, Login/Register, Common UI
+
+---
+
+### Task 29.2: Organization Branding
+
+**Update `organizations` table:**
+- Add `branding` JSONB column: `{ logo_url, primary_color, accent_color, favicon_url }`
+
+**Endpoints:**
+```
+PATCH  /api/v1/auth/organization/branding   - Update branding (admin)
+POST   /api/v1/auth/organization/logo       - Upload logo to MinIO
+```
+
+**Frontend:** Apply org colors to theme CSS variables dynamically, show org logo in navbar.
+
+---
+
+### Task 29.3: EPO OPS Client for Patent Data
+
+**File: paper_scraper/modules/papers/clients/epo_ops.py**
+- Patent search and retrieval from EPO Open Patent Services
+- Add "Related Patents" section to PaperDetailPage
+- Show patent title, number, abstract, applicant, link to Espacenet
+
+---
+
+### Task 29.4: Semantic Scholar Client
+
+**File: paper_scraper/modules/papers/clients/semantic_scholar.py**
+- Paper search, metadata, citation graph
+- Add as ingestion source (`POST /api/v1/papers/ingest/semantic-scholar`)
+- Add citation graph data to PaperDetailPage
+
+---
+
+## Sprint 30: Technical Debt & Quality
+
+### Goal
+Resolve accumulated technical debt, improve test coverage, and ensure production readiness.
+
+### Resolves
+- **TD-001**: Standardize transaction management
+- **TD-002**: Add `created_by_id` to Paper model
+- **TD-003**: Implement `avg_time_per_stage` calculation
+- **TD-005**: Migrate tests to PostgreSQL (testcontainers)
+- **TD-007**: Fix Redis-dependent test failures
+- **TD-011**: Badge stats query optimization
+- **TD-012**: Organization-level custom badges
+- **TD-013**: Search activity tracking
+- **TD-014**: Pagination for badge/knowledge endpoints
+
+### Duration
+2 weeks
+
+---
+
+### Task 30.1: Transaction Management Standardization (TD-001)
+
+Audit all service modules and standardize:
+- **FastAPI context**: Use `flush()` (auto-committed by `get_db()`)
+- **Background jobs**: Use explicit `commit()` with `get_async_session()`
+- Document pattern in CLAUDE.md
+
+---
+
+### Task 30.2: Paper Created-By Tracking (TD-002)
+
+**Migration:** Add `created_by_id` column to `papers` table (FK to `users.id`, nullable for legacy).
+- Set automatically during paper import
+- Update `analytics/service.py` to use actual `created_by_id`
+
+---
+
+### Task 30.3: Pipeline Stage Time Calculation (TD-003)
+
+**Update `projects/service.py`:**
+- Calculate `avg_time_per_stage` from `paper_project_status` stage change timestamps
+- Track stage entry/exit times in stage history
+
+---
+
+### Task 30.4: PostgreSQL Test Infrastructure (TD-005)
+
+**Migrate from SQLite to PostgreSQL for tests:**
+```bash
+pip install testcontainers[postgres]
+```
+
+Update `tests/conftest.py` to use PostgresContainer. Benefits: real JSONB, pgvector, enum types. Remove SQLite JSONB workaround.
+
+---
+
+### Task 30.5: Fix Redis Test Issues (TD-007)
+
+Add Redis testcontainer alongside PostgreSQL, or use `fakeredis` to mock Redis in tests.
+
+---
+
+### Task 30.6: Remaining Technical Debt
+
+- **TD-011**: Optimize badge stats - replace 7 sequential COUNT queries with single CTE query
+- **TD-012**: Allow organizations to define custom badges
+- **TD-013**: Track search activity for `searches_performed` stat
+- **TD-014**: Add pagination to badge and knowledge list endpoints
+
+---
+
+### Task 30.7: Test Coverage Push
+
+Target: >80% overall coverage.
+
+**Focus areas:**
+- RBAC permission tests for all roles
+- E2E tests for new pages (groups, transfer, submissions, badges, knowledge)
+- Edge cases: concurrent access, large datasets, invalid inputs
+- Integration tests for LLM client with mocked responses
+
+```bash
+pytest tests/ -v --cov=paper_scraper --cov-report=html
+cd frontend && npm test -- --coverage
+npx playwright test
+```
+
+---
+
+### Task 30.8: Performance & Documentation
+
+- API response time benchmarks (target: <200ms list, <500ms scoring)
+- Database query optimization (EXPLAIN ANALYZE on slow queries)
+- OpenAPI documentation review
+- Update CLAUDE.md with new patterns
+
+---
+
+## Cross-Sprint Technical Debt Reference
+
+All items below have been assigned to specific sprints. This table serves as a quick-reference index.
+
+### Backend Technical Debt
+
+| ID | Area | Priority | Assigned Sprint | Description |
+|----|------|----------|-----------------|-------------|
+| **TD-001** | Transaction management | LOW | Sprint 30 | Standardize `flush()` vs `commit()` patterns |
+| **TD-002** | Analytics `created_by_id` | MEDIUM | Sprint 30 | Add `created_by_id` column to Papers table |
+| **TD-003** | Pipeline stage stats | LOW | Sprint 30 | Implement `avg_time_per_stage` calculation |
+| **TD-004** | Submission file storage | HIGH | **Sprint 20** | Persist uploads to MinIO/S3 |
+| **TD-005** | Test infrastructure | MEDIUM | Sprint 30 | Migrate tests to PostgreSQL (testcontainers) |
+| **TD-006** | Transfer migration | HIGH | **Sprint 20** | Create Alembic migration for transfer module |
+| **TD-007** | Token blacklist in tests | LOW | Sprint 30 | Fix Redis-dependent test failures |
+| **TD-008** | Transfer resource storage | MEDIUM | **Sprint 20** | Implement file storage for transfer resources |
+| **TD-009** | Badge auto-award engine | MEDIUM | Sprint 24 | Event-driven badge awarding via arq |
+| **TD-010** | Knowledge AI integration | MEDIUM | Sprint 24 | Inject knowledge sources into scoring prompts |
+| **TD-011** | Badge stats optimization | LOW | Sprint 30 | Replace 7 sequential COUNT queries with CTE |
+| **TD-012** | Custom org badges | LOW | Sprint 30 | Organization-level custom badge definitions |
+| **TD-013** | Search activity tracking | LOW | Sprint 30 | Track searches for badge criteria |
+| **TD-014** | Pagination gaps | LOW | Sprint 30 | Add pagination to badge/knowledge endpoints |
+
+### AI/Scoring Enhancements
+
+| ID | Area | Priority | Assigned Sprint | Description |
+|----|------|----------|-----------------|-------------|
+| **AI-001** | Group member suggestions | HIGH | Sprint 24 | Embedding-based similarity for `suggest_members()` |
+| **AI-002** | Submission similar papers | MEDIUM | Sprint 24 | pgvector similar papers for submission analysis |
+| **AI-003** | Team Readiness dimension | MEDIUM | Sprint 23 | 6th scoring dimension using author metrics |
+| **AI-004** | Transfer next-steps AI | MEDIUM | Sprint 24 | Enhanced conversation-aware AI suggestions |
+| **AI-005** | Knowledge-enhanced scoring | LOW | Sprint 24 | Knowledge sources in scoring prompts |
+
+### Security Enhancements
+
+| ID | Area | Priority | Assigned Sprint | Description |
+|----|------|----------|-----------------|-------------|
+| **SEC-F1** | Granular RBAC | HIGH | Sprint 22 | Per-module role-based permission checks |
+| **SEC-F2** | CSV injection protection | MEDIUM | Sprint 22 | Sanitize CSV exports |
+| **SEC-F3** | Audit logging coverage | MEDIUM | Sprint 22 | Audit events for all Phase 4 modules |
 
 ---
 
 ## Feature Complete Checklist
 
-After Sprint 22, verify:
+After Sprint 30, verify:
 
-### Core Features
+### Core Features (Phases 1-3)
 - [x] Paper ingestion (DOI, OpenAlex, PubMed, arXiv, PDF)
-- [x] 6-dimension AI scoring
-- [x] KanBan project management
+- [x] 5-dimension AI scoring
+- [x] KanBan project management with drag-and-drop
 - [x] Full-text + semantic search
-- [x] Author intelligence
-- [x] Alert system
+- [x] Author intelligence + CRM
+- [x] Alert system + saved searches
 
-### Lovable Parity (Phase 4)
-- [ ] Researcher groups with AI suggestions
-- [ ] Technology transfer conversations
-- [ ] Research submission portal
-- [ ] Badge/gamification system
-- [ ] Knowledge management
+### Lovable Parity - Backend (Phase 4)
+- [x] Researcher groups (backend)
+- [x] Technology transfer conversations (backend)
+- [x] Research submission portal (backend)
+- [x] Badge/gamification system (backend)
+- [x] Knowledge management (backend)
 
-### Advanced Features (Phase 5)
-- [ ] Multi-model AI configuration
-- [ ] Usage/cost tracking
+### Stabilization & Frontend (Phase 5)
+- [ ] Transfer module Alembic migration (TD-006)
+- [ ] File storage for submissions/transfer (TD-004, TD-008)
+- [ ] Frontend pages: Groups, Transfer, Submissions, Badges, Knowledge
+- [ ] TanStack Query hooks for all new modules
+
+### Security & AI (Phase 6)
+- [ ] Granular RBAC permissions system
+- [ ] Audit logging for all modules
+- [ ] CSV injection protection
+- [ ] 6-dimension scoring (Team Readiness)
+- [ ] Innovation Radar chart component
+- [ ] Model configuration + usage tracking
+- [ ] Model Settings UI
+- [ ] Embedding-based group suggestions
+- [ ] Badge auto-award engine
+- [ ] Knowledge-enhanced scoring
+
+### Platform & DX (Phase 7)
 - [ ] API key management
 - [ ] Webhook integrations
 - [ ] Repository source management
-- [ ] Enhanced compliance/audit
-- [ ] Granular RBAC
+- [ ] Developer Settings page
+- [ ] Command palette (Cmd+K)
+- [ ] Global keyboard shortcuts
+- [ ] Notification center / alert inbox
+- [ ] Search result preview panel
+- [ ] Celebration animations
+- [ ] Innovation funnel analytics
+- [ ] Benchmark comparisons
+- [ ] Scheduled reports
+- [ ] Peer comparison charts
 
-### Quality
+### Enterprise Readiness (Phase 8)
+- [ ] Enhanced compliance dashboard
+- [ ] Data retention policies
+- [ ] Internationalization (EN, DE)
+- [ ] Organization branding
+- [ ] EPO OPS patent integration
+- [ ] Semantic Scholar integration
+- [ ] Transaction management standardized
+- [ ] Test infrastructure on PostgreSQL
 - [ ] Test coverage >80%
-- [ ] E2E tests for critical paths
-- [ ] API documentation complete
 - [ ] Performance targets met

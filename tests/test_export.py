@@ -128,6 +128,7 @@ class TestExportEndpoints:
         author = Author(
             name="John Smith",
             orcid="0000-0001-2345-6789",
+            organization_id=test_user.organization_id,
         )
         db_session.add(author)
         await db_session.flush()
@@ -334,7 +335,7 @@ class TestExportService:
         from paper_scraper.modules.export.service import ExportService
 
         # Create author
-        author = Author(name="Einstein Albert")
+        author = Author(name="Einstein Albert", organization_id=test_user.organization_id)
         db_session.add(author)
         await db_session.flush()
 

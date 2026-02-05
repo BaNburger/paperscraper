@@ -64,7 +64,7 @@ class TestSendEmail:
         result = await email_service.send_email(
             to="test@example.com",
             subject="Test Subject",
-            html="<p>Test content</p>",
+            html_content="<p>Test content</p>",
         )
 
         assert result["id"] == "skipped"
@@ -85,7 +85,7 @@ class TestSendEmail:
             result = await email_service.send_email(
                 to="test@example.com",
                 subject="Test Subject",
-                html="<p>Test content</p>",
+                html_content="<p>Test content</p>",
             )
 
             assert result == {"id": "email_123"}
@@ -108,8 +108,8 @@ class TestSendEmail:
             await email_service.send_email(
                 to="test@example.com",
                 subject="Test Subject",
-                html="<p>Test content</p>",
-                text="Test content",
+                html_content="<p>Test content</p>",
+                text_content="Test content",
             )
 
             # Verify text was included in payload
@@ -131,7 +131,7 @@ class TestSendEmail:
             await email_service.send_email(
                 to=["user1@example.com", "user2@example.com"],
                 subject="Test Subject",
-                html="<p>Test content</p>",
+                html_content="<p>Test content</p>",
             )
 
             call_args = mock_client.post.call_args
@@ -156,7 +156,7 @@ class TestSendEmail:
                 await email_service.send_email(
                     to="test@example.com",
                     subject="Test Subject",
-                    html="<p>Test content</p>",
+                    html_content="<p>Test content</p>",
                 )
 
             assert exc_info.value.recipient == "test@example.com"
@@ -188,8 +188,8 @@ class TestSendVerificationEmail:
         call_args = email_service.send_email.call_args
         assert call_args.kwargs["to"] == "test@example.com"
         assert "Verify" in call_args.kwargs["subject"]
-        assert "verification_token_123" in call_args.kwargs["html"]
-        assert "verification_token_123" in call_args.kwargs["text"]
+        assert "verification_token_123" in call_args.kwargs["html_content"]
+        assert "verification_token_123" in call_args.kwargs["text_content"]
 
     @pytest.mark.asyncio
     async def test_verification_email_contains_verify_url(self, email_service):
@@ -204,7 +204,7 @@ class TestSendVerificationEmail:
 
         call_args = email_service.send_email.call_args
         expected_url = "http://localhost:3000/verify-email?token=token123"
-        assert expected_url in call_args.kwargs["html"]
+        assert expected_url in call_args.kwargs["html_content"]
 
 
 # =============================================================================
@@ -232,7 +232,7 @@ class TestSendPasswordResetEmail:
         call_args = email_service.send_email.call_args
         assert call_args.kwargs["to"] == "test@example.com"
         assert "Reset" in call_args.kwargs["subject"]
-        assert "reset_token_123" in call_args.kwargs["html"]
+        assert "reset_token_123" in call_args.kwargs["html_content"]
 
     @pytest.mark.asyncio
     async def test_password_reset_email_contains_reset_url(self, email_service):
@@ -247,7 +247,7 @@ class TestSendPasswordResetEmail:
 
         call_args = email_service.send_email.call_args
         expected_url = "http://localhost:3000/reset-password?token=reset123"
-        assert expected_url in call_args.kwargs["html"]
+        assert expected_url in call_args.kwargs["html_content"]
 
 
 # =============================================================================
@@ -277,9 +277,9 @@ class TestSendTeamInviteEmail:
         call_args = email_service.send_email.call_args
         assert call_args.kwargs["to"] == "newuser@example.com"
         assert "Acme Corp" in call_args.kwargs["subject"]
-        assert "John Admin" in call_args.kwargs["html"]
-        assert "Acme Corp" in call_args.kwargs["html"]
-        assert "invite_token_123" in call_args.kwargs["html"]
+        assert "John Admin" in call_args.kwargs["html_content"]
+        assert "Acme Corp" in call_args.kwargs["html_content"]
+        assert "invite_token_123" in call_args.kwargs["html_content"]
 
     @pytest.mark.asyncio
     async def test_team_invite_email_contains_invite_url(self, email_service):
@@ -296,7 +296,7 @@ class TestSendTeamInviteEmail:
 
         call_args = email_service.send_email.call_args
         expected_url = "http://localhost:3000/accept-invite?token=invite123"
-        assert expected_url in call_args.kwargs["html"]
+        assert expected_url in call_args.kwargs["html_content"]
 
 
 # =============================================================================
@@ -324,7 +324,7 @@ class TestSendWelcomeEmail:
         call_args = email_service.send_email.call_args
         assert call_args.kwargs["to"] == "newuser@example.com"
         assert "Welcome" in call_args.kwargs["subject"]
-        assert "Jane" in call_args.kwargs["html"]
+        assert "Jane" in call_args.kwargs["html_content"]
 
     @pytest.mark.asyncio
     async def test_welcome_email_without_name(self, email_service):
@@ -338,7 +338,7 @@ class TestSendWelcomeEmail:
 
         call_args = email_service.send_email.call_args
         # Should still work without name
-        assert "Hi" in call_args.kwargs["html"]
+        assert "Hi" in call_args.kwargs["html_content"]
 
     @pytest.mark.asyncio
     async def test_welcome_email_contains_dashboard_url(self, email_service):
@@ -353,7 +353,7 @@ class TestSendWelcomeEmail:
 
         call_args = email_service.send_email.call_args
         expected_url = "http://localhost:3000/dashboard"
-        assert expected_url in call_args.kwargs["html"]
+        assert expected_url in call_args.kwargs["html_content"]
 
 
 # =============================================================================
@@ -375,9 +375,9 @@ class TestEmailContent:
         )
 
         call_args = email_service.send_email.call_args
-        assert "html" in call_args.kwargs
-        assert "text" in call_args.kwargs
-        assert "<html>" in call_args.kwargs["html"]
+        assert "html_content" in call_args.kwargs
+        assert "text_content" in call_args.kwargs
+        assert "<html>" in call_args.kwargs["html_content"]
 
     @pytest.mark.asyncio
     async def test_password_reset_email_has_security_notice(self, email_service):
@@ -390,8 +390,8 @@ class TestEmailContent:
         )
 
         call_args = email_service.send_email.call_args
-        assert "Security notice" in call_args.kwargs["html"]
-        assert "Security notice" in call_args.kwargs["text"]
+        assert "Security notice" in call_args.kwargs["html_content"]
+        assert "Security notice" in call_args.kwargs["text_content"]
 
     @pytest.mark.asyncio
     async def test_invite_email_expiration_notice(self, email_service):
@@ -406,7 +406,7 @@ class TestEmailContent:
         )
 
         call_args = email_service.send_email.call_args
-        assert "7 days" in call_args.kwargs["html"]
+        assert "7 days" in call_args.kwargs["html_content"]
 
 
 # =============================================================================

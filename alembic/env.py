@@ -50,6 +50,26 @@ try:
 except ImportError:
     pass
 
+try:
+    from paper_scraper.modules.groups.models import ResearcherGroup, GroupMember  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    from paper_scraper.modules.transfer.models import (  # noqa: F401
+        TransferConversation, ConversationMessage, ConversationResource,
+        StageChange, MessageTemplate,
+    )
+except ImportError:
+    pass
+
+try:
+    from paper_scraper.modules.submissions.models import (  # noqa: F401
+        ResearchSubmission, SubmissionAttachment, SubmissionScore,
+    )
+except ImportError:
+    pass
+
 # Alembic Config object
 config = context.config
 

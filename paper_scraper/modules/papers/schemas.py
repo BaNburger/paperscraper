@@ -116,7 +116,7 @@ class PaperListResponse(BaseModel):
 class IngestDOIRequest(BaseModel):
     """Request to ingest paper by DOI."""
 
-    doi: str = Field(..., description="DOI of the paper to import")
+    doi: str = Field(..., min_length=1, description="DOI of the paper to import")
 
 
 class IngestOpenAlexRequest(BaseModel):

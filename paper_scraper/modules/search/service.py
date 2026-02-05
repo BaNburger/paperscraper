@@ -327,8 +327,8 @@ class SearchService:
             except Exception as e:
                 failed += 1
                 errors.append(f"Paper {paper.id}: {str(e)[:100]}")
-                # Rollback to clear any dirty state from failed operations
-                await self.db.rollback()
+                # No rollback needed: if generate_paper_embedding raises,
+                # paper.embedding was never assigned so session has no dirty state.
 
         # Final commit for remaining papers
         if succeeded % batch_size != 0:
