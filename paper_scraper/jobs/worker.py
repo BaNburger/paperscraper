@@ -23,6 +23,17 @@ from paper_scraper.jobs.scoring import (
     score_papers_batch_task,
 )
 from paper_scraper.jobs.search import backfill_embeddings_task
+from paper_scraper.jobs.webhooks import dispatch_webhook_task
+from paper_scraper.jobs.repository_sync import (
+    sync_repository_source_task,
+    run_scheduled_syncs_task,
+)
+from paper_scraper.jobs.reports import (
+    process_daily_reports_task,
+    process_weekly_reports_task,
+    process_monthly_reports_task,
+    run_single_report_task,
+)
 
 
 async def startup(ctx: dict[str, Any]) -> None:
@@ -97,6 +108,13 @@ class WorkerSettings:
         process_immediate_alert_task,
         check_and_award_badges_task,
         batch_check_badges_task,
+        dispatch_webhook_task,
+        sync_repository_source_task,
+        run_scheduled_syncs_task,
+        process_daily_reports_task,
+        process_weekly_reports_task,
+        process_monthly_reports_task,
+        run_single_report_task,
     ]
 
     # Cron jobs for scheduled tasks
@@ -105,6 +123,14 @@ class WorkerSettings:
         arq.cron(process_daily_alerts_task, hour=6, minute=0),
         # Weekly alerts on Monday at 6:00 AM UTC
         arq.cron(process_weekly_alerts_task, weekday=0, hour=6, minute=0),
+        # Repository syncs every 6 hours
+        arq.cron(run_scheduled_syncs_task, hour={0, 6, 12, 18}, minute=0),
+        # Daily reports at 7:00 AM UTC
+        arq.cron(process_daily_reports_task, hour=7, minute=0),
+        # Weekly reports on Monday at 7:30 AM UTC
+        arq.cron(process_weekly_reports_task, weekday=0, hour=7, minute=30),
+        # Monthly reports on 1st of month at 8:00 AM UTC
+        arq.cron(process_monthly_reports_task, day=1, hour=8, minute=0),
     ]
 
     # Redis connection settings

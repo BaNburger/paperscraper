@@ -216,3 +216,108 @@ class TestAnalyticsEndpoints:
 
         response = await client.get("/api/v1/analytics/papers")
         assert response.status_code == 401
+
+
+class TestFunnelEndpoint:
+    """Test innovation funnel analytics endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_get_funnel_empty(
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+        test_user: User,
+    ):
+        """Test funnel endpoint with no data."""
+        response = await client.get("/api/v1/analytics/funnel", headers=auth_headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert "stages" in data
+        assert isinstance(data["stages"], list)
+        # Should have all 5 funnel stages even with no data
+        assert len(data["stages"]) == 5
+        stage_names = [s["stage"] for s in data["stages"]]
+        assert "imported" in stage_names
+        assert "scored" in stage_names
+        assert "in_pipeline" in stage_names
+        assert "contacted" in stage_names
+        assert "transferred" in stage_names
+
+    @pytest.mark.asyncio
+    async def test_get_funnel_with_papers(
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+        db_session: AsyncSession,
+        test_user: User,
+    ):
+        """Test funnel shows correct paper counts at each stage."""
+        # Create papers
+        papers = []
+        for i in range(5):
+            paper = Paper(
+                organization_id=test_user.organization_id,
+                title=f"Funnel Paper {i}",
+                source=PaperSource.MANUAL,
+            )
+            papers.append(paper)
+            db_session.add(paper)
+        await db_session.flush()
+
+        # Add scores to 3 papers
+        for i in range(3):
+            score = PaperScore(
+                paper_id=papers[i].id,
+                organization_id=test_user.organization_id,
+                novelty=7.0,
+                ip_potential=6.5,
+                marketability=7.0,
+                feasibility=8.0,
+                commercialization=6.0,
+                overall_score=6.9,
+                overall_confidence=0.8,
+                model_version="test",
+            )
+            db_session.add(score)
+        await db_session.flush()
+
+        response = await client.get("/api/v1/analytics/funnel", headers=auth_headers)
+        assert response.status_code == 200
+        data = response.json()
+
+        stages = {s["stage"]: s["count"] for s in data["stages"]}
+        assert stages["imported"] == 5
+        assert stages["scored"] == 3
+
+    @pytest.mark.asyncio
+    async def test_get_funnel_with_date_filter(
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+        test_user: User,
+    ):
+        """Test funnel with date range parameters."""
+        response = await client.get(
+            "/api/v1/analytics/funnel",
+            params={"start_date": "2024-01-01", "end_date": "2024-12-31"},
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+
+
+class TestBenchmarksEndpoint:
+    """Test benchmarks analytics endpoint.
+
+    Note: Benchmarks use PostgreSQL-specific aggregate functions that don't
+    work in SQLite tests. We mark these as skip for SQLite and test the
+    basic authentication only.
+    """
+
+    @pytest.mark.asyncio
+    async def test_get_benchmarks_requires_auth(
+        self,
+        client: AsyncClient,
+    ):
+        """Test benchmarks endpoint requires authentication."""
+        response = await client.get("/api/v1/analytics/benchmarks")
+        assert response.status_code == 401

@@ -19,6 +19,8 @@ from paper_scraper.modules.submissions.router import router as submissions_route
 from paper_scraper.modules.badges.router import router as badges_router
 from paper_scraper.modules.knowledge.router import router as knowledge_router
 from paper_scraper.modules.model_settings.router import router as model_settings_router
+from paper_scraper.modules.developer.router import router as developer_router
+from paper_scraper.modules.reports.router import router as reports_router
 
 api_router = APIRouter()
 
@@ -40,3 +42,5 @@ api_router.include_router(submissions_router, prefix="/submissions", tags=["Subm
 api_router.include_router(badges_router, prefix="/badges", tags=["Badges"])
 api_router.include_router(knowledge_router, prefix="/knowledge", tags=["Knowledge"])
 api_router.include_router(model_settings_router, prefix="/settings", tags=["Model Settings"])
+api_router.include_router(developer_router, prefix="/developer", tags=["Developer"])
+api_router.include_router(reports_router, prefix="/reports", tags=["Reports"])

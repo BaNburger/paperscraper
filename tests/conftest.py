@@ -3,6 +3,7 @@
 import asyncio
 from collections.abc import AsyncGenerator, Generator
 from typing import Any
+from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
@@ -32,19 +33,35 @@ from paper_scraper.modules.submissions.models import (  # noqa: F401
 from paper_scraper.modules.badges.models import Badge, UserBadge  # noqa: F401
 from paper_scraper.modules.knowledge.models import KnowledgeSource  # noqa: F401
 from paper_scraper.modules.model_settings.models import ModelConfiguration, ModelUsage  # noqa: F401
+from paper_scraper.modules.developer.models import APIKey, Webhook, RepositorySource  # noqa: F401
+from paper_scraper.modules.reports.models import ScheduledReport  # noqa: F401
 from paper_scraper.core.security import get_password_hash
 
-# Register SQLite type compiler for PostgreSQL JSONB so tests can run
+# Register SQLite type compiler for PostgreSQL JSONB and ARRAY so tests can run
 # against in-memory SQLite instead of requiring a PostgreSQL instance.
 from sqlalchemy.dialects.sqlite.base import SQLiteTypeCompiler
 
 if not hasattr(SQLiteTypeCompiler, "visit_JSONB"):
     SQLiteTypeCompiler.visit_JSONB = SQLiteTypeCompiler.visit_JSON
 
+# ARRAY -> TEXT (store as JSON text)
+if not hasattr(SQLiteTypeCompiler, "visit_ARRAY"):
+    SQLiteTypeCompiler.visit_ARRAY = lambda self, type_, **kw: "TEXT"
+
 
 # Test database URL - uses in-memory SQLite for fast tests
 # Note: Some PostgreSQL-specific features won't work in tests
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+
+
+# Mock the token blacklist singleton to avoid Redis dependency in tests
+# This must be done at module level before any imports that use token_blacklist
+from paper_scraper.core import token_blacklist as tb_module
+
+tb_module.token_blacklist.is_token_blacklisted = AsyncMock(return_value=False)
+tb_module.token_blacklist.is_token_invalid_for_user = AsyncMock(return_value=False)
+tb_module.token_blacklist.blacklist_token = AsyncMock(return_value=True)
+tb_module.token_blacklist.invalidate_user_tokens = AsyncMock(return_value=True)
 
 
 @pytest.fixture(scope="session")

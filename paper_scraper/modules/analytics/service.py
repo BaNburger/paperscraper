@@ -7,7 +7,11 @@ from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.modules.analytics.schemas import (
+    BenchmarkMetric,
+    BenchmarkResponse,
     DashboardSummaryResponse,
+    FunnelResponse,
+    FunnelStage,
     PaperAnalyticsResponse,
     PaperImportTrends,
     ScoreDistributionBucket,
@@ -18,11 +22,12 @@ from paper_scraper.modules.analytics.schemas import (
     TopPaperResponse,
     UserActivityStats,
 )
-from paper_scraper.modules.auth.models import User
+from paper_scraper.modules.auth.models import Organization, User
 from paper_scraper.modules.papers.models import Paper
 from paper_scraper.modules.papers.notes import PaperNote
-from paper_scraper.modules.projects.models import Project
+from paper_scraper.modules.projects.models import PaperProjectStatus, Project
 from paper_scraper.modules.scoring.models import PaperScore
+from paper_scraper.modules.transfer.models import TransferConversation, TransferStage
 
 # Standard time periods for analytics
 DAYS_IN_WEEK = 7
@@ -437,3 +442,268 @@ class AnalyticsService:
             TimeSeriesDataPoint(date=d, count=c)
             for d, c in sorted(monthly.items())
         ]
+
+    async def get_funnel_analytics(
+        self,
+        organization_id: UUID,
+        project_id: UUID | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> FunnelResponse:
+        """Get innovation funnel analytics.
+
+        Tracks papers through the stages:
+        Imported -> Screened -> Scored -> In Pipeline -> Contacted -> Transferred
+
+        Args:
+            organization_id: Organization to analyze.
+            project_id: Optional project filter.
+            start_date: Optional start date filter.
+            end_date: Optional end date filter.
+
+        Returns:
+            FunnelResponse with stage counts and conversion rates.
+        """
+        now = datetime.now(timezone.utc)
+
+        # Base paper query with optional date filter
+        paper_filters = [Paper.organization_id == organization_id]
+        if start_date:
+            paper_filters.append(Paper.created_at >= datetime.combine(start_date, datetime.min.time()))
+        if end_date:
+            paper_filters.append(Paper.created_at <= datetime.combine(end_date, datetime.max.time()))
+
+        # 1. Total papers imported
+        total_imported = await self._count_records(
+            select(func.count(Paper.id)).where(*paper_filters)
+        )
+
+        # 2. Papers with scores (screened/evaluated)
+        scored_query = (
+            select(func.count(func.distinct(PaperScore.paper_id)))
+            .select_from(PaperScore)
+            .join(Paper, Paper.id == PaperScore.paper_id)
+            .where(PaperScore.organization_id == organization_id)
+        )
+        if start_date:
+            scored_query = scored_query.where(PaperScore.created_at >= datetime.combine(start_date, datetime.min.time()))
+        if end_date:
+            scored_query = scored_query.where(PaperScore.created_at <= datetime.combine(end_date, datetime.max.time()))
+        total_scored = await self._count_records(scored_query)
+
+        # 3. Papers in pipeline (any project stage beyond inbox)
+        pipeline_query = (
+            select(func.count(func.distinct(PaperProjectStatus.paper_id)))
+            .where(PaperProjectStatus.stage.notin_(["inbox", "rejected", "archived"]))
+        )
+        if project_id:
+            pipeline_query = pipeline_query.where(PaperProjectStatus.project_id == project_id)
+        else:
+            pipeline_query = pipeline_query.join(
+                Project, Project.id == PaperProjectStatus.project_id
+            ).where(Project.organization_id == organization_id)
+        total_in_pipeline = await self._count_records(pipeline_query)
+
+        # 4. Papers marked as contacted
+        contacted_query = (
+            select(func.count(func.distinct(PaperProjectStatus.paper_id)))
+            .where(PaperProjectStatus.stage == "contacted")
+        )
+        if project_id:
+            contacted_query = contacted_query.where(PaperProjectStatus.project_id == project_id)
+        else:
+            contacted_query = contacted_query.join(
+                Project, Project.id == PaperProjectStatus.project_id
+            ).where(Project.organization_id == organization_id)
+        total_contacted = await self._count_records(contacted_query)
+
+        # 5. Transferred (conversations closed_won)
+        transferred_query = select(func.count(TransferConversation.id)).where(
+            TransferConversation.organization_id == organization_id,
+            TransferConversation.stage == TransferStage.CLOSED_WON,
+        )
+        if start_date:
+            transferred_query = transferred_query.where(
+                TransferConversation.created_at >= datetime.combine(start_date, datetime.min.time())
+            )
+        if end_date:
+            transferred_query = transferred_query.where(
+                TransferConversation.created_at <= datetime.combine(end_date, datetime.max.time())
+            )
+        total_transferred = await self._count_records(transferred_query)
+
+        # Build funnel stages
+        stages = [
+            FunnelStage(
+                stage="imported",
+                label="Papers Imported",
+                count=total_imported,
+                percentage=100.0 if total_imported > 0 else 0.0,
+            ),
+            FunnelStage(
+                stage="scored",
+                label="Scored",
+                count=total_scored,
+                percentage=round(total_scored / total_imported * 100, 1) if total_imported > 0 else 0.0,
+            ),
+            FunnelStage(
+                stage="in_pipeline",
+                label="In Pipeline",
+                count=total_in_pipeline,
+                percentage=round(total_in_pipeline / total_imported * 100, 1) if total_imported > 0 else 0.0,
+            ),
+            FunnelStage(
+                stage="contacted",
+                label="Contacted",
+                count=total_contacted,
+                percentage=round(total_contacted / total_imported * 100, 1) if total_imported > 0 else 0.0,
+            ),
+            FunnelStage(
+                stage="transferred",
+                label="Transferred",
+                count=total_transferred,
+                percentage=round(total_transferred / total_imported * 100, 1) if total_imported > 0 else 0.0,
+            ),
+        ]
+
+        # Calculate conversion rates between stages
+        conversion_rates = {
+            "imported_to_scored": round(total_scored / total_imported * 100, 1) if total_imported > 0 else 0.0,
+            "scored_to_pipeline": round(total_in_pipeline / total_scored * 100, 1) if total_scored > 0 else 0.0,
+            "pipeline_to_contacted": round(total_contacted / total_in_pipeline * 100, 1) if total_in_pipeline > 0 else 0.0,
+            "contacted_to_transferred": round(total_transferred / total_contacted * 100, 1) if total_contacted > 0 else 0.0,
+            "overall": round(total_transferred / total_imported * 100, 1) if total_imported > 0 else 0.0,
+        }
+
+        return FunnelResponse(
+            stages=stages,
+            total_papers=total_imported,
+            conversion_rates=conversion_rates,
+            period_start=start_date,
+            period_end=end_date,
+            project_id=project_id,
+        )
+
+    async def get_benchmarks(self, organization_id: UUID) -> BenchmarkResponse:
+        """Get benchmark comparisons against aggregated platform metrics.
+
+        Compares the organization's metrics against anonymized averages
+        from all organizations.
+
+        Args:
+            organization_id: Organization to analyze.
+
+        Returns:
+            BenchmarkResponse with comparison metrics.
+        """
+        now = datetime.now(timezone.utc)
+        month_ago = now - timedelta(days=DAYS_IN_MONTH)
+
+        # Count all organizations for benchmark data
+        total_orgs = await self._count_records(select(func.count(Organization.id)))
+
+        # Org metrics
+        org_papers_this_month = await self._count_records(
+            select(func.count(Paper.id)).where(
+                Paper.organization_id == organization_id,
+                Paper.created_at >= month_ago,
+            )
+        )
+        org_total_papers = await self._count_records(
+            select(func.count(Paper.id)).where(Paper.organization_id == organization_id)
+        )
+        org_scored_papers = await self._count_records(
+            select(func.count(func.distinct(PaperScore.paper_id))).where(
+                PaperScore.organization_id == organization_id
+            )
+        )
+        org_scoring_rate = round(org_scored_papers / org_total_papers * 100, 1) if org_total_papers > 0 else 0.0
+
+        # Org pipeline conversion (papers that reached contacted stage)
+        org_contacted = await self._count_records(
+            select(func.count(func.distinct(PaperProjectStatus.paper_id)))
+            .join(Project, Project.id == PaperProjectStatus.project_id)
+            .where(
+                Project.organization_id == organization_id,
+                PaperProjectStatus.stage == "contacted",
+            )
+        )
+        org_conversion_rate = round(org_contacted / org_total_papers * 100, 1) if org_total_papers > 0 else 0.0
+
+        # Platform-wide benchmarks (average per org)
+        platform_papers_month_result = await self.db.execute(
+            select(func.count(Paper.id) / func.nullif(func.count(func.distinct(Paper.organization_id)), 0))
+            .where(Paper.created_at >= month_ago)
+        )
+        platform_papers_month = float(platform_papers_month_result.scalar() or 0)
+
+        platform_scoring_result = await self.db.execute(
+            select(
+                func.count(func.distinct(PaperScore.paper_id)).label("scored"),
+                func.count(func.distinct(Paper.id)).label("total"),
+            )
+            .select_from(Paper)
+            .outerjoin(PaperScore, Paper.id == PaperScore.paper_id)
+        )
+        platform_row = platform_scoring_result.one()
+        platform_scoring_rate = round(platform_row.scored / platform_row.total * 100, 1) if platform_row.total > 0 else 0.0
+
+        # Platform conversion rate
+        platform_contacted_result = await self.db.execute(
+            select(func.count(func.distinct(PaperProjectStatus.paper_id)))
+            .where(PaperProjectStatus.stage == "contacted")
+        )
+        platform_contacted = platform_contacted_result.scalar() or 0
+        platform_total_papers = await self._count_records(select(func.count(Paper.id)))
+        platform_conversion_rate = round(platform_contacted / platform_total_papers * 100, 1) if platform_total_papers > 0 else 0.0
+
+        # Build metrics list
+        metrics = [
+            BenchmarkMetric(
+                metric="papers_per_month",
+                label="Papers per Month",
+                org_value=float(org_papers_this_month),
+                benchmark_value=round(platform_papers_month, 1),
+                higher_is_better=True,
+            ),
+            BenchmarkMetric(
+                metric="scoring_velocity",
+                label="Scoring Rate",
+                org_value=org_scoring_rate,
+                benchmark_value=platform_scoring_rate,
+                unit="%",
+                higher_is_better=True,
+            ),
+            BenchmarkMetric(
+                metric="pipeline_conversion",
+                label="Pipeline Conversion",
+                org_value=org_conversion_rate,
+                benchmark_value=platform_conversion_rate,
+                unit="%",
+                higher_is_better=True,
+            ),
+        ]
+
+        # Calculate org percentile (simple ranking)
+        # Count organizations that have fewer papers than the current org
+        paper_counts_subquery = (
+            select(
+                Paper.organization_id.label("org_id"),
+                func.count(Paper.id).label("paper_count")
+            )
+            .group_by(Paper.organization_id)
+            .subquery()
+        )
+        orgs_with_fewer_result = await self.db.execute(
+            select(func.count(paper_counts_subquery.c.org_id)).where(
+                paper_counts_subquery.c.paper_count < org_total_papers
+            )
+        )
+        orgs_with_fewer_papers = orgs_with_fewer_result.scalar() or 0
+        org_percentile = round(orgs_with_fewer_papers / total_orgs * 100, 1) if total_orgs > 0 else 50.0
+
+        return BenchmarkResponse(
+            metrics=metrics,
+            org_percentile=org_percentile,
+            benchmark_data_points=total_orgs,
+        )

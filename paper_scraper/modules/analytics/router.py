@@ -1,6 +1,8 @@
 """FastAPI router for analytics endpoints."""
 
+from datetime import date
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,7 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from paper_scraper.api.dependencies import CurrentUser
 from paper_scraper.core.database import get_db
 from paper_scraper.modules.analytics.schemas import (
+    BenchmarkResponse,
     DashboardSummaryResponse,
+    FunnelResponse,
     PaperAnalyticsResponse,
     TeamOverviewResponse,
 )
@@ -74,3 +78,49 @@ async def get_paper_analytics(
     return await analytics_service.get_paper_analytics(
         current_user.organization_id, days=days
     )
+
+
+@router.get(
+    "/funnel",
+    response_model=FunnelResponse,
+    summary="Get innovation funnel analytics",
+)
+async def get_funnel_analytics(
+    current_user: CurrentUser,
+    analytics_service: Annotated[AnalyticsService, Depends(get_analytics_service)],
+    project_id: UUID | None = Query(default=None, description="Filter by project"),
+    start_date: date | None = Query(default=None, description="Start date filter"),
+    end_date: date | None = Query(default=None, description="End date filter"),
+) -> FunnelResponse:
+    """Get innovation funnel analytics.
+
+    Shows the progression of papers through stages:
+    Imported -> Scored -> In Pipeline -> Contacted -> Transferred
+
+    Returns stage counts and conversion rates.
+    """
+    return await analytics_service.get_funnel_analytics(
+        organization_id=current_user.organization_id,
+        project_id=project_id,
+        start_date=start_date,
+        end_date=end_date,
+    )
+
+
+@router.get(
+    "/benchmarks",
+    response_model=BenchmarkResponse,
+    summary="Get benchmark comparisons",
+)
+async def get_benchmarks(
+    current_user: CurrentUser,
+    analytics_service: Annotated[AnalyticsService, Depends(get_analytics_service)],
+) -> BenchmarkResponse:
+    """Get benchmark comparisons against platform averages.
+
+    Compares organization metrics against anonymized aggregates from all organizations:
+    - Papers per month
+    - Scoring velocity (% of papers scored)
+    - Pipeline conversion rate (% reaching contacted stage)
+    """
+    return await analytics_service.get_benchmarks(current_user.organization_id)

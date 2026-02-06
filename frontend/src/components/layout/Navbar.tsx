@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTheme } from '@/contexts/ThemeContext'
-import { FileText, LogOut, User, Settings, Building2, ChevronDown, Sun, Moon, Monitor } from 'lucide-react'
+import { NotificationCenter } from '@/components/NotificationCenter'
+import { FileText, LogOut, User, Settings, Building2, ChevronDown, Sun, Moon, Monitor, Command } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 type Theme = 'light' | 'dark' | 'system'
@@ -56,15 +57,40 @@ export function Navbar() {
     logout()
   }
 
+  function openCommandPalette(): void {
+    // Dispatch Cmd+K event to open command palette
+    const event = new KeyboardEvent('keydown', {
+      key: 'k',
+      metaKey: true,
+      bubbles: true,
+    })
+    document.dispatchEvent(event)
+  }
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-14 items-center px-4">
         <Link to="/" className="flex items-center gap-2 font-semibold">
           <FileText className="h-6 w-6 text-primary" />
-          <span>Paper Scraper</span>
+          <span className="hidden sm:inline">Paper Scraper</span>
         </Link>
 
-        <div className="ml-auto flex items-center gap-4">
+        {/* Command Palette Hint */}
+        <button
+          onClick={openCommandPalette}
+          className="hidden md:flex items-center gap-2 ml-4 px-3 py-1.5 text-sm text-muted-foreground bg-muted/50 hover:bg-muted rounded-lg transition-colors"
+        >
+          <Command className="h-3.5 w-3.5" />
+          <span>Search...</span>
+          <kbd className="ml-2 px-1.5 py-0.5 text-[10px] font-mono bg-background rounded border">
+            ⌘K
+          </kbd>
+        </button>
+
+        <div className="ml-auto flex items-center gap-2">
+          {/* Notifications */}
+          {user && <NotificationCenter />}
+
           {/* Theme Toggle */}
           <div className="relative" ref={themeDropdownRef}>
             <button

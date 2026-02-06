@@ -1,0 +1,169 @@
+/* Command Palette Styles - cmdk */
+
+[cmdk-dialog] {
+  position: fixed;
+  z-index: 9999;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+[cmdk-overlay] {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 9998;
+}
+
+.cmdk-dialog {
+  width: 100%;
+  max-width: 640px;
+  background: hsl(var(--popover));
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  animation: dialog-enter 0.15s ease-out;
+}
+
+@keyframes dialog-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.cmdk-input {
+  width: 100%;
+  padding: 16px;
+  font-size: 16px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid hsl(var(--border));
+  color: hsl(var(--foreground));
+  outline: none;
+}
+
+.cmdk-input::placeholder {
+  color: hsl(var(--muted-foreground));
+}
+
+.cmdk-list {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.cmdk-empty {
+  padding: 32px;
+  text-align: center;
+  color: hsl(var(--muted-foreground));
+  font-size: 14px;
+}
+
+.cmdk-group {
+  margin-bottom: 8px;
+}
+
+.cmdk-group:last-child {
+  margin-bottom: 0;
+}
+
+[cmdk-group-heading] {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cmdk-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: hsl(var(--foreground));
+  transition: background-color 0.15s;
+}
+
+.cmdk-item[data-selected='true'],
+.cmdk-item:hover {
+  background: hsl(var(--accent));
+}
+
+.cmdk-item[data-disabled='true'] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.cmdk-icon {
+  width: 18px;
+  height: 18px;
+  color: hsl(var(--muted-foreground));
+  flex-shrink: 0;
+}
+
+.cmdk-item[data-selected='true'] .cmdk-icon,
+.cmdk-item:hover .cmdk-icon {
+  color: hsl(var(--foreground));
+}
+
+.cmdk-item-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cmdk-badge {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  text-transform: capitalize;
+}
+
+.cmdk-shortcut {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-family: monospace;
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  border-radius: 4px;
+  border: 1px solid hsl(var(--border));
+}
+
+/* Dark mode adjustments */
+.dark .cmdk-dialog {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+/* Scrollbar styles */
+.cmdk-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.cmdk-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.cmdk-list::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted));
+  border-radius: 4px;
+}
+
+.cmdk-list::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.3);
+}

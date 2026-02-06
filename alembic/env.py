@@ -77,6 +77,18 @@ try:
 except ImportError:
     pass
 
+try:
+    from paper_scraper.modules.developer.models import (  # noqa: F401
+        APIKey, Webhook, RepositorySource,
+    )
+except ImportError:
+    pass
+
+try:
+    from paper_scraper.modules.reports.models import ScheduledReport  # noqa: F401
+except ImportError:
+    pass
+
 # Alembic Config object
 config = context.config
 

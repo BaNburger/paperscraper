@@ -1,4 +1,4 @@
-import { useBadges, useMyBadges, useUserStats, useCheckBadges } from '@/hooks'
+import { useBadges, useMyBadges, useUserStats, useCheckBadges, useCelebration } from '@/hooks'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -43,6 +43,7 @@ export function BadgesPage() {
   const { data: stats, isLoading: loadingStats } = useUserStats()
   const checkBadges = useCheckBadges()
   const { success, error: showError } = useToast()
+  const { celebrateWithMessage } = useCelebration()
 
   const isLoading = loadingBadges || loadingMyBadges || loadingStats
 
@@ -52,8 +53,14 @@ export function BadgesPage() {
     const previousCount = myBadges?.items.length || 0
     try {
       const result = await checkBadges.mutateAsync()
-      if (result.items.length > previousCount) {
-        success('New badges earned!', `You earned ${result.items.length - previousCount} new badge(s)!`)
+      const newBadgesCount = result.items.length - previousCount
+      if (newBadgesCount > 0) {
+        // Trigger celebration animation for new badges
+        celebrateWithMessage(
+          `New Badge${newBadgesCount > 1 ? 's' : ''} Earned!`,
+          `You earned ${newBadgesCount} new badge${newBadgesCount > 1 ? 's' : ''}!`,
+          { type: 'stars', duration: 4000 }
+        )
       } else {
         success('All caught up', 'No new badges to award.')
       }

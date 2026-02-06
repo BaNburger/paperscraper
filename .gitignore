@@ -161,10 +161,11 @@ logs/
 tmp/
 temp/
 
-# DevOps internal documentation (not for version control)
-DevOps/
+# Development-only folder (scripts, data, devops - local only)
+.dev/
 
-# Development data and analysis (bulk downloads, research)
+# Legacy folders (kept for backwards compatibility)
+DevOps/
 DevData/
 
 # Playwright

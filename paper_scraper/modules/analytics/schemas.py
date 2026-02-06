@@ -141,3 +141,52 @@ class DashboardSummaryResponse(BaseModel):
     # Trends
     import_trend: list[TimeSeriesDataPoint] = Field(default_factory=list)
     scoring_trend: list[TimeSeriesDataPoint] = Field(default_factory=list)
+
+
+# =============================================================================
+# Innovation Funnel
+# =============================================================================
+
+
+class FunnelStage(BaseModel):
+    """A stage in the innovation funnel."""
+
+    stage: str
+    label: str
+    count: int
+    percentage: float = Field(..., ge=0, le=100)
+
+
+class FunnelResponse(BaseModel):
+    """Innovation funnel analytics response."""
+
+    stages: list[FunnelStage] = Field(default_factory=list)
+    total_papers: int
+    conversion_rates: dict[str, float] = Field(default_factory=dict)
+    period_start: date | None = None
+    period_end: date | None = None
+    project_id: UUID | None = None
+
+
+# =============================================================================
+# Benchmarks
+# =============================================================================
+
+
+class BenchmarkMetric(BaseModel):
+    """A single benchmark metric comparison."""
+
+    metric: str
+    label: str
+    org_value: float
+    benchmark_value: float
+    unit: str = ""
+    higher_is_better: bool = True
+
+
+class BenchmarkResponse(BaseModel):
+    """Benchmark comparison response."""
+
+    metrics: list[BenchmarkMetric] = Field(default_factory=list)
+    org_percentile: float | None = None
+    benchmark_data_points: int = 0

@@ -28,6 +28,26 @@ export function usePaperAnalytics(days = 90) {
   })
 }
 
+export function useFunnelAnalytics(params?: {
+  project_id?: string
+  start_date?: string
+  end_date?: string
+}) {
+  return useQuery({
+    queryKey: ['analytics', 'funnel', params],
+    queryFn: () => analyticsApi.getFunnelAnalytics(params),
+    staleTime: ANALYTICS_STALE_TIME,
+  })
+}
+
+export function useBenchmarks() {
+  return useQuery({
+    queryKey: ['analytics', 'benchmarks'],
+    queryFn: () => analyticsApi.getBenchmarks(),
+    staleTime: ANALYTICS_STALE_TIME,
+  })
+}
+
 function getExportTimestamp(): string {
   return new Date().toISOString().slice(0, 10)
 }

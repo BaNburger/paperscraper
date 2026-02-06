@@ -12,21 +12,33 @@ const SIDEBAR_COLLAPSED_KEY = 'paper_scraper_sidebar_collapsed'
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(() => {
-    const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY)
-    return stored === 'true'
+    try {
+      const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY)
+      return stored === 'true'
+    } catch {
+      return false // Default when storage unavailable
+    }
   })
 
   const toggleSidebar = () => {
     setIsCollapsed((prev) => {
       const newValue = !prev
-      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(newValue))
+      try {
+        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(newValue))
+      } catch {
+        // Ignore storage errors (e.g., private browsing mode)
+      }
       return newValue
     })
   }
 
   const setCollapsed = (collapsed: boolean) => {
     setIsCollapsed(collapsed)
-    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed))
+    try {
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed))
+    } catch {
+      // Ignore storage errors
+    }
   }
 
   return (

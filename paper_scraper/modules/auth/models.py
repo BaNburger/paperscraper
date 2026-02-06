@@ -78,6 +78,21 @@ class Organization(Base):
         back_populates="organization",
         cascade="all, delete-orphan",
     )
+    api_keys: Mapped[list["APIKey"]] = relationship(
+        "APIKey",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+    )
+    webhooks: Mapped[list["Webhook"]] = relationship(
+        "Webhook",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+    )
+    repository_sources: Mapped[list["RepositorySource"]] = relationship(
+        "RepositorySource",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self) -> str:
         return f"<Organization {self.name} ({self.type.value})>"
@@ -155,6 +170,18 @@ class User(Base):
         "Organization",
         back_populates="users",
     )
+    api_keys: Mapped[list["APIKey"]] = relationship(
+        "APIKey",
+        back_populates="created_by",
+    )
+    webhooks: Mapped[list["Webhook"]] = relationship(
+        "Webhook",
+        back_populates="created_by",
+    )
+    repository_sources: Mapped[list["RepositorySource"]] = relationship(
+        "RepositorySource",
+        back_populates="created_by",
+    )
 
     def __repr__(self) -> str:
         return f"<User {self.email} ({self.role.value})>"
@@ -225,3 +252,11 @@ class TeamInvitation(Base):
 
     def __repr__(self) -> str:
         return f"<TeamInvitation {self.email} to {self.organization_id} ({self.status.value})>"
+
+
+# Forward references for developer module models
+from paper_scraper.modules.developer.models import (  # noqa: E402, F401
+    APIKey,
+    Webhook,
+    RepositorySource,
+)

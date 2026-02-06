@@ -484,6 +484,84 @@ export interface DashboardSummary {
   scoring_trend: TimeSeriesDataPoint[]
 }
 
+// Innovation Funnel types
+export interface FunnelStage {
+  stage: string
+  label: string
+  count: number
+  percentage: number
+}
+
+export interface FunnelAnalytics {
+  stages: FunnelStage[]
+  total_papers: number
+  conversion_rates: Record<string, number>
+  period_start: string | null
+  period_end: string | null
+  project_id: string | null
+}
+
+// Benchmark types
+export interface BenchmarkMetric {
+  metric: string
+  label: string
+  org_value: number
+  benchmark_value: number
+  unit: string
+  higher_is_better: boolean
+}
+
+export interface BenchmarkAnalytics {
+  metrics: BenchmarkMetric[]
+  org_percentile: number | null
+  benchmark_data_points: number
+}
+
+// Scheduled Reports types
+export type ReportType = 'dashboard_summary' | 'paper_trends' | 'team_activity'
+export type ReportFormat = 'pdf' | 'csv'
+export type ReportSchedule = 'daily' | 'weekly' | 'monthly'
+
+export interface ScheduledReport {
+  id: string
+  name: string
+  report_type: ReportType
+  schedule: ReportSchedule
+  recipients: string[]
+  filters: Record<string, unknown>
+  format: ReportFormat
+  is_active: boolean
+  last_sent_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ScheduledReportListResponse {
+  items: ScheduledReport[]
+  total: number
+  page: number
+  page_size: number
+}
+
+export interface CreateScheduledReportRequest {
+  name: string
+  report_type: ReportType
+  schedule: ReportSchedule
+  recipients: string[]
+  filters?: Record<string, unknown>
+  format?: ReportFormat
+  is_active?: boolean
+}
+
+export interface UpdateScheduledReportRequest {
+  name?: string
+  schedule?: ReportSchedule
+  recipients?: string[]
+  filters?: Record<string, unknown>
+  format?: ReportFormat
+  is_active?: boolean
+}
+
 // Export types
 export type ExportFormat = 'csv' | 'pdf' | 'bibtex'
 
@@ -1060,6 +1138,142 @@ export interface UsageAggregation {
   by_operation: Record<string, { requests: number; tokens: number; cost_usd: number }>
   by_model: Record<string, { requests: number; tokens: number; cost_usd: number }>
   by_day: Array<{ date: string; requests: number; tokens: number; cost_usd: number }>
+}
+
+// =============================================================================
+// Developer API types
+// =============================================================================
+
+export interface APIKey {
+  id: string
+  name: string
+  key_prefix: string
+  permissions: string[]
+  expires_at: string | null
+  last_used_at: string | null
+  is_active: boolean
+  created_at: string
+  created_by_id: string | null
+}
+
+export interface APIKeyCreated extends APIKey {
+  key: string
+}
+
+export interface APIKeyListResponse {
+  items: APIKey[]
+  total: number
+}
+
+export interface CreateAPIKeyRequest {
+  name: string
+  permissions?: string[]
+  expires_at?: string
+}
+
+export type WebhookEvent =
+  | 'paper.created'
+  | 'paper.updated'
+  | 'paper.deleted'
+  | 'paper.scored'
+  | 'submission.created'
+  | 'submission.reviewed'
+  | 'project.paper_moved'
+  | 'author.contacted'
+  | 'alert.triggered'
+
+export interface Webhook {
+  id: string
+  name: string
+  url: string
+  events: WebhookEvent[]
+  headers: Record<string, string>
+  is_active: boolean
+  last_triggered_at: string | null
+  failure_count: number
+  created_at: string
+  updated_at: string
+  created_by_id: string | null
+}
+
+export interface WebhookListResponse {
+  items: Webhook[]
+  total: number
+}
+
+export interface CreateWebhookRequest {
+  name: string
+  url: string
+  events: WebhookEvent[]
+  headers?: Record<string, string>
+}
+
+export interface UpdateWebhookRequest {
+  name?: string
+  url?: string
+  events?: WebhookEvent[]
+  headers?: Record<string, string>
+  is_active?: boolean
+}
+
+export interface WebhookTestResult {
+  success: boolean
+  status_code: number | null
+  response_time_ms: number | null
+  error: string | null
+}
+
+export type RepositoryProvider =
+  | 'openalex'
+  | 'pubmed'
+  | 'arxiv'
+  | 'crossref'
+  | 'semantic_scholar'
+
+export interface RepositorySourceConfig {
+  query?: string
+  filters?: Record<string, string>
+  max_results?: number
+}
+
+export interface RepositorySource {
+  id: string
+  name: string
+  provider: RepositoryProvider
+  config: RepositorySourceConfig
+  schedule: string | null
+  is_active: boolean
+  last_sync_at: string | null
+  last_sync_result: Record<string, unknown> | null
+  papers_synced: number
+  created_at: string
+  updated_at: string
+  created_by_id: string | null
+}
+
+export interface RepositorySourceListResponse {
+  items: RepositorySource[]
+  total: number
+}
+
+export interface CreateRepositorySourceRequest {
+  name: string
+  provider: RepositoryProvider
+  config?: RepositorySourceConfig
+  schedule?: string
+}
+
+export interface UpdateRepositorySourceRequest {
+  name?: string
+  config?: RepositorySourceConfig
+  schedule?: string
+  is_active?: boolean
+}
+
+export interface RepositorySyncTriggerResponse {
+  message: string
+  source_id: string
+  job_id: string | null
 }
 
 // API Error types
