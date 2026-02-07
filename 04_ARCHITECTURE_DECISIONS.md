@@ -1294,6 +1294,176 @@ CREATE TYPE invitationstatus AS ENUM ('pending', 'accepted', 'declined', 'expire
 
 ---
 
+## ADR-019: Server-side Notifications (Sprint 36)
+
+### Status
+**Implementiert** - 2026-02
+
+### Kontext
+Benachrichtigungen wurden initial nur im Frontend via `localStorage` gespeichert (Sprint 26 Notification Center). Dies hatte Nachteile:
+- Keine Synchronisation zwischen Geräten/Browsern
+- Verlust bei Browser-Daten-Löschung
+- Keine Möglichkeit, Notifications serverseitig zu erstellen (z.B. bei Alert-Triggers)
+
+### Entscheidung
+**Server-side Notification Persistence** mit PostgreSQL-backed Notifications-Modul und Frontend-Polling.
+
+### Implementierung
+
+**Backend Module:**
+```python
+# modules/notifications/models.py
+class NotificationType(str, Enum):
+    ALERT = "alert"     # Von Alert-System generiert
+    BADGE = "badge"     # Von Badge-System generiert
+    SYSTEM = "system"   # System-Benachrichtigungen
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    id, user_id, organization_id, type, title, message,
+    is_read, resource_type, resource_id, metadata (JSONB), created_at
+```
+
+**API Endpoints:**
+```
+GET    /notifications/              # Paginated list mit unread_count
+GET    /notifications/unread-count  # Nur Badge-Zähler
+POST   /notifications/mark-read    # Bulk mark as read
+POST   /notifications/mark-all-read
+```
+
+**Integration Points:**
+- `AlertService._process_single_alert()` erstellt `ALERT`-Notifications
+- `check_and_award_badges_task()` erstellt `BADGE`-Notifications
+
+**Frontend Polling:**
+```typescript
+// useNotifications.ts — TanStack Query mit refetchInterval
+const { data } = useQuery({
+  queryKey: ['notifications'],
+  queryFn: () => notificationsApi.list(limit),
+  refetchInterval: 60_000,  // List: alle 60s
+})
+const { data: unreadData } = useQuery({
+  queryKey: ['notifications', 'unread-count'],
+  refetchInterval: 30_000,  // Badge: alle 30s
+})
+```
+
+### Alternativen betrachtet
+
+| Option | Vorteile | Nachteile |
+|--------|----------|-----------|
+| **WebSocket** | Echtzeit | Komplexität, Connection-Management |
+| **Server-Sent Events** | Einfacher als WS | One-directional, Reconnect-Handling |
+| **Polling (gewählt)** ✓ | Einfach, robust, stateless | 30-60s Verzögerung, etwas mehr Load |
+| **Push Notifications** | Native UX | Browser-Permissions, Service Worker |
+
+### Konsequenzen
+- (+) Cross-Device Notification-Sync
+- (+) Serverseitige Notification-Erstellung
+- (+) Einfache Implementation ohne WebSocket-Infrastruktur
+- (+) RBAC-geschützt via `require_permission`
+- (-) 30-60s Verzögerung bei neuen Notifications
+- (-) Polling-Load (mitigiert durch 30s/60s Intervalle)
+
+---
+
+## ADR-020: Internationalisierung mit react-i18next (Sprint 35)
+
+### Status
+**Implementiert** - 2026-02
+
+### Kontext
+Die Plattform soll für internationale Teams nutzbar sein. Alle UI-Texte waren bisher hardcoded in Englisch.
+
+### Entscheidung
+**react-i18next** als i18n-Framework mit Lazy-loaded Translation-Dateien.
+
+### Implementierung
+
+**Struktur:**
+```
+frontend/src/locales/
+├── en/translation.json    # ~400 Keys
+└── de/translation.json    # ~400 Keys
+```
+
+**Key-Namespaces:** `common`, `auth`, `dashboard`, `papers`, `projects`, `scoring`, `search`, `groups`, `transfer`, `submissions`, `badges`, `knowledge`, `analytics`, `export`, `alerts`, `notifications`, `settings`, `compliance`, `developer`, `reports`
+
+**Language Selection:** Gespeichert in User-Preferences (`localStorage`), auswählbar in UserSettingsPage.
+
+### Alternativen betrachtet
+
+| Option | Vorteile | Nachteile |
+|--------|----------|-----------|
+| **react-i18next** ✓ | Standard, Hook-basiert, Lazy-loading | Bundle-Size |
+| **react-intl** | ICU Message Format | Komplexere API |
+| **lingui** | Extraction-basiert | Kleineres Ecosystem |
+
+### Konsequenzen
+- (+) Zwei Sprachen (EN/DE) vollständig unterstützt
+- (+) Einfach erweiterbar für weitere Sprachen
+- (+) Hook-basiert (`useTranslation`) passt zum React-Pattern
+- (-) ~400 Translation-Keys zu pflegen
+- (-) Leichte Bundle-Size-Erhöhung
+
+---
+
+## ADR-021: Granulares RBAC mit Permission-Based Access Control (Sprint 22/31)
+
+### Status
+**Implementiert** - 2026-02
+
+### Kontext
+Das initiale Rollen-System (admin/manager/member/viewer) war zu grobgranular. Bestimmte Operationen (z.B. Scoring, Export, Badge-Management) erforderten feingranulare Berechtigungen.
+
+### Entscheidung
+**Permission-based RBAC** mit Rollen-zu-Permission-Mapping in `core/permissions.py`.
+
+### Implementierung
+
+**Permission Enum:**
+```python
+class Permission(str, Enum):
+    PAPERS_READ = "papers:read"
+    PAPERS_WRITE = "papers:write"
+    PAPERS_DELETE = "papers:delete"
+    SCORING_TRIGGER = "scoring:trigger"
+    SETTINGS_ADMIN = "settings:admin"
+    BADGES_MANAGE = "badges:manage"
+    # ... 15+ Permissions
+```
+
+**Rollen-Mapping:**
+```python
+ROLE_PERMISSIONS = {
+    "admin": [ALL_PERMISSIONS],
+    "manager": [PAPERS_READ, PAPERS_WRITE, SCORING_TRIGGER, ...],
+    "member": [PAPERS_READ, PAPERS_WRITE, SCORING_TRIGGER],
+    "viewer": [PAPERS_READ],
+}
+```
+
+**Router-Integration:**
+```python
+@router.get("/", dependencies=[Depends(require_permission(Permission.PAPERS_READ))])
+async def list_papers(...): ...
+
+@router.delete("/{id}", dependencies=[Depends(require_permission(Permission.PAPERS_DELETE))])
+async def delete_paper(...): ...
+```
+
+### Konsequenzen
+- (+) Feingranulare Zugriffskontrolle
+- (+) Alle 22 Router-Module geschützt
+- (+) Viewer-Rolle kann nur lesen, keine Schreiboperationen
+- (+) Admin-Only Operations (User Management, Model Settings, Compliance)
+- (-) Mehr Complexity bei Endpoint-Definitionen
+- (-) Permission-Matrix muss gepflegt werden
+
+---
+
 ## Zusammenfassung der Entscheidungen
 
 | ADR | Entscheidung | Rationale |
@@ -1316,6 +1486,9 @@ CREATE TYPE invitationstatus AS ENUM ('pending', 'accepted', 'declined', 'expire
 | 016 | **Search & Discovery** | Saved Searches, Alerts, Paper Classification |
 | 017 | **Analytics & Export** | Dashboard Metrics, CSV/PDF/BibTeX Export |
 | 018 | **User Management** | Email Verification, Password Reset, Team Invitations |
+| 019 | **Server-side Notifications** | PostgreSQL-backed notifications mit Frontend-Polling |
+| 020 | **Internationalisierung** | react-i18next mit EN/DE Translation |
+| 021 | **Granulares RBAC** | Permission-based Access Control auf allen Routern |
 
 ---
 

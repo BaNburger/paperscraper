@@ -34,6 +34,11 @@ from paper_scraper.jobs.reports import (
     process_monthly_reports_task,
     run_single_report_task,
 )
+from paper_scraper.jobs.retention import (
+    apply_retention_policies_task,
+    run_nightly_retention_task,
+    preview_retention_impact_task,
+)
 
 
 async def startup(ctx: dict[str, Any]) -> None:
@@ -47,29 +52,71 @@ async def shutdown(ctx: dict[str, Any]) -> None:
 async def ingest_papers_task(
     ctx: dict[str, Any],
     source: str,
+    organization_id: str,
     query: str,
     max_results: int = 100,
+    created_by_id: str | None = None,
+    category: str | None = None,
 ) -> dict[str, Any]:
-    """Ingest papers from an external source (placeholder).
+    """Ingest papers from an external source.
 
-    Note: This is a placeholder for future implementations of PubMed,
-    arXiv, and Crossref ingestion. Use ingest_openalex_task for OpenAlex.
+    Routes to the appropriate PaperService method based on the source.
+    For OpenAlex, use the dedicated ingest_openalex_task instead.
 
     Args:
         ctx: Worker context.
-        source: Source to ingest from ('pubmed', 'arxiv', 'crossref').
+        source: Source to ingest from ('pubmed', 'arxiv', 'semantic_scholar').
+        organization_id: UUID string of organization.
         query: Search query for the source.
         max_results: Maximum number of papers to ingest.
+        created_by_id: Optional UUID string of user who triggered ingestion.
+        category: Optional category filter (arXiv only).
 
     Returns:
         Dict with ingestion results.
     """
-    return {
-        "status": "not_implemented",
-        "source": source,
-        "papers_ingested": 0,
-        "message": f"Ingestion from {source} is not yet implemented",
-    }
+    from uuid import UUID
+
+    from paper_scraper.core.database import get_db_session
+    from paper_scraper.modules.papers.service import PaperService
+
+    org_uuid = UUID(organization_id)
+    user_uuid = UUID(created_by_id) if created_by_id else None
+
+    async with get_db_session() as db:
+        service = PaperService(db)
+
+        if source == "pubmed":
+            result = await service.ingest_from_pubmed(
+                query=query,
+                organization_id=org_uuid,
+                max_results=max_results,
+                created_by_id=user_uuid,
+            )
+        elif source == "arxiv":
+            result = await service.ingest_from_arxiv(
+                query=query,
+                organization_id=org_uuid,
+                max_results=max_results,
+                category=category,
+                created_by_id=user_uuid,
+            )
+        elif source == "semantic_scholar":
+            result = await service.ingest_from_semantic_scholar(
+                query=query,
+                organization_id=org_uuid,
+                max_results=max_results,
+                created_by_id=user_uuid,
+            )
+        else:
+            return {
+                "status": "error",
+                "source": source,
+                "papers_ingested": 0,
+                "message": f"Unknown source: {source}. Supported: pubmed, arxiv, semantic_scholar",
+            }
+
+        return result.model_dump()
 
 
 def get_redis_settings() -> RedisSettings:
@@ -115,6 +162,9 @@ class WorkerSettings:
         process_weekly_reports_task,
         process_monthly_reports_task,
         run_single_report_task,
+        apply_retention_policies_task,
+        run_nightly_retention_task,
+        preview_retention_impact_task,
     ]
 
     # Cron jobs for scheduled tasks
@@ -131,6 +181,8 @@ class WorkerSettings:
         arq.cron(process_weekly_reports_task, weekday=0, hour=7, minute=30),
         # Monthly reports on 1st of month at 8:00 AM UTC
         arq.cron(process_monthly_reports_task, day=1, hour=8, minute=0),
+        # Nightly retention policy enforcement at 3:00 AM UTC
+        arq.cron(run_nightly_retention_task, hour=3, minute=0),
     ]
 
     # Redis connection settings

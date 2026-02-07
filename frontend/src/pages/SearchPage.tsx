@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import DOMPurify from 'dompurify'
 import { useSearchMutation, usePaper } from '@/hooks'
@@ -36,10 +37,10 @@ import {
 import { formatDate, truncate, getScoreColor, cn } from '@/lib/utils'
 import type { SearchMode, SearchResult, PaperScore } from '@/types'
 
-const searchModes: { value: SearchMode; label: string; description: string }[] = [
-  { value: 'hybrid', label: 'Hybrid', description: 'Combines text and semantic search' },
-  { value: 'fulltext', label: 'Full-text', description: 'Traditional keyword search' },
-  { value: 'semantic', label: 'Semantic', description: 'AI-powered meaning search' },
+const searchModeDefs: { value: SearchMode; labelKey: string; descriptionKey: string }[] = [
+  { value: 'hybrid', labelKey: 'search.modeHybrid', descriptionKey: 'search.modeHybridDescription' },
+  { value: 'fulltext', labelKey: 'search.modeFulltext', descriptionKey: 'search.modeFulltextDescription' },
+  { value: 'semantic', labelKey: 'search.modeSemantic', descriptionKey: 'search.modeSemanticDescription' },
 ]
 
 function ScoreCard({ label, value, className }: { label: string; value: number; className?: string }) {
@@ -170,6 +171,7 @@ function ComparisonModal({
   papers: SearchResult[]
   onClose: () => void
 }) {
+  const { t } = useTranslation()
   const papersWithScores = papers.filter((p) => p.latest_score)
 
   return (
@@ -177,9 +179,9 @@ function ComparisonModal({
       <div className="bg-background rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] overflow-auto">
         <div className="sticky top-0 bg-background border-b p-4 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold">Paper Comparison</h2>
+            <h2 className="text-xl font-bold">{t('search.paperComparison')}</h2>
             <p className="text-sm text-muted-foreground">
-              Comparing {papers.length} papers across scoring dimensions
+              {t('search.comparingPapers', { count: papers.length })}
             </p>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose}>
@@ -192,8 +194,8 @@ function ComparisonModal({
           {papersWithScores.length > 0 ? (
             <Card>
               <CardHeader>
-                <CardTitle>Score Comparison</CardTitle>
-                <CardDescription>Radar chart overlay of selected papers</CardDescription>
+                <CardTitle>{t('search.scoreComparison')}</CardTitle>
+                <CardDescription>{t('search.radarChartOverlay')}</CardDescription>
               </CardHeader>
               <CardContent className="flex justify-center">
                 <ComparisonRadarChart
@@ -206,21 +208,21 @@ function ComparisonModal({
             </Card>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
-              No papers with scores available for comparison
+              {t('search.noScoresForComparison')}
             </div>
           )}
 
           {/* Comparison Table */}
           <Card>
             <CardHeader>
-              <CardTitle>Metric Comparison</CardTitle>
+              <CardTitle>{t('search.metricComparison')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b">
-                      <th className="text-left p-2 font-medium">Metric</th>
+                      <th className="text-left p-2 font-medium">{t('search.metric')}</th>
                       {papers.map((p) => (
                         <th key={p.paper.id} className="text-center p-2 font-medium">
                           <div className="max-w-[150px] truncate" title={p.paper.title}>
@@ -232,7 +234,7 @@ function ComparisonModal({
                   </thead>
                   <tbody>
                     <tr className="border-b">
-                      <td className="p-2 font-medium">Overall Score</td>
+                      <td className="p-2 font-medium">{t('papers.overallScore')}</td>
                       {papers.map((p) => (
                         <td key={p.paper.id} className="text-center p-2">
                           {p.latest_score ? (
@@ -246,7 +248,7 @@ function ComparisonModal({
                       ))}
                     </tr>
                     <tr className="border-b">
-                      <td className="p-2 font-medium">Novelty</td>
+                      <td className="p-2 font-medium">{t('papers.novelty')}</td>
                       {papers.map((p) => (
                         <td key={p.paper.id} className="text-center p-2">
                           {p.latest_score?.novelty?.toFixed(1) ?? '-'}
@@ -254,7 +256,7 @@ function ComparisonModal({
                       ))}
                     </tr>
                     <tr className="border-b">
-                      <td className="p-2 font-medium">IP Potential</td>
+                      <td className="p-2 font-medium">{t('papers.ipPotential')}</td>
                       {papers.map((p) => (
                         <td key={p.paper.id} className="text-center p-2">
                           {p.latest_score?.ip_potential?.toFixed(1) ?? '-'}
@@ -262,7 +264,7 @@ function ComparisonModal({
                       ))}
                     </tr>
                     <tr className="border-b">
-                      <td className="p-2 font-medium">Marketability</td>
+                      <td className="p-2 font-medium">{t('papers.marketability')}</td>
                       {papers.map((p) => (
                         <td key={p.paper.id} className="text-center p-2">
                           {p.latest_score?.marketability?.toFixed(1) ?? '-'}
@@ -270,7 +272,7 @@ function ComparisonModal({
                       ))}
                     </tr>
                     <tr className="border-b">
-                      <td className="p-2 font-medium">Feasibility</td>
+                      <td className="p-2 font-medium">{t('papers.feasibility')}</td>
                       {papers.map((p) => (
                         <td key={p.paper.id} className="text-center p-2">
                           {p.latest_score?.feasibility?.toFixed(1) ?? '-'}
@@ -278,7 +280,7 @@ function ComparisonModal({
                       ))}
                     </tr>
                     <tr className="border-b">
-                      <td className="p-2 font-medium">Team Readiness</td>
+                      <td className="p-2 font-medium">{t('papers.teamReadiness')}</td>
                       {papers.map((p) => (
                         <td key={p.paper.id} className="text-center p-2">
                           {p.latest_score?.team_readiness?.toFixed(1) ?? '-'}
@@ -286,7 +288,7 @@ function ComparisonModal({
                       ))}
                     </tr>
                     <tr className="border-b">
-                      <td className="p-2 font-medium">Relevance</td>
+                      <td className="p-2 font-medium">{t('search.relevance')}</td>
                       {papers.map((p) => (
                         <td key={p.paper.id} className="text-center p-2">
                           {(p.relevance_score * 100).toFixed(0)}%
@@ -294,7 +296,7 @@ function ComparisonModal({
                       ))}
                     </tr>
                     <tr className="border-b">
-                      <td className="p-2 font-medium">Source</td>
+                      <td className="p-2 font-medium">{t('papers.source')}</td>
                       {papers.map((p) => (
                         <td key={p.paper.id} className="text-center p-2">
                           <Badge variant="outline">{p.paper.source}</Badge>
@@ -302,7 +304,7 @@ function ComparisonModal({
                       ))}
                     </tr>
                     <tr>
-                      <td className="p-2 font-medium">Published</td>
+                      <td className="p-2 font-medium">{t('search.published')}</td>
                       {papers.map((p) => (
                         <td key={p.paper.id} className="text-center p-2">
                           {p.paper.publication_date
@@ -329,6 +331,7 @@ function PreviewPanel({
   selectedResult: SearchResult | null
   onClose: () => void
 }) {
+  const { t } = useTranslation()
   const { data: paperDetail } = usePaper(selectedResult?.paper.id || '')
 
   if (!selectedResult) {
@@ -336,8 +339,8 @@ function PreviewPanel({
       <div className="h-full flex items-center justify-center text-muted-foreground">
         <div className="text-center">
           <Search className="h-12 w-12 mx-auto mb-3 opacity-50" />
-          <p className="text-sm">Select a paper to preview</p>
-          <p className="text-xs mt-1">Use arrow keys to navigate</p>
+          <p className="text-sm">{t('search.selectPaperToPreview')}</p>
+          <p className="text-xs mt-1">{t('search.useArrowKeys')}</p>
         </div>
       </div>
     )
@@ -384,7 +387,7 @@ function PreviewPanel({
         {paperDetail?.authors && paperDetail.authors.length > 0 && (
           <div>
             <h3 className="text-sm font-medium mb-2 flex items-center gap-1">
-              <Users className="h-4 w-4" /> Authors
+              <Users className="h-4 w-4" /> {t('papers.authors')}
             </h3>
             <div className="flex flex-wrap gap-2">
               {paperDetail.authors.slice(0, 5).map((author, i) => (
@@ -404,7 +407,7 @@ function PreviewPanel({
 
         {/* Abstract */}
         <div>
-          <h3 className="text-sm font-medium mb-2">Abstract</h3>
+          <h3 className="text-sm font-medium mb-2">{t('papers.abstract')}</h3>
           <p className="text-sm text-muted-foreground leading-relaxed">
             {selectedResult.highlights.abstract ? (
               <span
@@ -413,7 +416,7 @@ function PreviewPanel({
                 }}
               />
             ) : (
-              paper.abstract || 'No abstract available'
+              paper.abstract || t('papers.noAbstract')
             )}
           </p>
         </div>
@@ -421,7 +424,7 @@ function PreviewPanel({
         {/* Scores */}
         {score && (
           <div>
-            <h3 className="text-sm font-medium mb-3">Innovation Scores</h3>
+            <h3 className="text-sm font-medium mb-3">{t('search.innovationScores')}</h3>
             <div className="grid grid-cols-3 gap-2">
               <ScoreCard label="Overall" value={score.overall_score} />
               <ScoreCard label="Novelty" value={score.novelty} />
@@ -436,7 +439,7 @@ function PreviewPanel({
         {/* Keywords */}
         {paper.keywords && paper.keywords.length > 0 && (
           <div>
-            <h3 className="text-sm font-medium mb-2">Keywords</h3>
+            <h3 className="text-sm font-medium mb-2">{t('papers.keywords')}</h3>
             <div className="flex flex-wrap gap-1">
               {paper.keywords.map((keyword, i) => (
                 <Badge key={i} variant="outline" className="text-xs">
@@ -453,7 +456,7 @@ function PreviewPanel({
         <Link to={`/papers/${paper.id}`}>
           <Button className="w-full">
             <ExternalLink className="h-4 w-4 mr-2" />
-            View Full Details
+            {t('search.viewFullDetails')}
           </Button>
         </Link>
       </div>
@@ -462,6 +465,7 @@ function PreviewPanel({
 }
 
 export function SearchPage() {
+  const { t } = useTranslation()
   const [query, setQuery] = useState('')
   const [mode, setMode] = useState<SearchMode>('hybrid')
   const [page, setPage] = useState(1)
@@ -473,6 +477,12 @@ export function SearchPage() {
   const [selectedForCompare, setSelectedForCompare] = useState<Set<string>>(new Set())
   const [showComparison, setShowComparison] = useState(false)
   const resultsRef = useRef<HTMLDivElement>(null)
+
+  const searchModes = searchModeDefs.map((m) => ({
+    ...m,
+    label: t(m.labelKey),
+    description: t(m.descriptionKey),
+  }))
 
   const searchMutation = useSearchMutation()
 
@@ -558,9 +568,9 @@ export function SearchPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Search</h1>
+          <h1 className="text-3xl font-bold">{t('search.title')}</h1>
           <p className="text-muted-foreground mt-1">
-            Find papers using full-text, semantic, or hybrid search
+            {t('search.subtitle')}
           </p>
         </div>
         <div className="flex gap-2">
@@ -569,7 +579,7 @@ export function SearchPage() {
               {compareMode ? (
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">
-                    {selectedForCompare.size}/5 selected
+                    {t('search.selectedCount', { count: selectedForCompare.size, max: 5 })}
                   </span>
                   <Button
                     size="sm"
@@ -577,7 +587,7 @@ export function SearchPage() {
                     disabled={selectedForCompare.size < 2}
                   >
                     <GitCompare className="h-4 w-4 mr-2" />
-                    Compare
+                    {t('search.compare')}
                   </Button>
                   <Button
                     variant="outline"
@@ -587,7 +597,7 @@ export function SearchPage() {
                       setSelectedForCompare(new Set())
                     }}
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </Button>
                 </div>
               ) : (
@@ -597,7 +607,7 @@ export function SearchPage() {
                   onClick={() => setCompareMode(true)}
                 >
                   <GitCompare className="h-4 w-4 mr-2" />
-                  Compare Papers
+                  {t('search.comparePapers')}
                 </Button>
               )}
             </>
@@ -609,7 +619,7 @@ export function SearchPage() {
               onClick={() => setShowPreview(!showPreview)}
               className="hidden lg:flex"
             >
-              {showPreview ? 'Hide' : 'Show'} Preview
+              {showPreview ? t('search.hidePreview') : t('search.showPreview')}
             </Button>
           )}
         </div>
@@ -623,14 +633,14 @@ export function SearchPage() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search for papers..."
+                  placeholder={t('search.searchPlaceholder')}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   className="pl-10"
                 />
               </div>
               <Button type="submit" isLoading={searchMutation.isPending}>
-                Search
+                {t('common.search')}
               </Button>
               <Button
                 type="button"
@@ -666,7 +676,7 @@ export function SearchPage() {
                 {mode === 'hybrid' && (
                   <div>
                     <Label>
-                      Semantic Weight: {semanticWeight.toFixed(1)}
+                      {t('search.semanticWeight', { value: semanticWeight.toFixed(1) })}
                     </Label>
                     <input
                       type="range"
@@ -678,8 +688,8 @@ export function SearchPage() {
                       className="w-full mt-2"
                     />
                     <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                      <span>More text-based</span>
-                      <span>More semantic</span>
+                      <span>{t('search.moreTextBased')}</span>
+                      <span>{t('search.moreSemantic')}</span>
                     </div>
                   </div>
                 )}
@@ -703,13 +713,13 @@ export function SearchPage() {
             {/* Results Header */}
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                Found {result.total} results for "{result.query}" using {result.mode} search
+                {t('search.foundResults', { total: result.total, query: result.query, mode: result.mode })}
               </p>
               {results.length > 0 && (
                 <div className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground">
                   <ChevronUp className="h-3 w-3" />
                   <ChevronDown className="h-3 w-3" />
-                  to navigate
+                  {t('search.toNavigate')}
                 </div>
               )}
             </div>
@@ -720,10 +730,10 @@ export function SearchPage() {
                 <CardContent>
                   <EmptyState
                     icon={<SearchX className="h-16 w-16" />}
-                    title="No results found"
-                    description={`No papers match "${result.query}". Try different keywords or switch to semantic search for broader results.`}
+                    title={t('search.noResultsFound')}
+                    description={t('search.noResultsDescription', { query: result.query })}
                     action={{
-                      label: 'Try Semantic Search',
+                      label: t('search.trySemanticSearch'),
                       onClick: () => setMode('semantic'),
                     }}
                   />
@@ -827,7 +837,7 @@ export function SearchPage() {
             {result.pages > 1 && (
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
-                  Page {result.page} of {result.pages}
+                  {t('common.pageOf', { page: result.page, pages: result.pages })}
                 </p>
                 <div className="flex items-center gap-2">
                   <Button
@@ -837,7 +847,7 @@ export function SearchPage() {
                     disabled={page <= 1 || searchMutation.isPending}
                   >
                     <ChevronLeft className="h-4 w-4" />
-                    Previous
+                    {t('common.previous')}
                   </Button>
                   <Button
                     variant="outline"
@@ -845,7 +855,7 @@ export function SearchPage() {
                     onClick={() => handleSearch(page + 1)}
                     disabled={page >= result.pages || searchMutation.isPending}
                   >
-                    Next
+                    {t('common.next')}
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
@@ -870,8 +880,8 @@ export function SearchPage() {
           <CardContent>
             <EmptyState
               icon={<Search className="h-16 w-16" />}
-              title="Start searching"
-              description="Enter keywords to find papers in your library. Use semantic search to discover papers by meaning, not just keywords."
+              title={t('search.startSearching')}
+              description={t('search.startSearchingDescription')}
             />
           </CardContent>
         </Card>

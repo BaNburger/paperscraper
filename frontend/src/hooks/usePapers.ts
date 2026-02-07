@@ -127,3 +127,35 @@ export function useGenerateSimplifiedAbstract() {
     },
   })
 }
+
+export function useRelatedPatents(paperId: string) {
+  return useQuery({
+    queryKey: ['relatedPatents', paperId],
+    queryFn: () => papersApi.getRelatedPatents(paperId),
+    enabled: !!paperId,
+    staleTime: 5 * 60 * 1000, // 5 minutes - patent data doesn't change often
+    retry: false, // Don't retry if EPO is not configured
+  })
+}
+
+export function useCitationGraph(paperId: string) {
+  return useQuery({
+    queryKey: ['citationGraph', paperId],
+    queryFn: () => papersApi.getCitationGraph(paperId),
+    enabled: !!paperId,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  })
+}
+
+export function useIngestFromSemanticScholar() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (params: { query: string; max_results?: number }) =>
+      papersApi.ingestFromSemanticScholar(params),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['papers'] })
+    },
+  })
+}

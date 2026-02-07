@@ -30,7 +30,11 @@ class KnowledgeService:
         self.db = db
 
     async def list_personal(
-        self, user_id: UUID, organization_id: UUID
+        self,
+        user_id: UUID,
+        organization_id: UUID,
+        page: int = 1,
+        page_size: int = 50,
     ) -> KnowledgeSourceListResponse:
         """List personal knowledge sources for a user."""
         query = select(KnowledgeSource).where(
@@ -42,16 +46,26 @@ class KnowledgeService:
         count_query = select(func.count()).select_from(query.subquery())
         total = (await self.db.execute(count_query)).scalar() or 0
 
-        result = await self.db.execute(query.order_by(KnowledgeSource.updated_at.desc()))
+        result = await self.db.execute(
+            query.order_by(KnowledgeSource.updated_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
         sources = list(result.scalars().all())
 
         return KnowledgeSourceListResponse(
             items=[KnowledgeSourceResponse.model_validate(s) for s in sources],
             total=total,
+            page=page,
+            page_size=page_size,
+            pages=(total + page_size - 1) // page_size if total > 0 else 0,
         )
 
     async def list_organization(
-        self, organization_id: UUID
+        self,
+        organization_id: UUID,
+        page: int = 1,
+        page_size: int = 50,
     ) -> KnowledgeSourceListResponse:
         """List organization-level knowledge sources."""
         query = select(KnowledgeSource).where(
@@ -62,12 +76,19 @@ class KnowledgeService:
         count_query = select(func.count()).select_from(query.subquery())
         total = (await self.db.execute(count_query)).scalar() or 0
 
-        result = await self.db.execute(query.order_by(KnowledgeSource.updated_at.desc()))
+        result = await self.db.execute(
+            query.order_by(KnowledgeSource.updated_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
         sources = list(result.scalars().all())
 
         return KnowledgeSourceListResponse(
             items=[KnowledgeSourceResponse.model_validate(s) for s in sources],
             total=total,
+            page=page,
+            page_size=page_size,
+            pages=(total + page_size - 1) // page_size if total > 0 else 0,
         )
 
     async def create_personal(

@@ -4,7 +4,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from paper_scraper.modules.auth.models import User
+from paper_scraper.modules.auth.models import Organization, User
 from paper_scraper.modules.papers.models import Paper, PaperSource
 from paper_scraper.modules.projects.models import Project
 from paper_scraper.modules.scoring.models import PaperScore
@@ -178,7 +178,11 @@ class TestAnalyticsEndpoints:
         test_user: User,
     ):
         """Test that analytics only shows data for user's organization."""
-        import uuid
+        # Create a second organization for isolation test
+        other_org = Organization(name="Other Org", type="university")
+        db_session.add(other_org)
+        await db_session.flush()
+        await db_session.refresh(other_org)
 
         # Create paper for test user's org
         paper = Paper(
@@ -190,7 +194,7 @@ class TestAnalyticsEndpoints:
 
         # Create paper for different org
         other_org_paper = Paper(
-            organization_id=uuid.uuid4(),
+            organization_id=other_org.id,
             title="Other Org Paper",
             source=PaperSource.MANUAL,
         )

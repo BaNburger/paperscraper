@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Building2,
@@ -78,6 +79,7 @@ const ROLE_LABELS: Record<string, string> = {
 const ROLE_ORDER = ['admin', 'manager', 'member', 'viewer']
 
 function PermissionMatrix() {
+  const { t } = useTranslation()
   const { data, isLoading, error } = useQuery({
     queryKey: ['roles-permissions'],
     queryFn: () => authApi.getRoles(),
@@ -101,7 +103,7 @@ function PermissionMatrix() {
   if (error) {
     return (
       <div className="rounded-md bg-red-50 p-4 text-sm text-red-600">
-        Failed to load role permissions. Please try again later.
+        {t('orgSettings.permissionsLoadError')}
       </div>
     )
   }
@@ -113,7 +115,7 @@ function PermissionMatrix() {
     <div className="space-y-4">
       {myPerms && (
         <div className="rounded-md bg-muted/50 p-3 text-sm">
-          <span className="font-medium">Your role:</span>{' '}
+          <span className="font-medium">{t('orgSettings.yourRole')}:</span>{' '}
           <Badge variant="secondary" className="ml-1">
             {ROLE_LABELS[myPerms.role] || myPerms.role}
           </Badge>
@@ -127,7 +129,7 @@ function PermissionMatrix() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="px-3 py-2 text-left font-medium">Permission</th>
+              <th className="px-3 py-2 text-left font-medium">{t('orgSettings.permission')}</th>
               {roles.map((role) => (
                 <th key={role} className="px-3 py-2 text-center font-medium">
                   {ROLE_LABELS[role] || role}
@@ -163,6 +165,7 @@ function PermissionMatrix() {
 }
 
 export function OrganizationSettingsPage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const navigate = useNavigate()
   const { success, error: showError } = useToast()
@@ -181,12 +184,12 @@ export function OrganizationSettingsPage() {
     mutationFn: (data: UpdateOrganizationRequest) => authApi.updateOrganization(data),
     onSuccess: () => {
       setSaved(true)
-      success('Organization updated', 'Settings have been saved successfully.')
+      success(t('orgSettings.updateSuccess'), t('orgSettings.updateSuccessDescription'))
       queryClient.invalidateQueries({ queryKey: ['user'] })
       setTimeout(() => setSaved(false), 3000)
     },
     onError: () => {
-      showError('Update failed', 'Failed to update organization settings.')
+      showError(t('orgSettings.updateFailed'), t('orgSettings.updateFailedDescription'))
     },
   })
 
@@ -206,13 +209,12 @@ export function OrganizationSettingsPage() {
               <div className="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center">
                 <AlertTriangle className="h-6 w-6 text-yellow-600" />
               </div>
-              <h2 className="text-xl font-semibold">Admin Access Required</h2>
+              <h2 className="text-xl font-semibold">{t('orgSettings.adminRequired')}</h2>
               <p className="text-muted-foreground max-w-md">
-                Only organization administrators can access organization settings.
-                Contact your admin if you need to make changes.
+                {t('orgSettings.adminRequiredDescription')}
               </p>
               <Button variant="outline" onClick={() => navigate('/settings')}>
-                Go to User Settings
+                {t('orgSettings.goToUserSettings')}
               </Button>
             </div>
           </CardContent>
@@ -227,9 +229,9 @@ export function OrganizationSettingsPage() {
   return (
     <div className="container max-w-3xl py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold">Organization Settings</h1>
+        <h1 className="text-3xl font-bold">{t('orgSettings.title')}</h1>
         <p className="text-muted-foreground mt-2">
-          Manage your organization's profile and settings
+          {t('orgSettings.subtitle')}
         </p>
       </div>
 
@@ -239,25 +241,25 @@ export function OrganizationSettingsPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <Building2 className="h-5 w-5" />
-              <CardTitle>Organization Profile</CardTitle>
+              <CardTitle>{t('orgSettings.orgProfile')}</CardTitle>
             </div>
             <CardDescription>
-              Basic information about your organization
+              {t('orgSettings.orgProfileDescription')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="orgName">Organization Name</Label>
+              <Label htmlFor="orgName">{t('orgSettings.orgName')}</Label>
               <Input
                 id="orgName"
                 value={orgName}
                 onChange={(e) => setOrgName(e.target.value)}
-                placeholder="Enter organization name"
+                placeholder={t('orgSettings.orgNamePlaceholder')}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="orgType">Organization Type</Label>
+              <Label htmlFor="orgType">{t('orgSettings.orgType')}</Label>
               <select
                 id="orgType"
                 value={orgType}
@@ -281,7 +283,7 @@ export function OrganizationSettingsPage() {
               ) : saved ? (
                 <Check className="h-4 w-4 mr-2" />
               ) : null}
-              {saved ? 'Saved' : 'Save Changes'}
+              {saved ? t('settings.saved') : t('settings.saveChanges')}
             </Button>
           </CardContent>
         </Card>
@@ -292,24 +294,23 @@ export function OrganizationSettingsPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                <CardTitle>Team Management</CardTitle>
+                <CardTitle>{t('orgSettings.teamManagement')}</CardTitle>
               </div>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => navigate('/team')}
               >
-                Manage Team
+                {t('orgSettings.manageTeam')}
               </Button>
             </div>
             <CardDescription>
-              Invite and manage team members
+              {t('orgSettings.teamManagementDescription')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
-              Go to the Team Members page to invite new users, manage roles,
-              and view pending invitations.
+              {t('orgSettings.teamManagementInfo')}
             </p>
           </CardContent>
         </Card>
@@ -319,10 +320,10 @@ export function OrganizationSettingsPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-5 w-5" />
-              <CardTitle>Role Permissions</CardTitle>
+              <CardTitle>{t('orgSettings.rolePermissions')}</CardTitle>
             </div>
             <CardDescription>
-              What each role can do in your organization
+              {t('orgSettings.rolePermissionsDescription')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -335,10 +336,10 @@ export function OrganizationSettingsPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <CreditCard className="h-5 w-5" />
-              <CardTitle>Subscription</CardTitle>
+              <CardTitle>{t('orgSettings.subscription')}</CardTitle>
             </div>
             <CardDescription>
-              Your current plan and usage limits
+              {t('orgSettings.subscriptionDescription')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -351,26 +352,26 @@ export function OrganizationSettingsPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Papers</p>
+                <p className="text-sm text-muted-foreground">{t('orgSettings.papers')}</p>
                 <p className="font-medium">{features.papers}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Team Members</p>
+                <p className="text-sm text-muted-foreground">{t('orgSettings.teamMembers')}</p>
                 <p className="font-medium">{features.users}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">AI Scoring</p>
+                <p className="text-sm text-muted-foreground">{t('orgSettings.aiScoring')}</p>
                 <p className="font-medium">{features.scoring}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Projects</p>
+                <p className="text-sm text-muted-foreground">{t('orgSettings.projects')}</p>
                 <p className="font-medium">{features.projects}</p>
               </div>
             </div>
 
             {currentTier !== 'enterprise' && (
               <Button variant="outline" className="w-full">
-                Upgrade Plan
+                {t('orgSettings.upgradePlan')}
               </Button>
             )}
           </CardContent>
@@ -381,28 +382,28 @@ export function OrganizationSettingsPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <Shield className="h-5 w-5" />
-              <CardTitle>Security & Compliance</CardTitle>
+              <CardTitle>{t('orgSettings.securityCompliance')}</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <div className="flex justify-between py-2 border-b">
-              <span className="text-muted-foreground">Data Encryption</span>
-              <span className="font-medium text-green-600">Enabled</span>
+              <span className="text-muted-foreground">{t('orgSettings.dataEncryption')}</span>
+              <span className="font-medium text-green-600">{t('orgSettings.enabled')}</span>
             </div>
             <div className="flex justify-between py-2 border-b">
-              <span className="text-muted-foreground">Two-Factor Authentication</span>
+              <span className="text-muted-foreground">{t('orgSettings.twoFactorAuth')}</span>
               <span className="font-medium text-muted-foreground">
-                Coming Soon
+                {t('orgSettings.comingSoon')}
               </span>
             </div>
             <div className="flex justify-between py-2 border-b">
               <span className="text-muted-foreground">SSO / SAML</span>
               <span className="font-medium text-muted-foreground">
-                {currentTier === 'enterprise' ? 'Available' : 'Enterprise Only'}
+                {currentTier === 'enterprise' ? t('orgSettings.available') : t('orgSettings.enterpriseOnly')}
               </span>
             </div>
             <div className="flex justify-between py-2">
-              <span className="text-muted-foreground">Data Residency</span>
+              <span className="text-muted-foreground">{t('orgSettings.dataResidency')}</span>
               <span className="font-medium">EU (Frankfurt)</span>
             </div>
           </CardContent>
@@ -412,7 +413,7 @@ export function OrganizationSettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Organization ID
+              {t('orgSettings.organizationId')}
             </CardTitle>
           </CardHeader>
           <CardContent>

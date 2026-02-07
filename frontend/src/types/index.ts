@@ -1,12 +1,25 @@
 // Auth types
+export interface OrganizationBranding {
+  logo_url?: string
+  primary_color?: string
+  accent_color?: string
+  favicon_url?: string
+}
+
 export interface Organization {
   id: string
   name: string
   type: string
   subscription_tier: 'free' | 'pro' | 'enterprise'
   settings: Record<string, unknown>
+  branding: OrganizationBranding
   created_at: string
   updated_at: string
+}
+
+export interface UpdateBrandingRequest {
+  primary_color?: string
+  accent_color?: string
 }
 
 export interface User {
@@ -1325,4 +1338,247 @@ export function getApiErrorMessage(error: unknown, fallback: string = 'An error 
   }
 
   return fallback
+}
+
+// =============================================================================
+// Compliance types
+// =============================================================================
+
+export type RetentionAction = 'archive' | 'anonymize' | 'delete'
+export type RetentionEntityType = 'papers' | 'audit_logs' | 'conversations' | 'submissions' | 'alerts' | 'knowledge'
+export type SOC2ControlStatus = 'implemented' | 'in_progress' | 'pending' | 'not_applicable'
+
+export interface RetentionPolicy {
+  id: string
+  organization_id: string
+  entity_type: RetentionEntityType
+  retention_days: number
+  action: RetentionAction
+  is_active: boolean
+  last_applied_at: string | null
+  records_affected: number
+  description: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface RetentionPolicyListResponse {
+  items: RetentionPolicy[]
+  total: number
+}
+
+export interface CreateRetentionPolicyRequest {
+  entity_type: RetentionEntityType
+  retention_days: number
+  action?: RetentionAction
+  description?: string
+  is_active?: boolean
+}
+
+export interface UpdateRetentionPolicyRequest {
+  retention_days?: number
+  action?: RetentionAction
+  description?: string
+  is_active?: boolean
+}
+
+export interface ApplyRetentionRequest {
+  dry_run?: boolean
+  entity_types?: RetentionEntityType[]
+}
+
+export interface ApplyRetentionResult {
+  entity_type: string
+  action: string
+  records_affected: number
+  is_dry_run: boolean
+  status: string
+}
+
+export interface ApplyRetentionResponse {
+  results: ApplyRetentionResult[]
+  total_affected: number
+  is_dry_run: boolean
+}
+
+export interface RetentionLog {
+  id: string
+  organization_id: string
+  policy_id: string | null
+  entity_type: string
+  action: string
+  records_affected: number
+  is_dry_run: boolean
+  status: string
+  error_message: string | null
+  started_at: string
+  completed_at: string | null
+}
+
+export interface RetentionLogListResponse {
+  items: RetentionLog[]
+  total: number
+  page: number
+  page_size: number
+}
+
+export interface AuditLogSummary {
+  total_logs: number
+  logs_by_action: Record<string, number>
+  logs_by_resource_type: Record<string, number>
+  logs_by_user: Array<{ user_id: string; count: number }>
+  time_range: { earliest: string | null; latest: string | null }
+}
+
+export interface SOC2Control {
+  id: string
+  description: string
+  status: SOC2ControlStatus
+  evidence_url: string | null
+  notes: string | null
+  last_reviewed: string | null
+}
+
+export interface SOC2ControlCategory {
+  code: string
+  name: string
+  controls: SOC2Control[]
+}
+
+export interface SOC2StatusResponse {
+  categories: SOC2ControlCategory[]
+  summary: {
+    total_controls: number
+    status_counts: Record<string, number>
+    compliance_percentage: number
+    last_updated: string
+  }
+}
+
+export interface SOC2EvidenceResponse {
+  control_id: string
+  evidence_items: Array<{
+    type: string
+    name: string
+    url: string | null
+    uploaded_at: string | null
+  }>
+}
+
+export interface DataProcessingProcessor {
+  name: string
+  purpose: string
+  data_types: string[]
+  location: string
+}
+
+export interface DataProcessingCategory {
+  category: string
+  types: string[]
+  purpose: string
+  legal_basis: string
+}
+
+export interface DataProcessingInfo {
+  hosting_info: Record<string, unknown>
+  data_locations: string[]
+  processors: DataProcessingProcessor[]
+  retention_policies: RetentionPolicy[]
+  data_categories: DataProcessingCategory[]
+  legal_basis: {
+    processing_grounds: string
+    dpo_contact: string
+    data_subject_rights: string[]
+  }
+}
+
+// =============================================================================
+// Patent types (EPO OPS)
+// =============================================================================
+export interface Patent {
+  patent_number: string
+  title: string
+  abstract?: string
+  applicant?: string
+  filing_date?: string
+  publication_date?: string
+  espacenet_url: string
+  relevance_score?: number
+}
+
+export interface RelatedPatentsResponse {
+  patents: Patent[]
+  query: string
+  total: number
+}
+
+// =============================================================================
+// Citation Graph types (Semantic Scholar)
+// =============================================================================
+export interface CitationNode {
+  paper_id: string
+  title: string
+  year?: number
+  citation_count?: number
+  is_root: boolean
+}
+
+export interface CitationEdge {
+  source: string
+  target: string
+  type: 'cites' | 'cited_by'
+}
+
+export interface CitationGraphResponse {
+  nodes: CitationNode[]
+  edges: CitationEdge[]
+  root_paper_id: string
+}
+
+export interface AuditLog {
+  id: string
+  user_id: string | null
+  organization_id: string | null
+  action: string
+  resource_type: string | null
+  resource_id: string | null
+  details: Record<string, unknown>
+  ip_address: string | null
+  user_agent: string | null
+  created_at: string
+}
+
+export interface AuditLogListResponse {
+  items: AuditLog[]
+  total: number
+  page: number
+  page_size: number
+  pages: number
+}
+
+// Notification types
+export type NotificationType = 'alert' | 'badge' | 'system'
+
+export interface NotificationItem {
+  id: string
+  type: NotificationType
+  title: string
+  message: string | null
+  is_read: boolean
+  resource_type: string | null
+  resource_id: string | null
+  created_at: string
+}
+
+export interface NotificationListResponse {
+  items: NotificationItem[]
+  total: number
+  page: number
+  page_size: number
+  pages: number
+  unread_count: number
+}
+
+export interface MarkReadRequest {
+  notification_ids: string[]
 }

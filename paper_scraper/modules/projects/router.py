@@ -6,7 +6,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from paper_scraper.api.dependencies import CurrentUser
+from paper_scraper.api.dependencies import CurrentUser, require_permission
+from paper_scraper.core.permissions import Permission
 from paper_scraper.core.database import get_db
 from paper_scraper.core.exceptions import NotFoundError
 from paper_scraper.modules.projects.schemas import (
@@ -47,6 +48,7 @@ def get_project_service(
     response_model=ProjectResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create project",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def create_project(
     data: ProjectCreate,
@@ -65,6 +67,7 @@ async def create_project(
     "/",
     response_model=ProjectListResponse,
     summary="List projects",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def list_projects(
     current_user: CurrentUser,
@@ -86,6 +89,7 @@ async def list_projects(
     "/{project_id}",
     response_model=ProjectResponse,
     summary="Get project",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def get_project(
     project_id: UUID,
@@ -106,6 +110,7 @@ async def get_project(
     "/{project_id}",
     response_model=ProjectResponse,
     summary="Update project",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def update_project(
     project_id: UUID,
@@ -126,6 +131,7 @@ async def update_project(
     "/{project_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete project",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def delete_project(
     project_id: UUID,
@@ -148,6 +154,7 @@ async def delete_project(
     "/{project_id}/kanban",
     response_model=KanBanBoardResponse,
     summary="Get KanBan board",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def get_kanban_board(
     project_id: UUID,
@@ -172,6 +179,7 @@ async def get_kanban_board(
     "/{project_id}/statistics",
     response_model=ProjectStatistics,
     summary="Get project statistics",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def get_project_statistics(
     project_id: UUID,
@@ -195,6 +203,7 @@ async def get_project_statistics(
     response_model=PaperProjectStatusResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Add paper to project",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def add_paper_to_project(
     project_id: UUID,
@@ -222,6 +231,7 @@ async def add_paper_to_project(
     response_model=dict,
     status_code=status.HTTP_200_OK,
     summary="Batch add papers to project",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def batch_add_papers(
     project_id: UUID,
@@ -242,6 +252,7 @@ async def batch_add_papers(
     "/{project_id}/papers/{paper_id}",
     response_model=PaperInProjectResponse,
     summary="Get paper in project",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def get_paper_in_project(
     project_id: UUID,
@@ -264,6 +275,7 @@ async def get_paper_in_project(
     "/{project_id}/papers/{paper_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Remove paper from project",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def remove_paper_from_project(
     project_id: UUID,
@@ -288,6 +300,7 @@ async def remove_paper_from_project(
     "/{project_id}/papers/{paper_id}/move",
     response_model=PaperProjectStatusResponse,
     summary="Move paper to stage",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def move_paper(
     project_id: UUID,
@@ -313,6 +326,7 @@ async def move_paper(
     "/{project_id}/papers/{paper_id}/reject",
     response_model=PaperProjectStatusResponse,
     summary="Reject paper",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def reject_paper(
     project_id: UUID,
@@ -338,6 +352,7 @@ async def reject_paper(
     "/{project_id}/papers/{paper_id}/status",
     response_model=PaperProjectStatusResponse,
     summary="Update paper status",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def update_paper_status(
     project_id: UUID,
@@ -368,6 +383,7 @@ async def update_paper_status(
     "/{project_id}/papers/{paper_id}/history",
     response_model=PaperHistoryResponse,
     summary="Get paper history",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def get_paper_history(
     project_id: UUID,

@@ -6,7 +6,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from paper_scraper.api.dependencies import CurrentUser
+from paper_scraper.api.dependencies import CurrentUser, require_permission
+from paper_scraper.core.permissions import Permission
 from paper_scraper.core.database import get_db
 from paper_scraper.modules.reports.schemas import (
     CreateScheduledReportRequest,
@@ -31,6 +32,7 @@ def get_reports_service(
     "/scheduled",
     response_model=ScheduledReportListResponse,
     summary="List scheduled reports",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def list_scheduled_reports(
     current_user: CurrentUser,
@@ -55,6 +57,7 @@ async def list_scheduled_reports(
     "/scheduled/{report_id}",
     response_model=ScheduledReportResponse,
     summary="Get scheduled report",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def get_scheduled_report(
     report_id: UUID,
@@ -73,6 +76,7 @@ async def get_scheduled_report(
     response_model=ScheduledReportResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create scheduled report",
+    dependencies=[Depends(require_permission(Permission.SETTINGS_ADMIN))],
 )
 async def create_scheduled_report(
     data: CreateScheduledReportRequest,
@@ -95,6 +99,7 @@ async def create_scheduled_report(
     "/scheduled/{report_id}",
     response_model=ScheduledReportResponse,
     summary="Update scheduled report",
+    dependencies=[Depends(require_permission(Permission.SETTINGS_ADMIN))],
 )
 async def update_scheduled_report(
     report_id: UUID,
@@ -114,6 +119,7 @@ async def update_scheduled_report(
     "/scheduled/{report_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete scheduled report",
+    dependencies=[Depends(require_permission(Permission.SETTINGS_ADMIN))],
 )
 async def delete_scheduled_report(
     report_id: UUID,
@@ -131,6 +137,7 @@ async def delete_scheduled_report(
     "/scheduled/{report_id}/run",
     response_model=ReportRunResult,
     summary="Run report immediately",
+    dependencies=[Depends(require_permission(Permission.SETTINGS_ADMIN))],
 )
 async def run_scheduled_report(
     report_id: UUID,

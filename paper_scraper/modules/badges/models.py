@@ -4,7 +4,7 @@ import enum
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text, Uuid, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, Integer, String, Text, UniqueConstraint, Uuid, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -36,7 +36,14 @@ class Badge(Base):
     __tablename__ = "badges"
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    organization_id: Mapped[UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    is_custom: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     icon: Mapped[str] = mapped_column(String(100), nullable=False, default="trophy")
     category: Mapped[BadgeCategory] = mapped_column(
@@ -60,6 +67,11 @@ class Badge(Base):
     # Relationships
     user_badges: Mapped[list["UserBadge"]] = relationship(
         "UserBadge", back_populates="badge", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        # Badge names must be unique within their scope (system-wide or per-org)
+        UniqueConstraint("name", "organization_id", name="uq_badges_name_org"),
     )
 
     def __repr__(self) -> str:
@@ -94,6 +106,10 @@ class UserBadge(Base):
 
     # Relationships
     badge: Mapped["Badge"] = relationship("Badge", back_populates="user_badges")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "badge_id", name="uq_user_badges_user_badge"),
+    )
 
     def __repr__(self) -> str:
         return f"<UserBadge user={self.user_id} badge={self.badge_id}>"

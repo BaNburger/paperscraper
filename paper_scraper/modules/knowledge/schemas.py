@@ -67,3 +67,6 @@ class KnowledgeSourceListResponse(BaseModel):
 
     items: list[KnowledgeSourceResponse]
     total: int
+    page: int = 1
+    page_size: int = 50
+    pages: int = 1

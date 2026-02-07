@@ -89,6 +89,23 @@ try:
 except ImportError:
     pass
 
+try:
+    from paper_scraper.modules.compliance.models import (  # noqa: F401
+        RetentionPolicy, RetentionLog,
+    )
+except ImportError:
+    pass
+
+try:
+    from paper_scraper.modules.search.models import SearchActivity  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    from paper_scraper.modules.notifications.models import Notification  # noqa: F401
+except ImportError:
+    pass
+
 # Alembic Config object
 config = context.config
 

@@ -70,18 +70,19 @@ class AnalyticsService:
             )
         )
 
-        # Active users based on note activity (Paper model lacks created_by_id)
-        # TODO: Add created_by_id to Paper model for accurate tracking
+        # Active users based on paper imports and note activity
         active_users_7_days = await self._count_records(
-            select(func.count(func.distinct(PaperNote.user_id))).where(
-                PaperNote.organization_id == organization_id,
-                PaperNote.created_at >= week_ago,
+            select(func.count(func.distinct(Paper.created_by_id))).where(
+                Paper.organization_id == organization_id,
+                Paper.created_at >= week_ago,
+                Paper.created_by_id.is_not(None),
             )
         )
         active_users_30_days = await self._count_records(
-            select(func.count(func.distinct(PaperNote.user_id))).where(
-                PaperNote.organization_id == organization_id,
-                PaperNote.created_at >= month_ago,
+            select(func.count(func.distinct(Paper.created_by_id))).where(
+                Paper.organization_id == organization_id,
+                Paper.created_at >= month_ago,
+                Paper.created_by_id.is_not(None),
             )
         )
 
@@ -94,20 +95,29 @@ class AnalyticsService:
         # Batch query for notes count per user (with tenant isolation)
         user_ids = [user.id for user in users]
         notes_by_user: dict[UUID, int] = {}
+        papers_by_user: dict[UUID, int] = {}
         if user_ids:
             notes_result = await self.db.execute(
                 select(PaperNote.user_id, func.count(PaperNote.id).label("count"))
                 .where(
                     PaperNote.user_id.in_(user_ids),
-                    PaperNote.organization_id == organization_id,  # Tenant isolation
+                    PaperNote.organization_id == organization_id,
                 )
                 .group_by(PaperNote.user_id)
             )
             notes_by_user = {row.user_id: row.count for row in notes_result.all()}
 
-        # Note: Paper model lacks created_by_id, so we can't track per-user paper imports.
-        # Show 0 for papers_imported/papers_scored until model supports user tracking.
-        # TODO: Add created_by_id to Paper model and update this query
+            # Papers imported per user (using created_by_id)
+            papers_result = await self.db.execute(
+                select(Paper.created_by_id, func.count(Paper.id).label("count"))
+                .where(
+                    Paper.created_by_id.in_(user_ids),
+                    Paper.organization_id == organization_id,
+                )
+                .group_by(Paper.created_by_id)
+            )
+            papers_by_user = {row.created_by_id: row.count for row in papers_result.all()}
+
         user_activity: list[UserActivityStats] = []
         for user in users:
             user_activity.append(
@@ -115,8 +125,8 @@ class AnalyticsService:
                     user_id=user.id,
                     email=user.email,
                     full_name=user.full_name,
-                    papers_imported=0,  # Requires Paper.created_by_id field
-                    papers_scored=0,  # Requires PaperScore.created_by_id field
+                    papers_imported=papers_by_user.get(user.id, 0),
+                    papers_scored=0,
                     notes_created=notes_by_user.get(user.id, 0),
                     last_active=user.updated_at,
                 )

@@ -3,7 +3,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.api.dependencies import AdminUser, CurrentUser, require_permission
@@ -41,10 +41,13 @@ def get_audit_service(
 async def list_personal_sources(
     current_user: CurrentUser,
     service: Annotated[KnowledgeService, Depends(get_knowledge_service)],
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=100),
 ):
     """List current user's personal knowledge sources."""
     return await service.list_personal(
-        current_user.id, current_user.organization_id
+        current_user.id, current_user.organization_id,
+        page=page, page_size=page_size,
     )
 
 
@@ -100,9 +103,13 @@ async def delete_personal_source(
 async def list_organization_sources(
     current_user: AdminUser,
     service: Annotated[KnowledgeService, Depends(get_knowledge_service)],
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=100),
 ):
     """List organization-level knowledge sources (admin only)."""
-    return await service.list_organization(current_user.organization_id)
+    return await service.list_organization(
+        current_user.organization_id, page=page, page_size=page_size,
+    )
 
 
 @router.post(

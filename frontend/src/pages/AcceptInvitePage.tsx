@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams, useNavigate, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { authApi, setStoredTokens } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/Button'
@@ -11,6 +12,7 @@ import { getApiErrorMessage } from '@/types'
 import type { InvitationInfo } from '@/types'
 
 export function AcceptInvitePage() {
+  const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { refreshUser } = useAuth()
@@ -29,7 +31,7 @@ export function AcceptInvitePage() {
   useEffect(() => {
     async function loadInvitationInfo() {
       if (!token) {
-        setLoadError('Invalid invitation link')
+        setLoadError(t('auth.invalidInvitationLink'))
         setLoadingInfo(false)
         return
       }
@@ -38,7 +40,7 @@ export function AcceptInvitePage() {
         const info = await authApi.getInvitationInfo(token)
         setInvitationInfo(info)
       } catch (err) {
-        setLoadError(getApiErrorMessage(err, 'This invitation is invalid or has expired.'))
+        setLoadError(getApiErrorMessage(err, t('auth.invitationExpired')))
       } finally {
         setLoadingInfo(false)
       }
@@ -52,17 +54,17 @@ export function AcceptInvitePage() {
     setError('')
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match')
+      setError(t('auth.passwordsDoNotMatch'))
       return
     }
 
     if (password.length < 8) {
-      setError('Password must be at least 8 characters')
+      setError(t('auth.passwordMinLength'))
       return
     }
 
     if (!token) {
-      setError('Invalid invitation link')
+      setError(t('auth.invalidInvitationLink'))
       return
     }
 
@@ -78,7 +80,7 @@ export function AcceptInvitePage() {
       await refreshUser()
       navigate('/dashboard')
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Failed to accept invitation. Please try again.'))
+      setError(getApiErrorMessage(err, t('auth.acceptInvitationFailed')))
     } finally {
       setIsLoading(false)
     }
@@ -92,7 +94,7 @@ export function AcceptInvitePage() {
             <div className="flex justify-center mb-4">
               <Loader2 className="h-12 w-12 text-primary animate-spin" />
             </div>
-            <CardTitle className="text-2xl">Loading invitation...</CardTitle>
+            <CardTitle className="text-2xl">{t('auth.loadingInvitation')}</CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -107,17 +109,17 @@ export function AcceptInvitePage() {
             <div className="flex justify-center mb-4">
               <XCircle className="h-12 w-12 text-destructive" />
             </div>
-            <CardTitle className="text-2xl">Invalid Invitation</CardTitle>
+            <CardTitle className="text-2xl">{t('auth.invalidInvitation')}</CardTitle>
             <CardDescription>
               {loadError}
             </CardDescription>
           </CardHeader>
           <CardFooter className="flex justify-center gap-4">
             <Link to="/login">
-              <Button variant="outline">Sign in</Button>
+              <Button variant="outline">{t('auth.signIn')}</Button>
             </Link>
             <Link to="/register">
-              <Button>Create account</Button>
+              <Button>{t('auth.createAccount')}</Button>
             </Link>
           </CardFooter>
         </Card>
@@ -132,18 +134,18 @@ export function AcceptInvitePage() {
           <div className="flex justify-center mb-4">
             <Users className="h-12 w-12 text-primary" />
           </div>
-          <CardTitle className="text-2xl">You're invited!</CardTitle>
+          <CardTitle className="text-2xl">{t('auth.youreInvited')}</CardTitle>
           <CardDescription>
             {invitationInfo?.inviter_name ? (
               <>
-                <strong>{invitationInfo.inviter_name}</strong> has invited you to join{' '}
+                <strong>{invitationInfo.inviter_name}</strong> {t('auth.hasInvitedYouToJoin')}{' '}
               </>
             ) : (
-              <>You've been invited to join </>
+              <>{t('auth.youveBeenInvitedToJoin')}{' '}</>
             )}
-            <strong>{invitationInfo?.organization_name}</strong> on Paper Scraper
+            <strong>{invitationInfo?.organization_name}</strong> {t('auth.onPaperScraper')}
             {invitationInfo?.role && (
-              <> as a <strong>{invitationInfo.role}</strong></>
+              <> {t('auth.asRole', { role: invitationInfo.role })}</>
             )}.
           </CardDescription>
         </CardHeader>
@@ -161,7 +163,7 @@ export function AcceptInvitePage() {
               </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="fullName">Full name (optional)</Label>
+              <Label htmlFor="fullName">{t('auth.fullNameOptional')}</Label>
               <Input
                 id="fullName"
                 type="text"
@@ -171,11 +173,11 @@ export function AcceptInvitePage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t('auth.password')}</Label>
               <Input
                 id="password"
                 type="password"
-                placeholder="At least 8 characters"
+                placeholder={t('auth.passwordPlaceholder')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -183,7 +185,7 @@ export function AcceptInvitePage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm password</Label>
+              <Label htmlFor="confirmPassword">{t('auth.confirmPassword')}</Label>
               <Input
                 id="confirmPassword"
                 type="password"
@@ -195,12 +197,12 @@ export function AcceptInvitePage() {
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <Button type="submit" className="w-full" isLoading={isLoading}>
-              Accept & Create Account
+              {t('auth.acceptAndCreateAccount')}
             </Button>
             <p className="text-sm text-muted-foreground">
-              Already have an account?{' '}
+              {t('auth.hasAccount')}{' '}
               <Link to="/login" className="text-primary hover:underline">
-                Sign in
+                {t('auth.signIn')}
               </Link>
             </p>
           </CardFooter>

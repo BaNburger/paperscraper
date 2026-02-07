@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { authApi } from '@/lib/api'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -9,6 +10,7 @@ import { FileText, ArrowLeft, CheckCircle } from 'lucide-react'
 import { getApiErrorMessage } from '@/types'
 
 export function ForgotPasswordPage() {
+  const { t } = useTranslation()
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -23,7 +25,7 @@ export function ForgotPasswordPage() {
       await authApi.forgotPassword(email)
       setIsSubmitted(true)
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Failed to send reset email. Please try again.'))
+      setError(getApiErrorMessage(err, t('auth.forgotPasswordFailed')))
     } finally {
       setIsLoading(false)
     }
@@ -37,21 +39,21 @@ export function ForgotPasswordPage() {
             <div className="flex justify-center mb-4">
               <CheckCircle className="h-12 w-12 text-green-500" />
             </div>
-            <CardTitle className="text-2xl">Check your email</CardTitle>
+            <CardTitle className="text-2xl">{t('auth.checkYourEmail')}</CardTitle>
             <CardDescription>
-              If an account exists with <strong>{email}</strong>, we've sent a password reset link.
+              {t('auth.resetEmailSent', { email })}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground text-center">
-              The link will expire in 1 hour. If you don't see the email, check your spam folder.
+              {t('auth.resetEmailExpiry')}
             </p>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <Link to="/login" className="w-full">
               <Button variant="outline" className="w-full">
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to login
+                {t('auth.backToLogin')}
               </Button>
             </Link>
           </CardFooter>
@@ -67,9 +69,9 @@ export function ForgotPasswordPage() {
           <div className="flex justify-center mb-4">
             <FileText className="h-12 w-12 text-primary" />
           </div>
-          <CardTitle className="text-2xl">Forgot password?</CardTitle>
+          <CardTitle className="text-2xl">{t('auth.forgotPassword')}</CardTitle>
           <CardDescription>
-            Enter your email address and we'll send you a link to reset your password.
+            {t('auth.forgotPasswordDescription')}
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -80,7 +82,7 @@ export function ForgotPasswordPage() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('auth.email')}</Label>
               <Input
                 id="email"
                 name="email"
@@ -94,11 +96,11 @@ export function ForgotPasswordPage() {
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <Button type="submit" className="w-full" isLoading={isLoading}>
-              Send reset link
+              {t('auth.sendResetLink')}
             </Button>
             <Link to="/login" className="text-sm text-primary hover:underline">
               <ArrowLeft className="inline mr-1 h-4 w-4" />
-              Back to login
+              {t('auth.backToLogin')}
             </Link>
           </CardFooter>
         </form>

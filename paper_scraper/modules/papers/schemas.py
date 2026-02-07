@@ -145,6 +145,13 @@ class IngestArxivRequest(BaseModel):
     )
 
 
+class IngestSemanticScholarRequest(BaseModel):
+    """Request to batch ingest from Semantic Scholar."""
+
+    query: str = Field(..., description="Semantic Scholar search query")
+    max_results: int = Field(default=100, ge=1, le=1000)
+
+
 class IngestJobResponse(BaseModel):
     """Response for async ingestion job."""
 
@@ -160,6 +167,63 @@ class IngestResult(BaseModel):
     papers_updated: int
     papers_skipped: int
     errors: list[str] = Field(default_factory=list)
+
+
+# =============================================================================
+# Patent Schemas (EPO OPS)
+# =============================================================================
+
+
+class PatentResponse(BaseModel):
+    """Response for a single patent."""
+
+    patent_number: str
+    title: str
+    abstract: str | None = None
+    applicant: str | None = None
+    filing_date: str | None = None
+    publication_date: str | None = None
+    espacenet_url: str
+    relevance_score: float | None = None
+
+
+class RelatedPatentsResponse(BaseModel):
+    """Response for related patents."""
+
+    patents: list[PatentResponse]
+    query: str
+    total: int
+
+
+# =============================================================================
+# Citation Graph Schemas (Semantic Scholar)
+# =============================================================================
+
+
+class CitationNode(BaseModel):
+    """A node in the citation graph."""
+
+    paper_id: str
+    title: str
+    year: int | None = None
+    citation_count: int | None = None
+    is_root: bool = False
+
+
+class CitationEdge(BaseModel):
+    """An edge in the citation graph."""
+
+    source: str
+    target: str
+    type: str  # 'cites' or 'cited_by'
+
+
+class CitationGraphResponse(BaseModel):
+    """Response for citation graph data."""
+
+    nodes: list[CitationNode]
+    edges: list[CitationEdge]
+    root_paper_id: str
 
 
 # =============================================================================

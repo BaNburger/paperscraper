@@ -55,9 +55,11 @@ function NotificationItem({
               <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
             )}
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-            {notification.description}
-          </p>
+          {notification.message && (
+            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+              {notification.message}
+            </p>
+          )}
           <div className="flex items-center gap-2 mt-1">
             <Clock className="h-3 w-3 text-muted-foreground" />
             <span className="text-xs text-muted-foreground">
@@ -100,22 +102,20 @@ export function NotificationCenter() {
 
   const handleNotificationClick = (notification: Notification) => {
     setIsOpen(false)
-    // Navigate to relevant page based on notification type
-    if (notification.type === 'alert' && notification.paperIds?.length) {
-      const paperId = notification.paperIds[0]
-      // Validate UUID format before navigation (security: prevent open redirect)
+    // Navigate based on resource type or notification type
+    if (notification.resourceType === 'paper' && notification.resourceId) {
       const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-      if (UUID_REGEX.test(paperId)) {
-        navigate(`/papers/${paperId}`)
-      } else {
-        // Invalid paper ID, navigate to papers list instead
-        navigate('/papers')
+      if (UUID_REGEX.test(notification.resourceId)) {
+        navigate(`/papers/${notification.resourceId}`)
+        return
       }
-    } else if (notification.type === 'alert') {
-      // Navigate to the alert's saved search results
-      navigate('/search')
+    }
+    if (notification.type === 'alert') {
+      navigate('/alerts')
     } else if (notification.type === 'badge') {
       navigate('/badges')
+    } else {
+      navigate('/notifications')
     }
   }
 

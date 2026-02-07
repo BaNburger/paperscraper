@@ -7,7 +7,8 @@ import arq
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from paper_scraper.api.dependencies import CurrentUser
+from paper_scraper.api.dependencies import CurrentUser, require_permission
+from paper_scraper.core.permissions import Permission
 from paper_scraper.core.config import settings
 from paper_scraper.core.database import get_db
 from paper_scraper.modules.search.schemas import (
@@ -43,6 +44,7 @@ def get_search_service(
     response_model=SearchResponse,
     summary="Unified search",
     description="Search papers using full-text, semantic, or hybrid mode.",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def search(
     request: SearchRequest,
@@ -63,6 +65,7 @@ async def search(
     return await search_service.search(
         request=request,
         organization_id=current_user.organization_id,
+        user_id=current_user.id,
     )
 
 
@@ -71,6 +74,7 @@ async def search(
     response_model=SearchResponse,
     summary="Full-text search",
     description="Search papers using PostgreSQL trigram similarity.",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def fulltext_search(
     current_user: CurrentUser,
@@ -94,6 +98,7 @@ async def fulltext_search(
     return await search_service.search(
         request=request,
         organization_id=current_user.organization_id,
+        user_id=current_user.id,
     )
 
 
@@ -102,6 +107,7 @@ async def fulltext_search(
     response_model=SearchResponse,
     summary="Semantic search",
     description="Search papers using embedding similarity.",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def semantic_search(
     current_user: CurrentUser,
@@ -125,6 +131,7 @@ async def semantic_search(
     return await search_service.search(
         request=request,
         organization_id=current_user.organization_id,
+        user_id=current_user.id,
     )
 
 
@@ -133,6 +140,7 @@ async def semantic_search(
     response_model=SimilarPapersResponse,
     summary="Find similar papers",
     description="Find papers similar to a given paper using embedding similarity.",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def find_similar_papers(
     request: SimilarPapersRequest,
@@ -159,6 +167,7 @@ async def find_similar_papers(
     response_model=SimilarPapersResponse,
     summary="Find similar papers (GET)",
     description="Find papers similar to a given paper (simplified GET endpoint).",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def find_similar_papers_get(
     paper_id: UUID,
@@ -190,6 +199,7 @@ async def find_similar_papers_get(
     response_model=EmbeddingStats,
     summary="Get embedding statistics",
     description="Get statistics about paper embeddings.",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def get_embedding_stats(
     current_user: CurrentUser,
@@ -209,6 +219,7 @@ async def get_embedding_stats(
     status_code=status.HTTP_202_ACCEPTED,
     summary="Start embedding backfill job",
     description="Start a background job to generate embeddings for papers without them.",
+    dependencies=[Depends(require_permission(Permission.SCORING_TRIGGER))],
 )
 async def start_embedding_backfill(
     request: EmbeddingBackfillRequest,
@@ -261,6 +272,7 @@ async def start_embedding_backfill(
     response_model=EmbeddingBackfillResult,
     summary="Backfill embeddings synchronously",
     description="Generate embeddings synchronously (for small batches).",
+    dependencies=[Depends(require_permission(Permission.SCORING_TRIGGER))],
 )
 async def backfill_embeddings_sync(
     current_user: CurrentUser,

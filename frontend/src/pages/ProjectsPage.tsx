@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { useProjects, useCreateProject, useDeleteProject } from '@/hooks'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -22,6 +23,7 @@ import { FolderKanban, Plus, Trash2, AlertTriangle } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
 export function ProjectsPage() {
+  const { t } = useTranslation()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [newProjectName, setNewProjectName] = useState('')
   const [newProjectDescription, setNewProjectDescription] = useState('')
@@ -42,9 +44,9 @@ export function ProjectsPage() {
       setNewProjectName('')
       setNewProjectDescription('')
       setShowCreateModal(false)
-      success('Project created', `"${newProjectName}" has been created successfully.`)
+      success(t('projects.createSuccess'), t('projects.createSuccessDescription', { name: newProjectName }))
     } catch {
-      showError('Failed to create project', 'Please try again.')
+      showError(t('projects.createFailed'), t('projects.tryAgain'))
     }
   }
 
@@ -52,10 +54,10 @@ export function ProjectsPage() {
     if (!deleteConfirm) return
     try {
       await deleteProject.mutateAsync(deleteConfirm.id)
-      success('Project deleted', `"${deleteConfirm.name}" has been deleted.`)
+      success(t('projects.deleteSuccess'), t('projects.deleteSuccessDescription', { name: deleteConfirm.name }))
       setDeleteConfirm(null)
     } catch {
-      showError('Failed to delete project', 'Please try again.')
+      showError(t('projects.deleteFailed'), t('projects.tryAgain'))
     }
   }
 
@@ -64,14 +66,14 @@ export function ProjectsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Projects</h1>
+          <h1 className="text-3xl font-bold">{t('projects.title')}</h1>
           <p className="text-muted-foreground mt-1">
-            Organize papers into research pipelines
+            {t('projects.subtitle')}
           </p>
         </div>
         <Button onClick={() => setShowCreateModal(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          New Project
+          {t('projects.newProject')}
         </Button>
       </div>
 
@@ -85,7 +87,7 @@ export function ProjectsPage() {
       ) : error ? (
         <Card>
           <CardContent className="py-12 text-center text-destructive">
-            Failed to load projects. Please try again.
+            {t('projects.loadFailed')}
           </CardContent>
         </Card>
       ) : !projects?.items?.length ? (
@@ -93,10 +95,10 @@ export function ProjectsPage() {
           <CardContent>
             <EmptyState
               icon={<FolderKanban className="h-16 w-16" />}
-              title="No projects yet"
-              description="Create a project to organize your papers through a KanBan-style review pipeline."
+              title={t('projects.noProjects')}
+              description={t('projects.noProjectsDescription')}
               action={{
-                label: 'Create Project',
+                label: t('projects.createProject'),
                 onClick: () => setShowCreateModal(true),
               }}
             />
@@ -121,14 +123,14 @@ export function ProjectsPage() {
                       )}
                     </div>
                     <Badge variant={project.is_active ? 'default' : 'secondary'}>
-                      {project.is_active ? 'Active' : 'Inactive'}
+                      {project.is_active ? t('projects.active') : t('projects.inactive')}
                     </Badge>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>{project.stages.length} stages</span>
-                    <span>Created {formatDate(project.created_at)}</span>
+                    <span>{t('projects.stageCount', { count: project.stages.length })}</span>
+                    <span>{t('projects.created', { date: formatDate(project.created_at) })}</span>
                   </div>
                   <div className="flex flex-wrap gap-1 mt-3">
                     {project.stages.slice(0, 4).map((stage) => (
@@ -143,7 +145,7 @@ export function ProjectsPage() {
                     ))}
                     {project.stages.length > 4 && (
                       <Badge variant="outline" className="text-xs">
-                        +{project.stages.length - 4} more
+                        {t('projects.moreStages', { count: project.stages.length - 4 })}
                       </Badge>
                     )}
                   </div>
@@ -157,7 +159,7 @@ export function ProjectsPage() {
                   e.preventDefault()
                   setDeleteConfirm({ id: project.id, name: project.name })
                 }}
-                aria-label="Delete project"
+                aria-label={t('projects.deleteProject')}
               >
                 <Trash2 className="h-4 w-4 text-destructive" />
               </Button>
@@ -170,9 +172,9 @@ export function ProjectsPage() {
       <ConfirmDialog
         open={!!deleteConfirm}
         onOpenChange={(open) => !open && setDeleteConfirm(null)}
-        title="Delete Project"
-        description={`Are you sure you want to delete "${deleteConfirm?.name}"? This action cannot be undone.`}
-        confirmLabel="Delete"
+        title={t('projects.deleteProject')}
+        description={t('projects.deleteConfirm', { name: deleteConfirm?.name })}
+        confirmLabel={t('common.delete')}
         variant="destructive"
         onConfirm={handleDelete}
         isLoading={deleteProject.isPending}
@@ -183,15 +185,15 @@ export function ProjectsPage() {
       <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Project</DialogTitle>
+            <DialogTitle>{t('projects.createProject')}</DialogTitle>
             <DialogDescription>
-              Projects help you organize papers through a review pipeline
+              {t('projects.createDescription')}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreate}>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Project Name</Label>
+                <Label htmlFor="name">{t('projects.projectName')}</Label>
                 <Input
                   id="name"
                   placeholder="e.g., Q1 2026 Review"
@@ -201,10 +203,10 @@ export function ProjectsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="description">Description (optional)</Label>
+                <Label htmlFor="description">{t('projects.descriptionOptional')}</Label>
                 <Input
                   id="description"
-                  placeholder="What is this project for?"
+                  placeholder={t('projects.descriptionPlaceholder')}
                   value={newProjectDescription}
                   onChange={(e) => setNewProjectDescription(e.target.value)}
                 />
@@ -216,10 +218,10 @@ export function ProjectsPage() {
                 variant="outline"
                 onClick={() => setShowCreateModal(false)}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button type="submit" isLoading={createProject.isPending}>
-                Create Project
+                {t('projects.createProject')}
               </Button>
             </DialogFooter>
           </form>

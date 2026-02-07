@@ -68,7 +68,7 @@ class ProjectService:
             project.scoring_weights = data.scoring_weights.model_dump()
 
         self.db.add(project)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(project)
         return project
 
@@ -146,7 +146,7 @@ class ProjectService:
             if value is not None:
                 setattr(project, key, value)
 
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(project)
         return project
 
@@ -161,7 +161,7 @@ class ProjectService:
             raise NotFoundError("Project", project_id)
 
         await self.db.delete(project)
-        await self.db.commit()
+        await self.db.flush()
 
     # =========================================================================
     # Paper Management in Projects
@@ -219,7 +219,7 @@ class ProjectService:
         )
         self.db.add(history)
 
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(status)
         return status
 
@@ -279,7 +279,7 @@ class ProjectService:
             except Exception as e:
                 errors.append(f"Error adding paper {paper_id}: {str(e)}")
 
-        await self.db.commit()
+        await self.db.flush()
 
         return {
             "added": added,
@@ -301,7 +301,7 @@ class ProjectService:
             raise NotFoundError("PaperProjectStatus", paper_id)
 
         await self.db.delete(status)
-        await self.db.commit()
+        await self.db.flush()
 
     async def move_paper(
         self,
@@ -356,7 +356,7 @@ class ProjectService:
         )
         self.db.add(history)
 
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(status)
         return status
 
@@ -383,7 +383,7 @@ class ProjectService:
         status.rejection_reason = reason
         status.rejection_notes = notes
 
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(status)
         return status
 
@@ -425,7 +425,7 @@ class ProjectService:
         if tags is not None:
             status.tags = tags
 
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(status)
         return status
 
@@ -605,14 +605,67 @@ class ProjectService:
             s.rejection_reason.value for s in statuses if s.rejection_reason
         ))
 
+        # Calculate average time per stage from history
+        avg_time_per_stage = await self._calculate_avg_time_per_stage(project_id)
+
         return ProjectStatistics(
             project_id=project_id,
             total_papers=len(statuses),
             papers_by_stage=papers_by_stage,
             papers_by_priority=papers_by_priority,
-            avg_time_per_stage={},  # TODO: Calculate from history
+            avg_time_per_stage=avg_time_per_stage,
             rejection_reasons=rejection_reasons,
         )
+
+    async def _calculate_avg_time_per_stage(
+        self,
+        project_id: UUID,
+    ) -> dict[str, float]:
+        """Calculate average time spent in each stage (in hours).
+
+        Uses PaperStageHistory to compute time between consecutive
+        stage transitions for each paper in the project.
+        """
+        # Get all history entries for this project's paper statuses
+        status_ids_query = select(PaperProjectStatus.id).where(
+            PaperProjectStatus.project_id == project_id
+        )
+
+        result = await self.db.execute(
+            select(PaperStageHistory)
+            .where(PaperStageHistory.paper_project_status_id.in_(status_ids_query))
+            .order_by(
+                PaperStageHistory.paper_project_status_id,
+                PaperStageHistory.created_at,
+            )
+        )
+        history_entries = list(result.scalars().all())
+
+        # Group by paper_project_status_id and calculate time in each stage
+        stage_durations: dict[str, list[float]] = {}
+        entries_by_status: dict[UUID, list[PaperStageHistory]] = {}
+
+        for entry in history_entries:
+            entries_by_status.setdefault(entry.paper_project_status_id, []).append(entry)
+
+        for entries in entries_by_status.values():
+            for i, entry in enumerate(entries):
+                # Time in a stage = time until next transition
+                if i + 1 < len(entries):
+                    next_entry = entries[i + 1]
+                    duration_hours = (
+                        next_entry.created_at - entry.created_at
+                    ).total_seconds() / 3600
+                    stage = entry.to_stage
+                    stage_durations.setdefault(stage, []).append(duration_hours)
+
+        # Calculate averages
+        avg_times: dict[str, float] = {}
+        for stage, durations in stage_durations.items():
+            if durations:
+                avg_times[stage] = round(sum(durations) / len(durations), 2)
+
+        return avg_times
 
     # =========================================================================
     # Private Methods

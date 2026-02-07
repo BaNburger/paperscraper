@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Bell, CheckCheck, Filter, FileText, AlertTriangle, Check, Clock } from 'lucide-react'
 import { useNotifications, type Notification } from '@/hooks/useNotifications'
@@ -12,6 +13,7 @@ import { cn } from '@/lib/utils'
 type FilterType = 'all' | 'unread' | 'alert' | 'badge' | 'system'
 
 export function NotificationsPage() {
+  const { t } = useTranslation()
   const [filter, setFilter] = useState<FilterType>('all')
   const {
     notifications,
@@ -30,10 +32,10 @@ export function NotificationsPage() {
   })
 
   const filterOptions: { value: FilterType; label: string; count?: number }[] = [
-    { value: 'all', label: 'All', count: notifications.length },
-    { value: 'unread', label: 'Unread', count: unreadCount },
-    { value: 'alert', label: 'Alerts' },
-    { value: 'badge', label: 'Badges' },
+    { value: 'all', label: t('notifications.all'), count: notifications.length },
+    { value: 'unread', label: t('notifications.unread'), count: unreadCount },
+    { value: 'alert', label: t('notifications.alerts'), count: undefined },
+    { value: 'badge', label: t('notifications.badgesFilter'), count: undefined },
   ]
 
   return (
@@ -41,15 +43,15 @@ export function NotificationsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Notifications</h1>
+          <h1 className="text-3xl font-bold">{t('notifications.title')}</h1>
           <p className="text-muted-foreground mt-1">
-            Stay updated on alerts, badges, and important events
+            {t('notifications.subtitle')}
           </p>
         </div>
         {unreadCount > 0 && (
           <Button variant="outline" onClick={markAllAsRead}>
             <CheckCheck className="h-4 w-4 mr-2" />
-            Mark all as read
+            {t('notifications.markAllAsRead')}
           </Button>
         )}
       </div>
@@ -78,7 +80,7 @@ export function NotificationsPage() {
       {isLoading ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
-            Loading notifications...
+            {t('notifications.loading')}
           </CardContent>
         </Card>
       ) : filteredNotifications.length === 0 ? (
@@ -86,16 +88,16 @@ export function NotificationsPage() {
           <CardContent className="py-8">
             <EmptyState
               icon={<Bell className="h-16 w-16" />}
-              title={filter === 'unread' ? 'All caught up!' : 'No notifications'}
+              title={filter === 'unread' ? t('notifications.allCaughtUp') : t('notifications.noNotifications')}
               description={
                 filter === 'unread'
-                  ? "You've read all your notifications"
-                  : 'Set up alerts to get notified about new papers matching your criteria'
+                  ? t('notifications.allReadDescription')
+                  : t('notifications.noNotificationsDescription')
               }
               action={
                 filter === 'all'
                   ? {
-                      label: 'Create an Alert',
+                      label: t('notifications.createAlert'),
                       onClick: () => (window.location.href = '/search'),
                     }
                   : undefined
@@ -125,6 +127,7 @@ function NotificationCard({
   notification: Notification
   onMarkAsRead: () => void
 }) {
+  const { t } = useTranslation()
   return (
     <Card
       className={cn(
@@ -164,32 +167,32 @@ function NotificationCard({
                 </Badge>
               )}
             </div>
-            <p className="text-sm text-muted-foreground">
-              {notification.description}
-            </p>
+            {notification.message && (
+              <p className="text-sm text-muted-foreground">
+                {notification.message}
+              </p>
+            )}
 
-            {/* Paper links for alert notifications */}
-            {notification.type === 'alert' &&
-              notification.paperIds &&
-              notification.paperIds.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {notification.paperIds.slice(0, 3).map((paperId) => (
-                    <Link
-                      key={paperId}
-                      to={`/papers/${paperId}`}
-                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                    >
-                      <FileText className="h-3 w-3" />
-                      View paper
-                    </Link>
-                  ))}
-                  {notification.paperIds.length > 3 && (
-                    <span className="text-xs text-muted-foreground">
-                      +{notification.paperIds.length - 3} more
-                    </span>
-                  )}
-                </div>
-              )}
+            {/* Link to related resource */}
+            {notification.resourceType && notification.resourceId && (
+              <div className="mt-3">
+                <Link
+                  to={
+                    notification.resourceType === 'alert'
+                      ? `/alerts`
+                      : notification.resourceType === 'badge'
+                        ? `/badges`
+                        : notification.resourceType === 'paper'
+                          ? `/papers/${notification.resourceId}`
+                          : '#'
+                  }
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                >
+                  <FileText className="h-3 w-3" />
+                  {t('notifications.viewDetails')}
+                </Link>
+              </div>
+            )}
 
             <div className="flex items-center gap-4 mt-3">
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -206,7 +209,7 @@ function NotificationCard({
                   onClick={onMarkAsRead}
                   className="text-xs text-primary hover:underline ml-auto"
                 >
-                  Mark as read
+                  {t('notifications.markAsRead')}
                 </button>
               )}
             </div>

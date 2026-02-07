@@ -5,6 +5,7 @@ from datetime import datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, JSON, String, Uuid, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from paper_scraper.core.database import Base
@@ -59,6 +60,12 @@ class Organization(Base):
         default=SubscriptionTier.FREE,
     )
     settings: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    branding: Mapped[dict] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=dict,
+        comment="Organization branding: logo_url, primary_color, accent_color, favicon_url",
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -90,6 +97,11 @@ class Organization(Base):
     )
     repository_sources: Mapped[list["RepositorySource"]] = relationship(
         "RepositorySource",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+    )
+    retention_policies: Mapped[list["RetentionPolicy"]] = relationship(
+        "RetentionPolicy",
         back_populates="organization",
         cascade="all, delete-orphan",
     )
@@ -260,3 +272,6 @@ from paper_scraper.modules.developer.models import (  # noqa: E402, F401
     Webhook,
     RepositorySource,
 )
+
+# Forward reference for compliance module - do not import here to avoid circular imports
+# RetentionPolicy is referenced as a string in the relationship definition

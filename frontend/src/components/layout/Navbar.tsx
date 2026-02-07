@@ -5,6 +5,7 @@ import { useTheme } from '@/contexts/ThemeContext'
 import { NotificationCenter } from '@/components/NotificationCenter'
 import { FileText, LogOut, User, Settings, Building2, ChevronDown, Sun, Moon, Monitor, Command } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import type { OrganizationBranding } from '@/types'
 
 type Theme = 'light' | 'dark' | 'system'
 
@@ -28,6 +29,23 @@ export function Navbar() {
   const [isThemeDropdownOpen, setIsThemeDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const themeDropdownRef = useRef<HTMLDivElement>(null)
+
+  const branding = user?.organization?.branding as OrganizationBranding | undefined
+
+  // Apply org branding colors as CSS custom properties (validated hex only)
+  useEffect(() => {
+    const hexPattern = /^#[0-9a-fA-F]{3,8}$/
+    if (branding?.primary_color && hexPattern.test(branding.primary_color)) {
+      document.documentElement.style.setProperty('--org-primary', branding.primary_color)
+    }
+    if (branding?.accent_color && hexPattern.test(branding.accent_color)) {
+      document.documentElement.style.setProperty('--org-accent', branding.accent_color)
+    }
+    return () => {
+      document.documentElement.style.removeProperty('--org-primary')
+      document.documentElement.style.removeProperty('--org-accent')
+    }
+  }, [branding?.primary_color, branding?.accent_color])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent): void {
@@ -71,8 +89,18 @@ export function Navbar() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-14 items-center px-4">
         <Link to="/" className="flex items-center gap-2 font-semibold">
-          <FileText className="h-6 w-6 text-primary" />
-          <span className="hidden sm:inline">Paper Scraper</span>
+          {branding?.logo_url ? (
+            <img
+              src={branding.logo_url}
+              alt={user?.organization?.name || 'Logo'}
+              className="h-7 w-7 object-contain rounded"
+            />
+          ) : (
+            <FileText className="h-6 w-6 text-primary" />
+          )}
+          <span className="hidden sm:inline">
+            {user?.organization?.name || 'Paper Scraper'}
+          </span>
         </Link>
 
         {/* Command Palette Hint */}

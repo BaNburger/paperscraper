@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { authApi } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
@@ -57,6 +58,7 @@ const roleColors: Record<UserRole, string> = {
 }
 
 export function TeamMembersPage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
@@ -134,24 +136,24 @@ export function TeamMembersPage() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <Users className="h-8 w-8" />
-            Team Members
+            {t('team.title')}
           </h1>
           <p className="text-muted-foreground mt-1">
-            Manage your organization's team members and invitations
+            {t('team.subtitle')}
           </p>
         </div>
         <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <UserPlus className="mr-2 h-4 w-4" />
-              Invite Member
+              {t('team.inviteMember')}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Invite team member</DialogTitle>
+              <DialogTitle>{t('team.inviteDialogTitle')}</DialogTitle>
               <DialogDescription>
-                Send an invitation to join your organization.
+                {t('team.inviteDialogDescription')}
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleInvite}>
@@ -162,7 +164,7 @@ export function TeamMembersPage() {
                   </div>
                 )}
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email address</Label>
+                  <Label htmlFor="email">{t('team.emailAddress')}</Label>
                   <Input
                     id="email"
                     type="email"
@@ -173,26 +175,26 @@ export function TeamMembersPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
+                  <Label htmlFor="role">{t('team.role')}</Label>
                   <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as UserRole)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="viewer">Viewer - Read-only access</SelectItem>
-                      <SelectItem value="member">Member - Standard access</SelectItem>
-                      <SelectItem value="manager">Manager - Manage projects</SelectItem>
-                      <SelectItem value="admin">Admin - Full access</SelectItem>
+                      <SelectItem value="viewer">{t('team.viewerRole')}</SelectItem>
+                      <SelectItem value="member">{t('team.memberRole')}</SelectItem>
+                      <SelectItem value="manager">{t('team.managerRole')}</SelectItem>
+                      <SelectItem value="admin">{t('team.adminRole')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setInviteDialogOpen(false)}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button type="submit" isLoading={inviteMutation.isPending}>
-                  Send Invitation
+                  {t('team.sendInvitation')}
                 </Button>
               </DialogFooter>
             </form>
@@ -204,7 +206,7 @@ export function TeamMembersPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Members</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('team.totalMembers')}</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -213,7 +215,7 @@ export function TeamMembersPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Invitations</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('team.pendingInvitations')}</CardTitle>
             <Mail className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -222,7 +224,7 @@ export function TeamMembersPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Admins</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('team.admins')}</CardTitle>
             <Shield className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -236,19 +238,19 @@ export function TeamMembersPage() {
       {/* Active Members */}
       <Card>
         <CardHeader>
-          <CardTitle>Active Members</CardTitle>
+          <CardTitle>{t('team.activeMembers')}</CardTitle>
           <CardDescription>
-            Users who have access to your organization
+            {t('team.activeMembersDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Joined</TableHead>
+                <TableHead>{t('team.user')}</TableHead>
+                <TableHead>{t('team.role')}</TableHead>
+                <TableHead>{t('team.status')}</TableHead>
+                <TableHead>{t('team.joined')}</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -256,13 +258,13 @@ export function TeamMembersPage() {
               {loadingUsers ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-8">
-                    Loading...
+                    {t('common.loading')}
                   </TableCell>
                 </TableRow>
               ) : usersData?.users.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                    No team members yet
+                    {t('team.noMembers')}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -321,28 +323,28 @@ export function TeamMembersPage() {
                                 updateRoleMutation.mutate({ userId: member.id, role: 'viewer' })
                               }
                             >
-                              Set as Viewer
+                              {t('team.setAsViewer')}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() =>
                                 updateRoleMutation.mutate({ userId: member.id, role: 'member' })
                               }
                             >
-                              Set as Member
+                              {t('team.setAsMember')}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() =>
                                 updateRoleMutation.mutate({ userId: member.id, role: 'manager' })
                               }
                             >
-                              Set as Manager
+                              {t('team.setAsManager')}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() =>
                                 updateRoleMutation.mutate({ userId: member.id, role: 'admin' })
                               }
                             >
-                              Set as Admin
+                              {t('team.setAsAdmin')}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {member.is_active ? (
@@ -350,13 +352,13 @@ export function TeamMembersPage() {
                                 className="text-destructive"
                                 onClick={() => deactivateMutation.mutate(member.id)}
                               >
-                                Deactivate
+                                {t('team.deactivate')}
                               </DropdownMenuItem>
                             ) : (
                               <DropdownMenuItem
                                 onClick={() => reactivateMutation.mutate(member.id)}
                               >
-                                Reactivate
+                                {t('team.reactivate')}
                               </DropdownMenuItem>
                             )}
                           </DropdownMenuContent>
@@ -377,19 +379,19 @@ export function TeamMembersPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5" />
-              Pending Invitations
+              {t('team.pendingInvitations')}
             </CardTitle>
             <CardDescription>
-              Invitations that haven't been accepted yet
+              {t('team.pendingInvitationsDescription')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Expires</TableHead>
+                  <TableHead>{t('team.email')}</TableHead>
+                  <TableHead>{t('team.role')}</TableHead>
+                  <TableHead>{t('team.expires')}</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>

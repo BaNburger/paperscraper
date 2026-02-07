@@ -2,7 +2,7 @@
 
 import pytest
 import pytest_asyncio
-from datetime import datetime, timezone
+from datetime import datetime
 from uuid import uuid4
 
 from httpx import AsyncClient
@@ -89,7 +89,7 @@ async def test_paper(
         abstract="This is a test abstract.",
         source="openalex",
         organization_id=test_organization.id,
-        publication_date=datetime(2024, 1, 15, tzinfo=timezone.utc),
+        publication_date=datetime(2024, 1, 15),
     )
     db_session.add(paper)
     await db_session.flush()

@@ -40,7 +40,7 @@ paper_scraper/
 │   │   ├── security.py         # JWT, password hashing
 │   │   └── exceptions.py       # Custom exceptions
 │   │
-│   ├── modules/                # 17 Feature-Module
+│   ├── modules/                # 22 Feature-Module
 │   │   ├── analytics/          # Team & paper metrics, dashboard
 │   │   ├── alerts/             # Search alerts & notifications
 │   │   ├── audit/              # Security audit logging (GDPR compliance)
@@ -58,12 +58,19 @@ paper_scraper/
 │   │   ├── scoring/            # AI Scoring Pipeline (6 dimensions)
 │   │   ├── search/             # Fulltext, Semantic
 │   │   ├── submissions/        # Research submission portal
-│   │   └── transfer/           # Technology transfer conversations
+│   │   ├── transfer/           # Technology transfer conversations
+│   │   ├── developer/          # API keys, webhooks, repository sources
+│   │   ├── reports/            # Scheduled reports
+│   │   ├── compliance/         # Data retention & governance
+│   │   └── notifications/      # Server-side notifications (alert/badge/system)
 │   │
 │   ├── jobs/                   # arq Background Tasks (async-native)
 │   │   ├── worker.py           # arq WorkerSettings
 │   │   ├── ingestion.py
-│   │   └── scoring.py
+│   │   ├── scoring.py
+│   │   ├── badges.py
+│   │   ├── alerts.py
+│   │   └── retention.py
 │   │
 │   └── api/
 │       ├── main.py             # FastAPI App
@@ -209,6 +216,24 @@ audit_logs (
   id, user_id, organization_id, action, resource_type,
   resource_id, details, ip_address, user_agent, created_at
 )
+
+-- Notifications
+notifications (
+  id, user_id, organization_id, type, title, message,
+  is_read, resource_type, resource_id, metadata, created_at
+)
+
+-- Developer
+api_keys (id, organization_id, name, key_hash, permissions, is_active, last_used_at)
+webhooks (id, organization_id, url, events, secret, is_active)
+repository_sources (id, organization_id, provider, config, sync_enabled)
+
+-- Compliance
+retention_policies (id, organization_id, resource_type, retention_days, is_active)
+retention_logs (id, policy_id, records_deleted, executed_at)
+
+-- Reports
+scheduled_reports (id, organization_id, name, type, schedule, config, is_active)
 ```
 
 ---
@@ -345,10 +370,43 @@ audit_logs (
 ├── /knowledge               # Knowledge Management
 │   └── [CRUD for knowledge sources]
 │
-└── /settings/models         # Model Configuration
-    ├── GET  /               # List models
-    ├── POST /               # Add model
-    └── GET  /usage          # Usage stats
+├── /settings/models         # Model Configuration
+│   ├── GET  /               # List models
+│   ├── POST /               # Add model
+│   └── GET  /usage          # Usage stats
+│
+├── /developer               # Developer API
+│   ├── GET  /api-keys
+│   ├── POST /api-keys
+│   ├── DELETE /api-keys/{id}
+│   ├── GET  /webhooks
+│   ├── POST /webhooks
+│   ├── PATCH /webhooks/{id}
+│   ├── DELETE /webhooks/{id}
+│   ├── GET  /repos
+│   ├── POST /repos
+│   └── DELETE /repos/{id}
+│
+├── /reports                 # Scheduled Reports
+│   ├── GET  /
+│   ├── POST /
+│   ├── GET  /{id}
+│   ├── PATCH /{id}
+│   └── DELETE /{id}
+│
+├── /compliance              # Data Retention & Governance
+│   ├── GET  /retention-policies
+│   ├── POST /retention-policies
+│   ├── PATCH /retention-policies/{id}
+│   ├── DELETE /retention-policies/{id}
+│   ├── POST /retention-policies/{id}/enforce
+│   └── GET  /retention-logs
+│
+└── /notifications           # Server-side Notifications
+    ├── GET  /                   # List (paginated, with unread_count)
+    ├── GET  /unread-count       # Unread badge count
+    ├── POST /mark-read          # Mark specific notifications as read
+    └── POST /mark-all-read      # Mark all as read
 ```
 
 ---
@@ -454,7 +512,7 @@ arq paper_scraper.jobs.worker.WorkerSettings
 | `modules/scoring/dimensions/` | 6 Scoring-Dimensionen |
 | `modules/model_settings/` | Org-Level LLM-Konfiguration |
 | `jobs/badges.py` | Badge Auto-Award Engine |
-| `frontend/src/lib/api.ts` | API Client (17 Namespaces) |
+| `frontend/src/lib/api.ts` | API Client (20+ Namespaces) |
 | `frontend/src/components/ui/` | Shadcn/UI-style Components |
 | `frontend/src/components/InnovationRadar.tsx` | 6-Axis Score Visualization |
 | `frontend/src/components/Onboarding/` | Onboarding Wizard (4-step) |
@@ -464,6 +522,14 @@ arq paper_scraper.jobs.worker.WorkerSettings
 | `.github/workflows/deploy.yml` | Deployment Pipeline |
 | `DEPLOYMENT.md` | Deployment Guide |
 | `docker-compose.yml` | Lokale Services |
+| `modules/notifications/` | Server-side notification persistence & polling |
+| `modules/developer/` | API keys, webhooks, repository sources |
+| `modules/compliance/` | Data retention policies & enforcement |
+| `modules/reports/` | Scheduled report generation |
+| `jobs/retention.py` | Retention policy enforcement job |
+| `jobs/alerts.py` | Alert processing + notification creation |
+| `frontend/src/locales/` | i18n translation files (EN/DE) |
+| `frontend/src/hooks/useNotifications.ts` | Server-side notification polling hook |
 
 ### Frontend UI Components (frontend/src/components/ui/)
 

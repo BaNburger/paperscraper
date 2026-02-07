@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useGroups, useCreateGroup, useDeleteGroup, useGroup, useRemoveMember } from '@/hooks'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -30,10 +31,10 @@ import { groupsApi } from '@/lib/api'
 import { exportApi } from '@/lib/api'
 import type { GroupType } from '@/types'
 
-const GROUP_TYPE_LABELS: Record<GroupType, string> = {
-  custom: 'Custom',
-  mailing_list: 'Mailing List',
-  speaker_pool: 'Speaker Pool',
+const GROUP_TYPE_KEYS: Record<GroupType, string> = {
+  custom: 'groups.typeCustom',
+  mailing_list: 'groups.typeMailingList',
+  speaker_pool: 'groups.typeSpeakerPool',
 }
 
 const GROUP_TYPE_COLORS: Record<GroupType, string> = {
@@ -43,6 +44,7 @@ const GROUP_TYPE_COLORS: Record<GroupType, string> = {
 }
 
 export function GroupsPage() {
+  const { t } = useTranslation()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null)
@@ -79,9 +81,9 @@ export function GroupsPage() {
       setNewType('custom')
       setNewKeywords('')
       setShowCreateModal(false)
-      success('Group created', `"${newName}" has been created successfully.`)
+      success(t('groups.createSuccess'), t('groups.createSuccessDescription', { name: newName }))
     } catch {
-      showError('Failed to create group', 'Please try again.')
+      showError(t('groups.createFailed'), t('groups.tryAgain'))
     }
   }
 
@@ -90,10 +92,10 @@ export function GroupsPage() {
     try {
       await deleteGroup.mutateAsync(deleteConfirm.id)
       if (selectedGroupId === deleteConfirm.id) setSelectedGroupId(null)
-      success('Group deleted', `"${deleteConfirm.name}" has been deleted.`)
+      success(t('groups.deleteSuccess'), t('groups.deleteSuccessDescription', { name: deleteConfirm.name }))
       setDeleteConfirm(null)
     } catch {
-      showError('Failed to delete group', 'Please try again.')
+      showError(t('groups.deleteFailed'), t('groups.tryAgain'))
     }
   }
 
@@ -104,10 +106,10 @@ export function GroupsPage() {
         groupId: removeMemberConfirm.groupId,
         researcherId: removeMemberConfirm.researcherId,
       })
-      success('Member removed', `${removeMemberConfirm.name} has been removed from the group.`)
+      success(t('groups.memberRemoved'), t('groups.memberRemovedDescription', { name: removeMemberConfirm.name }))
       setRemoveMemberConfirm(null)
     } catch {
-      showError('Failed to remove member', 'Please try again.')
+      showError(t('groups.removeMemberFailed'), t('groups.tryAgain'))
     }
   }
 
@@ -116,9 +118,9 @@ export function GroupsPage() {
       const blob = await groupsApi.exportCsv(groupId)
       const safeFilename = groupName.replace(/[^a-z0-9_-]/gi, '_')
       exportApi.downloadFile(blob, `${safeFilename}-members.csv`)
-      success('Export complete', 'Group members exported as CSV.')
+      success(t('groups.exportComplete'), t('groups.exportCompleteDescription'))
     } catch {
-      showError('Export failed', 'Please try again.')
+      showError(t('groups.exportFailed'), t('groups.tryAgain'))
     }
   }
 
@@ -127,14 +129,14 @@ export function GroupsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Researcher Groups</h1>
+          <h1 className="text-3xl font-bold">{t('groups.title')}</h1>
           <p className="text-muted-foreground mt-1">
-            Organize researchers into groups for outreach and collaboration
+            {t('groups.subtitle')}
           </p>
         </div>
         <Button onClick={() => setShowCreateModal(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          New Group
+          {t('groups.newGroup')}
         </Button>
       </div>
 
@@ -146,7 +148,7 @@ export function GroupsPage() {
           ) : error ? (
             <Card>
               <CardContent className="py-8 text-center text-destructive">
-                Failed to load groups.
+                {t('groups.loadFailed')}
               </CardContent>
             </Card>
           ) : !groups?.items?.length ? (
@@ -154,10 +156,10 @@ export function GroupsPage() {
               <CardContent>
                 <EmptyState
                   icon={<Users className="h-12 w-12" />}
-                  title="No groups yet"
-                  description="Create a group to organize researchers."
+                  title={t('groups.noGroups')}
+                  description={t('groups.noGroupsDescription')}
                   action={{
-                    label: 'Create Group',
+                    label: t('groups.createGroup'),
                     onClick: () => setShowCreateModal(true),
                   }}
                 />
@@ -176,7 +178,7 @@ export function GroupsPage() {
                   <div className="flex items-start justify-between">
                     <CardTitle className="text-base">{group.name}</CardTitle>
                     <span className={`text-xs px-2 py-0.5 rounded-full ${GROUP_TYPE_COLORS[group.type]}`}>
-                      {GROUP_TYPE_LABELS[group.type]}
+                      {t(GROUP_TYPE_KEYS[group.type])}
                     </span>
                   </div>
                   {group.description && (
@@ -185,7 +187,7 @@ export function GroupsPage() {
                 </CardHeader>
                 <CardContent className="pt-0">
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>{group.member_count} members</span>
+                    <span>{t('groups.memberCount', { count: group.member_count })}</span>
                     <span>{formatDate(group.created_at)}</span>
                   </div>
                   {group.keywords.length > 0 && (
@@ -227,7 +229,7 @@ export function GroupsPage() {
                       onClick={() => handleExportCsv(selectedGroup.id, selectedGroup.name)}
                     >
                       <Download className="h-4 w-4 mr-1" />
-                      Export CSV
+                      {t('groups.exportCsv')}
                     </Button>
                     <Button
                       variant="ghost"
@@ -243,10 +245,10 @@ export function GroupsPage() {
               </CardHeader>
               <CardContent>
                 <h3 className="font-semibold mb-3">
-                  Members ({selectedGroup.members.length})
+                  {t('groups.members')} ({selectedGroup.members.length})
                 </h3>
                 {selectedGroup.members.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No members yet.</p>
+                  <p className="text-sm text-muted-foreground">{t('groups.noMembers')}</p>
                 ) : (
                   <div className="space-y-2">
                     {selectedGroup.members.map((member) => (
@@ -285,7 +287,7 @@ export function GroupsPage() {
             <Card>
               <CardContent className="py-16 text-center text-muted-foreground">
                 <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>Select a group to view details</p>
+                <p>{t('groups.selectGroup')}</p>
               </CardContent>
             </Card>
           )}
@@ -296,9 +298,9 @@ export function GroupsPage() {
       <ConfirmDialog
         open={!!deleteConfirm}
         onOpenChange={(open) => !open && setDeleteConfirm(null)}
-        title="Delete Group"
-        description={`Are you sure you want to delete "${deleteConfirm?.name}"? This action cannot be undone.`}
-        confirmLabel="Delete"
+        title={t('groups.deleteGroup')}
+        description={t('groups.deleteConfirm', { name: deleteConfirm?.name })}
+        confirmLabel={t('common.delete')}
         variant="destructive"
         onConfirm={handleDelete}
         isLoading={deleteGroup.isPending}
@@ -309,9 +311,9 @@ export function GroupsPage() {
       <ConfirmDialog
         open={!!removeMemberConfirm}
         onOpenChange={(open) => !open && setRemoveMemberConfirm(null)}
-        title="Remove Member"
-        description={`Remove ${removeMemberConfirm?.name} from this group?`}
-        confirmLabel="Remove"
+        title={t('groups.removeMember')}
+        description={t('groups.removeMemberConfirm', { name: removeMemberConfirm?.name })}
+        confirmLabel={t('groups.remove')}
         variant="destructive"
         onConfirm={handleRemoveMember}
         isLoading={removeMember.isPending}
@@ -321,15 +323,15 @@ export function GroupsPage() {
       <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Group</DialogTitle>
+            <DialogTitle>{t('groups.createGroup')}</DialogTitle>
             <DialogDescription>
-              Create a new researcher group for organizing outreach
+              {t('groups.createDescription')}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreate}>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="groupName">Group Name</Label>
+                <Label htmlFor="groupName">{t('groups.groupName')}</Label>
                 <Input
                   id="groupName"
                   placeholder="e.g., AI Research Leads"
@@ -339,29 +341,29 @@ export function GroupsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="groupDescription">Description (optional)</Label>
+                <Label htmlFor="groupDescription">{t('groups.descriptionOptional')}</Label>
                 <Input
                   id="groupDescription"
-                  placeholder="Purpose of this group"
+                  placeholder={t('groups.descriptionPlaceholder')}
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="groupType">Type</Label>
+                <Label htmlFor="groupType">{t('groups.type')}</Label>
                 <Select value={newType} onValueChange={(v) => setNewType(v as GroupType)}>
                   <SelectTrigger id="groupType">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="custom">Custom</SelectItem>
-                    <SelectItem value="mailing_list">Mailing List</SelectItem>
-                    <SelectItem value="speaker_pool">Speaker Pool</SelectItem>
+                    <SelectItem value="custom">{t('groups.typeCustom')}</SelectItem>
+                    <SelectItem value="mailing_list">{t('groups.typeMailingList')}</SelectItem>
+                    <SelectItem value="speaker_pool">{t('groups.typeSpeakerPool')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="groupKeywords">Keywords (comma-separated)</Label>
+                <Label htmlFor="groupKeywords">{t('groups.keywordsLabel')}</Label>
                 <Input
                   id="groupKeywords"
                   placeholder="e.g., machine learning, NLP, computer vision"
@@ -372,10 +374,10 @@ export function GroupsPage() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowCreateModal(false)}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button type="submit" isLoading={createGroup.isPending}>
-                Create Group
+                {t('groups.createGroup')}
               </Button>
             </DialogFooter>
           </form>

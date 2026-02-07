@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   usePersonalKnowledge,
   useOrganizationKnowledge,
@@ -47,6 +48,7 @@ const TYPE_LABELS: Record<KnowledgeType, string> = {
 }
 
 export function KnowledgePage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
 
@@ -108,7 +110,7 @@ export function KnowledgePage() {
         } else {
           await updateOrg.mutateAsync({ id: editingSource.id, data })
         }
-        success('Updated', 'Knowledge source has been updated.')
+        success(t('knowledge.updated'), t('knowledge.updatedDescription'))
       } else {
         // Create new
         if (activeTab === 'personal') {
@@ -116,12 +118,12 @@ export function KnowledgePage() {
         } else {
           await createOrg.mutateAsync(data)
         }
-        success('Created', 'Knowledge source has been created.')
+        success(t('knowledge.created'), t('knowledge.createdDescription'))
       }
       setShowCreateModal(false)
       resetForm()
     } catch {
-      showError('Failed to save', 'Please try again.')
+      showError(t('knowledge.saveFailed'), t('knowledge.saveFailedDescription'))
     }
   }
 
@@ -133,10 +135,10 @@ export function KnowledgePage() {
       } else {
         await deleteOrg.mutateAsync(deleteConfirm.id)
       }
-      success('Deleted', `"${deleteConfirm.title}" has been deleted.`)
+      success(t('knowledge.deleted'), t('knowledge.deletedDescription', { title: deleteConfirm.title }))
       setDeleteConfirm(null)
     } catch {
-      showError('Failed to delete', 'Please try again.')
+      showError(t('knowledge.deleteFailed'), t('knowledge.deleteFailedDescription'))
     }
   }
 
@@ -145,9 +147,9 @@ export function KnowledgePage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Knowledge Base</h1>
+          <h1 className="text-3xl font-bold">{t('knowledge.title')}</h1>
           <p className="text-muted-foreground mt-1">
-            Manage knowledge sources to personalize AI scoring and analysis
+            {t('knowledge.subtitle')}
           </p>
         </div>
         <Button
@@ -157,7 +159,7 @@ export function KnowledgePage() {
           }}
         >
           <Plus className="h-4 w-4 mr-2" />
-          Add Source
+          {t('knowledge.addSource')}
         </Button>
       </div>
 
@@ -168,7 +170,7 @@ export function KnowledgePage() {
           size="sm"
           onClick={() => setActiveTab('personal')}
         >
-          Personal
+          {t('knowledge.personal')}
         </Button>
         {isAdmin && (
           <Button
@@ -176,7 +178,7 @@ export function KnowledgePage() {
             size="sm"
             onClick={() => setActiveTab('organization')}
           >
-            Organization
+            {t('knowledge.organization')}
           </Button>
         )}
       </div>
@@ -193,10 +195,10 @@ export function KnowledgePage() {
           <CardContent>
             <EmptyState
               icon={<BookOpen className="h-12 w-12" />}
-              title={`No ${activeTab} knowledge sources`}
-              description="Add knowledge sources to help the AI understand your context better."
+              title={t('knowledge.noSources', { scope: activeTab })}
+              description={t('knowledge.noSourcesDescription')}
               action={{
-                label: 'Add Source',
+                label: t('knowledge.addSource'),
                 onClick: () => {
                   resetForm()
                   setShowCreateModal(true)
@@ -271,9 +273,9 @@ export function KnowledgePage() {
       <ConfirmDialog
         open={!!deleteConfirm}
         onOpenChange={(open) => !open && setDeleteConfirm(null)}
-        title="Delete Knowledge Source"
-        description={`Are you sure you want to delete "${deleteConfirm?.title}"?`}
-        confirmLabel="Delete"
+        title={t('knowledge.deleteTitle')}
+        description={t('knowledge.deleteConfirmDescription', { title: deleteConfirm?.title })}
+        confirmLabel={t('common.delete')}
         variant="destructive"
         onConfirm={handleDelete}
         isLoading={deletePersonal.isPending || deleteOrg.isPending}
@@ -291,18 +293,18 @@ export function KnowledgePage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {editingSource ? 'Edit Knowledge Source' : 'Add Knowledge Source'}
+              {editingSource ? t('knowledge.editSource') : t('knowledge.addSource')}
             </DialogTitle>
             <DialogDescription>
               {activeTab === 'personal'
-                ? 'Personal sources customize AI analysis for you'
-                : 'Organization sources are shared across your team'}
+                ? t('knowledge.personalDescription')
+                : t('knowledge.organizationDescription')}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSave}>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="ksTitle">Title</Label>
+                <Label htmlFor="ksTitle">{t('knowledge.titleLabel')}</Label>
                 <Input
                   id="ksTitle"
                   placeholder="e.g., Our Research Focus Areas"
@@ -312,7 +314,7 @@ export function KnowledgePage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="ksContent">Content</Label>
+                <Label htmlFor="ksContent">{t('knowledge.content')}</Label>
                 <textarea
                   id="ksContent"
                   className="w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
@@ -323,7 +325,7 @@ export function KnowledgePage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="ksType">Type</Label>
+                <Label htmlFor="ksType">{t('knowledge.type')}</Label>
                 <Select value={formType} onValueChange={(v) => setFormType(v as KnowledgeType)}>
                   <SelectTrigger id="ksType">
                     <SelectValue />
@@ -338,7 +340,7 @@ export function KnowledgePage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="ksTags">Tags (comma-separated)</Label>
+                <Label htmlFor="ksTags">{t('knowledge.tags')}</Label>
                 <Input
                   id="ksTags"
                   placeholder="e.g., AI, biomedicine, patents"
@@ -356,7 +358,7 @@ export function KnowledgePage() {
                   resetForm()
                 }}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 type="submit"
@@ -367,7 +369,7 @@ export function KnowledgePage() {
                   updateOrg.isPending
                 }
               >
-                {editingSource ? 'Update' : 'Create'}
+                {editingSource ? t('knowledge.update') : t('common.create')}
               </Button>
             </DialogFooter>
           </form>

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePapers, useProjects, useEmbeddingStats } from '@/hooks'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -8,6 +9,7 @@ import { FileText, FolderKanban, Search, TrendingUp, Loader2, ArrowRight } from 
 import { formatDate, truncate } from '@/lib/utils'
 
 export function DashboardPage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const { data: papersData, isLoading: papersLoading } = usePapers({ page: 1, page_size: 5 })
   const { data: projects, isLoading: projectsLoading } = useProjects()
@@ -15,19 +17,19 @@ export function DashboardPage() {
 
   const stats = [
     {
-      title: 'Total Papers',
+      title: t('dashboard.totalPapers'),
       value: papersData?.total ?? 0,
       icon: FileText,
       color: 'text-blue-600',
     },
     {
-      title: 'Active Projects',
+      title: t('dashboard.activeProjects'),
       value: projects?.total ?? 0,
       icon: FolderKanban,
       color: 'text-green-600',
     },
     {
-      title: 'Embeddings',
+      title: t('dashboard.embeddings'),
       value: embeddingStats ? `${embeddingStats.embedding_coverage.toFixed(0)}%` : '—',
       icon: Search,
       color: 'text-purple-600',
@@ -38,9 +40,9 @@ export function DashboardPage() {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Welcome back, {user?.full_name?.split(' ')[0] ?? 'there'}</h1>
+        <h1 className="text-3xl font-bold">{t('dashboard.welcomeBack', { name: user?.full_name?.split(' ')[0] ?? t('dashboard.defaultName') })}</h1>
         <p className="text-muted-foreground mt-1">
-          Here's what's happening with your research pipeline
+          {t('dashboard.subtitle')}
         </p>
       </div>
 
@@ -67,12 +69,12 @@ export function DashboardPage() {
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle>Recent Papers</CardTitle>
-              <CardDescription>Latest papers in your library</CardDescription>
+              <CardTitle>{t('dashboard.recentPapers')}</CardTitle>
+              <CardDescription>{t('dashboard.recentPapersDescription')}</CardDescription>
             </div>
             <Link to="/papers">
               <Button variant="ghost" size="sm">
-                View all
+                {t('dashboard.viewAll')}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
@@ -85,8 +87,8 @@ export function DashboardPage() {
             ) : !papersData?.items?.length ? (
               <div className="text-center py-8 text-muted-foreground">
                 <FileText className="mx-auto h-12 w-12 mb-4 opacity-50" />
-                <p>No papers yet</p>
-                <p className="text-sm">Import papers to get started</p>
+                <p>{t('dashboard.noPapers')}</p>
+                <p className="text-sm">{t('dashboard.noPapersDescription')}</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -100,7 +102,7 @@ export function DashboardPage() {
                       <div className="min-w-0 flex-1">
                         <h3 className="font-medium line-clamp-1">{paper.title}</h3>
                         <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                          {truncate(paper.abstract ?? 'No abstract available', 150)}
+                          {truncate(paper.abstract ?? t('dashboard.noAbstract'), 150)}
                         </p>
                         <div className="flex items-center gap-2 mt-2">
                           <Badge variant="outline">{paper.source}</Badge>
@@ -114,7 +116,7 @@ export function DashboardPage() {
                       {paper.has_embedding && (
                         <Badge variant="secondary" className="shrink-0">
                           <TrendingUp className="h-3 w-3 mr-1" />
-                          Scored
+                          {t('dashboard.scored')}
                         </Badge>
                       )}
                     </div>
@@ -130,25 +132,25 @@ export function DashboardPage() {
           {/* Quick Actions */}
           <Card>
             <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
+              <CardTitle>{t('dashboard.quickActions')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <Link to="/papers" className="block">
                 <Button variant="outline" className="w-full justify-start">
                   <FileText className="mr-2 h-4 w-4" />
-                  Import Papers
+                  {t('dashboard.importPapers')}
                 </Button>
               </Link>
               <Link to="/search" className="block">
                 <Button variant="outline" className="w-full justify-start">
                   <Search className="mr-2 h-4 w-4" />
-                  Search Library
+                  {t('dashboard.searchLibrary')}
                 </Button>
               </Link>
               <Link to="/projects" className="block">
                 <Button variant="outline" className="w-full justify-start">
                   <FolderKanban className="mr-2 h-4 w-4" />
-                  Manage Projects
+                  {t('dashboard.manageProjects')}
                 </Button>
               </Link>
             </CardContent>
@@ -157,10 +159,10 @@ export function DashboardPage() {
           {/* Projects */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Projects</CardTitle>
+              <CardTitle>{t('dashboard.projects')}</CardTitle>
               <Link to="/projects">
                 <Button variant="ghost" size="sm">
-                  View all
+                  {t('dashboard.viewAll')}
                 </Button>
               </Link>
             </CardHeader>
@@ -171,7 +173,7 @@ export function DashboardPage() {
                 </div>
               ) : !projects?.items?.length ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  No projects yet
+                  {t('dashboard.noProjects')}
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -183,7 +185,7 @@ export function DashboardPage() {
                     >
                       <span className="font-medium">{project.name}</span>
                       <Badge variant={project.is_active ? 'default' : 'secondary'}>
-                        {project.is_active ? 'Active' : 'Inactive'}
+                        {project.is_active ? t('dashboard.active') : t('dashboard.inactive')}
                       </Badge>
                     </Link>
                   ))}

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { User, Settings, Lock, Bell, Eye, EyeOff, Check, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { User, Settings, Lock, Bell, Globe, Eye, EyeOff, Check, Loader2 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { authApi } from '@/lib/api'
 import { Button } from '@/components/ui/Button'
@@ -13,6 +14,7 @@ import type { UpdateUserRequest, ChangePasswordRequest } from '@/types'
 export function UserSettingsPage() {
   const { user } = useAuth()
   const { success, error: showError } = useToast()
+  const { t, i18n } = useTranslation()
 
   // Profile form state
   const [fullName, setFullName] = useState(user?.full_name || '')
@@ -92,9 +94,9 @@ export function UserSettingsPage() {
   return (
     <div className="container max-w-3xl py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold">Settings</h1>
+        <h1 className="text-3xl font-bold">{t('settings.title')}</h1>
         <p className="text-muted-foreground mt-2">
-          Manage your account settings and preferences
+          {t('settings.subtitle')}
         </p>
       </div>
 
@@ -298,12 +300,39 @@ export function UserSettingsPage() {
           </CardContent>
         </Card>
 
+        {/* Language Selector */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Globe className="h-5 w-5" />
+              <CardTitle>{t('settings.language')}</CardTitle>
+            </div>
+            <CardDescription>
+              {t('settings.languageSubtitle')}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="language">{t('settings.languageLabel')}</Label>
+              <select
+                id="language"
+                value={i18n.language?.startsWith('de') ? 'de' : 'en'}
+                onChange={(e) => i18n.changeLanguage(e.target.value)}
+                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="en">{t('settings.english')}</option>
+                <option value="de">{t('settings.german')}</option>
+              </select>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Account Info */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
               <Settings className="h-5 w-5" />
-              <CardTitle>Account Information</CardTitle>
+              <CardTitle>{t('settings.accountInfo')}</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">

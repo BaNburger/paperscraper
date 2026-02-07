@@ -7,7 +7,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from paper_scraper.api.dependencies import CurrentUser
+from paper_scraper.api.dependencies import CurrentUser, require_permission
+from paper_scraper.core.permissions import Permission
 from paper_scraper.core.database import get_db
 from paper_scraper.modules.analytics.schemas import (
     BenchmarkResponse,
@@ -32,6 +33,7 @@ def get_analytics_service(
     "/dashboard",
     response_model=DashboardSummaryResponse,
     summary="Get dashboard summary",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def get_dashboard_summary(
     current_user: CurrentUser,
@@ -49,6 +51,7 @@ async def get_dashboard_summary(
     "/team",
     response_model=TeamOverviewResponse,
     summary="Get team analytics",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def get_team_overview(
     current_user: CurrentUser,
@@ -65,6 +68,7 @@ async def get_team_overview(
     "/papers",
     response_model=PaperAnalyticsResponse,
     summary="Get paper analytics",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def get_paper_analytics(
     current_user: CurrentUser,
@@ -84,6 +88,7 @@ async def get_paper_analytics(
     "/funnel",
     response_model=FunnelResponse,
     summary="Get innovation funnel analytics",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def get_funnel_analytics(
     current_user: CurrentUser,
@@ -111,6 +116,7 @@ async def get_funnel_analytics(
     "/benchmarks",
     response_model=BenchmarkResponse,
     summary="Get benchmark comparisons",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def get_benchmarks(
     current_user: CurrentUser,

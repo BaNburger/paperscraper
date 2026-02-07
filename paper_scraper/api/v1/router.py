@@ -21,6 +21,8 @@ from paper_scraper.modules.knowledge.router import router as knowledge_router
 from paper_scraper.modules.model_settings.router import router as model_settings_router
 from paper_scraper.modules.developer.router import router as developer_router
 from paper_scraper.modules.reports.router import router as reports_router
+from paper_scraper.modules.compliance.router import router as compliance_router
+from paper_scraper.modules.notifications.router import router as notifications_router
 
 api_router = APIRouter()
 
@@ -44,3 +46,5 @@ api_router.include_router(knowledge_router, prefix="/knowledge", tags=["Knowledg
 api_router.include_router(model_settings_router, prefix="/settings", tags=["Model Settings"])
 api_router.include_router(developer_router, prefix="/developer", tags=["Developer"])
 api_router.include_router(reports_router, prefix="/reports", tags=["Reports"])
+api_router.include_router(compliance_router, prefix="/compliance", tags=["Compliance"])
+api_router.include_router(notifications_router, prefix="/notifications", tags=["Notifications"])

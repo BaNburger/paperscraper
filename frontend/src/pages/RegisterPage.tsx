@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -9,6 +10,7 @@ import { FileText } from 'lucide-react'
 import { getApiErrorMessage } from '@/types'
 
 export function RegisterPage() {
+  const { t } = useTranslation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
@@ -33,7 +35,7 @@ export function RegisterPage() {
       })
       navigate('/')
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Registration failed. Please try again.'))
+      setError(getApiErrorMessage(err, t('auth.registrationFailed')))
     } finally {
       setIsLoading(false)
     }
@@ -46,9 +48,9 @@ export function RegisterPage() {
           <div className="flex justify-center mb-4">
             <FileText className="h-12 w-12 text-primary" />
           </div>
-          <CardTitle className="text-2xl">Create an account</CardTitle>
+          <CardTitle className="text-2xl">{t('auth.createAccount')}</CardTitle>
           <CardDescription>
-            Get started with Paper Scraper
+            {t('auth.createAccountDescription')}
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -59,7 +61,7 @@ export function RegisterPage() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name</Label>
+              <Label htmlFor="fullName">{t('auth.fullName')}</Label>
               <Input
                 id="fullName"
                 name="full_name"
@@ -71,7 +73,7 @@ export function RegisterPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('auth.email')}</Label>
               <Input
                 id="email"
                 name="email"
@@ -83,7 +85,7 @@ export function RegisterPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="organizationName">Organization Name</Label>
+              <Label htmlFor="organizationName">{t('auth.organizationName')}</Label>
               <Input
                 id="organizationName"
                 name="organization_name"
@@ -95,7 +97,7 @@ export function RegisterPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t('auth.password')}</Label>
               <Input
                 id="password"
                 name="password"
@@ -109,12 +111,12 @@ export function RegisterPage() {
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <Button type="submit" className="w-full" isLoading={isLoading}>
-              Create Account
+              {t('auth.createAccount')}
             </Button>
             <p className="text-sm text-muted-foreground">
-              Already have an account?{' '}
+              {t('auth.hasAccount')}{' '}
               <Link to="/login" className="text-primary hover:underline">
-                Sign in
+                {t('auth.signIn')}
               </Link>
             </p>
           </CardFooter>

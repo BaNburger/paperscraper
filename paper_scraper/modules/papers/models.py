@@ -24,7 +24,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from paper_scraper.core.database import Base
 
 if TYPE_CHECKING:
-    from paper_scraper.modules.auth.models import Organization
+    from paper_scraper.modules.auth.models import Organization, User
     from paper_scraper.modules.authors.models import AuthorContact
     from paper_scraper.modules.papers.notes import PaperNote
 
@@ -67,10 +67,19 @@ class Paper(Base):
         nullable=False,
         index=True,
     )
+    created_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     # Identifiers
     doi: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
-    source: Mapped[PaperSource] = mapped_column(Enum(PaperSource), nullable=False)
+    source: Mapped[PaperSource] = mapped_column(
+        Enum(PaperSource, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+    )
     source_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Core metadata
@@ -104,7 +113,9 @@ class Paper(Base):
 
     # Paper classification
     paper_type: Mapped[PaperType | None] = mapped_column(
-        Enum(PaperType), nullable=True, index=True
+        Enum(PaperType, values_callable=lambda x: [e.value for e in x]),
+        nullable=True,
+        index=True,
     )
 
     # Timestamps
@@ -120,6 +131,7 @@ class Paper(Base):
 
     # Relationships
     organization: Mapped["Organization"] = relationship("Organization")
+    creator: Mapped["User | None"] = relationship("User", foreign_keys=[created_by_id])
     authors: Mapped[list["PaperAuthor"]] = relationship(
         "PaperAuthor", back_populates="paper", cascade="all, delete-orphan"
     )

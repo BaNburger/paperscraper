@@ -21,7 +21,7 @@ graph TB
         Router["API v1 Router"]
     end
 
-    subgraph Modules["Backend Module (17 API-Module + email Service)"]
+    subgraph Modules["Backend Module (22 API-Module + email Service)"]
         direction LR
         AUTH["auth"]
         PAP["papers"]
@@ -40,6 +40,11 @@ graph TB
         BDG["badges"]
         KNO["knowledge"]
         MOD["model_settings"]
+        DEV["developer"]
+        RPT["reports"]
+        CMP["compliance"]
+        NTF["notifications"]
+        SRC["search_activity"]
     end
 
     subgraph Data["Data Layer"]
@@ -54,6 +59,7 @@ graph TB
         ALJ["Alerts<br/>(Daily/Weekly)"]
         EMB["Embeddings<br/>(Backfill)"]
         BGD["Badges<br/>(Auto-Award)"]
+        RET["Retention<br/>(Policy Enforcement)"]
     end
 
     subgraph External["Externe APIs"]
@@ -178,7 +184,7 @@ graph TB
 └──────────────────┘
 ```
 
-**Weitere Entities:** `PaperNote`, `SavedSearch`, `Alert`, `AlertResult`, `AuditLog`, `ScoringJob`, `PaperStageHistory`, `ResearcherGroup`, `GroupMember`, `TransferConversation`, `TransferMessage`, `TransferResource`, `ResearchSubmission`, `Badge`, `UserBadge`, `KnowledgeSource`, `ModelConfiguration`, `ModelUsage`
+**Weitere Entities:** `PaperNote`, `SavedSearch`, `Alert`, `AlertResult`, `AuditLog`, `ScoringJob`, `PaperStageHistory`, `ResearcherGroup`, `GroupMember`, `TransferConversation`, `TransferMessage`, `TransferResource`, `ResearchSubmission`, `Badge`, `UserBadge`, `KnowledgeSource`, `ModelConfiguration`, `ModelUsage`, `APIKey`, `Webhook`, `RepositorySource`, `ScheduledReport`, `RetentionPolicy`, `RetentionLog`, `SearchActivity`, `Notification`
 
 ### 2.2 Scoring-Dimensionen
 
@@ -245,7 +251,7 @@ paper_scraper/
 │   ├── storage.py                # S3/MinIO Storage Utilities
 │   └── csv_utils.py              # CSV-Export mit Injection-Schutz
 │
-├── modules/                       # 17 Feature-Module
+├── modules/                       # 22 Feature-Module
 │   ├── auth/                     # Authentication & User Management
 │   │   ├── models.py             # Organization, User, TeamInvitation
 │   │   ├── schemas.py            # Pydantic DTOs
@@ -335,23 +341,40 @@ paper_scraper/
 │   │   ├── models.py             # KnowledgeSource
 │   │   ├── schemas.py, service.py, router.py
 │   │
-│   └── model_settings/           # LLM Model Configuration
-│       ├── models.py             # ModelConfiguration, ModelUsage
+│   ├── model_settings/           # LLM Model Configuration
+│   │   ├── models.py             # ModelConfiguration, ModelUsage
+│   │   ├── schemas.py, service.py, router.py
+│   │
+│   ├── developer/                 # Developer API & Integrations
+│   │   ├── models.py             # APIKey, Webhook, RepositorySource
+│   │   ├── schemas.py, service.py, router.py
+│   │
+│   ├── reports/                   # Scheduled Reports
+│   │   ├── models.py             # ScheduledReport
+│   │   ├── schemas.py, service.py, router.py
+│   │
+│   ├── compliance/                # Compliance & Data Retention
+│   │   ├── models.py             # RetentionPolicy, RetentionLog
+│   │   ├── schemas.py, service.py, router.py
+│   │
+│   └── notifications/             # Server-side Notifications
+│       ├── models.py             # Notification (alert/badge/system)
 │       ├── schemas.py, service.py, router.py
 │
 ├── jobs/                         # Background Jobs (arq)
 │   ├── worker.py                 # WorkerSettings, Cron Jobs
 │   ├── ingestion.py              # OpenAlex Batch-Ingestion
 │   ├── scoring.py                # Paper Scoring + Embedding-Generierung
-│   ├── alerts.py                 # Daily/Weekly Alert-Verarbeitung
+│   ├── alerts.py                 # Daily/Weekly Alert-Verarbeitung + Notification Creation
 │   ├── search.py                 # Embedding-Backfill
-│   └── badges.py                 # Badge Auto-Award Engine
+│   ├── badges.py                 # Badge Auto-Award Engine + Notification Creation
+│   └── retention.py              # Data Retention Policy Enforcement
 │
 └── api/                          # API Layer
     ├── main.py                   # FastAPI App, Lifespan, Exception Handlers
     ├── dependencies.py           # DI (current_user, db session, RBAC)
     ├── middleware.py             # SecurityHeaders, Rate Limiting (slowapi)
-    └── v1/router.py              # 17 Modul-Router aggregiert
+    └── v1/router.py              # 22 Modul-Router aggregiert
 ```
 
 ### 3.2 LLM Abstraction Layer
@@ -410,6 +433,8 @@ def get_llm_client(provider: str | None = None) -> BaseLLMClient:
 | `process_daily_alerts_task` | Tagliche Such-Alerts | **Cron: 6:00 UTC taglich** |
 | `process_weekly_alerts_task` | Wochentliche Such-Alerts | **Cron: Montag 6:00 UTC** |
 | `process_immediate_alert_task` | Sofort-Alerts | On-demand |
+| `check_and_award_badges_task` | Badge Auto-Award | On-demand (Scoring) |
+| `enforce_retention_policies_task` | Daten-Retention | On-demand |
 
 **Worker-Konfiguration:** Max 10 Jobs parallel, 600s Timeout, 500ms Poll-Intervall, Queue `paperscraper:queue`
 
@@ -457,9 +482,14 @@ frontend/src/
 │   ├── useSubmissions.ts         # Research Submissions
 │   ├── useBadges.ts              # Gamification
 │   ├── useKnowledge.ts           # Knowledge Management
-│   └── useModelSettings.ts       # LLM Configuration
+│   ├── useModelSettings.ts       # LLM Configuration
+│   ├── useExport.ts              # Data Export
+│   ├── useDeveloper.ts           # Developer API Keys & Webhooks
+│   ├── useNotifications.ts       # Server-side Notifications (polling)
+│   ├── useReports.ts             # Scheduled Reports
+│   └── useCompliance.ts          # Compliance & Retention
 │
-├── pages/                        # 24 Route Pages
+├── pages/                        # 28 Route Pages
 │   ├── LoginPage, RegisterPage, ForgotPasswordPage
 │   ├── ResetPasswordPage, VerifyEmailPage, AcceptInvitePage
 │   ├── DashboardPage, AnalyticsPage
@@ -472,10 +502,14 @@ frontend/src/
 │   ├── BadgesPage                # Gamification
 │   ├── KnowledgePage             # Knowledge Management
 │   ├── TeamMembersPage
-│   └── UserSettingsPage, OrganizationSettingsPage, ModelSettingsPage
+│   ├── UserSettingsPage, OrganizationSettingsPage, ModelSettingsPage
+│   ├── AlertsPage                # Dedicated Alert Management
+│   ├── NotificationsPage         # Full Notification History
+│   ├── CompliancePage            # Compliance & Data Retention
+│   └── DeveloperSettingsPage     # API Keys, Webhooks, Repos
 │
 ├── lib/
-│   ├── api.ts                    # Axios Client (11 API-Namespaces)
+│   ├── api.ts                    # Axios Client (20+ API-Namespaces)
 │   └── utils.ts                  # cn(), formatDate(), Score-Helpers
 │
 └── types/index.ts                # TypeScript Definitionen (~700 Zeilen)
@@ -485,12 +519,13 @@ frontend/src/
 
 ```
 ErrorBoundary
-  └── ThemeProvider (dark/light/system)
-       └── QueryClientProvider (staleTime: 60s, retry: 1)
-            └── BrowserRouter
-                 └── AuthProvider (JWT Token-Mgmt, localStorage)
-                      └── ToastProvider
-                           └── Routes
+  └── I18nextProvider (EN/DE, lazy-loaded translations)
+       └── ThemeProvider (dark/light/system)
+            └── QueryClientProvider (staleTime: 60s, retry: 1)
+                 └── BrowserRouter
+                      └── AuthProvider (JWT Token-Mgmt, localStorage)
+                           └── ToastProvider
+                                └── Routes
 ```
 
 ### 4.3 Routing
@@ -526,7 +561,7 @@ ErrorBoundary
 - **Response Interceptor:** Automatischer Token-Refresh bei 401, Request-Queue verhindert Race Conditions
 - **Token Storage:** `localStorage` (access + refresh Token)
 
-**17 API-Namespaces:** `authApi`, `papersApi`, `scoringApi`, `projectsApi`, `searchApi`, `authorsApi`, `analyticsApi`, `exportApi`, `savedSearchesApi`, `alertsApi`, `classificationApi`, `groupsApi`, `transferApi`, `submissionsApi`, `badgesApi`, `knowledgeApi`, `modelSettingsApi`
+**20+ API-Namespaces:** `authApi`, `papersApi`, `scoringApi`, `projectsApi`, `searchApi`, `authorsApi`, `analyticsApi`, `exportApi`, `savedSearchesApi`, `alertsApi`, `classificationApi`, `groupsApi`, `transferApi`, `submissionsApi`, `badgesApi`, `knowledgeApi`, `modelSettingsApi`, `developerApi`, `reportsApi`, `complianceApi`, `notificationsApi`, `auditApi`
 
 ### 4.5 Key Libraries
 
@@ -542,6 +577,8 @@ ErrorBoundary
 | Lucide React | 0.563 | Icons |
 | date-fns | 4.1 | Datumsformatierung |
 | DOMPurify | 3.3 | XSS-Sanitisierung |
+| react-i18next | 16.x | Internationalization (EN/DE) |
+| i18next | 25.x | i18n Framework |
 
 ---
 
@@ -849,13 +886,33 @@ CREATE TABLE group_members (
     added_by UUID REFERENCES users(id),
     PRIMARY KEY (group_id, researcher_id)
 );
+
+-- ============================================================
+-- Notifications
+-- ============================================================
+CREATE TABLE notifications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+    type VARCHAR(20) NOT NULL,            -- alert, badge, system
+    title VARCHAR(500) NOT NULL,
+    message TEXT,
+    is_read BOOLEAN DEFAULT false,
+    resource_type VARCHAR(100),
+    resource_id VARCHAR(100),
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_notifications_user_read ON notifications (user_id, is_read);
+CREATE INDEX idx_notifications_user_date ON notifications (user_id, created_at DESC);
 ```
 
 ---
 
 ## 6. API Design
 
-### 6.1 Endpoint-Ubersicht (100+ Endpoints, 17 Module)
+### 6.1 Endpoint-Ubersicht (208+ Endpoints, 22 Module)
 
 ```
 /api/v1/
@@ -1013,13 +1070,46 @@ CREATE TABLE group_members (
 │   ├── PATCH  /sources/{id}
 │   └── DELETE /sources/{id}
 │
-└── /settings/models                   # Model Configuration
-    ├── GET    /
-    ├── POST   /
-    ├── PATCH  /{id}
-    ├── DELETE /{id}
-    ├── GET    /usage
-    └── GET    /{id}/hosting
+├── /settings/models                   # Model Configuration
+│   ├── GET    /
+│   ├── POST   /
+│   ├── PATCH  /{id}
+│   ├── DELETE /{id}
+│   ├── GET    /usage
+│   └── GET    /{id}/hosting
+│
+├── /developer                        # Developer API
+│   ├── GET    /api-keys              # List API keys
+│   ├── POST   /api-keys              # Create API key
+│   ├── DELETE /api-keys/{id}         # Revoke API key
+│   ├── GET    /webhooks              # List webhooks
+│   ├── POST   /webhooks              # Create webhook
+│   ├── PATCH  /webhooks/{id}         # Update webhook
+│   ├── DELETE /webhooks/{id}         # Delete webhook
+│   ├── GET    /repos                 # List repository sources
+│   ├── POST   /repos                 # Add repository source
+│   └── DELETE /repos/{id}            # Remove repository source
+│
+├── /reports                          # Scheduled Reports
+│   ├── GET    /
+│   ├── POST   /
+│   ├── GET    /{id}
+│   ├── PATCH  /{id}
+│   └── DELETE /{id}
+│
+├── /compliance                       # Compliance & Retention
+│   ├── GET    /retention-policies
+│   ├── POST   /retention-policies
+│   ├── PATCH  /retention-policies/{id}
+│   ├── DELETE /retention-policies/{id}
+│   ├── POST   /retention-policies/{id}/enforce
+│   └── GET    /retention-logs
+│
+└── /notifications                    # Server-side Notifications
+    ├── GET    /                       # List notifications (paginated)
+    ├── GET    /unread-count          # Get unread count
+    ├── POST   /mark-read            # Mark specific as read
+    └── POST   /mark-all-read        # Mark all as read
 ```
 
 **Auto-generierte Dokumentation:** `/docs` (Swagger UI), `/redoc`, `/openapi.json` (nur im DEBUG-Modus)

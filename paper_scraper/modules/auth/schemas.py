@@ -90,6 +90,30 @@ class OrganizationUpdate(BaseModel):
     settings: dict | None = None
 
 
+class OrganizationBranding(BaseModel):
+    """Schema for organization branding settings."""
+
+    logo_url: str | None = None
+    primary_color: str | None = Field(
+        None, pattern=r"^#[0-9a-fA-F]{6}$", description="Hex color code"
+    )
+    accent_color: str | None = Field(
+        None, pattern=r"^#[0-9a-fA-F]{6}$", description="Hex color code"
+    )
+    favicon_url: str | None = None
+
+
+class UpdateBrandingRequest(BaseModel):
+    """Schema for updating organization branding."""
+
+    primary_color: str | None = Field(
+        None, pattern=r"^#[0-9a-fA-F]{6}$", description="Hex color code"
+    )
+    accent_color: str | None = Field(
+        None, pattern=r"^#[0-9a-fA-F]{6}$", description="Hex color code"
+    )
+
+
 class OrganizationResponse(OrganizationBase):
     """Schema for organization response."""
 
@@ -98,6 +122,7 @@ class OrganizationResponse(OrganizationBase):
     id: UUID
     subscription_tier: SubscriptionTier
     settings: dict
+    branding: dict = {}
     created_at: datetime
     updated_at: datetime
 

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import DOMPurify from 'dompurify'
 import {
   useSubmissions,
@@ -44,13 +45,13 @@ import {
 import { formatDate } from '@/lib/utils'
 import type { SubmissionStatus } from '@/types'
 
-const STATUS_LABELS: Record<SubmissionStatus, string> = {
-  draft: 'Draft',
-  submitted: 'Submitted',
-  under_review: 'Under Review',
-  approved: 'Approved',
-  rejected: 'Rejected',
-  converted: 'Converted',
+const STATUS_KEYS: Record<SubmissionStatus, string> = {
+  draft: 'submissions.statusDraft',
+  submitted: 'submissions.statusSubmitted',
+  under_review: 'submissions.statusUnderReview',
+  approved: 'submissions.statusApproved',
+  rejected: 'submissions.statusRejected',
+  converted: 'submissions.statusConverted',
 }
 
 const STATUS_COLORS: Record<SubmissionStatus, string> = {
@@ -63,6 +64,7 @@ const STATUS_COLORS: Record<SubmissionStatus, string> = {
 }
 
 export function SubmissionsPage() {
+  const { t } = useTranslation()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>('')
@@ -100,9 +102,9 @@ export function SubmissionsPage() {
       setNewKeywords('')
       setShowCreateModal(false)
       setSelectedId(result.id)
-      success('Submission created', 'Your draft has been saved.')
+      success(t('submissions.createSuccess'), t('submissions.draftSaved'))
     } catch {
-      showError('Failed to create submission', 'Please try again.')
+      showError(t('submissions.createFailed'), t('submissions.tryAgain'))
     }
   }
 
@@ -110,9 +112,9 @@ export function SubmissionsPage() {
     if (!selectedId) return
     try {
       await submitSubmission.mutateAsync(selectedId)
-      success('Submitted', 'Your submission has been sent for review.')
+      success(t('submissions.submitted'), t('submissions.submittedDescription'))
     } catch {
-      showError('Failed to submit', 'Please try again.')
+      showError(t('submissions.submitFailed'), t('submissions.tryAgain'))
     }
   }
 
@@ -125,11 +127,11 @@ export function SubmissionsPage() {
       })
       setReviewNotes('')
       success(
-        decision === 'approved' ? 'Approved' : 'Rejected',
-        `Submission has been ${decision}.`
+        decision === 'approved' ? t('submissions.approved') : t('submissions.rejected'),
+        t('submissions.reviewDecisionDescription', { decision })
       )
     } catch {
-      showError('Review failed', 'Please try again.')
+      showError(t('submissions.reviewFailed'), t('submissions.tryAgain'))
     }
   }
 
@@ -137,9 +139,9 @@ export function SubmissionsPage() {
     if (!selectedId) return
     try {
       await analyzeSubmission.mutateAsync(selectedId)
-      success('Analysis complete', 'AI scoring has been generated.')
+      success(t('submissions.analysisComplete'), t('submissions.analysisCompleteDescription'))
     } catch {
-      showError('Analysis failed', 'Please try again.')
+      showError(t('submissions.analysisFailed'), t('submissions.tryAgain'))
     }
   }
 
@@ -147,9 +149,9 @@ export function SubmissionsPage() {
     if (!selectedId) return
     try {
       await convertSubmission.mutateAsync(selectedId)
-      success('Converted', 'Submission has been converted to a paper.')
+      success(t('submissions.converted'), t('submissions.convertedDescription'))
     } catch {
-      showError('Conversion failed', 'Please try again.')
+      showError(t('submissions.conversionFailed'), t('submissions.tryAgain'))
     }
   }
 
@@ -158,14 +160,14 @@ export function SubmissionsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Research Submissions</h1>
+          <h1 className="text-3xl font-bold">{t('submissions.title')}</h1>
           <p className="text-muted-foreground mt-1">
-            Review and manage research submissions from your team
+            {t('submissions.subtitle')}
           </p>
         </div>
         <Button onClick={() => setShowCreateModal(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          New Submission
+          {t('submissions.newSubmission')}
         </Button>
       </div>
 
@@ -173,13 +175,13 @@ export function SubmissionsPage() {
       <div className="flex gap-3">
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="All statuses" />
+            <SelectValue placeholder={t('submissions.allStatuses')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All statuses</SelectItem>
-            {Object.entries(STATUS_LABELS).map(([value, label]) => (
+            <SelectItem value="">{t('submissions.allStatuses')}</SelectItem>
+            {Object.entries(STATUS_KEYS).map(([value, key]) => (
               <SelectItem key={value} value={value}>
-                {label}
+                {t(key)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -194,7 +196,7 @@ export function SubmissionsPage() {
           ) : error ? (
             <Card>
               <CardContent className="py-8 text-center text-destructive">
-                Failed to load submissions.
+                {t('submissions.loadFailed')}
               </CardContent>
             </Card>
           ) : !submissions?.items?.length ? (
@@ -202,10 +204,10 @@ export function SubmissionsPage() {
               <CardContent>
                 <EmptyState
                   icon={<Inbox className="h-12 w-12" />}
-                  title="No submissions yet"
-                  description="Create a submission to start the review process."
+                  title={t('submissions.noSubmissions')}
+                  description={t('submissions.noSubmissionsDescription')}
                   action={{
-                    label: 'New Submission',
+                    label: t('submissions.newSubmission'),
                     onClick: () => setShowCreateModal(true),
                   }}
                 />
@@ -228,13 +230,13 @@ export function SubmissionsPage() {
                         STATUS_COLORS[sub.status]
                       }`}
                     >
-                      {STATUS_LABELS[sub.status]}
+                      {t(STATUS_KEYS[sub.status])}
                     </span>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{sub.research_field || 'No field'}</span>
+                    <span>{sub.research_field || t('submissions.noField')}</span>
                     <span>{formatDate(sub.created_at)}</span>
                   </div>
                   {sub.submitted_by && (
@@ -257,9 +259,9 @@ export function SubmissionsPage() {
                   <div>
                     <CardTitle>{selectedSubmission.title}</CardTitle>
                     <CardDescription className="mt-1">
-                      {selectedSubmission.research_field || 'No research field specified'}
+                      {selectedSubmission.research_field || t('submissions.noResearchField')}
                       {selectedSubmission.submitted_by && (
-                        <> - Submitted by {selectedSubmission.submitted_by.full_name || selectedSubmission.submitted_by.email}</>
+                        <> - {t('submissions.submittedBy')} {selectedSubmission.submitted_by.full_name || selectedSubmission.submitted_by.email}</>
                       )}
                     </CardDescription>
                   </div>
@@ -268,7 +270,7 @@ export function SubmissionsPage() {
                       STATUS_COLORS[selectedSubmission.status]
                     }`}
                   >
-                    {STATUS_LABELS[selectedSubmission.status]}
+                    {t(STATUS_KEYS[selectedSubmission.status])}
                   </span>
                 </div>
               </CardHeader>
@@ -276,7 +278,7 @@ export function SubmissionsPage() {
                 {/* Abstract */}
                 {selectedSubmission.abstract && (
                   <div>
-                    <h3 className="font-semibold text-sm mb-2">Abstract</h3>
+                    <h3 className="font-semibold text-sm mb-2">{t('submissions.abstract')}</h3>
                     <p
                       className="text-sm text-muted-foreground whitespace-pre-wrap"
                       dangerouslySetInnerHTML={{
@@ -289,7 +291,7 @@ export function SubmissionsPage() {
                 {/* Keywords */}
                 {selectedSubmission.keywords.length > 0 && (
                   <div>
-                    <h3 className="font-semibold text-sm mb-2">Keywords</h3>
+                    <h3 className="font-semibold text-sm mb-2">{t('submissions.keywords')}</h3>
                     <div className="flex flex-wrap gap-1">
                       {selectedSubmission.keywords.map((kw) => (
                         <Badge key={kw} variant="outline" className="text-xs">
@@ -303,7 +305,7 @@ export function SubmissionsPage() {
                 {/* AI Scores */}
                 {selectedSubmission.scores.length > 0 && (
                   <div>
-                    <h3 className="font-semibold text-sm mb-2">AI Analysis</h3>
+                    <h3 className="font-semibold text-sm mb-2">{t('submissions.aiAnalysis')}</h3>
                     {selectedSubmission.scores.map((score) => (
                       <div key={score.id} className="border rounded-lg p-4 space-y-3">
                         <div className="grid grid-cols-3 gap-3">
@@ -332,7 +334,7 @@ export function SubmissionsPage() {
                 {/* Attachments */}
                 {selectedSubmission.attachments.length > 0 && (
                   <div>
-                    <h3 className="font-semibold text-sm mb-2">Attachments</h3>
+                    <h3 className="font-semibold text-sm mb-2">{t('submissions.attachments')}</h3>
                     <div className="space-y-2">
                       {selectedSubmission.attachments.map((att) => (
                         <div key={att.id} className="flex items-center gap-2 text-sm border rounded p-2">
@@ -350,7 +352,7 @@ export function SubmissionsPage() {
                 {/* Review Notes */}
                 {selectedSubmission.review_notes && (
                   <div>
-                    <h3 className="font-semibold text-sm mb-2">Review Notes</h3>
+                    <h3 className="font-semibold text-sm mb-2">{t('submissions.reviewNotes')}</h3>
                     <p
                       className="text-sm text-muted-foreground"
                       dangerouslySetInnerHTML={{
@@ -365,18 +367,18 @@ export function SubmissionsPage() {
                   {selectedSubmission.status === 'draft' && (
                     <Button onClick={handleSubmit} isLoading={submitSubmission.isPending}>
                       <Send className="h-4 w-4 mr-2" />
-                      Submit for Review
+                      {t('submissions.submitForReview')}
                     </Button>
                   )}
                   {(selectedSubmission.status === 'submitted' || selectedSubmission.status === 'under_review') && (
                     <>
                       <Button onClick={handleAnalyze} variant="outline" isLoading={analyzeSubmission.isPending}>
                         <Brain className="h-4 w-4 mr-2" />
-                        AI Analyze
+                        {t('submissions.aiAnalyze')}
                       </Button>
                       <div className="flex gap-2 items-center">
                         <Input
-                          placeholder="Review notes (optional)"
+                          placeholder={t('submissions.reviewNotesPlaceholder')}
                           value={reviewNotes}
                           onChange={(e) => setReviewNotes(e.target.value)}
                           className="w-48"
@@ -387,7 +389,7 @@ export function SubmissionsPage() {
                           className="bg-green-600 hover:bg-green-700"
                         >
                           <CheckCircle className="h-4 w-4 mr-1" />
-                          Approve
+                          {t('submissions.approve')}
                         </Button>
                         <Button
                           variant="destructive"
@@ -395,7 +397,7 @@ export function SubmissionsPage() {
                           isLoading={reviewSubmission.isPending}
                         >
                           <XCircle className="h-4 w-4 mr-1" />
-                          Reject
+                          {t('submissions.reject')}
                         </Button>
                       </div>
                     </>
@@ -403,7 +405,7 @@ export function SubmissionsPage() {
                   {selectedSubmission.status === 'approved' && !selectedSubmission.converted_paper_id && (
                     <Button onClick={handleConvert} isLoading={convertSubmission.isPending}>
                       <FileUp className="h-4 w-4 mr-2" />
-                      Convert to Paper
+                      {t('submissions.convertToPaper')}
                     </Button>
                   )}
                 </div>
@@ -413,7 +415,7 @@ export function SubmissionsPage() {
             <Card>
               <CardContent className="py-16 text-center text-muted-foreground">
                 <Inbox className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>Select a submission to view details</p>
+                <p>{t('submissions.selectSubmission')}</p>
               </CardContent>
             </Card>
           )}
@@ -424,35 +426,35 @@ export function SubmissionsPage() {
       <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>New Submission</DialogTitle>
+            <DialogTitle>{t('submissions.newSubmission')}</DialogTitle>
             <DialogDescription>
-              Submit your research for TTO review
+              {t('submissions.createDescription')}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreate}>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="subTitle">Title</Label>
+                <Label htmlFor="subTitle">{t('submissions.titleLabel')}</Label>
                 <Input
                   id="subTitle"
-                  placeholder="Research paper title"
+                  placeholder={t('submissions.titlePlaceholder')}
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="subAbstract">Abstract</Label>
+                <Label htmlFor="subAbstract">{t('submissions.abstract')}</Label>
                 <textarea
                   id="subAbstract"
                   className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-                  placeholder="Paper abstract..."
+                  placeholder={t('submissions.abstractPlaceholder')}
                   value={newAbstract}
                   onChange={(e) => setNewAbstract(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="subField">Research Field</Label>
+                <Label htmlFor="subField">{t('submissions.researchField')}</Label>
                 <Input
                   id="subField"
                   placeholder="e.g., Machine Learning"
@@ -461,7 +463,7 @@ export function SubmissionsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="subKeywords">Keywords (comma-separated)</Label>
+                <Label htmlFor="subKeywords">{t('submissions.keywordsLabel')}</Label>
                 <Input
                   id="subKeywords"
                   placeholder="e.g., deep learning, NLP, transformers"
@@ -472,10 +474,10 @@ export function SubmissionsPage() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowCreateModal(false)}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button type="submit" isLoading={createSubmission.isPending}>
-                Create Draft
+                {t('submissions.createDraft')}
               </Button>
             </DialogFooter>
           </form>

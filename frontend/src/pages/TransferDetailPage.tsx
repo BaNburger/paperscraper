@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import DOMPurify from 'dompurify'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
@@ -31,13 +32,13 @@ import {
 import { formatDate } from '@/lib/utils'
 import type { TransferStage } from '@/types'
 
-const STAGE_LABELS: Record<TransferStage, string> = {
-  initial_contact: 'Initial Contact',
-  discovery: 'Discovery',
-  evaluation: 'Evaluation',
-  negotiation: 'Negotiation',
-  closed_won: 'Closed Won',
-  closed_lost: 'Closed Lost',
+const STAGE_KEYS: Record<TransferStage, string> = {
+  initial_contact: 'transfer.stageInitialContact',
+  discovery: 'transfer.stageDiscovery',
+  evaluation: 'transfer.stageEvaluation',
+  negotiation: 'transfer.stageNegotiation',
+  closed_won: 'transfer.stageClosedWon',
+  closed_lost: 'transfer.stageClosedLost',
 }
 
 const STAGE_ORDER: TransferStage[] = [
@@ -58,6 +59,7 @@ const STAGE_COLORS: Record<TransferStage, string> = {
 }
 
 export function TransferDetailPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [messageContent, setMessageContent] = useState('')
@@ -83,7 +85,7 @@ export function TransferDetailPage() {
   if (!conversation) {
     return (
       <div className="text-center py-12 text-muted-foreground">
-        Conversation not found.
+        {t('transfer.notFound')}
       </div>
     )
   }
@@ -98,7 +100,7 @@ export function TransferDetailPage() {
       })
       setMessageContent('')
     } catch {
-      showError('Failed to send message', 'Please try again.')
+      showError(t('transfer.sendFailed'), t('transfer.tryAgain'))
     }
   }
 
@@ -111,9 +113,9 @@ export function TransferDetailPage() {
         notes: stageNotes || undefined,
       })
       setStageNotes('')
-      success('Stage updated', `Moved to ${STAGE_LABELS[newStage as TransferStage]}.`)
+      success(t('transfer.stageUpdated'), t('transfer.movedToStage', { stage: t(STAGE_KEYS[newStage as TransferStage]) }))
     } catch {
-      showError('Failed to change stage', 'Please try again.')
+      showError(t('transfer.stageChangeFailed'), t('transfer.tryAgain'))
     }
   }
 
@@ -138,15 +140,15 @@ export function TransferDetailPage() {
           <h1 className="text-2xl font-bold">{conversation.title}</h1>
           <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
             {conversation.paper_title && (
-              <span>Paper: {conversation.paper_title}</span>
+              <span>{t('transfer.paper')}: {conversation.paper_title}</span>
             )}
             {conversation.researcher_name && (
-              <span>Researcher: {conversation.researcher_name}</span>
+              <span>{t('transfer.researcher')}: {conversation.researcher_name}</span>
             )}
           </div>
         </div>
         <span className={`text-sm px-3 py-1 rounded-full ${STAGE_COLORS[conversation.stage]}`}>
-          {STAGE_LABELS[conversation.stage]}
+          {t(STAGE_KEYS[conversation.stage])}
         </span>
       </div>
 
@@ -181,7 +183,7 @@ export function TransferDetailPage() {
                   stage === conversation.stage ? 'font-semibold text-primary' : 'text-muted-foreground'
                 }`}
               >
-                {STAGE_LABELS[stage]}
+                {t(STAGE_KEYS[stage])}
               </span>
             ))}
           </div>
@@ -193,13 +195,13 @@ export function TransferDetailPage() {
         <div className="lg:col-span-2 space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Messages</CardTitle>
+              <CardTitle className="text-lg">{t('transfer.messages')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4 max-h-[500px] overflow-y-auto mb-4">
                 {conversation.messages.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">
-                    No messages yet. Start the conversation below.
+                    {t('transfer.noMessages')}
                   </p>
                 ) : (
                   conversation.messages.map((msg) => (
@@ -229,7 +231,7 @@ export function TransferDetailPage() {
                   {templates && templates.length > 0 && (
                     <Select value={selectedTemplate} onValueChange={handleTemplateSelect}>
                       <SelectTrigger className="w-[200px]">
-                        <SelectValue placeholder="Use template..." />
+                        <SelectValue placeholder={t('transfer.useTemplate')} />
                       </SelectTrigger>
                       <SelectContent>
                         {templates.map((t) => (
@@ -244,7 +246,7 @@ export function TransferDetailPage() {
                 <div className="flex gap-2">
                   <textarea
                     className="flex-1 min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-                    placeholder="Type your message..."
+                    placeholder={t('transfer.messagePlaceholder')}
                     value={messageContent}
                     onChange={(e) => setMessageContent(e.target.value)}
                   />
@@ -266,7 +268,7 @@ export function TransferDetailPage() {
           {conversation.resources.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Resources</CardTitle>
+                <CardTitle className="text-lg">{t('transfer.resources')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
@@ -295,24 +297,24 @@ export function TransferDetailPage() {
           {/* Stage Change */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Change Stage</CardTitle>
+              <CardTitle className="text-lg">{t('transfer.changeStage')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <Input
-                placeholder="Stage change notes (optional)"
+                placeholder={t('transfer.stageNotesPlaceholder')}
                 value={stageNotes}
                 onChange={(e) => setStageNotes(e.target.value)}
               />
               <Select onValueChange={handleStageChange} value="">
                 <SelectTrigger>
-                  <SelectValue placeholder="Move to..." />
+                  <SelectValue placeholder={t('transfer.moveTo')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(STAGE_LABELS)
+                  {Object.entries(STAGE_KEYS)
                     .filter(([key]) => key !== conversation.stage)
-                    .map(([value, label]) => (
+                    .map(([value, key]) => (
                       <SelectItem key={value} value={value}>
-                        {label}
+                        {t(key)}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -326,7 +328,7 @@ export function TransferDetailPage() {
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Lightbulb className="h-4 w-4 text-yellow-500" />
-                  Suggested Next Steps
+                  {t('transfer.suggestedNextSteps')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -363,7 +365,7 @@ export function TransferDetailPage() {
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Clock className="h-4 w-4" />
-                  Stage History
+                  {t('transfer.stageHistory')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -371,7 +373,7 @@ export function TransferDetailPage() {
                   {conversation.stage_history.map((change) => (
                     <div key={change.id} className="text-sm border-l-2 pl-3 border-muted">
                       <p className="font-medium">
-                        {STAGE_LABELS[change.from_stage]} → {STAGE_LABELS[change.to_stage]}
+                        {t(STAGE_KEYS[change.from_stage])} → {t(STAGE_KEYS[change.to_stage])}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {change.changed_by_name || 'System'} - {formatDate(change.changed_at)}

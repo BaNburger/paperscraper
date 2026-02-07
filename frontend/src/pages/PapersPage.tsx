@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   usePapers,
@@ -31,6 +32,7 @@ import { formatDate, truncate } from '@/lib/utils'
 type ImportMode = 'doi' | 'openalex' | 'pubmed' | 'arxiv' | 'pdf'
 
 export function PapersPage() {
+  const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const page = parseInt(searchParams.get('page') ?? '1')
   const search = searchParams.get('search') ?? ''
@@ -94,10 +96,10 @@ export function PapersPage() {
   const handleImportDoi = async () => {
     try {
       await ingestByDoi.mutateAsync(doiInput)
-      setImportResult({ type: 'success', message: 'Paper imported successfully!' })
+      setImportResult({ type: 'success', message: t('papers.importSuccess') })
       setDoiInput('')
     } catch {
-      setImportResult({ type: 'error', message: 'Failed to import paper. Check the DOI and try again.' })
+      setImportResult({ type: 'error', message: t('papers.importDoiFailed') })
     }
   }
 
@@ -109,13 +111,13 @@ export function PapersPage() {
       })
       setImportResult({
         type: 'success',
-        message: `Imported ${result.papers_created} papers${
-          result.papers_skipped > 0 ? ` (skipped ${result.papers_skipped} duplicates)` : ''
-        }`,
+        message: result.papers_skipped > 0
+          ? t('papers.importedWithSkipped', { created: result.papers_created, skipped: result.papers_skipped })
+          : t('papers.importedCount', { count: result.papers_created }),
       })
       setQueryInput('')
     } catch {
-      setImportResult({ type: 'error', message: 'Failed to import from OpenAlex. Please try again.' })
+      setImportResult({ type: 'error', message: t('papers.importOpenAlexFailed') })
     }
   }
 
@@ -127,13 +129,13 @@ export function PapersPage() {
       })
       setImportResult({
         type: 'success',
-        message: `Imported ${result.papers_created} papers${
-          result.papers_skipped > 0 ? ` (skipped ${result.papers_skipped} duplicates)` : ''
-        }`,
+        message: result.papers_skipped > 0
+          ? t('papers.importedWithSkipped', { created: result.papers_created, skipped: result.papers_skipped })
+          : t('papers.importedCount', { count: result.papers_created }),
       })
       setQueryInput('')
     } catch {
-      setImportResult({ type: 'error', message: 'Failed to import from PubMed. Please try again.' })
+      setImportResult({ type: 'error', message: t('papers.importPubMedFailed') })
     }
   }
 
@@ -146,13 +148,13 @@ export function PapersPage() {
       })
       setImportResult({
         type: 'success',
-        message: `Imported ${result.papers_created} papers${
-          result.papers_skipped > 0 ? ` (skipped ${result.papers_skipped} duplicates)` : ''
-        }`,
+        message: result.papers_skipped > 0
+          ? t('papers.importedWithSkipped', { created: result.papers_created, skipped: result.papers_skipped })
+          : t('papers.importedCount', { count: result.papers_created }),
       })
       setQueryInput('')
     } catch {
-      setImportResult({ type: 'error', message: 'Failed to import from arXiv. Please try again.' })
+      setImportResult({ type: 'error', message: t('papers.importArxivFailed') })
     }
   }
 
@@ -160,13 +162,13 @@ export function PapersPage() {
     if (!selectedFile) return
     try {
       await uploadPdf.mutateAsync(selectedFile)
-      setImportResult({ type: 'success', message: 'PDF uploaded and processed successfully!' })
+      setImportResult({ type: 'success', message: t('papers.pdfUploadSuccess') })
       setSelectedFile(null)
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
     } catch {
-      setImportResult({ type: 'error', message: 'Failed to upload PDF. Please try again.' })
+      setImportResult({ type: 'error', message: t('papers.pdfUploadFailed') })
     }
   }
 
@@ -178,14 +180,14 @@ export function PapersPage() {
     if (!file) return
 
     if (file.type !== 'application/pdf') {
-      setImportResult({ type: 'error', message: 'Please select a valid PDF file.' })
+      setImportResult({ type: 'error', message: t('papers.invalidPdfFile') })
       return
     }
 
     if (file.size > MAX_PDF_SIZE_BYTES) {
       setImportResult({
         type: 'error',
-        message: `File is too large. Maximum size is ${MAX_PDF_SIZE_MB}MB.`,
+        message: t('papers.fileTooLarge', { size: MAX_PDF_SIZE_MB }),
       })
       return
     }
@@ -215,12 +217,12 @@ export function PapersPage() {
                 onChange={(e) => setDoiInput(e.target.value)}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Enter a DOI to import a single paper
+                {t('papers.doiDescription')}
               </p>
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={closeModal}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 onClick={handleImportDoi}
@@ -228,7 +230,7 @@ export function PapersPage() {
                 disabled={!doiInput || isImporting}
               >
                 <Download className="h-4 w-4 mr-2" />
-                Import
+                {t('common.import')}
               </Button>
             </div>
           </div>
@@ -238,7 +240,7 @@ export function PapersPage() {
         return (
           <div className="space-y-4">
             <div>
-              <Label htmlFor="query">Search Query</Label>
+              <Label htmlFor="query">{t('papers.searchQuery')}</Label>
               <Input
                 id="query"
                 placeholder="e.g., machine learning healthcare"
@@ -246,11 +248,11 @@ export function PapersPage() {
                 onChange={(e) => setQueryInput(e.target.value)}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Search OpenAlex for papers matching your query
+                {t('papers.openAlexDescription')}
               </p>
             </div>
             <div>
-              <Label htmlFor="maxResults">Max Results</Label>
+              <Label htmlFor="maxResults">{t('papers.maxResults')}</Label>
               <Input
                 id="maxResults"
                 type="number"
@@ -262,7 +264,7 @@ export function PapersPage() {
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={closeModal}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 onClick={handleImportOpenAlex}
@@ -270,7 +272,7 @@ export function PapersPage() {
                 disabled={!queryInput || isImporting}
               >
                 <Download className="h-4 w-4 mr-2" />
-                Import
+                {t('common.import')}
               </Button>
             </div>
           </div>
@@ -280,7 +282,7 @@ export function PapersPage() {
         return (
           <div className="space-y-4">
             <div>
-              <Label htmlFor="query">PubMed Search Query</Label>
+              <Label htmlFor="query">{t('papers.pubmedSearchQuery')}</Label>
               <Input
                 id="query"
                 placeholder="e.g., cancer immunotherapy[MeSH]"
@@ -288,11 +290,11 @@ export function PapersPage() {
                 onChange={(e) => setQueryInput(e.target.value)}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Use PubMed search syntax for best results
+                {t('papers.pubmedDescription')}
               </p>
             </div>
             <div>
-              <Label htmlFor="maxResults">Max Results</Label>
+              <Label htmlFor="maxResults">{t('papers.maxResults')}</Label>
               <Input
                 id="maxResults"
                 type="number"
@@ -304,7 +306,7 @@ export function PapersPage() {
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={closeModal}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 onClick={handleImportPubMed}
@@ -312,7 +314,7 @@ export function PapersPage() {
                 disabled={!queryInput || isImporting}
               >
                 <Download className="h-4 w-4 mr-2" />
-                Import
+                {t('common.import')}
               </Button>
             </div>
           </div>
@@ -322,7 +324,7 @@ export function PapersPage() {
         return (
           <div className="space-y-4">
             <div>
-              <Label htmlFor="query">arXiv Search Query</Label>
+              <Label htmlFor="query">{t('papers.arxivSearchQuery')}</Label>
               <Input
                 id="query"
                 placeholder="e.g., quantum computing"
@@ -330,11 +332,11 @@ export function PapersPage() {
                 onChange={(e) => setQueryInput(e.target.value)}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Search arXiv preprint repository
+                {t('papers.arxivDescription')}
               </p>
             </div>
             <div>
-              <Label htmlFor="category">Category (optional)</Label>
+              <Label htmlFor="category">{t('papers.categoryOptional')}</Label>
               <Input
                 id="category"
                 placeholder="e.g., cs.AI, physics.med-ph"
@@ -342,11 +344,11 @@ export function PapersPage() {
                 onChange={(e) => setArxivCategory(e.target.value)}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Filter by arXiv category
+                {t('papers.categoryDescription')}
               </p>
             </div>
             <div>
-              <Label htmlFor="maxResults">Max Results</Label>
+              <Label htmlFor="maxResults">{t('papers.maxResults')}</Label>
               <Input
                 id="maxResults"
                 type="number"
@@ -358,7 +360,7 @@ export function PapersPage() {
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={closeModal}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 onClick={handleImportArxiv}
@@ -366,7 +368,7 @@ export function PapersPage() {
                 disabled={!queryInput || isImporting}
               >
                 <Download className="h-4 w-4 mr-2" />
-                Import
+                {t('common.import')}
               </Button>
             </div>
           </div>
@@ -376,7 +378,7 @@ export function PapersPage() {
         return (
           <div className="space-y-4">
             <div>
-              <Label htmlFor="pdf">PDF File</Label>
+              <Label htmlFor="pdf">{t('papers.pdfFile')}</Label>
               <div className="mt-2">
                 <input
                   ref={fileInputRef}
@@ -401,7 +403,7 @@ export function PapersPage() {
                           if (fileInputRef.current) fileInputRef.current.value = ''
                         }}
                         className="ml-2 p-1 hover:bg-muted rounded"
-                        aria-label="Remove selected file"
+                        aria-label={t('papers.removeSelectedFile')}
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -410,10 +412,10 @@ export function PapersPage() {
                     <>
                       <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                       <p className="text-sm text-muted-foreground">
-                        Click to select a PDF file or drag and drop
+                        {t('papers.pdfDropzone')}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Max file size: 50MB
+                        {t('papers.maxFileSize', { size: 50 })}
                       </p>
                     </>
                   )}
@@ -422,7 +424,7 @@ export function PapersPage() {
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={closeModal}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 onClick={handleUploadPdf}
@@ -430,7 +432,7 @@ export function PapersPage() {
                 disabled={!selectedFile || isImporting}
               >
                 <Upload className="h-4 w-4 mr-2" />
-                Upload
+                {t('papers.upload')}
               </Button>
             </div>
           </div>
@@ -443,14 +445,14 @@ export function PapersPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Papers</h1>
+          <h1 className="text-3xl font-bold">{t('papers.title')}</h1>
           <p className="text-muted-foreground mt-1">
-            Manage your research paper library
+            {t('papers.subtitle')}
           </p>
         </div>
         <Button onClick={() => setShowImportModal(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          Import Papers
+          {t('papers.importPapers')}
         </Button>
       </div>
 
@@ -459,13 +461,13 @@ export function PapersPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search papers by title or abstract..."
+            placeholder={t('papers.searchPlaceholder')}
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             className="pl-10"
           />
         </div>
-        <Button type="submit">Search</Button>
+        <Button type="submit">{t('common.search')}</Button>
       </form>
 
       {/* Papers List */}
@@ -478,7 +480,7 @@ export function PapersPage() {
       ) : error ? (
         <Card>
           <CardContent className="py-12 text-center text-destructive">
-            Failed to load papers. Please try again.
+            {t('papers.loadFailed')}
           </CardContent>
         </Card>
       ) : data?.items.length === 0 ? (
@@ -487,10 +489,10 @@ export function PapersPage() {
             {search ? (
               <EmptyState
                 icon={<SearchX className="h-16 w-16" />}
-                title="No papers match your search"
-                description="Try adjusting your search terms or clear the filter to see all papers."
+                title={t('papers.noSearchResults')}
+                description={t('papers.noSearchResultsDescription')}
                 action={{
-                  label: 'Clear search',
+                  label: t('papers.clearSearch'),
                   onClick: () => {
                     setSearchInput('')
                     setSearchParams({})
@@ -500,10 +502,10 @@ export function PapersPage() {
             ) : (
               <EmptyState
                 icon={<FileText className="h-16 w-16" />}
-                title="No papers yet"
-                description="Start building your research library by importing papers from various sources."
+                title={t('papers.noPapers')}
+                description={t('papers.noPapersStartDescription')}
                 action={{
-                  label: 'Import Papers',
+                  label: t('papers.importPapers'),
                   onClick: () => setShowImportModal(true),
                 }}
               />
@@ -526,7 +528,7 @@ export function PapersPage() {
                           </p>
                         )}
                         <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-                          {truncate(paper.abstract ?? 'No abstract available', 200)}
+                          {truncate(paper.abstract ?? t('papers.noAbstract'), 200)}
                         </p>
                         <div className="flex flex-wrap items-center gap-2 mt-3">
                           <Badge variant="outline">{paper.source}</Badge>
@@ -556,7 +558,7 @@ export function PapersPage() {
                         )}
                         {paper.citations_count != null && paper.citations_count > 0 && (
                           <span className="text-xs text-muted-foreground">
-                            {paper.citations_count} citations
+                            {t('papers.citationsCount', { count: paper.citations_count })}
                           </span>
                         )}
                       </div>
@@ -571,8 +573,7 @@ export function PapersPage() {
           {data && data.pages > 1 && (
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                Showing {(page - 1) * pageSize + 1} to{' '}
-                {Math.min(page * pageSize, data.total)} of {data.total} papers
+                {t('papers.showingResults', { from: (page - 1) * pageSize + 1, to: Math.min(page * pageSize, data.total), total: data.total })}
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -582,10 +583,10 @@ export function PapersPage() {
                   disabled={page <= 1}
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  Previous
+                  {t('common.previous')}
                 </Button>
                 <span className="text-sm">
-                  Page {page} of {data.pages}
+                  {t('common.pageOf', { page, pages: data.pages })}
                 </span>
                 <Button
                   variant="outline"
@@ -593,7 +594,7 @@ export function PapersPage() {
                   onClick={() => handlePageChange(page + 1)}
                   disabled={page >= data.pages}
                 >
-                  Next
+                  {t('common.next')}
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
@@ -607,11 +608,11 @@ export function PapersPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <Card className="w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Import Papers</CardTitle>
+              <CardTitle>{t('papers.importPapers')}</CardTitle>
               <button
                 onClick={closeModal}
                 className="p-1 hover:bg-muted rounded"
-                aria-label="Close modal"
+                aria-label={t('common.close')}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -624,7 +625,7 @@ export function PapersPage() {
                   { id: 'openalex' as const, label: 'OpenAlex' },
                   { id: 'pubmed' as const, label: 'PubMed' },
                   { id: 'arxiv' as const, label: 'arXiv' },
-                  { id: 'pdf' as const, label: 'PDF Upload' },
+                  { id: 'pdf' as const, label: t('papers.pdfUpload') },
                 ].map((tab) => (
                   <Button
                     key={tab.id}

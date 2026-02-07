@@ -18,6 +18,8 @@ from paper_scraper.modules.alerts.schemas import (
     AlertUpdate,
     SavedSearchBrief,
 )
+from paper_scraper.modules.notifications.models import NotificationType
+from paper_scraper.modules.notifications.service import NotificationService
 from paper_scraper.modules.saved_searches.models import SavedSearch
 from paper_scraper.modules.search.schemas import SearchFilters, SearchMode, SearchRequest
 from paper_scraper.modules.search.service import SearchService
@@ -219,7 +221,13 @@ class AlertService:
             setattr(alert, field, value)
 
         await self.db.flush()
-        await self.db.refresh(alert, ["saved_search"])
+        # Re-query to get fresh column values (updated_at from onupdate) + relationship
+        result = await self.db.execute(
+            select(Alert)
+            .options(selectinload(Alert.saved_search))
+            .where(Alert.id == alert_id)
+        )
+        alert = result.scalar_one()
 
         return alert
 
@@ -256,6 +264,7 @@ class AlertService:
             raise ForbiddenError("You don't have access to this alert")
 
         await self.db.delete(alert)
+        await self.db.flush()
 
     async def get_results(
         self,
@@ -500,6 +509,23 @@ class AlertService:
             alert_result.delivered_at = datetime.now(timezone.utc)
             alert.last_triggered_at = datetime.now(timezone.utc)
             alert.trigger_count += 1
+
+            # Create in-app notification
+            notification_service = NotificationService(self.db)
+            await notification_service.create(
+                user_id=alert.user_id,
+                organization_id=alert.organization_id,
+                type=NotificationType.ALERT,
+                title=f"Alert: {alert.name}",
+                message=f"Found {len(search_response.items)} new papers ({search_response.total} total)",
+                resource_type="alert",
+                resource_id=str(alert.id),
+                metadata={
+                    "alert_result_id": str(alert_result.id),
+                    "papers_found": search_response.total,
+                    "new_papers": len(search_response.items),
+                },
+            )
 
             await self.db.flush()
             return "sent"

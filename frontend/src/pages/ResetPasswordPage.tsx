@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { authApi } from '@/lib/api'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -9,6 +10,7 @@ import { FileText, CheckCircle } from 'lucide-react'
 import { getApiErrorMessage } from '@/types'
 
 export function ResetPasswordPage() {
+  const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const token = searchParams.get('token')
@@ -24,17 +26,17 @@ export function ResetPasswordPage() {
     setError('')
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match')
+      setError(t('auth.passwordsDoNotMatch'))
       return
     }
 
     if (password.length < 8) {
-      setError('Password must be at least 8 characters')
+      setError(t('auth.passwordMinLength'))
       return
     }
 
     if (!token) {
-      setError('Invalid reset link')
+      setError(t('auth.invalidResetLink'))
       return
     }
 
@@ -44,7 +46,7 @@ export function ResetPasswordPage() {
       await authApi.resetPassword(token, password)
       setIsSuccess(true)
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Failed to reset password. The link may have expired.'))
+      setError(getApiErrorMessage(err, t('auth.resetPasswordFailed')))
     } finally {
       setIsLoading(false)
     }
@@ -55,14 +57,14 @@ export function ResetPasswordPage() {
       <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl text-destructive">Invalid Link</CardTitle>
+            <CardTitle className="text-2xl text-destructive">{t('auth.invalidLink')}</CardTitle>
             <CardDescription>
-              This password reset link is invalid or has expired.
+              {t('auth.invalidLinkDescription')}
             </CardDescription>
           </CardHeader>
           <CardFooter className="flex justify-center">
             <Link to="/forgot-password">
-              <Button>Request a new link</Button>
+              <Button>{t('auth.requestNewLink')}</Button>
             </Link>
           </CardFooter>
         </Card>
@@ -78,14 +80,14 @@ export function ResetPasswordPage() {
             <div className="flex justify-center mb-4">
               <CheckCircle className="h-12 w-12 text-green-500" />
             </div>
-            <CardTitle className="text-2xl">Password reset successful</CardTitle>
+            <CardTitle className="text-2xl">{t('auth.resetPasswordSuccess')}</CardTitle>
             <CardDescription>
-              Your password has been reset. You can now sign in with your new password.
+              {t('auth.resetPasswordSuccessDescription')}
             </CardDescription>
           </CardHeader>
           <CardFooter className="flex justify-center">
             <Button onClick={() => navigate('/login')}>
-              Sign in
+              {t('auth.signIn')}
             </Button>
           </CardFooter>
         </Card>
@@ -100,9 +102,9 @@ export function ResetPasswordPage() {
           <div className="flex justify-center mb-4">
             <FileText className="h-12 w-12 text-primary" />
           </div>
-          <CardTitle className="text-2xl">Reset your password</CardTitle>
+          <CardTitle className="text-2xl">{t('auth.resetYourPassword')}</CardTitle>
           <CardDescription>
-            Enter your new password below.
+            {t('auth.resetYourPasswordDescription')}
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -113,11 +115,11 @@ export function ResetPasswordPage() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="password">New password</Label>
+              <Label htmlFor="password">{t('auth.newPassword')}</Label>
               <Input
                 id="password"
                 type="password"
-                placeholder="At least 8 characters"
+                placeholder={t('auth.passwordPlaceholder')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -125,7 +127,7 @@ export function ResetPasswordPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm new password</Label>
+              <Label htmlFor="confirmPassword">{t('auth.confirmNewPassword')}</Label>
               <Input
                 id="confirmPassword"
                 type="password"
@@ -137,7 +139,7 @@ export function ResetPasswordPage() {
           </CardContent>
           <CardFooter>
             <Button type="submit" className="w-full" isLoading={isLoading}>
-              Reset password
+              {t('auth.resetPassword')}
             </Button>
           </CardFooter>
         </form>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -9,6 +10,7 @@ import { FileText } from 'lucide-react'
 import { getApiErrorMessage } from '@/types'
 
 export function LoginPage() {
+  const { t } = useTranslation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -29,7 +31,7 @@ export function LoginPage() {
       await login({ email, password })
       navigate(from, { replace: true })
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Invalid email or password'))
+      setError(getApiErrorMessage(err, t('auth.invalidCredentials')))
     } finally {
       setIsLoading(false)
     }
@@ -42,9 +44,9 @@ export function LoginPage() {
           <div className="flex justify-center mb-4">
             <FileText className="h-12 w-12 text-primary" />
           </div>
-          <CardTitle className="text-2xl">Welcome back</CardTitle>
+          <CardTitle className="text-2xl">{t('auth.welcomeBack')}</CardTitle>
           <CardDescription>
-            Sign in to your Paper Scraper account
+            {t('auth.signInDescription')}
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -55,7 +57,7 @@ export function LoginPage() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('auth.email')}</Label>
               <Input
                 id="email"
                 name="email"
@@ -68,12 +70,12 @@ export function LoginPage() {
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">{t('auth.password')}</Label>
                 <Link
                   to="/forgot-password"
                   className="text-sm text-primary hover:underline"
                 >
-                  Forgot password?
+                  {t('auth.forgotPassword')}
                 </Link>
               </div>
               <Input
@@ -88,12 +90,12 @@ export function LoginPage() {
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <Button type="submit" className="w-full" isLoading={isLoading}>
-              Sign In
+              {t('auth.signIn')}
             </Button>
             <p className="text-sm text-muted-foreground">
-              Don't have an account?{' '}
+              {t('auth.noAccount')}{' '}
               <Link to="/register" className="text-primary hover:underline">
-                Sign up
+                {t('auth.signUp')}
               </Link>
             </p>
           </CardFooter>

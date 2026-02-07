@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { useConversations, useCreateConversation } from '@/hooks'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -28,13 +29,13 @@ import { ArrowRightLeft, Plus, MessageSquare, Paperclip } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import type { TransferType, TransferStage } from '@/types'
 
-const STAGE_LABELS: Record<TransferStage, string> = {
-  initial_contact: 'Initial Contact',
-  discovery: 'Discovery',
-  evaluation: 'Evaluation',
-  negotiation: 'Negotiation',
-  closed_won: 'Closed Won',
-  closed_lost: 'Closed Lost',
+const STAGE_KEYS: Record<TransferStage, string> = {
+  initial_contact: 'transfer.stageInitialContact',
+  discovery: 'transfer.stageDiscovery',
+  evaluation: 'transfer.stageEvaluation',
+  negotiation: 'transfer.stageNegotiation',
+  closed_won: 'transfer.stageClosedWon',
+  closed_lost: 'transfer.stageClosedLost',
 }
 
 const STAGE_COLORS: Record<TransferStage, string> = {
@@ -46,15 +47,16 @@ const STAGE_COLORS: Record<TransferStage, string> = {
   closed_lost: 'bg-red-100 text-red-800',
 }
 
-const TYPE_LABELS: Record<TransferType, string> = {
-  patent: 'Patent',
-  licensing: 'Licensing',
-  startup: 'Startup',
-  partnership: 'Partnership',
-  other: 'Other',
+const TYPE_KEYS: Record<TransferType, string> = {
+  patent: 'transfer.typePatent',
+  licensing: 'transfer.typeLicensing',
+  startup: 'transfer.typeStartup',
+  partnership: 'transfer.typePartnership',
+  other: 'transfer.typeOther',
 }
 
 export function TransferPage() {
+  const { t } = useTranslation()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [stageFilter, setStageFilter] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState('')
@@ -80,9 +82,9 @@ export function TransferPage() {
       setNewTitle('')
       setNewType('licensing')
       setShowCreateModal(false)
-      success('Conversation created', `"${newTitle}" has been created.`)
+      success(t('transfer.createSuccess'), t('transfer.createSuccessDescription', { name: newTitle }))
     } catch {
-      showError('Failed to create conversation', 'Please try again.')
+      showError(t('transfer.createFailed'), t('transfer.tryAgain'))
     }
   }
 
@@ -91,34 +93,34 @@ export function TransferPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Technology Transfer</h1>
+          <h1 className="text-3xl font-bold">{t('transfer.title')}</h1>
           <p className="text-muted-foreground mt-1">
-            Manage transfer conversations with researchers and industry partners
+            {t('transfer.subtitle')}
           </p>
         </div>
         <Button onClick={() => setShowCreateModal(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          New Conversation
+          {t('transfer.newConversation')}
         </Button>
       </div>
 
       {/* Filters */}
       <div className="flex gap-3">
         <Input
-          placeholder="Search conversations..."
+          placeholder={t('transfer.searchPlaceholder')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="max-w-sm"
         />
         <Select value={stageFilter} onValueChange={setStageFilter}>
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="All stages" />
+            <SelectValue placeholder={t('transfer.allStages')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All stages</SelectItem>
-            {Object.entries(STAGE_LABELS).map(([value, label]) => (
+            <SelectItem value="">{t('transfer.allStages')}</SelectItem>
+            {Object.entries(STAGE_KEYS).map(([value, key]) => (
               <SelectItem key={value} value={value}>
-                {label}
+                {t(key)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -135,7 +137,7 @@ export function TransferPage() {
       ) : error ? (
         <Card>
           <CardContent className="py-12 text-center text-destructive">
-            Failed to load conversations. Please try again.
+            {t('transfer.loadFailed')}
           </CardContent>
         </Card>
       ) : !conversations?.items?.length ? (
@@ -143,10 +145,10 @@ export function TransferPage() {
           <CardContent>
             <EmptyState
               icon={<ArrowRightLeft className="h-16 w-16" />}
-              title="No conversations yet"
-              description="Start a technology transfer conversation to track outreach with researchers."
+              title={t('transfer.noConversations')}
+              description={t('transfer.noConversationsDescription')}
               action={{
-                label: 'New Conversation',
+                label: t('transfer.newConversation'),
                 onClick: () => setShowCreateModal(true),
               }}
             />
@@ -165,14 +167,14 @@ export function TransferPage() {
                         STAGE_COLORS[conv.stage]
                       }`}
                     >
-                      {STAGE_LABELS[conv.stage]}
+                      {t(STAGE_KEYS[conv.stage])}
                     </span>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
                   <div className="flex items-center gap-2 mb-2">
                     <Badge variant="outline" className="text-xs">
-                      {TYPE_LABELS[conv.type]}
+                      {t(TYPE_KEYS[conv.type])}
                     </Badge>
                   </div>
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
@@ -197,15 +199,15 @@ export function TransferPage() {
       <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New Conversation</DialogTitle>
+            <DialogTitle>{t('transfer.newConversation')}</DialogTitle>
             <DialogDescription>
-              Start a new technology transfer conversation
+              {t('transfer.createDescription')}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreate}>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="convTitle">Title</Label>
+                <Label htmlFor="convTitle">{t('transfer.conversationTitle')}</Label>
                 <Input
                   id="convTitle"
                   placeholder="e.g., Patent discussion - Novel AI method"
@@ -215,15 +217,15 @@ export function TransferPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="convType">Transfer Type</Label>
+                <Label htmlFor="convType">{t('transfer.transferType')}</Label>
                 <Select value={newType} onValueChange={(v) => setNewType(v as TransferType)}>
                   <SelectTrigger id="convType">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(TYPE_LABELS).map(([value, label]) => (
+                    {Object.entries(TYPE_KEYS).map(([value, key]) => (
                       <SelectItem key={value} value={value}>
-                        {label}
+                        {t(key)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -232,10 +234,10 @@ export function TransferPage() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowCreateModal(false)}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button type="submit" isLoading={createConversation.isPending}>
-                Create
+                {t('common.create')}
               </Button>
             </DialogFooter>
           </form>

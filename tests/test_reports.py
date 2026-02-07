@@ -4,7 +4,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from paper_scraper.modules.auth.models import User
+from paper_scraper.modules.auth.models import Organization, User
 from paper_scraper.modules.reports.models import (
     ReportFormat,
     ReportSchedule,
@@ -278,7 +278,11 @@ class TestScheduledReportsEndpoints:
         test_user: User,
     ):
         """Test that users can only see reports from their organization."""
-        import uuid
+        # Create a real organization for the other tenant
+        other_org = Organization(name="Other Org", type="university")
+        db_session.add(other_org)
+        await db_session.flush()
+        await db_session.refresh(other_org)
 
         # Create report for test user's org
         my_report = ScheduledReport(
@@ -294,8 +298,8 @@ class TestScheduledReportsEndpoints:
 
         # Create report for different org
         other_report = ScheduledReport(
-            organization_id=uuid.uuid4(),
-            created_by_id=uuid.uuid4(),
+            organization_id=other_org.id,
+            created_by_id=None,
             name="Other Org Report",
             report_type=ReportType.PAPER_TRENDS,
             schedule=ReportSchedule.WEEKLY,

@@ -176,7 +176,9 @@ class PaperService:
     # Ingestion
     # =========================================================================
 
-    async def ingest_by_doi(self, doi: str, organization_id: UUID) -> Paper:
+    async def ingest_by_doi(
+        self, doi: str, organization_id: UUID, created_by_id: UUID | None = None
+    ) -> Paper:
         """Ingest paper by DOI.
 
         Strategy: OpenAlex first (richer metadata), Crossref fallback.
@@ -214,8 +216,10 @@ class PaperService:
         if not paper_data:
             raise NotFoundError("Paper", "doi", doi)
 
-        paper = await self._create_paper_from_data(paper_data, organization_id)
-        await self.db.commit()
+        paper = await self._create_paper_from_data(
+            paper_data, organization_id, created_by_id=created_by_id
+        )
+        await self.db.flush()
         return paper
 
     async def ingest_from_openalex(
@@ -224,6 +228,7 @@ class PaperService:
         organization_id: UUID,
         max_results: int = 100,
         filters: dict | None = None,
+        created_by_id: UUID | None = None,
     ) -> IngestResult:
         """Batch ingest papers from OpenAlex search.
 
@@ -255,13 +260,15 @@ class PaperService:
                         skipped += 1
                         continue
 
-                await self._create_paper_from_data(paper_data, organization_id)
+                await self._create_paper_from_data(
+                    paper_data, organization_id, created_by_id=created_by_id
+                )
                 created += 1
             except Exception as e:
                 title = paper_data.get("title", "unknown")[:50]
                 errors.append(f"Error importing '{title}': {str(e)}")
 
-        await self.db.commit()
+        await self.db.flush()
 
         return IngestResult(
             papers_created=created,
@@ -275,6 +282,7 @@ class PaperService:
         query: str,
         organization_id: UUID,
         max_results: int = 100,
+        created_by_id: UUID | None = None,
     ) -> IngestResult:
         """Batch ingest papers from PubMed search.
 
@@ -293,7 +301,7 @@ class PaperService:
             return _api_error_result("PubMed", e)
 
         return await self._ingest_papers_batch(
-            papers_data, organization_id, PaperSource.PUBMED
+            papers_data, organization_id, PaperSource.PUBMED, created_by_id=created_by_id
         )
 
     async def ingest_from_arxiv(
@@ -302,6 +310,7 @@ class PaperService:
         organization_id: UUID,
         max_results: int = 100,
         category: str | None = None,
+        created_by_id: UUID | None = None,
     ) -> IngestResult:
         """Batch ingest papers from arXiv search.
 
@@ -321,7 +330,37 @@ class PaperService:
             return _api_error_result("arXiv", e)
 
         return await self._ingest_papers_batch(
-            papers_data, organization_id, PaperSource.ARXIV
+            papers_data, organization_id, PaperSource.ARXIV, created_by_id=created_by_id
+        )
+
+    async def ingest_from_semantic_scholar(
+        self,
+        query: str,
+        organization_id: UUID,
+        max_results: int = 100,
+        created_by_id: UUID | None = None,
+    ) -> IngestResult:
+        """Batch ingest papers from Semantic Scholar search.
+
+        Args:
+            query: Semantic Scholar search query.
+            organization_id: Organization UUID.
+            max_results: Maximum papers to import.
+
+        Returns:
+            IngestResult with counts of created/skipped papers.
+        """
+        from paper_scraper.modules.papers.clients.semantic_scholar import SemanticScholarClient
+
+        try:
+            async with SemanticScholarClient() as client:
+                papers_data = await client.search(query, max_results)
+        except Exception as e:
+            return _api_error_result("Semantic Scholar", e)
+
+        return await self._ingest_papers_batch(
+            papers_data, organization_id, PaperSource.SEMANTIC_SCHOLAR,
+            created_by_id=created_by_id,
         )
 
     async def _ingest_papers_batch(
@@ -329,6 +368,7 @@ class PaperService:
         papers_data: list[dict],
         organization_id: UUID,
         source: PaperSource,
+        created_by_id: UUID | None = None,
     ) -> IngestResult:
         """Ingest a batch of papers with duplicate checking.
 
@@ -350,13 +390,15 @@ class PaperService:
                     skipped += 1
                     continue
 
-                await self._create_paper_from_data(paper_data, organization_id)
+                await self._create_paper_from_data(
+                    paper_data, organization_id, created_by_id=created_by_id
+                )
                 created += 1
             except Exception as e:
                 title = paper_data.get("title", "unknown")[:50]
                 errors.append(f"Error importing '{title}': {e}")
 
-        await self.db.commit()
+        await self.db.flush()
 
         return IngestResult(
             papers_created=created,
@@ -400,6 +442,7 @@ class PaperService:
         file_content: bytes,
         filename: str,
         organization_id: UUID,
+        created_by_id: UUID | None = None,
     ) -> Paper:
         """Ingest paper from uploaded PDF.
 
@@ -433,14 +476,16 @@ class PaperService:
             "raw_metadata": {"filename": filename, "pdf_path": extracted["pdf_path"]},
         }
 
-        paper = await self._create_paper_from_data(paper_data, organization_id)
+        paper = await self._create_paper_from_data(
+            paper_data, organization_id, created_by_id=created_by_id
+        )
 
         # Store pdf_path on the paper
         paper.pdf_path = extracted["pdf_path"]
         if extracted.get("full_text"):
             paper.full_text = extracted["full_text"]
 
-        await self.db.commit()
+        await self.db.flush()
         return paper
 
     async def _get_paper_by_source(
@@ -466,13 +511,17 @@ class PaperService:
         return result.scalar_one_or_none()
 
     async def _create_paper_from_data(
-        self, data: dict, organization_id: UUID
+        self,
+        data: dict,
+        organization_id: UUID,
+        created_by_id: UUID | None = None,
     ) -> Paper:
         """Create paper and authors from normalized API data.
 
         Args:
             data: Normalized paper data from API client.
             organization_id: Organization UUID.
+            created_by_id: User UUID who initiated the import.
 
         Returns:
             Created Paper object.
@@ -488,6 +537,7 @@ class PaperService:
         # Create paper
         paper = Paper(
             organization_id=organization_id,
+            created_by_id=created_by_id,
             doi=data.get("doi"),
             source=PaperSource(data["source"]),
             source_id=data.get("source_id"),
@@ -604,8 +654,7 @@ class PaperService:
 
         # Update paper with pitch
         paper.one_line_pitch = pitch
-        await self.db.commit()
-        await self.db.refresh(paper)
+        await self.db.flush()
 
         return paper
 
@@ -640,7 +689,6 @@ class PaperService:
 
         # Update paper with simplified abstract
         paper.simplified_abstract = simplified
-        await self.db.commit()
-        await self.db.refresh(paper)
+        await self.db.flush()
 
         return paper

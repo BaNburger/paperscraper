@@ -8,7 +8,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from paper_scraper.modules.auth.models import User
+from paper_scraper.modules.auth.models import Organization, User
 from paper_scraper.modules.papers.models import Paper, PaperSource
 from paper_scraper.modules.scoring.models import PaperScore
 from paper_scraper.modules.search.schemas import (
@@ -473,6 +473,12 @@ class TestSearchTenantIsolation:
 
         service = SearchService(db_session)
 
+        # Create a real organization for the other tenant
+        other_org = Organization(name="Other Org", type="university")
+        db_session.add(other_org)
+        await db_session.flush()
+        await db_session.refresh(other_org)
+
         # Create paper for test user's org
         my_paper = Paper(
             organization_id=test_user.organization_id,
@@ -481,7 +487,7 @@ class TestSearchTenantIsolation:
         )
         # Create paper for different org
         other_paper = Paper(
-            organization_id=uuid.uuid4(),
+            organization_id=other_org.id,
             title="Other Organization Paper",
             source=PaperSource.MANUAL,
         )
@@ -506,6 +512,12 @@ class TestSearchTenantIsolation:
         test_user: User,
     ):
         """Test that similar papers endpoint respects organization."""
+        # Create a real organization for the other tenant
+        other_org = Organization(name="Other Org", type="university")
+        db_session.add(other_org)
+        await db_session.flush()
+        await db_session.refresh(other_org)
+
         # Create papers for different orgs
         my_paper = Paper(
             organization_id=test_user.organization_id,
@@ -513,7 +525,7 @@ class TestSearchTenantIsolation:
             source=PaperSource.MANUAL,
         )
         other_paper = Paper(
-            organization_id=uuid.uuid4(),
+            organization_id=other_org.id,
             title="Other Paper",
             source=PaperSource.MANUAL,
         )

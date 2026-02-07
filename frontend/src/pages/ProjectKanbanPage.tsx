@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
   DndContext,
@@ -113,6 +114,7 @@ interface KanbanColumnProps {
 }
 
 function KanbanColumnComponent({ column }: KanbanColumnProps) {
+  const { t } = useTranslation()
   return (
     <div className="flex flex-col w-80 shrink-0">
       <div
@@ -136,7 +138,7 @@ function KanbanColumnComponent({ column }: KanbanColumnProps) {
           <div className="space-y-2">
             {column.papers.length === 0 ? (
               <p className="text-center text-sm text-muted-foreground py-8">
-                No papers in this stage
+                {t('projects.noPapersInStage')}
               </p>
             ) : (
               column.papers.map((paper) => (
@@ -151,6 +153,7 @@ function KanbanColumnComponent({ column }: KanbanColumnProps) {
 }
 
 export function ProjectKanbanPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [activePaper, setActivePaper] = useState<KanbanPaper | null>(null)
@@ -241,10 +244,10 @@ export function ProjectKanbanPage() {
     return (
       <Card>
         <CardContent className="py-12 text-center">
-          <p className="text-destructive">Project not found</p>
+          <p className="text-destructive">{t('projects.notFound')}</p>
           <Link to="/projects">
             <Button variant="link" className="mt-4">
-              Back to projects
+              {t('projects.backToProjects')}
             </Button>
           </Link>
         </CardContent>
@@ -274,14 +277,14 @@ export function ProjectKanbanPage() {
             <div className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm">
-                <strong>{stats.total_papers}</strong> papers
+                <strong>{stats.total_papers}</strong> {t('projects.papers')}
               </span>
             </div>
             {stats.average_score !== undefined && stats.average_score !== null && (
               <div className="flex items-center gap-2">
                 <BarChart3 className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm">
-                  Avg score: <strong className={getScoreColor(stats.average_score)}>
+                  {t('projects.avgScore')}: <strong className={getScoreColor(stats.average_score)}>
                     {stats.average_score.toFixed(1)}
                   </strong>
                 </span>
@@ -315,12 +318,12 @@ export function ProjectKanbanPage() {
         <Card className="mt-6">
           <CardContent className="py-12 text-center">
             <FileText className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
-            <h3 className="font-medium">No papers in this project</h3>
+            <h3 className="font-medium">{t('projects.noPapersInProject')}</h3>
             <p className="text-muted-foreground text-sm mt-1">
-              Add papers from the papers list to get started
+              {t('projects.noPapersInProjectDescription')}
             </p>
             <Link to="/papers">
-              <Button className="mt-4">Browse Papers</Button>
+              <Button className="mt-4">{t('projects.browsePapers')}</Button>
             </Link>
           </CardContent>
         </Card>

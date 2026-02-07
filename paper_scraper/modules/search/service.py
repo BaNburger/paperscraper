@@ -11,6 +11,7 @@ from paper_scraper.core.exceptions import NotFoundError
 from paper_scraper.modules.papers.models import Paper
 from paper_scraper.modules.scoring.embeddings import EmbeddingClient
 from paper_scraper.modules.scoring.models import PaperScore
+from paper_scraper.modules.search.models import SearchActivity
 from paper_scraper.modules.search.schemas import (
     EmbeddingBackfillResult,
     EmbeddingStats,
@@ -44,6 +45,7 @@ class SearchService:
         self,
         request: SearchRequest,
         organization_id: UUID,
+        user_id: UUID | None = None,
     ) -> SearchResponse:
         """
         Execute a search query based on the specified mode.
@@ -86,6 +88,19 @@ class SearchService:
             )
 
         search_time_ms = (time.time() - start_time) * 1000
+
+        # Log search activity for gamification tracking
+        if user_id is not None:
+            activity = SearchActivity(
+                user_id=user_id,
+                organization_id=organization_id,
+                query=request.query[:1000],
+                mode=request.mode.value,
+                results_count=total,
+                search_time_ms=round(search_time_ms, 2),
+            )
+            self.db.add(activity)
+            await self.db.flush()
 
         return SearchResponse(
             items=results,

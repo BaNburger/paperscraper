@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   useModelConfigurations,
   useModelUsage,
@@ -18,6 +19,7 @@ import { Bot, Plus, Trash2, Loader2, Zap, DollarSign, Activity } from 'lucide-re
 const PROVIDERS = ['openai', 'anthropic', 'azure', 'ollama'] as const
 
 export function ModelSettingsPage() {
+  const { t } = useTranslation()
   const toast = useToast()
   const { data: configsData, isLoading: configsLoading } = useModelConfigurations()
   const { data: usageData, isLoading: usageLoading } = useModelUsage(30)
@@ -42,7 +44,7 @@ export function ModelSettingsPage() {
     e.preventDefault()
     try {
       await createModel.mutateAsync(formData)
-      toast.success('Model added', 'AI model configuration created successfully')
+      toast.success(t('modelSettings.modelAdded'), t('modelSettings.modelAddedDescription'))
       setShowAddForm(false)
       setFormData({
         provider: 'openai',
@@ -53,7 +55,7 @@ export function ModelSettingsPage() {
         temperature: 0.3,
       })
     } catch {
-      toast.error('Failed', 'Could not create model configuration')
+      toast.error(t('common.error'), t('modelSettings.createFailed'))
     }
   }
 
@@ -63,9 +65,9 @@ export function ModelSettingsPage() {
         id: config.id,
         data: { is_default: true },
       })
-      toast.success('Default updated', `${config.model_name} is now the default model`)
+      toast.success(t('modelSettings.defaultUpdated'), t('modelSettings.defaultUpdatedDescription', { name: config.model_name }))
     } catch {
-      toast.error('Failed', 'Could not update default model')
+      toast.error(t('common.error'), t('modelSettings.updateDefaultFailed'))
     }
   }
 
@@ -73,10 +75,10 @@ export function ModelSettingsPage() {
     if (!deleteTarget) return
     try {
       await deleteModel.mutateAsync(deleteTarget)
-      toast.success('Model removed', 'Configuration deleted')
+      toast.success(t('modelSettings.modelRemoved'), t('modelSettings.modelRemovedDescription'))
       setDeleteTarget(null)
     } catch {
-      toast.error('Failed', 'Could not delete model configuration')
+      toast.error(t('common.error'), t('modelSettings.deleteFailed'))
     }
   }
 
@@ -84,12 +86,12 @@ export function ModelSettingsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">AI Model Settings</h1>
-          <p className="text-muted-foreground">Configure AI models and monitor usage</p>
+          <h1 className="text-2xl font-bold">{t('modelSettings.title')}</h1>
+          <p className="text-muted-foreground">{t('modelSettings.subtitle')}</p>
         </div>
         <Button onClick={() => setShowAddForm(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          Add Model
+          {t('modelSettings.addModel')}
         </Button>
       </div>
 
@@ -99,7 +101,7 @@ export function ModelSettingsPage() {
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-1">
               <Zap className="h-3 w-3" />
-              Total Requests
+              {t('modelSettings.totalRequests')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -114,7 +116,7 @@ export function ModelSettingsPage() {
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-1">
               <Activity className="h-3 w-3" />
-              Total Tokens
+              {t('modelSettings.totalTokens')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -131,7 +133,7 @@ export function ModelSettingsPage() {
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-1">
               <DollarSign className="h-3 w-3" />
-              Total Cost (30d)
+              {t('modelSettings.totalCost')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -150,14 +152,14 @@ export function ModelSettingsPage() {
       {showAddForm && (
         <Card>
           <CardHeader>
-            <CardTitle>Add Model Configuration</CardTitle>
-            <CardDescription>Configure a new AI model for scoring and analysis</CardDescription>
+            <CardTitle>{t('modelSettings.addModelConfig')}</CardTitle>
+            <CardDescription>{t('modelSettings.addModelConfigDescription')}</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label htmlFor="provider" className="text-sm font-medium">Provider</label>
+                  <label htmlFor="provider" className="text-sm font-medium">{t('modelSettings.provider')}</label>
                   <select
                     id="provider"
                     value={formData.provider}
@@ -170,7 +172,7 @@ export function ModelSettingsPage() {
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="model_name" className="text-sm font-medium">Model Name</label>
+                  <label htmlFor="model_name" className="text-sm font-medium">{t('modelSettings.modelName')}</label>
                   <input
                     id="model_name"
                     type="text"
@@ -182,7 +184,7 @@ export function ModelSettingsPage() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="api_key" className="text-sm font-medium">API Key</label>
+                  <label htmlFor="api_key" className="text-sm font-medium">{t('modelSettings.apiKey')}</label>
                   <input
                     id="api_key"
                     type="password"
@@ -193,7 +195,7 @@ export function ModelSettingsPage() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="max_tokens" className="text-sm font-medium">Max Tokens</label>
+                  <label htmlFor="max_tokens" className="text-sm font-medium">{t('modelSettings.maxTokens')}</label>
                   <input
                     id="max_tokens"
                     type="number"
@@ -205,7 +207,7 @@ export function ModelSettingsPage() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="temperature" className="text-sm font-medium">Temperature</label>
+                  <label htmlFor="temperature" className="text-sm font-medium">{t('modelSettings.temperature')}</label>
                   <input
                     id="temperature"
                     type="number"
@@ -225,16 +227,16 @@ export function ModelSettingsPage() {
                       onChange={(e) => setFormData({ ...formData, is_default: e.target.checked })}
                       className="rounded border"
                     />
-                    Set as default model
+                    {t('modelSettings.setAsDefault')}
                   </label>
                 </div>
               </div>
               <div className="flex gap-2 justify-end">
                 <Button type="button" variant="outline" onClick={() => setShowAddForm(false)}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button type="submit" isLoading={createModel.isPending}>
-                  Add Model
+                  {t('modelSettings.addModel')}
                 </Button>
               </div>
             </form>
@@ -245,8 +247,8 @@ export function ModelSettingsPage() {
       {/* Model Configurations */}
       <Card>
         <CardHeader>
-          <CardTitle>Configured Models</CardTitle>
-          <CardDescription>AI models available for scoring and analysis</CardDescription>
+          <CardTitle>{t('modelSettings.configuredModels')}</CardTitle>
+          <CardDescription>{t('modelSettings.configuredModelsDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
           {configsLoading ? (
@@ -256,10 +258,10 @@ export function ModelSettingsPage() {
           ) : configs.length === 0 ? (
             <EmptyState
               icon={<Bot className="h-16 w-16" />}
-              title="No models configured"
-              description="Add an AI model to start scoring papers"
+              title={t('modelSettings.noModels')}
+              description={t('modelSettings.noModelsDescription')}
               action={{
-                label: 'Add Model',
+                label: t('modelSettings.addModel'),
                 onClick: () => setShowAddForm(true),
               }}
             />
@@ -297,7 +299,7 @@ export function ModelSettingsPage() {
                         size="sm"
                         onClick={() => handleSetDefault(config)}
                       >
-                        Set Default
+                        {t('modelSettings.setDefault')}
                       </Button>
                     )}
                     <Button
@@ -319,8 +321,8 @@ export function ModelSettingsPage() {
       {usageData && Object.keys(usageData.by_operation).length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Usage by Operation</CardTitle>
-            <CardDescription>Token usage breakdown by operation type (last 30 days)</CardDescription>
+            <CardTitle>{t('modelSettings.usageByOperation')}</CardTitle>
+            <CardDescription>{t('modelSettings.usageByOperationDescription')}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -344,9 +346,9 @@ export function ModelSettingsPage() {
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title="Delete Model Configuration"
-        description="Are you sure you want to remove this model configuration? This cannot be undone."
-        confirmLabel="Delete"
+        title={t('modelSettings.deleteTitle')}
+        description={t('modelSettings.deleteDescription')}
+        confirmLabel={t('common.delete')}
         variant="destructive"
         onConfirm={handleDelete}
         isLoading={deleteModel.isPending}

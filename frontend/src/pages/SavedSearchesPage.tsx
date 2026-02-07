@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   useSavedSearches,
@@ -32,6 +33,7 @@ import { formatDate } from '@/lib/utils'
 import type { SavedSearch } from '@/types'
 
 export function SavedSearchesPage() {
+  const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const page = parseInt(searchParams.get('page') ?? '1')
   const pageSize = 10
@@ -88,7 +90,8 @@ export function SavedSearchesPage() {
     try {
       const results = await runSavedSearch.mutateAsync({ id })
       // Navigate to search results or show in modal
-      console.log('Search results:', results)
+      // TODO: navigate to search results view or show in modal
+      void results
     } catch {
       // Error handling
     }
@@ -97,11 +100,11 @@ export function SavedSearchesPage() {
   const getSearchModeLabel = (mode: string) => {
     switch (mode) {
       case 'fulltext':
-        return 'Full-text'
+        return t('search.modeFulltext')
       case 'semantic':
-        return 'Semantic'
+        return t('search.modeSemantic')
       case 'hybrid':
-        return 'Hybrid'
+        return t('search.modeHybrid')
       default:
         return mode
     }
@@ -112,15 +115,15 @@ export function SavedSearchesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Saved Searches</h1>
+          <h1 className="text-3xl font-bold">{t('savedSearches.title')}</h1>
           <p className="text-muted-foreground mt-1">
-            Manage your saved search queries and alerts
+            {t('savedSearches.subtitle')}
           </p>
         </div>
         <Link to="/search">
           <Button>
             <Plus className="h-4 w-4 mr-2" />
-            New Search
+            {t('savedSearches.newSearch')}
           </Button>
         </Link>
       </div>
@@ -133,16 +136,16 @@ export function SavedSearchesPage() {
       ) : error ? (
         <Card>
           <CardContent className="py-12 text-center text-destructive">
-            Failed to load saved searches. Please try again.
+            {t('savedSearches.loadFailed')}
           </CardContent>
         </Card>
       ) : data?.items.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <Bookmark className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
-            <h3 className="font-medium">No saved searches</h3>
+            <h3 className="font-medium">{t('savedSearches.noSavedSearches')}</h3>
             <p className="text-muted-foreground text-sm mt-1">
-              Save a search from the search page to get started
+              {t('savedSearches.noSavedSearchesDescription')}
             </p>
           </CardContent>
         </Card>
@@ -159,12 +162,12 @@ export function SavedSearchesPage() {
                         {search.is_public ? (
                           <Badge variant="outline" className="gap-1">
                             <Globe className="h-3 w-3" />
-                            Public
+                            {t('savedSearches.public')}
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="gap-1">
                             <Lock className="h-3 w-3" />
-                            Private
+                            {t('savedSearches.private')}
                           </Badge>
                         )}
                         {search.alert_enabled && (
@@ -187,15 +190,15 @@ export function SavedSearchesPage() {
                         <Badge variant="outline">{getSearchModeLabel(search.mode)}</Badge>
                       </div>
                       <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                        <span>Created: {formatDate(search.created_at)}</span>
+                        <span>{t('savedSearches.created', { date: formatDate(search.created_at) })}</span>
                         {search.run_count > 0 && (
-                          <span>Runs: {search.run_count}</span>
+                          <span>{t('savedSearches.runs', { count: search.run_count })}</span>
                         )}
                         {search.last_run_at && (
-                          <span>Last run: {formatDate(search.last_run_at)}</span>
+                          <span>{t('savedSearches.lastRun', { date: formatDate(search.last_run_at) })}</span>
                         )}
                         {search.created_by && (
-                          <span>By: {search.created_by.email}</span>
+                          <span>{t('savedSearches.by', { email: search.created_by.email })}</span>
                         )}
                       </div>
                     </div>
@@ -205,7 +208,7 @@ export function SavedSearchesPage() {
                         size="sm"
                         onClick={() => handleRun(search.id)}
                         disabled={runSavedSearch.isPending}
-                        title="Run search"
+                        title={t('savedSearches.runSearch')}
                       >
                         <Play className="h-4 w-4" />
                       </Button>
@@ -217,7 +220,7 @@ export function SavedSearchesPage() {
                             setSelectedSearch(search)
                             setShowShareModal(true)
                           }}
-                          title="View share link"
+                          title={t('savedSearches.viewShareLink')}
                         >
                           <Share2 className="h-4 w-4 text-primary" />
                         </Button>
@@ -227,7 +230,7 @@ export function SavedSearchesPage() {
                           size="sm"
                           onClick={() => handleGenerateShare(search)}
                           disabled={generateShareLink.isPending}
-                          title="Generate share link"
+                          title={t('savedSearches.generateShareLink')}
                         >
                           <Share2 className="h-4 w-4" />
                         </Button>
@@ -255,7 +258,7 @@ export function SavedSearchesPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => setDeleteConfirm(search.id)}
-                          title="Delete"
+                          title={t('common.delete')}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -271,8 +274,7 @@ export function SavedSearchesPage() {
           {data && data.pages > 1 && (
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                Showing {(page - 1) * pageSize + 1} to{' '}
-                {Math.min(page * pageSize, data.total)} of {data.total} saved searches
+                {t('savedSearches.showingResults', { from: (page - 1) * pageSize + 1, to: Math.min(page * pageSize, data.total), total: data.total })}
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -282,10 +284,10 @@ export function SavedSearchesPage() {
                   disabled={page <= 1}
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  Previous
+                  {t('common.previous')}
                 </Button>
                 <span className="text-sm">
-                  Page {page} of {data.pages}
+                  {t('common.pageOf', { page, pages: data.pages })}
                 </span>
                 <Button
                   variant="outline"
@@ -293,7 +295,7 @@ export function SavedSearchesPage() {
                   onClick={() => handlePageChange(page + 1)}
                   disabled={page >= data.pages}
                 >
-                  Next
+                  {t('common.next')}
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
@@ -307,7 +309,7 @@ export function SavedSearchesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <Card className="w-full max-w-md mx-4">
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Share Link</CardTitle>
+              <CardTitle>{t('savedSearches.shareLink')}</CardTitle>
               <button
                 onClick={() => {
                   setShowShareModal(false)
@@ -320,7 +322,7 @@ export function SavedSearchesPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Share this link to allow others to view and run this saved search.
+                {t('savedSearches.shareLinkDescription')}
               </p>
               <div className="flex gap-2">
                 <Input
@@ -346,7 +348,7 @@ export function SavedSearchesPage() {
                   onClick={() => handleRevokeShare(selectedSearch.id)}
                   disabled={revokeShareLink.isPending}
                 >
-                  Revoke Link
+                  {t('savedSearches.revokeLink')}
                 </Button>
                 <Button
                   onClick={() => {
@@ -354,7 +356,7 @@ export function SavedSearchesPage() {
                     setSelectedSearch(null)
                   }}
                 >
-                  Done
+                  {t('savedSearches.done')}
                 </Button>
               </div>
             </CardContent>

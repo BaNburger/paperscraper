@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useBadges, useMyBadges, useUserStats, useCheckBadges, useCelebration } from '@/hooks'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -38,6 +39,7 @@ const TIER_COLORS: Record<BadgeTier, string> = {
 }
 
 export function BadgesPage() {
+  const { t } = useTranslation()
   const { data: allBadges, isLoading: loadingBadges } = useBadges()
   const { data: myBadges, isLoading: loadingMyBadges } = useMyBadges()
   const { data: stats, isLoading: loadingStats } = useUserStats()
@@ -62,10 +64,10 @@ export function BadgesPage() {
           { type: 'stars', duration: 4000 }
         )
       } else {
-        success('All caught up', 'No new badges to award.')
+        success(t('badges.allCaughtUp'), t('badges.noNewBadges'))
       }
     } catch {
-      showError('Check failed', 'Please try again.')
+      showError(t('badges.checkFailed'), t('badges.checkFailedDescription'))
     }
   }
 
@@ -84,14 +86,14 @@ export function BadgesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Badges & Achievements</h1>
+          <h1 className="text-3xl font-bold">{t('badges.title')}</h1>
           <p className="text-muted-foreground mt-1">
-            Track your progress and earn badges for your contributions
+            {t('badges.subtitle')}
           </p>
         </div>
         <Button onClick={handleCheck} variant="outline" isLoading={checkBadges.isPending}>
           <RefreshCw className="h-4 w-4 mr-2" />
-          Check for New Badges
+          {t('badges.checkForNew')}
         </Button>
       </div>
 
@@ -108,7 +110,7 @@ export function BadgesPage() {
             <div className="grid gap-4 md:grid-cols-4">
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Level</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">{t('badges.level')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold">{stats.level}</div>
@@ -119,13 +121,13 @@ export function BadgesPage() {
                     />
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {Math.round(stats.level_progress * 100)}% to next level
+                    {t('badges.toNextLevel', { percent: Math.round(stats.level_progress * 100) })}
                   </p>
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Points</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">{t('badges.totalPoints')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold">{stats.total_points}</div>
@@ -133,7 +135,7 @@ export function BadgesPage() {
               </Card>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Badges Earned</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">{t('badges.badgesEarned')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold">
@@ -146,19 +148,19 @@ export function BadgesPage() {
               </Card>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Activity</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">{t('badges.activity')}</CardTitle>
                 </CardHeader>
                 <CardContent className="text-sm space-y-1">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Papers imported</span>
+                    <span className="text-muted-foreground">{t('badges.papersImported')}</span>
                     <span className="font-medium">{stats.papers_imported}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Papers scored</span>
+                    <span className="text-muted-foreground">{t('badges.papersScored')}</span>
                     <span className="font-medium">{stats.papers_scored}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Searches</span>
+                    <span className="text-muted-foreground">{t('badges.searches')}</span>
                     <span className="font-medium">{stats.searches_performed}</span>
                   </div>
                 </CardContent>
@@ -219,7 +221,7 @@ export function BadgesPage() {
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
                 <Trophy className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>No badges available yet.</p>
+                <p>{t('badges.noBadgesAvailable')}</p>
               </CardContent>
             </Card>
           )}

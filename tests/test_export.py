@@ -4,7 +4,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from paper_scraper.modules.auth.models import User
+from paper_scraper.modules.auth.models import Organization, User
 from paper_scraper.modules.papers.models import Author, Paper, PaperAuthor, PaperSource
 from paper_scraper.modules.scoring.models import PaperScore
 
@@ -263,7 +263,11 @@ class TestExportEndpoints:
         test_user: User,
     ):
         """Test that export only includes papers from user's organization."""
-        import uuid
+        # Create a real organization for the other tenant
+        other_org = Organization(name="Other Org", type="university")
+        db_session.add(other_org)
+        await db_session.flush()
+        await db_session.refresh(other_org)
 
         # Create paper for test user's org
         paper = Paper(
@@ -275,7 +279,7 @@ class TestExportEndpoints:
 
         # Create paper for different org
         other_org_paper = Paper(
-            organization_id=uuid.uuid4(),
+            organization_id=other_org.id,
             title="Other Org Paper",
             source=PaperSource.MANUAL,
         )

@@ -75,7 +75,7 @@ async def test_paper(
         abstract="This is a test abstract for a machine learning paper.",
         source="openalex",
         organization_id=test_organization.id,
-        publication_date=datetime(2024, 1, 15, tzinfo=timezone.utc),
+        publication_date=datetime(2024, 1, 15),
         journal="Journal of AI Research",
     )
     db_session.add(paper)

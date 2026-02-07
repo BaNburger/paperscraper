@@ -78,6 +78,51 @@ class AuditAction(str, Enum):
     ORGANIZATION_UPDATE = "organization_update"
     SUBSCRIPTION_CHANGE = "subscription_change"
 
+    # Token operations
+    TOKEN_REFRESH = "token_refresh"
+
+    # Paper pipeline operations
+    PAPER_STAGE_CHANGE = "paper_stage_change"
+    PAPER_CLASSIFY = "paper_classify"
+
+    # Model settings
+    MODEL_CONFIG_CREATE = "model_config_create"
+    MODEL_CONFIG_UPDATE = "model_config_update"
+    MODEL_CONFIG_DELETE = "model_config_delete"
+
+    # Repository operations
+    REPOSITORY_CREATE = "repository_create"
+    REPOSITORY_UPDATE = "repository_update"
+    REPOSITORY_DELETE = "repository_delete"
+    REPOSITORY_SYNC = "repository_sync"
+
+    # Webhook operations
+    WEBHOOK_CREATE = "webhook_create"
+    WEBHOOK_UPDATE = "webhook_update"
+    WEBHOOK_DELETE = "webhook_delete"
+    WEBHOOK_TEST = "webhook_test"
+
+    # Saved search operations
+    SAVED_SEARCH_CREATE = "saved_search_create"
+    SAVED_SEARCH_UPDATE = "saved_search_update"
+    SAVED_SEARCH_DELETE = "saved_search_delete"
+    SAVED_SEARCH_SHARE = "saved_search_share"
+
+    # Alert operations
+    ALERT_CREATE = "alert_create"
+    ALERT_UPDATE = "alert_update"
+    ALERT_DELETE = "alert_delete"
+    ALERT_TRIGGER = "alert_trigger"
+
+    # Report operations
+    REPORT_CREATE = "report_create"
+    REPORT_UPDATE = "report_update"
+    REPORT_DELETE = "report_delete"
+    REPORT_RUN = "report_run"
+
+    # Retention operations
+    RETENTION_POLICY_APPLY = "retention_policy_apply"
+
 
 class AuditLog(Base):
     """Audit trail for security-relevant actions.

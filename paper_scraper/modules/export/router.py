@@ -8,7 +8,8 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from paper_scraper.api.dependencies import CurrentUser
+from paper_scraper.api.dependencies import CurrentUser, require_permission
+from paper_scraper.core.permissions import Permission
 from paper_scraper.core.database import get_db
 from paper_scraper.modules.export.schemas import ExportFormat
 from paper_scraper.modules.export.service import ExportService
@@ -54,6 +55,7 @@ def get_export_service(
 @router.get(
     "/csv",
     summary="Export papers to CSV",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def export_csv(
     current_user: CurrentUser,
@@ -79,6 +81,7 @@ async def export_csv(
 @router.get(
     "/bibtex",
     summary="Export papers to BibTeX",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def export_bibtex(
     current_user: CurrentUser,
@@ -102,6 +105,7 @@ async def export_bibtex(
 @router.get(
     "/pdf",
     summary="Export papers to PDF",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def export_pdf(
     current_user: CurrentUser,
@@ -127,6 +131,7 @@ async def export_pdf(
 @router.post(
     "/batch",
     summary="Batch export papers",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def batch_export(
     current_user: CurrentUser,

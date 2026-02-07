@@ -6,7 +6,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from paper_scraper.modules.auth.models import User
+from paper_scraper.modules.auth.models import Organization, User
 from paper_scraper.modules.papers.models import Paper, PaperSource
 from paper_scraper.modules.projects.models import (
     PaperProjectStatus,
@@ -663,6 +663,12 @@ class TestProjectTenantIsolation:
         test_user: User,
     ):
         """Test that users cannot see projects from other organizations."""
+        # Create a real organization for the other tenant
+        other_org = Organization(name="Other Org", type="university")
+        db_session.add(other_org)
+        await db_session.flush()
+        await db_session.refresh(other_org)
+
         # Create project for test user's org
         my_project = Project(
             organization_id=test_user.organization_id,
@@ -672,7 +678,7 @@ class TestProjectTenantIsolation:
 
         # Create project for different org
         other_project = Project(
-            organization_id=uuid.uuid4(),
+            organization_id=other_org.id,
             name="Other Org Project",
         )
         db_session.add(other_project)
@@ -693,8 +699,14 @@ class TestProjectTenantIsolation:
         test_user: User,
     ):
         """Test that users cannot access projects from other organizations by ID."""
+        # Create a real organization for the other tenant
+        other_org = Organization(name="Other Org", type="university")
+        db_session.add(other_org)
+        await db_session.flush()
+        await db_session.refresh(other_org)
+
         other_project = Project(
-            organization_id=uuid.uuid4(),
+            organization_id=other_org.id,
             name="Other Org Project",
         )
         db_session.add(other_project)

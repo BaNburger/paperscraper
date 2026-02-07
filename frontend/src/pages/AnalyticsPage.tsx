@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import {
   useDashboardSummary,
@@ -314,6 +315,7 @@ function OverviewTab({
   paperAnalytics: ReturnType<typeof usePaperAnalytics>['data']
   teamOverview: ReturnType<typeof useTeamOverview>['data']
 }) {
+  const { t } = useTranslation()
   const sourceColors: Record<string, string> = {
     openalex: '#3b82f6',
     pubmed: '#10b981',
@@ -348,7 +350,7 @@ function OverviewTab({
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Papers
+              {t('analytics.totalPapers')}
             </CardTitle>
             <FileText className="h-4 w-4 text-blue-600" />
           </CardHeader>
@@ -359,10 +361,10 @@ function OverviewTab({
                 <>
                   <ArrowUp className="h-3 w-3 text-green-500 mr-1" />
                   <span className="text-green-600">+{summary?.papers_this_week}</span>
-                  <span className="ml-1">this week</span>
+                  <span className="ml-1">{t('analytics.thisWeek')}</span>
                 </>
               ) : (
-                <span>No new papers this week</span>
+                <span>{t('analytics.noNewPapersThisWeek')}</span>
               )}
             </div>
           </CardContent>
@@ -371,7 +373,7 @@ function OverviewTab({
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Scored Papers
+              {t('analytics.scoredPapers')}
             </CardTitle>
             <TrendingUp className="h-4 w-4 text-green-600" />
           </CardHeader>
@@ -386,7 +388,7 @@ function OverviewTab({
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Projects
+              {t('analytics.projects')}
             </CardTitle>
             <FolderKanban className="h-4 w-4 text-purple-600" />
           </CardHeader>
@@ -401,7 +403,7 @@ function OverviewTab({
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Team Members
+              {t('analytics.teamMembers')}
             </CardTitle>
             <Users className="h-4 w-4 text-orange-600" />
           </CardHeader>
@@ -420,9 +422,9 @@ function OverviewTab({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5" />
-              Import Trend (30 Days)
+              {t('analytics.importTrend')}
             </CardTitle>
-            <CardDescription>Papers added over time</CardDescription>
+            <CardDescription>{t('analytics.importTrendDescription')}</CardDescription>
           </CardHeader>
           <CardContent>
             <SimpleLineChart data={trendData} height={180} />
@@ -433,9 +435,9 @@ function OverviewTab({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <PieChart className="h-5 w-5" />
-              Papers by Source
+              {t('analytics.papersBySource')}
             </CardTitle>
-            <CardDescription>Where your papers come from</CardDescription>
+            <CardDescription>{t('analytics.papersBySourceDescription')}</CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center">
             <SimpleDonutChart data={sourceData} size={140} />
@@ -449,16 +451,16 @@ function OverviewTab({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5" />
-              Score Distribution
+              {t('analytics.scoreDistribution')}
             </CardTitle>
-            <CardDescription>Distribution of overall scores</CardDescription>
+            <CardDescription>{t('analytics.scoreDistributionDescription')}</CardDescription>
           </CardHeader>
           <CardContent>
             {scoreDistributionData.length > 0 ? (
               <SimpleBarChart data={scoreDistributionData} height={180} />
             ) : (
               <div className="flex items-center justify-center h-[180px] text-muted-foreground">
-                No scored papers yet
+                {t('analytics.noScoredPapersYet')}
               </div>
             )}
           </CardContent>
@@ -468,9 +470,9 @@ function OverviewTab({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />
-              Average Scores by Dimension
+              {t('analytics.avgScoresByDimension')}
             </CardTitle>
-            <CardDescription>How papers score across dimensions</CardDescription>
+            <CardDescription>{t('analytics.avgScoresByDimensionDescription')}</CardDescription>
           </CardHeader>
           <CardContent>
             {paperAnalytics?.scoring_stats.average_overall_score ? (
@@ -486,7 +488,7 @@ function OverviewTab({
               />
             ) : (
               <div className="flex items-center justify-center h-[180px] text-muted-foreground">
-                No scored papers yet
+                {t('analytics.noScoredPapersYet')}
               </div>
             )}
           </CardContent>
@@ -497,12 +499,12 @@ function OverviewTab({
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>Top Scored Papers</CardTitle>
-            <CardDescription>Highest scoring papers in your library</CardDescription>
+            <CardTitle>{t('analytics.topScoredPapers')}</CardTitle>
+            <CardDescription>{t('analytics.topScoredPapersDescription')}</CardDescription>
           </div>
           <Link to="/papers">
             <Button variant="ghost" size="sm">
-              View all
+              {t('analytics.viewAll')}
             </Button>
           </Link>
         </CardHeader>
@@ -536,8 +538,8 @@ function OverviewTab({
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <FileText className="mx-auto h-12 w-12 mb-4 opacity-50" />
-              <p>No papers yet</p>
-              <p className="text-sm">Import and score papers to see them here</p>
+              <p>{t('analytics.noPapersYet')}</p>
+              <p className="text-sm">{t('analytics.importAndScorePapers')}</p>
             </div>
           )}
         </CardContent>
@@ -546,8 +548,8 @@ function OverviewTab({
       {/* Embedding Coverage */}
       <Card>
         <CardHeader>
-          <CardTitle>Embedding Coverage</CardTitle>
-          <CardDescription>Papers with vector embeddings for semantic search</CardDescription>
+          <CardTitle>{t('analytics.embeddingCoverage')}</CardTitle>
+          <CardDescription>{t('analytics.embeddingCoverageDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-4">
@@ -576,6 +578,7 @@ function OverviewTab({
 }
 
 function FunnelTab() {
+  const { t } = useTranslation()
   const { data: funnel, isLoading } = useFunnelAnalytics()
 
   if (isLoading) {
@@ -593,10 +596,10 @@ function FunnelTab() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Filter className="h-5 w-5" />
-            Innovation Funnel
+            {t('analytics.innovationFunnel')}
           </CardTitle>
           <CardDescription>
-            Track papers through your innovation pipeline stages
+            {t('analytics.innovationFunnelDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -605,8 +608,8 @@ function FunnelTab() {
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <Filter className="mx-auto h-12 w-12 mb-4 opacity-50" />
-              <p>No funnel data available</p>
-              <p className="text-sm">Import papers and move them through pipeline stages</p>
+              <p>{t('analytics.noFunnelData')}</p>
+              <p className="text-sm">{t('analytics.noFunnelDataDescription')}</p>
             </div>
           )}
         </CardContent>
@@ -617,9 +620,9 @@ function FunnelTab() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Target className="h-5 w-5" />
-            Conversion Rates
+            {t('analytics.conversionRates')}
           </CardTitle>
-          <CardDescription>How well papers move through each stage</CardDescription>
+          <CardDescription>{t('analytics.conversionRatesDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
           {funnel?.conversion_rates ? (
@@ -666,7 +669,7 @@ function FunnelTab() {
       {/* Summary Stats */}
       <Card>
         <CardHeader>
-          <CardTitle>Funnel Summary</CardTitle>
+          <CardTitle>{t('analytics.funnelSummary')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-3">
@@ -694,6 +697,7 @@ function FunnelTab() {
 }
 
 function BenchmarksTab() {
+  const { t } = useTranslation()
   const { data: benchmarks, isLoading } = useBenchmarks()
 
   if (isLoading) {
@@ -711,10 +715,10 @@ function BenchmarksTab() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Award className="h-5 w-5" />
-            Your Performance Ranking
+            {t('analytics.performanceRanking')}
           </CardTitle>
           <CardDescription>
-            How your organization compares to others on the platform
+            {t('analytics.performanceRankingDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -751,10 +755,10 @@ function BenchmarksTab() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <BarChart3 className="h-5 w-5" />
-            Metric Comparison
+            {t('analytics.metricComparison')}
           </CardTitle>
           <CardDescription>
-            Your organization vs. platform average
+            {t('analytics.metricComparisonDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -809,6 +813,7 @@ function BenchmarksTab() {
 }
 
 function ReportsTab() {
+  const { t } = useTranslation()
   const { data: reports, isLoading } = useScheduledReports()
   const createReport = useCreateScheduledReport()
   const deleteReport = useDeleteScheduledReport()
@@ -901,13 +906,13 @@ function ReportsTab() {
       {showCreateForm ? (
         <Card>
           <CardHeader>
-            <CardTitle>Create Scheduled Report</CardTitle>
-            <CardDescription>Set up a recurring report to be sent to your team</CardDescription>
+            <CardTitle>{t('analytics.createScheduledReport')}</CardTitle>
+            <CardDescription>{t('analytics.createScheduledReportDescription')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <Label htmlFor="report-name">Report Name</Label>
+                <Label htmlFor="report-name">{t('analytics.reportName')}</Label>
                 <Input
                   id="report-name"
                   placeholder="Weekly Dashboard Report"
@@ -916,7 +921,7 @@ function ReportsTab() {
                 />
               </div>
               <div>
-                <Label htmlFor="report-recipients">Recipients (comma-separated)</Label>
+                <Label htmlFor="report-recipients">{t('analytics.recipients')}</Label>
                 <Input
                   id="report-recipients"
                   placeholder="team@example.com, manager@example.com"
@@ -925,7 +930,7 @@ function ReportsTab() {
                 />
               </div>
               <div>
-                <Label htmlFor="report-type">Report Type</Label>
+                <Label htmlFor="report-type">{t('analytics.reportType')}</Label>
                 <select
                   id="report-type"
                   className="w-full rounded-md border px-3 py-2"
@@ -938,7 +943,7 @@ function ReportsTab() {
                 </select>
               </div>
               <div>
-                <Label htmlFor="report-schedule">Schedule</Label>
+                <Label htmlFor="report-schedule">{t('analytics.schedule')}</Label>
                 <select
                   id="report-schedule"
                   className="w-full rounded-md border px-3 py-2"
@@ -953,10 +958,10 @@ function ReportsTab() {
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setShowCreateForm(false)}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button onClick={handleCreate} isLoading={createReport.isPending}>
-                Create Report
+                {t('analytics.createReport')}
               </Button>
             </div>
           </CardContent>
@@ -965,7 +970,7 @@ function ReportsTab() {
         <div className="flex justify-end">
           <Button onClick={() => setShowCreateForm(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            New Scheduled Report
+            {t('analytics.newScheduledReport')}
           </Button>
         </div>
       )}
@@ -975,10 +980,10 @@ function ReportsTab() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CalendarClock className="h-5 w-5" />
-            Scheduled Reports
+            {t('analytics.scheduledReports')}
           </CardTitle>
           <CardDescription>
-            Automated reports sent to your team on a schedule
+            {t('analytics.scheduledReportsDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -1025,7 +1030,7 @@ function ReportsTab() {
                       size="sm"
                       onClick={() => handleToggleActive(report)}
                     >
-                      {report.is_active ? 'Pause' : 'Resume'}
+                      {report.is_active ? t('analytics.pause') : t('analytics.resume')}
                     </Button>
                     <Button
                       variant="outline"
@@ -1050,10 +1055,10 @@ function ReportsTab() {
           ) : (
             <EmptyState
               icon={<CalendarClock className="h-12 w-12" />}
-              title="No scheduled reports"
-              description="Create a scheduled report to receive automated insights via email"
+              title={t('analytics.noScheduledReports')}
+              description={t('analytics.noScheduledReportsDescription')}
               action={{
-                label: 'Create Report',
+                label: t('analytics.createReport'),
                 onClick: () => setShowCreateForm(true),
               }}
             />
@@ -1065,6 +1070,7 @@ function ReportsTab() {
 }
 
 export function AnalyticsPage() {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<AnalyticsTab>('overview')
   const [isExporting, setIsExporting] = useState(false)
 
@@ -1113,10 +1119,10 @@ export function AnalyticsPage() {
   }
 
   const tabs: { value: AnalyticsTab; label: string; icon: typeof BarChart3 }[] = [
-    { value: 'overview', label: 'Overview', icon: BarChart3 },
-    { value: 'funnel', label: 'Innovation Funnel', icon: Filter },
-    { value: 'benchmarks', label: 'Benchmarks', icon: Award },
-    { value: 'reports', label: 'Scheduled Reports', icon: CalendarClock },
+    { value: 'overview', label: t('analytics.overview'), icon: BarChart3 },
+    { value: 'funnel', label: t('analytics.innovationFunnel'), icon: Filter },
+    { value: 'benchmarks', label: t('analytics.benchmarks'), icon: Award },
+    { value: 'reports', label: t('analytics.scheduledReports'), icon: CalendarClock },
   ]
 
   return (
@@ -1124,9 +1130,9 @@ export function AnalyticsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Analytics</h1>
+          <h1 className="text-3xl font-bold">{t('analytics.title')}</h1>
           <p className="text-muted-foreground mt-1">
-            Insights into your research pipeline
+            {t('analytics.subtitle')}
           </p>
         </div>
         <div className="flex gap-2">
@@ -1136,7 +1142,7 @@ export function AnalyticsPage() {
             disabled={isExporting}
           >
             <Download className="h-4 w-4 mr-2" />
-            Export CSV
+            {t('analytics.exportCsv')}
           </Button>
           <Button
             variant="outline"
@@ -1144,7 +1150,7 @@ export function AnalyticsPage() {
             disabled={isExporting}
           >
             <Download className="h-4 w-4 mr-2" />
-            Export BibTeX
+            {t('analytics.exportBibtex')}
           </Button>
         </div>
       </div>

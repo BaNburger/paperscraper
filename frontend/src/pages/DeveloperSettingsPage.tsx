@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   useApiKeys,
   useCreateApiKey,
@@ -61,14 +62,15 @@ const REPOSITORY_PROVIDERS: { value: RepositoryProvider; label: string }[] = [
 type TabType = 'api-keys' | 'webhooks' | 'repositories'
 
 export function DeveloperSettingsPage() {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<TabType>('api-keys')
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Developer Settings</h1>
+        <h1 className="text-2xl font-bold">{t('devSettings.title')}</h1>
         <p className="text-muted-foreground">
-          Configure API keys, webhooks, and repository sources
+          {t('devSettings.subtitle')}
         </p>
       </div>
 
@@ -83,7 +85,7 @@ export function DeveloperSettingsPage() {
           }`}
         >
           <Key className="h-4 w-4" />
-          API Keys
+          {t('devSettings.apiKeys')}
         </button>
         <button
           onClick={() => setActiveTab('webhooks')}
@@ -94,7 +96,7 @@ export function DeveloperSettingsPage() {
           }`}
         >
           <Webhook className="h-4 w-4" />
-          Webhooks
+          {t('devSettings.webhooks')}
         </button>
         <button
           onClick={() => setActiveTab('repositories')}
@@ -105,7 +107,7 @@ export function DeveloperSettingsPage() {
           }`}
         >
           <Database className="h-4 w-4" />
-          Repository Sources
+          {t('devSettings.repositorySources')}
         </button>
       </div>
 
@@ -122,6 +124,7 @@ export function DeveloperSettingsPage() {
 // =============================================================================
 
 function APIKeysTab() {
+  const { t } = useTranslation()
   const toast = useToast()
   const { data, isLoading } = useApiKeys()
   const createApiKey = useCreateApiKey()
@@ -142,10 +145,10 @@ function APIKeysTab() {
     try {
       const result = await createApiKey.mutateAsync(formData)
       setNewKey(result.key)
-      toast.success('API Key Created', 'Your new API key has been created. Copy it now - it will not be shown again!')
+      toast.success(t('devSettings.apiKeyCreated'), t('devSettings.apiKeyCreatedDescription'))
       setFormData({ name: '', permissions: ['papers:read', 'search:query'] })
     } catch {
-      toast.error('Failed', 'Could not create API key')
+      toast.error(t('common.error'), t('devSettings.apiKeyCreateFailed'))
     }
   }
 
@@ -153,16 +156,16 @@ function APIKeysTab() {
     if (!revokeTarget) return
     try {
       await revokeApiKey.mutateAsync(revokeTarget)
-      toast.success('API Key Revoked', 'The API key has been revoked')
+      toast.success(t('devSettings.apiKeyRevoked'), t('devSettings.apiKeyRevokedDescription'))
       setRevokeTarget(null)
     } catch {
-      toast.error('Failed', 'Could not revoke API key')
+      toast.error(t('common.error'), t('devSettings.apiKeyRevokeFailed'))
     }
   }
 
   const copyToClipboard = async (text: string) => {
     await navigator.clipboard.writeText(text)
-    toast.success('Copied', 'API key copied to clipboard')
+    toast.success(t('devSettings.copied'), t('devSettings.apiKeyCopied'))
   }
 
   return (
@@ -174,9 +177,9 @@ function APIKeysTab() {
             <div className="flex items-center gap-4">
               <CheckCircle className="h-6 w-6 text-green-600" />
               <div className="flex-1">
-                <p className="font-medium text-green-600">New API Key Created</p>
+                <p className="font-medium text-green-600">{t('devSettings.newApiKeyCreated')}</p>
                 <p className="text-sm text-muted-foreground">
-                  Copy this key now - it won't be shown again!
+                  {t('devSettings.copyKeyWarning')}
                 </p>
                 <code className="mt-2 block rounded bg-muted p-2 font-mono text-sm break-all">
                   {newKey}
@@ -187,7 +190,7 @@ function APIKeysTab() {
                 onClick={() => copyToClipboard(newKey)}
               >
                 <Copy className="h-4 w-4 mr-1" />
-                Copy
+                {t('devSettings.copy')}
               </Button>
               <Button
                 size="sm"
@@ -197,7 +200,7 @@ function APIKeysTab() {
                   setShowAddForm(false)
                 }}
               >
-                Done
+                {t('devSettings.done')}
               </Button>
             </div>
           </CardContent>
@@ -208,16 +211,16 @@ function APIKeysTab() {
       {showAddForm && !newKey && (
         <Card>
           <CardHeader>
-            <CardTitle>Create API Key</CardTitle>
+            <CardTitle>{t('devSettings.createApiKey')}</CardTitle>
             <CardDescription>
-              Generate a new API key for programmatic access to Paper Scraper
+              {t('devSettings.createApiKeyDescription')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
                 <label htmlFor="key-name" className="text-sm font-medium">
-                  Key Name
+                  {t('devSettings.keyName')}
                 </label>
                 <input
                   id="key-name"
@@ -231,10 +234,10 @@ function APIKeysTab() {
               </div>
               <div className="flex gap-2 justify-end">
                 <Button type="button" variant="outline" onClick={() => setShowAddForm(false)}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button type="submit" isLoading={createApiKey.isPending}>
-                  Generate Key
+                  {t('devSettings.generateKey')}
                 </Button>
               </div>
             </form>
@@ -246,13 +249,13 @@ function APIKeysTab() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>API Keys</CardTitle>
-            <CardDescription>Manage programmatic access to your organization</CardDescription>
+            <CardTitle>{t('devSettings.apiKeys')}</CardTitle>
+            <CardDescription>{t('devSettings.apiKeysDescription')}</CardDescription>
           </div>
           {!showAddForm && !newKey && (
             <Button onClick={() => setShowAddForm(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              New API Key
+              {t('devSettings.newApiKey')}
             </Button>
           )}
         </CardHeader>
@@ -264,10 +267,10 @@ function APIKeysTab() {
           ) : apiKeys.length === 0 ? (
             <EmptyState
               icon={<Key className="h-16 w-16" />}
-              title="No API keys"
-              description="Create an API key to enable programmatic access"
+              title={t('devSettings.noApiKeys')}
+              description={t('devSettings.noApiKeysDescription')}
               action={{
-                label: 'Create API Key',
+                label: t('devSettings.createApiKey'),
                 onClick: () => setShowAddForm(true),
               }}
             />
@@ -316,9 +319,9 @@ function APIKeysTab() {
       <ConfirmDialog
         open={!!revokeTarget}
         onOpenChange={(open) => !open && setRevokeTarget(null)}
-        title="Revoke API Key"
-        description="Are you sure you want to revoke this API key? Any applications using this key will lose access immediately."
-        confirmLabel="Revoke"
+        title={t('devSettings.revokeApiKeyTitle')}
+        description={t('devSettings.revokeApiKeyDescription')}
+        confirmLabel={t('devSettings.revoke')}
         variant="destructive"
         onConfirm={handleRevoke}
         isLoading={revokeApiKey.isPending}
@@ -333,6 +336,7 @@ function APIKeysTab() {
 // =============================================================================
 
 function WebhooksTab() {
+  const { t } = useTranslation()
   const toast = useToast()
   const { data, isLoading } = useWebhooks()
   const createWebhook = useCreateWebhook()
@@ -354,11 +358,11 @@ function WebhooksTab() {
     e.preventDefault()
     try {
       await createWebhook.mutateAsync(formData)
-      toast.success('Webhook Created', 'Your webhook has been configured')
+      toast.success(t('devSettings.webhookCreated'), t('devSettings.webhookCreatedDescription'))
       setShowAddForm(false)
       setFormData({ name: '', url: '', events: ['paper.created'] })
     } catch {
-      toast.error('Failed', 'Could not create webhook')
+      toast.error(t('common.error'), t('devSettings.webhookCreateFailed'))
     }
   }
 
@@ -367,12 +371,12 @@ function WebhooksTab() {
     try {
       const result = await testWebhook.mutateAsync(id)
       if (result.success) {
-        toast.success('Test Successful', `Webhook responded in ${result.response_time_ms}ms`)
+        toast.success(t('devSettings.testSuccessful'), t('devSettings.testSuccessfulDescription', { ms: result.response_time_ms }))
       } else {
-        toast.error('Test Failed', result.error || 'Webhook did not respond successfully')
+        toast.error(t('devSettings.testFailed'), result.error || t('devSettings.webhookNoResponse'))
       }
     } catch {
-      toast.error('Test Failed', 'Could not send test event')
+      toast.error(t('devSettings.testFailed'), t('devSettings.testSendFailed'))
     } finally {
       setTestingId(null)
     }
@@ -382,10 +386,10 @@ function WebhooksTab() {
     if (!deleteTarget) return
     try {
       await deleteWebhook.mutateAsync(deleteTarget)
-      toast.success('Webhook Deleted', 'The webhook has been removed')
+      toast.success(t('devSettings.webhookDeleted'), t('devSettings.webhookDeletedDescription'))
       setDeleteTarget(null)
     } catch {
-      toast.error('Failed', 'Could not delete webhook')
+      toast.error(t('common.error'), t('devSettings.webhookDeleteFailed'))
     }
   }
 
@@ -402,9 +406,9 @@ function WebhooksTab() {
       {showAddForm && (
         <Card>
           <CardHeader>
-            <CardTitle>Create Webhook</CardTitle>
+            <CardTitle>{t('devSettings.createWebhook')}</CardTitle>
             <CardDescription>
-              Configure a webhook to receive event notifications
+              {t('devSettings.createWebhookDescription')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -412,7 +416,7 @@ function WebhooksTab() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label htmlFor="webhook-name" className="text-sm font-medium">
-                    Name
+                    {t('devSettings.name')}
                   </label>
                   <input
                     id="webhook-name"
@@ -440,7 +444,7 @@ function WebhooksTab() {
                 </div>
               </div>
               <div>
-                <label className="text-sm font-medium">Events</label>
+                <label className="text-sm font-medium">{t('devSettings.events')}</label>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {WEBHOOK_EVENTS.map((event) => (
                     <button
@@ -460,14 +464,14 @@ function WebhooksTab() {
               </div>
               <div className="flex gap-2 justify-end">
                 <Button type="button" variant="outline" onClick={() => setShowAddForm(false)}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button
                   type="submit"
                   isLoading={createWebhook.isPending}
                   disabled={formData.events.length === 0}
                 >
-                  Create Webhook
+                  {t('devSettings.createWebhook')}
                 </Button>
               </div>
             </form>
@@ -479,13 +483,13 @@ function WebhooksTab() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>Webhooks</CardTitle>
-            <CardDescription>Receive real-time notifications for events</CardDescription>
+            <CardTitle>{t('devSettings.webhooks')}</CardTitle>
+            <CardDescription>{t('devSettings.webhooksDescription')}</CardDescription>
           </div>
           {!showAddForm && (
             <Button onClick={() => setShowAddForm(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              Add Webhook
+              {t('devSettings.addWebhook')}
             </Button>
           )}
         </CardHeader>
@@ -497,10 +501,10 @@ function WebhooksTab() {
           ) : webhooks.length === 0 ? (
             <EmptyState
               icon={<Webhook className="h-16 w-16" />}
-              title="No webhooks"
-              description="Configure webhooks to receive event notifications"
+              title={t('devSettings.noWebhooks')}
+              description={t('devSettings.noWebhooksDescription')}
               action={{
-                label: 'Add Webhook',
+                label: t('devSettings.addWebhook'),
                 onClick: () => setShowAddForm(true),
               }}
             />
@@ -547,7 +551,7 @@ function WebhooksTab() {
                         ) : (
                           <Play className="h-4 w-4 mr-1" />
                         )}
-                        Test
+                        {t('devSettings.test')}
                       </Button>
                       <Button
                         variant="ghost"
@@ -575,9 +579,9 @@ function WebhooksTab() {
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title="Delete Webhook"
-        description="Are you sure you want to delete this webhook? You will stop receiving event notifications."
-        confirmLabel="Delete"
+        title={t('devSettings.deleteWebhookTitle')}
+        description={t('devSettings.deleteWebhookDescription')}
+        confirmLabel={t('common.delete')}
         variant="destructive"
         onConfirm={handleDelete}
         isLoading={deleteWebhook.isPending}
@@ -592,6 +596,7 @@ function WebhooksTab() {
 // =============================================================================
 
 function RepositoriesTab() {
+  const { t } = useTranslation()
   const toast = useToast()
   const { data, isLoading } = useRepositories()
   const createRepository = useCreateRepository()
@@ -613,7 +618,7 @@ function RepositoriesTab() {
     e.preventDefault()
     try {
       await createRepository.mutateAsync(formData)
-      toast.success('Repository Added', 'Your data source has been configured')
+      toast.success(t('devSettings.repoAdded'), t('devSettings.repoAddedDescription'))
       setShowAddForm(false)
       setFormData({
         name: '',
@@ -621,7 +626,7 @@ function RepositoriesTab() {
         config: { query: '', max_results: 100 },
       })
     } catch {
-      toast.error('Failed', 'Could not create repository source')
+      toast.error(t('common.error'), t('devSettings.repoCreateFailed'))
     }
   }
 
@@ -629,9 +634,9 @@ function RepositoriesTab() {
     setSyncingId(id)
     try {
       const result = await syncRepository.mutateAsync(id)
-      toast.success('Sync Started', result.message)
+      toast.success(t('devSettings.syncStarted'), result.message)
     } catch {
-      toast.error('Sync Failed', 'Could not trigger sync')
+      toast.error(t('devSettings.syncFailed'), t('devSettings.syncFailedDescription'))
     } finally {
       setSyncingId(null)
     }
@@ -641,10 +646,10 @@ function RepositoriesTab() {
     if (!deleteTarget) return
     try {
       await deleteRepository.mutateAsync(deleteTarget)
-      toast.success('Repository Removed', 'The data source has been removed')
+      toast.success(t('devSettings.repoRemoved'), t('devSettings.repoRemovedDescription'))
       setDeleteTarget(null)
     } catch {
-      toast.error('Failed', 'Could not delete repository')
+      toast.error(t('common.error'), t('devSettings.repoDeleteFailed'))
     }
   }
 
@@ -654,9 +659,9 @@ function RepositoriesTab() {
       {showAddForm && (
         <Card>
           <CardHeader>
-            <CardTitle>Add Repository Source</CardTitle>
+            <CardTitle>{t('devSettings.addRepoSource')}</CardTitle>
             <CardDescription>
-              Configure a data source for automatic paper imports
+              {t('devSettings.addRepoSourceDescription')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -664,7 +669,7 @@ function RepositoriesTab() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label htmlFor="repo-name" className="text-sm font-medium">
-                    Name
+                    {t('devSettings.name')}
                   </label>
                   <input
                     id="repo-name"
@@ -678,7 +683,7 @@ function RepositoriesTab() {
                 </div>
                 <div>
                   <label htmlFor="repo-provider" className="text-sm font-medium">
-                    Provider
+                    {t('devSettings.provider')}
                   </label>
                   <select
                     id="repo-provider"
@@ -694,7 +699,7 @@ function RepositoriesTab() {
               </div>
               <div>
                 <label htmlFor="repo-query" className="text-sm font-medium">
-                  Search Query
+                  {t('devSettings.searchQuery')}
                 </label>
                 <input
                   id="repo-query"
@@ -711,7 +716,7 @@ function RepositoriesTab() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label htmlFor="repo-max-results" className="text-sm font-medium">
-                    Max Results per Sync
+                    {t('devSettings.maxResultsPerSync')}
                   </label>
                   <input
                     id="repo-max-results"
@@ -728,7 +733,7 @@ function RepositoriesTab() {
                 </div>
                 <div>
                   <label htmlFor="repo-schedule" className="text-sm font-medium">
-                    Schedule (Cron)
+                    {t('devSettings.scheduleCron')}
                   </label>
                   <input
                     id="repo-schedule"
@@ -739,16 +744,16 @@ function RepositoriesTab() {
                     className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Leave empty for manual sync only
+                    {t('devSettings.manualSyncOnly')}
                   </p>
                 </div>
               </div>
               <div className="flex gap-2 justify-end">
                 <Button type="button" variant="outline" onClick={() => setShowAddForm(false)}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button type="submit" isLoading={createRepository.isPending}>
-                  Add Source
+                  {t('devSettings.addSource')}
                 </Button>
               </div>
             </form>
@@ -760,13 +765,13 @@ function RepositoriesTab() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>Repository Sources</CardTitle>
-            <CardDescription>Data sources for automatic paper imports</CardDescription>
+            <CardTitle>{t('devSettings.repositorySources')}</CardTitle>
+            <CardDescription>{t('devSettings.repoSourcesDescription')}</CardDescription>
           </div>
           {!showAddForm && (
             <Button onClick={() => setShowAddForm(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              Add Source
+              {t('devSettings.addSource')}
             </Button>
           )}
         </CardHeader>
@@ -778,10 +783,10 @@ function RepositoriesTab() {
           ) : repositories.length === 0 ? (
             <EmptyState
               icon={<Database className="h-16 w-16" />}
-              title="No repository sources"
-              description="Add a data source to automatically import papers"
+              title={t('devSettings.noRepos')}
+              description={t('devSettings.noReposDescription')}
               action={{
-                label: 'Add Source',
+                label: t('devSettings.addSource'),
                 onClick: () => setShowAddForm(true),
               }}
             />
@@ -830,7 +835,7 @@ function RepositoriesTab() {
                         ) : (
                           <RefreshCw className="h-4 w-4 mr-1" />
                         )}
-                        Sync Now
+                        {t('devSettings.syncNow')}
                       </Button>
                       <Button
                         variant="ghost"
@@ -856,9 +861,9 @@ function RepositoriesTab() {
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title="Remove Repository Source"
-        description="Are you sure you want to remove this data source? Papers already imported will not be affected."
-        confirmLabel="Remove"
+        title={t('devSettings.removeRepoTitle')}
+        description={t('devSettings.removeRepoDescription')}
+        confirmLabel={t('devSettings.remove')}
         variant="destructive"
         onConfirm={handleDelete}
         isLoading={deleteRepository.isPending}

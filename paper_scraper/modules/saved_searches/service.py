@@ -263,7 +263,13 @@ class SavedSearchService:
             setattr(saved_search, field, value)
 
         await self.db.flush()
-        await self.db.refresh(saved_search, ["created_by"])
+        # Re-query to get fresh column values (updated_at from onupdate) + relationship
+        result = await self.db.execute(
+            select(SavedSearch)
+            .options(selectinload(SavedSearch.created_by))
+            .where(SavedSearch.id == search_id)
+        )
+        saved_search = result.scalar_one()
 
         return saved_search
 
@@ -300,6 +306,7 @@ class SavedSearchService:
             raise ForbiddenError("Only the owner can delete this saved search")
 
         await self.db.delete(saved_search)
+        await self.db.flush()
 
     async def generate_share_token(
         self,

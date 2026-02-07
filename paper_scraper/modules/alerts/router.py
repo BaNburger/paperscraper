@@ -6,7 +6,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from paper_scraper.api.dependencies import CurrentUser, OrganizationId
+from paper_scraper.api.dependencies import CurrentUser, OrganizationId, require_permission
+from paper_scraper.core.permissions import Permission
 from paper_scraper.core.database import get_db
 from paper_scraper.modules.alerts.schemas import (
     AlertCreate,
@@ -34,6 +35,7 @@ def get_alert_service(
     response_model=AlertResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create alert",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def create_alert(
     data: AlertCreate,
@@ -54,6 +56,7 @@ async def create_alert(
     "",
     response_model=AlertListResponse,
     summary="List alerts",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def list_alerts(
     service: Annotated[AlertService, Depends(get_alert_service)],
@@ -85,6 +88,7 @@ async def list_alerts(
     "/{alert_id}",
     response_model=AlertResponse,
     summary="Get alert",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def get_alert(
     alert_id: UUID,
@@ -105,6 +109,7 @@ async def get_alert(
     "/{alert_id}",
     response_model=AlertResponse,
     summary="Update alert",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def update_alert(
     alert_id: UUID,
@@ -127,6 +132,7 @@ async def update_alert(
     "/{alert_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete alert",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def delete_alert(
     alert_id: UUID,
@@ -146,6 +152,7 @@ async def delete_alert(
     "/{alert_id}/results",
     response_model=AlertResultListResponse,
     summary="Get alert history",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def get_alert_results(
     alert_id: UUID,
@@ -190,6 +197,7 @@ async def get_alert_results(
     "/{alert_id}/test",
     response_model=AlertTestResponse,
     summary="Test alert",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def test_alert(
     alert_id: UUID,
@@ -210,6 +218,7 @@ async def test_alert(
     "/{alert_id}/trigger",
     response_model=AlertResultResponse,
     summary="Manually trigger alert",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def trigger_alert(
     alert_id: UUID,

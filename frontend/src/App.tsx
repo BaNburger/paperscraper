@@ -1,3 +1,4 @@
+import '@/locales/i18n'
 import { useState } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -37,7 +38,9 @@ import {
   OrganizationSettingsPage,
   ModelSettingsPage,
   DeveloperSettingsPage,
+  AlertsPage,
   NotificationsPage,
+  CompliancePage,
 } from '@/pages'
 
 const queryClient = new QueryClient({
@@ -95,12 +98,14 @@ function AppContent() {
           <Route path="/submissions" element={<SubmissionsPage />} />
           <Route path="/badges" element={<BadgesPage />} />
           <Route path="/knowledge" element={<KnowledgePage />} />
+          <Route path="/alerts" element={<AlertsPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/team" element={<TeamMembersPage />} />
           <Route path="/settings" element={<UserSettingsPage />} />
           <Route path="/settings/organization" element={<OrganizationSettingsPage />} />
           <Route path="/settings/models" element={<ModelSettingsPage />} />
           <Route path="/settings/developer" element={<DeveloperSettingsPage />} />
+          <Route path="/compliance" element={<CompliancePage />} />
         </Route>
       </Routes>
     </>

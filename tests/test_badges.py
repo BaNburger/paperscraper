@@ -79,6 +79,7 @@ async def seeded_badges(
 async def papers_for_stats(
     db_session: AsyncSession,
     test_organization: Organization,
+    test_user: User,
 ) -> list[Paper]:
     """Create test papers for stats calculation."""
     papers = []
@@ -87,6 +88,7 @@ async def papers_for_stats(
             title=f"Test Paper {i}",
             source=PaperSource.DOI,
             organization_id=test_organization.id,
+            created_by_id=test_user.id,
         )
         db_session.add(paper)
         papers.append(paper)

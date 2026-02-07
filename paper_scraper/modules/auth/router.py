@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from paper_scraper.api.dependencies import CurrentUser, require_admin
 from paper_scraper.api.middleware import limiter
 from paper_scraper.core.database import get_db
+from fastapi import File, UploadFile
+
 from paper_scraper.modules.auth.schemas import (
     AcceptInviteRequest,
     ChangePasswordRequest,
@@ -20,6 +22,8 @@ from paper_scraper.modules.auth.schemas import (
     InviteUserRequest,
     LoginRequest,
     MessageResponse,
+    OrganizationBranding,
+    OrganizationResponse,
     OrganizationUsersResponse,
     RefreshTokenRequest,
     RegisterRequest,
@@ -27,6 +31,7 @@ from paper_scraper.modules.auth.schemas import (
     ResetPasswordRequest,
     TeamInvitationResponse,
     TokenResponse,
+    UpdateBrandingRequest,
     UpdateRoleRequest,
     UserListResponse,
     UserResponse,
@@ -837,3 +842,83 @@ async def list_roles(
             for role, perms in ROLE_PERMISSIONS.items()
         },
     }
+
+
+# =============================================================================
+# Organization Branding
+# =============================================================================
+
+_LOGO_MAX_SIZE = 5_000_000  # 5MB
+_LOGO_ALLOWED_TYPES = {"image/png", "image/jpeg", "image/webp"}
+
+
+@router.patch(
+    "/organization/branding",
+    response_model=OrganizationResponse,
+    summary="Update organization branding",
+    dependencies=[Depends(require_admin)],
+)
+async def update_branding(
+    request: Request,
+    branding_data: UpdateBrandingRequest,
+    current_user: CurrentUser,
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    audit_service: Annotated[AuditService, Depends(get_audit_service)],
+) -> OrganizationResponse:
+    """Update organization branding colors (admin only)."""
+    org = await auth_service.update_branding(
+        org_id=current_user.organization_id,
+        branding_update=branding_data.model_dump(exclude_none=True),
+    )
+    await audit_service.log(
+        action=AuditAction.UPDATE,
+        user_id=current_user.id,
+        organization_id=current_user.organization_id,
+        resource_type="organization_branding",
+        resource_id=current_user.organization_id,
+        details=branding_data.model_dump(exclude_none=True),
+        request=request,
+    )
+    return org
+
+
+@router.post(
+    "/organization/logo",
+    response_model=OrganizationResponse,
+    summary="Upload organization logo",
+    dependencies=[Depends(require_admin)],
+)
+async def upload_logo(
+    request: Request,
+    current_user: CurrentUser,
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    audit_service: Annotated[AuditService, Depends(get_audit_service)],
+    file: UploadFile = File(...),
+) -> OrganizationResponse:
+    """Upload organization logo to storage (admin only)."""
+    if not file.content_type or file.content_type not in _LOGO_ALLOWED_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed: {', '.join(_LOGO_ALLOWED_TYPES)}",
+        )
+
+    content = await file.read()
+    if len(content) > _LOGO_MAX_SIZE:
+        raise HTTPException(status_code=400, detail="File too large (max 5MB)")
+
+    org = await auth_service.upload_logo(
+        org_id=current_user.organization_id,
+        file_content=content,
+        content_type=file.content_type,
+        filename=file.filename or "logo",
+    )
+    await audit_service.log(
+        action=AuditAction.UPDATE,
+        user_id=current_user.id,
+        organization_id=current_user.organization_id,
+        resource_type="organization_logo",
+        resource_id=current_user.organization_id,
+        details={"filename": file.filename, "content_type": file.content_type},
+        request=request,
+    )
+    return org

@@ -6,7 +6,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from paper_scraper.api.dependencies import CurrentUser, OrganizationId
+from paper_scraper.api.dependencies import CurrentUser, OrganizationId, require_permission
+from paper_scraper.core.permissions import Permission
 from paper_scraper.core.database import get_db
 from paper_scraper.modules.saved_searches.schemas import (
     SavedSearchCreate,
@@ -42,6 +43,7 @@ def get_search_service(
     response_model=SavedSearchResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create saved search",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def create_saved_search(
     data: SavedSearchCreate,
@@ -62,6 +64,7 @@ async def create_saved_search(
     "",
     response_model=SavedSearchListResponse,
     summary="List saved searches",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def list_saved_searches(
     service: Annotated[SavedSearchService, Depends(get_saved_search_service)],
@@ -107,6 +110,7 @@ async def get_shared_saved_search(
     "/{search_id}",
     response_model=SavedSearchResponse,
     summary="Get saved search",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def get_saved_search(
     search_id: UUID,
@@ -127,6 +131,7 @@ async def get_saved_search(
     "/{search_id}",
     response_model=SavedSearchResponse,
     summary="Update saved search",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def update_saved_search(
     search_id: UUID,
@@ -149,6 +154,7 @@ async def update_saved_search(
     "/{search_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete saved search",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def delete_saved_search(
     search_id: UUID,
@@ -168,6 +174,7 @@ async def delete_saved_search(
     "/{search_id}/share",
     response_model=ShareTokenResponse,
     summary="Generate share link",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def generate_share_link(
     search_id: UUID,
@@ -188,6 +195,7 @@ async def generate_share_link(
     "/{search_id}/share",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Revoke share link",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def revoke_share_link(
     search_id: UUID,
@@ -207,6 +215,7 @@ async def revoke_share_link(
     "/{search_id}/run",
     response_model=SearchResponse,
     summary="Execute saved search",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def run_saved_search(
     search_id: UUID,

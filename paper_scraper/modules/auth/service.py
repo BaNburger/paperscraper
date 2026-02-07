@@ -1063,3 +1063,83 @@ class AuthService:
             await self.db.delete(user)
 
         await self.db.flush()
+
+    async def update_branding(
+        self,
+        org_id: UUID,
+        branding_update: dict,
+    ) -> Organization:
+        """Update organization branding settings.
+
+        Merges the provided branding keys into existing branding dict.
+
+        Args:
+            org_id: Organization ID.
+            branding_update: Dict of branding fields to update.
+
+        Returns:
+            Updated organization.
+
+        Raises:
+            NotFoundError: If organization not found.
+        """
+        org = await self.get_organization(org_id)
+        if not org:
+            raise NotFoundError("Organization", str(org_id))
+
+        current_branding = dict(org.branding) if org.branding else {}
+        current_branding.update(branding_update)
+        org.branding = current_branding
+        await self.db.flush()
+        await self.db.refresh(org)
+        return org
+
+    async def upload_logo(
+        self,
+        org_id: UUID,
+        file_content: bytes,
+        content_type: str,
+        filename: str,
+    ) -> Organization:
+        """Upload organization logo to storage and update branding.
+
+        Args:
+            org_id: Organization ID.
+            file_content: Logo file content bytes.
+            content_type: MIME type of the logo.
+            filename: Original filename.
+
+        Returns:
+            Updated organization with logo_url in branding.
+
+        Raises:
+            NotFoundError: If organization not found.
+        """
+        from paper_scraper.core.storage import StorageService
+
+        org = await self.get_organization(org_id)
+        if not org:
+            raise NotFoundError("Organization", str(org_id))
+
+        # Determine extension from content type
+        ext_map = {
+            "image/png": ".png",
+            "image/jpeg": ".jpg",
+            "image/webp": ".webp",
+        }
+        ext = ext_map.get(content_type, ".png")
+        key = f"orgs/{org_id}/logo{ext}"
+
+        storage = StorageService()
+        storage.upload_file(file_content, key, content_type)
+        # Generate a pre-signed URL (24h max) for the logo
+        # TODO: Consider a proxy endpoint for permanent logo URLs
+        logo_url = storage.get_download_url(key, expires_in=24 * 3600)
+
+        current_branding = dict(org.branding) if org.branding else {}
+        current_branding["logo_url"] = logo_url
+        current_branding["logo_storage_key"] = key
+        org.branding = current_branding
+        await self.db.flush()
+        await self.db.refresh(org)
+        return org

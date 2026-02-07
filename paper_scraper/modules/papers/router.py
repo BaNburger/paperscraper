@@ -15,12 +15,16 @@ from paper_scraper.core.exceptions import NotFoundError
 from paper_scraper.jobs.badges import trigger_badge_check
 from paper_scraper.modules.papers.note_service import NoteService
 from paper_scraper.modules.papers.schemas import (
+    CitationEdge,
+    CitationGraphResponse,
+    CitationNode,
     IngestArxivRequest,
     IngestDOIRequest,
     IngestJobResponse,
     IngestOpenAlexRequest,
     IngestPubMedRequest,
     IngestResult,
+    IngestSemanticScholarRequest,
     NoteCreate,
     NoteListResponse,
     NoteResponse,
@@ -28,6 +32,8 @@ from paper_scraper.modules.papers.schemas import (
     PaperDetail,
     PaperListResponse,
     PaperResponse,
+    PatentResponse,
+    RelatedPatentsResponse,
 )
 from paper_scraper.modules.papers.service import PaperService
 
@@ -56,6 +62,7 @@ def get_note_service(
     "/",
     response_model=PaperListResponse,
     summary="List papers",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def list_papers(
     current_user: CurrentUser,
@@ -77,6 +84,7 @@ async def list_papers(
     "/{paper_id}",
     response_model=PaperDetail,
     summary="Get paper details",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def get_paper(
     paper_id: UUID,
@@ -86,7 +94,7 @@ async def get_paper(
     """Get detailed paper information including authors."""
     paper = await paper_service.get_paper(paper_id, current_user.organization_id)
     if not paper:
-        raise NotFoundError("Paper", "id", str(paper_id))
+        raise NotFoundError("Paper", str(paper_id))
     return paper  # type: ignore
 
 
@@ -104,7 +112,7 @@ async def delete_paper(
     """Delete a paper by ID."""
     deleted = await paper_service.delete_paper(paper_id, current_user.organization_id)
     if not deleted:
-        raise NotFoundError("Paper", "id", str(paper_id))
+        raise NotFoundError("Paper", str(paper_id))
 
 
 @router.post(
@@ -112,6 +120,7 @@ async def delete_paper(
     response_model=PaperResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Import paper by DOI",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def ingest_by_doi(
     request: IngestDOIRequest,
@@ -126,6 +135,7 @@ async def ingest_by_doi(
     paper = await paper_service.ingest_by_doi(
         doi=request.doi,
         organization_id=current_user.organization_id,
+        created_by_id=current_user.id,
     )
     # Trigger badge check for paper import
     background_tasks.add_task(
@@ -142,6 +152,7 @@ async def ingest_by_doi(
     response_model=IngestResult,
     status_code=status.HTTP_200_OK,
     summary="Batch import from OpenAlex",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def ingest_from_openalex(
     request: IngestOpenAlexRequest,
@@ -158,6 +169,7 @@ async def ingest_from_openalex(
         organization_id=current_user.organization_id,
         max_results=request.max_results,
         filters=request.filters,
+        created_by_id=current_user.id,
     )
     # Trigger badge check for paper import
     if result.papers_created > 0:
@@ -175,6 +187,7 @@ async def ingest_from_openalex(
     response_model=IngestJobResponse,
     status_code=status.HTTP_202_ACCEPTED,
     summary="Async batch import from OpenAlex",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def ingest_from_openalex_async(
     request: IngestOpenAlexRequest,
@@ -207,6 +220,7 @@ async def ingest_from_openalex_async(
     "/ingest/pubmed",
     response_model=IngestResult,
     summary="Batch import from PubMed",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def ingest_from_pubmed(
     request: IngestPubMedRequest,
@@ -218,6 +232,7 @@ async def ingest_from_pubmed(
         query=request.query,
         organization_id=current_user.organization_id,
         max_results=request.max_results,
+        created_by_id=current_user.id,
     )
 
 
@@ -225,6 +240,7 @@ async def ingest_from_pubmed(
     "/ingest/arxiv",
     response_model=IngestResult,
     summary="Batch import from arXiv",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def ingest_from_arxiv(
     request: IngestArxivRequest,
@@ -237,6 +253,7 @@ async def ingest_from_arxiv(
         organization_id=current_user.organization_id,
         max_results=request.max_results,
         category=request.category,
+        created_by_id=current_user.id,
     )
 
 
@@ -276,6 +293,7 @@ def _validate_pdf_content(content: bytes) -> None:
     response_model=PaperResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Upload PDF file",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def upload_pdf(
     current_user: CurrentUser,
@@ -313,6 +331,7 @@ async def upload_pdf(
         file_content=content,
         filename=file.filename,
         organization_id=current_user.organization_id,
+        created_by_id=current_user.id,
     )
     return paper  # type: ignore
 
@@ -321,6 +340,7 @@ async def upload_pdf(
     "/{paper_id}/generate-pitch",
     response_model=PaperResponse,
     summary="Generate one-line pitch",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def generate_pitch(
     paper_id: UUID,
@@ -340,6 +360,7 @@ async def generate_pitch(
     "/{paper_id}/generate-simplified-abstract",
     response_model=PaperResponse,
     summary="Generate simplified abstract",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def generate_simplified_abstract(
     paper_id: UUID,
@@ -366,6 +387,7 @@ async def generate_simplified_abstract(
     "/{paper_id}/notes",
     response_model=NoteListResponse,
     summary="List notes for a paper",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def list_notes(
     paper_id: UUID,
@@ -384,6 +406,7 @@ async def list_notes(
     response_model=NoteResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Add note to paper",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def create_note(
     paper_id: UUID,
@@ -407,6 +430,7 @@ async def create_note(
     "/{paper_id}/notes/{note_id}",
     response_model=NoteResponse,
     summary="Get a specific note",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def get_note(
     paper_id: UUID,
@@ -426,6 +450,7 @@ async def get_note(
     "/{paper_id}/notes/{note_id}",
     response_model=NoteResponse,
     summary="Update a note",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def update_note(
     paper_id: UUID,
@@ -448,6 +473,7 @@ async def update_note(
     "/{paper_id}/notes/{note_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete a note",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def delete_note(
     paper_id: UUID,
@@ -461,4 +487,167 @@ async def delete_note(
         note_id=note_id,
         user_id=current_user.id,
         organization_id=current_user.organization_id,
+    )
+
+
+# =============================================================================
+# Semantic Scholar Ingestion
+# =============================================================================
+
+
+@router.post(
+    "/ingest/semantic-scholar",
+    response_model=IngestResult,
+    summary="Batch import from Semantic Scholar",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
+)
+async def ingest_from_semantic_scholar(
+    request: IngestSemanticScholarRequest,
+    current_user: CurrentUser,
+    paper_service: Annotated[PaperService, Depends(get_paper_service)],
+) -> IngestResult:
+    """Batch import papers from Semantic Scholar search."""
+    return await paper_service.ingest_from_semantic_scholar(
+        query=request.query,
+        organization_id=current_user.organization_id,
+        max_results=request.max_results,
+        created_by_id=current_user.id,
+    )
+
+
+# =============================================================================
+# Related Patents (EPO OPS)
+# =============================================================================
+
+
+@router.get(
+    "/{paper_id}/patents",
+    response_model=RelatedPatentsResponse,
+    summary="Get related patents for a paper",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
+)
+async def get_related_patents(
+    paper_id: UUID,
+    current_user: CurrentUser,
+    paper_service: Annotated[PaperService, Depends(get_paper_service)],
+    max_results: int = Query(default=10, ge=1, le=50),
+) -> RelatedPatentsResponse:
+    """Find patents related to a paper using its title and keywords."""
+    paper = await paper_service.get_paper(paper_id, current_user.organization_id)
+    if not paper:
+        raise NotFoundError("Paper", str(paper_id))
+
+    # Build query from paper title + keywords
+    query_parts = [paper.title]
+    if paper.keywords:
+        query_parts.extend(paper.keywords[:5])
+    query = " ".join(query_parts)[:200]  # Limit query length
+
+    from paper_scraper.modules.papers.clients.epo_ops import EPOOPSClient
+
+    async with EPOOPSClient() as epo_client:
+        raw_patents = await epo_client.search_patents(query, max_results=max_results)
+
+    patents = [PatentResponse(**p) for p in raw_patents]
+    return RelatedPatentsResponse(patents=patents, query=query, total=len(patents))
+
+
+# =============================================================================
+# Citation Graph (Semantic Scholar)
+# =============================================================================
+
+
+@router.get(
+    "/{paper_id}/citations",
+    response_model=CitationGraphResponse,
+    summary="Get citation graph for a paper",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
+)
+async def get_citation_graph(
+    paper_id: UUID,
+    current_user: CurrentUser,
+    paper_service: Annotated[PaperService, Depends(get_paper_service)],
+    max_citations: int = Query(default=10, ge=1, le=50),
+    max_references: int = Query(default=10, ge=1, le=50),
+) -> CitationGraphResponse:
+    """Get citation graph (citations + references) for a paper via Semantic Scholar."""
+    paper = await paper_service.get_paper(paper_id, current_user.organization_id)
+    if not paper:
+        raise NotFoundError("Paper", str(paper_id))
+
+    from paper_scraper.modules.papers.clients.semantic_scholar import SemanticScholarClient
+
+    # Find paper on Semantic Scholar by DOI or title
+    identifier = f"DOI:{paper.doi}" if paper.doi else None
+
+    async with SemanticScholarClient() as ss_client:
+        ss_paper = None
+        if identifier:
+            ss_paper = await ss_client.get_by_id(identifier)
+
+        if not ss_paper:
+            # Search by title as fallback
+            results = await ss_client.search(paper.title, max_results=1)
+            if results:
+                ss_paper = results[0]
+
+        if not ss_paper or not ss_paper.get("source_id"):
+            return CitationGraphResponse(
+                nodes=[CitationNode(
+                    paper_id=str(paper_id),
+                    title=paper.title,
+                    year=paper.publication_date.year if paper.publication_date else None,
+                    citation_count=paper.citations_count,
+                    is_root=True,
+                )],
+                edges=[],
+                root_paper_id=str(paper_id),
+            )
+
+        ss_id = ss_paper["source_id"]
+        citations = await ss_client.get_citations(ss_id, max_results=max_citations)
+        references = await ss_client.get_references(ss_id, max_results=max_references)
+
+    # Build graph
+    root_node = CitationNode(
+        paper_id=str(paper_id),
+        title=paper.title,
+        year=paper.publication_date.year if paper.publication_date else None,
+        citation_count=paper.citations_count,
+        is_root=True,
+    )
+
+    nodes = [root_node]
+    edges = []
+
+    for cite in citations:
+        nodes.append(CitationNode(
+            paper_id=cite["paper_id"],
+            title=cite["title"],
+            year=cite.get("year"),
+            citation_count=cite.get("citation_count"),
+        ))
+        edges.append(CitationEdge(
+            source=cite["paper_id"],
+            target=str(paper_id),
+            type="cites",
+        ))
+
+    for ref in references:
+        nodes.append(CitationNode(
+            paper_id=ref["paper_id"],
+            title=ref["title"],
+            year=ref.get("year"),
+            citation_count=ref.get("citation_count"),
+        ))
+        edges.append(CitationEdge(
+            source=str(paper_id),
+            target=ref["paper_id"],
+            type="cites",
+        ))
+
+    return CitationGraphResponse(
+        nodes=nodes,
+        edges=edges,
+        root_paper_id=str(paper_id),
     )

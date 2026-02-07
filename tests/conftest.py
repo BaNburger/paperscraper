@@ -1,15 +1,20 @@
-"""Pytest configuration and fixtures for Paper Scraper tests."""
+"""Pytest configuration and fixtures for Paper Scraper tests.
+
+Uses testcontainers-postgres for real PostgreSQL testing (with pgvector)
+and fakeredis for in-memory Redis mocking.
+"""
 
 import asyncio
 from collections.abc import AsyncGenerator, Generator
 from typing import Any
-from unittest.mock import AsyncMock, patch
 
+import fakeredis.aioredis
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.pool import StaticPool
+from testcontainers.postgres import PostgresContainer
 
 from paper_scraper.api.main import app
 from paper_scraper.core.database import Base, get_db
@@ -35,33 +40,58 @@ from paper_scraper.modules.knowledge.models import KnowledgeSource  # noqa: F401
 from paper_scraper.modules.model_settings.models import ModelConfiguration, ModelUsage  # noqa: F401
 from paper_scraper.modules.developer.models import APIKey, Webhook, RepositorySource  # noqa: F401
 from paper_scraper.modules.reports.models import ScheduledReport  # noqa: F401
+from paper_scraper.modules.compliance.models import RetentionPolicy, RetentionLog  # noqa: F401
+from paper_scraper.modules.search.models import SearchActivity  # noqa: F401
+from paper_scraper.modules.saved_searches.models import SavedSearch  # noqa: F401
+from paper_scraper.modules.alerts.models import Alert, AlertResult  # noqa: F401
+from paper_scraper.modules.audit.models import AuditLog  # noqa: F401
+from paper_scraper.modules.notifications.models import Notification  # noqa: F401
+from paper_scraper.modules.papers.notes import PaperNote  # noqa: F401
 from paper_scraper.core.security import get_password_hash
 
-# Register SQLite type compiler for PostgreSQL JSONB and ARRAY so tests can run
-# against in-memory SQLite instead of requiring a PostgreSQL instance.
-from sqlalchemy.dialects.sqlite.base import SQLiteTypeCompiler
 
-if not hasattr(SQLiteTypeCompiler, "visit_JSONB"):
-    SQLiteTypeCompiler.visit_JSONB = SQLiteTypeCompiler.visit_JSON
-
-# ARRAY -> TEXT (store as JSON text)
-if not hasattr(SQLiteTypeCompiler, "visit_ARRAY"):
-    SQLiteTypeCompiler.visit_ARRAY = lambda self, type_, **kw: "TEXT"
-
-
-# Test database URL - uses in-memory SQLite for fast tests
-# Note: Some PostgreSQL-specific features won't work in tests
-TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
-
-
-# Mock the token blacklist singleton to avoid Redis dependency in tests
-# This must be done at module level before any imports that use token_blacklist
+# ---------------------------------------------------------------------------
+# fakeredis: Replace real Redis with an in-memory implementation
+# ---------------------------------------------------------------------------
+# Patch the TokenBlacklist (and any other RedisService subclass) to use
+# fakeredis instead of connecting to a real Redis instance.
 from paper_scraper.core import token_blacklist as tb_module
 
-tb_module.token_blacklist.is_token_blacklisted = AsyncMock(return_value=False)
-tb_module.token_blacklist.is_token_invalid_for_user = AsyncMock(return_value=False)
-tb_module.token_blacklist.blacklist_token = AsyncMock(return_value=True)
-tb_module.token_blacklist.invalidate_user_tokens = AsyncMock(return_value=True)
+_fake_redis: fakeredis.aioredis.FakeRedis | None = None
+
+
+def _get_fake_redis() -> fakeredis.aioredis.FakeRedis:
+    """Return a module-level fakeredis instance (lazy-initialized).
+
+    Recreates the instance if it is bound to a closed or different event loop.
+    """
+    global _fake_redis
+    if _fake_redis is None:
+        _fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    return _fake_redis
+
+
+def _reset_fake_redis() -> None:
+    """Force a new FakeRedis instance on the next call to _get_fake_redis."""
+    global _fake_redis
+    _fake_redis = None
+
+
+# Override the _get_redis method on the singleton so it returns fakeredis
+# instead of connecting to a real Redis server.
+async def _patched_get_redis() -> fakeredis.aioredis.FakeRedis:
+    return _get_fake_redis()
+
+
+tb_module.token_blacklist._get_redis = _patched_get_redis  # type: ignore[assignment]
+
+
+# ---------------------------------------------------------------------------
+# testcontainers: PostgreSQL with pgvector
+# ---------------------------------------------------------------------------
+# Use pgvector/pgvector:pg16 image to match production and have the vector
+# extension available.
+POSTGRES_IMAGE = "pgvector/pgvector:pg16"
 
 
 @pytest.fixture(scope="session")
@@ -72,21 +102,48 @@ def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
     loop.close()
 
 
+@pytest.fixture(scope="session")
+def postgres_container() -> Generator[PostgresContainer, None, None]:
+    """Start a PostgreSQL container for the test session.
+
+    Uses the pgvector/pgvector:pg16 image so that CREATE EXTENSION vector
+    works the same as in production.
+    """
+    container = PostgresContainer(
+        image=POSTGRES_IMAGE,
+        username="test",
+        password="test",
+        dbname="test_paperscraper",
+        driver="asyncpg",
+    )
+    with container:
+        yield container
+
+
+@pytest.fixture(scope="session")
+def database_url(postgres_container: PostgresContainer) -> str:
+    """Build the async database URL from the running container."""
+    return postgres_container.get_connection_url()
+
+
 @pytest_asyncio.fixture
-async def db_engine():
-    """Create a test database engine."""
+async def db_engine(database_url: str):
+    """Create a test database engine backed by testcontainers PostgreSQL."""
     engine = create_async_engine(
-        TEST_DATABASE_URL,
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
+        database_url,
         echo=False,
     )
 
+    # Enable pgvector extension and create all tables
     async with engine.begin() as conn:
+        await conn.execute(text('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"'))
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
         await conn.run_sync(Base.metadata.create_all)
 
     yield engine
 
+    # Drop all tables after the test to ensure isolation between test functions
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
@@ -187,3 +244,22 @@ async def authenticated_client(
     )
     client.headers["Authorization"] = f"Bearer {token}"
     yield client
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _clear_fake_redis():
+    """Clear fakeredis state between tests for isolation.
+
+    Creates a fresh FakeRedis per test to avoid event-loop binding issues
+    when pytest-asyncio uses function-scoped loops.
+    """
+    _reset_fake_redis()
+    yield
+    try:
+        redis = _get_fake_redis()
+        await redis.flushall()
+    except RuntimeError:
+        # FakeRedis Queue bound to a different event loop – just discard it
+        pass
+    finally:
+        _reset_fake_redis()

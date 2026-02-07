@@ -23,6 +23,7 @@ from paper_scraper.modules.papers.notes import PaperNote
 from paper_scraper.modules.projects.models import Project
 from paper_scraper.modules.scoring.models import PaperScore
 from paper_scraper.modules.authors.models import AuthorContact
+from paper_scraper.modules.search.models import SearchActivity
 
 # Points required per level (cumulative). Level N requires LEVEL_THRESHOLDS[N-1] total points.
 POINTS_PER_LEVEL = 100
@@ -184,13 +185,21 @@ class BadgeService:
         await self.db.flush()
         return created
 
-    async def list_badges(self) -> BadgeListResponse:
-        """List all available badge definitions."""
+    async def list_badges(
+        self, organization_id: UUID | None = None
+    ) -> BadgeListResponse:
+        """List available badge definitions (system + org-specific)."""
         await self.seed_badges()
 
-        result = await self.db.execute(
-            select(Badge).order_by(Badge.category, Badge.tier)
-        )
+        query = select(Badge).order_by(Badge.category, Badge.tier)
+        if organization_id is not None:
+            # Show system-wide badges (org_id is NULL) + this org's custom badges
+            query = query.where(
+                (Badge.organization_id.is_(None))
+                | (Badge.organization_id == organization_id)
+            )
+
+        result = await self.db.execute(query)
         badges = list(result.scalars().all())
 
         return BadgeListResponse(
@@ -230,63 +239,89 @@ class BadgeService:
     async def get_user_stats(
         self, user_id: UUID, organization_id: UUID
     ) -> UserStatsResponse:
-        """Get user activity statistics for gamification display."""
-        # Papers imported (by org, since papers are org-scoped)
-        papers_result = await self.db.execute(
-            select(func.count()).select_from(Paper).where(
-                Paper.organization_id == organization_id
-            )
-        )
-        papers_imported = papers_result.scalar() or 0
+        """Get user activity statistics for gamification display.
 
-        # Papers scored
-        scores_result = await self.db.execute(
-            select(func.count()).select_from(PaperScore).where(
-                PaperScore.organization_id == organization_id
+        Uses a single query with scalar subqueries instead of 7 sequential
+        COUNT queries (TD-011 optimization).
+        """
+        # Build all counts as scalar subqueries in a single SELECT
+        papers_imported_sq = (
+            select(func.count())
+            .select_from(Paper)
+            .where(
+                Paper.organization_id == organization_id,
+                Paper.created_by_id == user_id,
             )
+            .scalar_subquery()
         )
-        papers_scored = scores_result.scalar() or 0
-
-        # Projects created
-        projects_result = await self.db.execute(
-            select(func.count()).select_from(Project).where(
-                Project.organization_id == organization_id
-            )
+        # NOTE: papers_scored and projects_created are org-wide because
+        # PaperScore and Project models lack created_by_id. Future TD item.
+        papers_scored_sq = (
+            select(func.count())
+            .select_from(PaperScore)
+            .where(PaperScore.organization_id == organization_id)
+            .scalar_subquery()
         )
-        projects_created = projects_result.scalar() or 0
-
-        # Notes created by user
-        notes_result = await self.db.execute(
-            select(func.count()).select_from(PaperNote).where(
-                PaperNote.user_id == user_id
-            )
+        projects_created_sq = (
+            select(func.count())
+            .select_from(Project)
+            .where(Project.organization_id == organization_id)
+            .scalar_subquery()
         )
-        notes_created = notes_result.scalar() or 0
-
-        # Authors contacted by user
-        contacts_result = await self.db.execute(
-            select(func.count()).select_from(AuthorContact).where(
-                AuthorContact.contacted_by_id == user_id
-            )
+        notes_created_sq = (
+            select(func.count())
+            .select_from(PaperNote)
+            .where(PaperNote.user_id == user_id)
+            .scalar_subquery()
         )
-        authors_contacted = contacts_result.scalar() or 0
-
-        # Badges earned
-        badges_result = await self.db.execute(
-            select(func.count()).select_from(UserBadge).where(
-                UserBadge.user_id == user_id
-            )
+        contacts_sq = (
+            select(func.count())
+            .select_from(AuthorContact)
+            .where(AuthorContact.contacted_by_id == user_id)
+            .scalar_subquery()
         )
-        badges_earned = badges_result.scalar() or 0
-
-        # Total points
-        points_result = await self.db.execute(
+        badges_earned_sq = (
+            select(func.count())
+            .select_from(UserBadge)
+            .where(UserBadge.user_id == user_id)
+            .scalar_subquery()
+        )
+        total_points_sq = (
             select(func.coalesce(func.sum(Badge.points), 0))
             .select_from(UserBadge)
             .join(Badge, UserBadge.badge_id == Badge.id)
             .where(UserBadge.user_id == user_id)
+            .scalar_subquery()
         )
-        total_points = points_result.scalar() or 0
+        searches_sq = (
+            select(func.count())
+            .select_from(SearchActivity)
+            .where(SearchActivity.user_id == user_id)
+            .scalar_subquery()
+        )
+
+        result = await self.db.execute(
+            select(
+                papers_imported_sq.label("papers_imported"),
+                papers_scored_sq.label("papers_scored"),
+                projects_created_sq.label("projects_created"),
+                notes_created_sq.label("notes_created"),
+                contacts_sq.label("authors_contacted"),
+                badges_earned_sq.label("badges_earned"),
+                total_points_sq.label("total_points"),
+                searches_sq.label("searches_performed"),
+            )
+        )
+        row = result.one()
+
+        papers_imported = row.papers_imported or 0
+        papers_scored = row.papers_scored or 0
+        projects_created = row.projects_created or 0
+        notes_created = row.notes_created or 0
+        authors_contacted = row.authors_contacted or 0
+        badges_earned = row.badges_earned or 0
+        total_points = row.total_points or 0
+        searches_performed = row.searches_performed or 0
 
         # Calculate level and progress
         level = max(1, total_points // POINTS_PER_LEVEL + 1)
@@ -295,7 +330,7 @@ class BadgeService:
         return UserStatsResponse(
             papers_imported=papers_imported,
             papers_scored=papers_scored,
-            searches_performed=0,  # Would need search log tracking
+            searches_performed=searches_performed,
             projects_created=projects_created,
             notes_created=notes_created,
             authors_contacted=authors_contacted,
@@ -314,8 +349,13 @@ class BadgeService:
         """
         await self.seed_badges()
 
-        # Get all badges
-        all_badges_result = await self.db.execute(select(Badge))
+        # Get badges visible to this user's organization (system + org-specific)
+        all_badges_result = await self.db.execute(
+            select(Badge).where(
+                (Badge.organization_id.is_(None))
+                | (Badge.organization_id == organization_id)
+            )
+        )
         all_badges = list(all_badges_result.scalars().all())
 
         # Get already earned badge IDs

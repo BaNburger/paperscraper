@@ -15,6 +15,8 @@ from uuid import UUID
 
 from paper_scraper.core.database import get_db_session
 from paper_scraper.modules.badges.service import BadgeService
+from paper_scraper.modules.notifications.models import NotificationType
+from paper_scraper.modules.notifications.service import NotificationService
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +67,26 @@ async def check_and_award_badges_task(
                     f"after {trigger_action or 'activity'}: "
                     f"{[b.name for b in awarded]}"
                 )
+
+                # Create in-app notifications for each badge earned
+                notification_service = NotificationService(db)
+                for badge in awarded:
+                    await notification_service.create(
+                        user_id=user_uuid,
+                        organization_id=org_uuid,
+                        type=NotificationType.BADGE,
+                        title=f"Badge Earned: {badge.name}",
+                        message=f"Congratulations! You earned the {badge.tier.value} {badge.name} badge (+{badge.points} points)",
+                        resource_type="badge",
+                        resource_id=str(badge.id),
+                        metadata={
+                            "badge_name": badge.name,
+                            "badge_tier": badge.tier.value,
+                            "badge_points": badge.points,
+                            "badge_icon": badge.icon,
+                        },
+                    )
+
                 return {
                     "status": "badges_awarded",
                     "user_id": user_id,
