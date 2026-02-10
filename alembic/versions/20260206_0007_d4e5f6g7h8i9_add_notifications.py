@@ -8,6 +8,7 @@ Create Date: 2026-02-06
 from typing import Union
 
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import JSONB
 
 from alembic import op
@@ -22,7 +23,7 @@ depends_on: Union[str, None] = None
 def upgrade() -> None:
     """Create notifications table."""
     # Create notification type enum
-    notification_type_enum = sa.Enum(
+    notification_type_enum = postgresql.ENUM(
         "alert", "badge", "system",
         name="notificationtype",
     )
@@ -35,7 +36,13 @@ def upgrade() -> None:
         sa.Column("organization_id", sa.Uuid(), nullable=False),
         sa.Column(
             "type",
-            sa.Enum("alert", "badge", "system", name="notificationtype", create_type=False),
+            postgresql.ENUM(
+                "alert",
+                "badge",
+                "system",
+                name="notificationtype",
+                create_type=False,
+            ),
             nullable=False,
         ),
         sa.Column("title", sa.String(500), nullable=False),
@@ -79,4 +86,4 @@ def downgrade() -> None:
     op.drop_table("notifications")
 
     # Drop enum type
-    sa.Enum(name="notificationtype").drop(op.get_bind(), checkfirst=True)
+    postgresql.ENUM(name="notificationtype").drop(op.get_bind(), checkfirst=True)

@@ -3,14 +3,14 @@
 from typing import Annotated
 from uuid import UUID
 
-import arq
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.api.dependencies import CurrentUser, require_permission
 from paper_scraper.core.permissions import Permission
-from paper_scraper.core.config import settings
 from paper_scraper.core.database import get_db
+from paper_scraper.jobs.payloads import EmbeddingBackfillJobPayload
+from paper_scraper.jobs.worker import enqueue_job
 from paper_scraper.modules.search.schemas import (
     EmbeddingBackfillRequest,
     EmbeddingBackfillResponse,
@@ -248,23 +248,25 @@ async def start_embedding_backfill(
         )
 
     # Queue the job
-    redis = await arq.create_pool(settings.arq_redis_settings)
-    try:
-        job = await redis.enqueue_job(
-            "backfill_embeddings_task",
-            str(current_user.organization_id),
-            request.batch_size,
-            request.max_papers,
-        )
+    payload = EmbeddingBackfillJobPayload(
+        organization_id=current_user.organization_id,
+        batch_size=request.batch_size,
+        max_papers=request.max_papers,
+    )
 
-        return EmbeddingBackfillResponse(
-            job_id=job.job_id,
-            status="queued",
-            papers_to_process=papers_to_process,
-            message=f"Backfill job queued for {papers_to_process} papers",
-        )
-    finally:
-        await redis.close()
+    job = await enqueue_job(
+        "backfill_embeddings_task",
+        str(payload.organization_id),
+        payload.batch_size,
+        payload.max_papers,
+    )
+
+    return EmbeddingBackfillResponse(
+        job_id=job.job_id if job else "",
+        status="queued",
+        papers_to_process=papers_to_process,
+        message=f"Backfill job queued for {papers_to_process} papers",
+    )
 
 
 @router.post(

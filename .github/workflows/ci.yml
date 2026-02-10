@@ -11,9 +11,25 @@ env:
   NODE_VERSION: "20"
 
 jobs:
+  architecture-docs-gate:
+    name: Architecture Docs Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Enforce architecture documentation updates
+        run: bash .github/scripts/check_arch_docs_gate.sh
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_HEAD_SHA: ${{ github.sha }}
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    needs: [architecture-docs-gate]
     steps:
       - uses: actions/checkout@v4
 
@@ -34,6 +50,7 @@ jobs:
   test-backend:
     name: Backend Tests
     runs-on: ubuntu-latest
+    needs: [architecture-docs-gate]
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -93,6 +110,7 @@ jobs:
   test-frontend:
     name: Frontend Tests
     runs-on: ubuntu-latest
+    needs: [architecture-docs-gate]
     defaults:
       run:
         working-directory: frontend

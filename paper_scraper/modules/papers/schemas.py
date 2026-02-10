@@ -156,6 +156,8 @@ class IngestJobResponse(BaseModel):
     """Response for async ingestion job."""
 
     job_id: str
+    ingest_run_id: UUID
+    source: str
     status: str = "queued"
     message: str
 
@@ -167,6 +169,26 @@ class IngestResult(BaseModel):
     papers_updated: int
     papers_skipped: int
     errors: list[str] = Field(default_factory=list)
+
+
+# =============================================================================
+# Context Snapshot Schemas
+# =============================================================================
+
+
+class PaperContextSnapshotResponse(BaseModel):
+    """Response schema for a paper context snapshot."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    paper_id: UUID
+    organization_id: UUID
+    enrichment_version: str
+    context_json: dict
+    freshness_at: datetime
+    created_at: datetime
+    updated_at: datetime
 
 
 # =============================================================================

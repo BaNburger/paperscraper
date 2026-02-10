@@ -16,7 +16,7 @@ from paper_scraper.jobs.badges import (
     batch_check_badges_task,
     check_and_award_badges_task,
 )
-from paper_scraper.jobs.ingestion import ingest_openalex_task
+from paper_scraper.jobs.ingestion import ingest_openalex_task, ingest_source_task
 from paper_scraper.jobs.scoring import (
     generate_embeddings_batch_task,
     score_paper_task,
@@ -146,6 +146,7 @@ class WorkerSettings:
     functions = [
         score_paper_task,
         score_papers_batch_task,
+        ingest_source_task,
         ingest_papers_task,
         ingest_openalex_task,
         generate_embeddings_batch_task,
@@ -212,6 +213,7 @@ async def get_redis_pool() -> ArqRedis:
 async def enqueue_job(
     job_name: str,
     *args: Any,
+    job_id: str | None = None,
     **kwargs: Any,
 ) -> arq.jobs.Job:
     """Enqueue a job for background processing.
@@ -219,6 +221,7 @@ async def enqueue_job(
     Args:
         job_name: Name of the job function to run.
         *args: Positional arguments for the job.
+        job_id: Optional idempotency key mapped to arq `_job_id`.
         **kwargs: Keyword arguments for the job.
 
     Returns:
@@ -226,6 +229,8 @@ async def enqueue_job(
     """
     pool = await get_redis_pool()
     try:
+        if job_id:
+            kwargs["_job_id"] = job_id
         return await pool.enqueue_job(job_name, *args, **kwargs)
     finally:
         await pool.close()

@@ -17,7 +17,7 @@ from paper_scraper.modules.scoring.dimensions import (
     TeamReadinessDimension,
 )
 from paper_scraper.modules.scoring.dimensions.base import PaperContext
-from paper_scraper.modules.scoring.llm_client import TokenUsage
+from paper_scraper.modules.scoring.llm_client import BaseLLMClient, TokenUsage
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +139,7 @@ class ScoringOrchestrator:
         weights: ScoringWeights | None = None,
         model_version: str = "v1.0.0",
         max_concurrent_llm_calls: int = DEFAULT_CONCURRENCY_LIMIT,
+        llm_client: BaseLLMClient | None = None,
     ):
         """
         Initialize the orchestrator.
@@ -151,15 +152,16 @@ class ScoringOrchestrator:
         self.weights = weights or ScoringWeights()
         self.model_version = model_version
         self._semaphore = asyncio.Semaphore(max_concurrent_llm_calls)
+        self._llm_client = llm_client
 
         # Initialize all dimension scorers
         self.dimensions: dict[str, BaseDimension] = {
-            "novelty": NoveltyDimension(),
-            "ip_potential": IPPotentialDimension(),
-            "marketability": MarketabilityDimension(),
-            "feasibility": FeasibilityDimension(),
-            "commercialization": CommercializationDimension(),
-            "team_readiness": TeamReadinessDimension(),
+            "novelty": NoveltyDimension(llm_client=llm_client),
+            "ip_potential": IPPotentialDimension(llm_client=llm_client),
+            "marketability": MarketabilityDimension(llm_client=llm_client),
+            "feasibility": FeasibilityDimension(llm_client=llm_client),
+            "commercialization": CommercializationDimension(llm_client=llm_client),
+            "team_readiness": TeamReadinessDimension(llm_client=llm_client),
         }
 
     async def score_paper(
@@ -309,6 +311,7 @@ class ScoringOrchestrator:
             weights=weights,
             model_version=self.model_version,
             max_concurrent_llm_calls=self._semaphore._value,  # type: ignore
+            llm_client=self._llm_client,
         )
 
 

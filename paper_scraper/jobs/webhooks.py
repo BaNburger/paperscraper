@@ -1,16 +1,19 @@
 """Webhook dispatch background jobs."""
 
+import asyncio
 import json
 import time
 from typing import Any
 from uuid import UUID
 
 import httpx
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
 
 from paper_scraper.core.config import settings
 from paper_scraper.modules.developer import service as dev_service
+from paper_scraper.modules.developer.models import Webhook
 
 
 # Create a separate engine for background jobs
@@ -26,6 +29,7 @@ async def dispatch_webhook_task(
     webhook_id: str,
     event: str,
     payload: dict,
+    organization_id: str | None = None,
 ) -> dict[str, Any]:
     """Dispatch a webhook to the configured URL.
 
@@ -40,7 +44,19 @@ async def dispatch_webhook_task(
     """
     async with _async_session() as db:
         try:
-            webhook = await dev_service.get_webhook(db, UUID(webhook_id), UUID(webhook_id))
+            if organization_id:
+                webhook = await dev_service.get_webhook(
+                    db,
+                    UUID(organization_id),
+                    UUID(webhook_id),
+                )
+            else:
+                result = await db.execute(
+                    select(Webhook).where(Webhook.id == UUID(webhook_id))
+                )
+                webhook = result.scalar_one_or_none()
+                if webhook is None:
+                    raise ValueError("Webhook not found")
         except Exception:
             # Webhook not found or deleted
             return {
@@ -142,12 +158,9 @@ async def dispatch_event_to_webhooks(
             str(webhook.id),
             event,
             payload,
+            str(org_id),
         )
         if job:
             job_ids.append(job.job_id)
 
     return job_ids
-
-
-# Import asyncio for sleep
-import asyncio

@@ -8,6 +8,8 @@ Paper Scraper ist eine AI-powered SaaS-Plattform zur automatisierten Analyse wis
 
 ## Systemarchitektur
 
+_Updated on 2026-02-10: Multi-Source Async Ingestion mit Run-Tracking (OpenAlex, PubMed, arXiv, Semantic Scholar)._
+
 ```mermaid
 graph TB
     subgraph Client["Frontend (React 19 + TypeScript)"]
@@ -54,7 +56,7 @@ graph TB
     end
 
     subgraph Jobs["Background Jobs (arq)"]
-        ING["Ingestion<br/>(OpenAlex)"]
+        ING["Ingestion<br/>(OpenAlex, PubMed, arXiv, Semantic Scholar)"]
         SCJ["Scoring<br/>(6 Dimensionen)"]
         ALJ["Alerts<br/>(Daily/Weekly)"]
         EMB["Embeddings<br/>(Backfill)"]
@@ -67,6 +69,7 @@ graph TB
         CR["Crossref"]
         PM["PubMed"]
         AX["arXiv"]
+        SS["Semantic Scholar"]
     end
 
     subgraph LLM["LLM Provider"]
@@ -228,7 +231,7 @@ graph TB
 | **arXiv** | Preprints (STEM) | Keine | 1 req/3s | Implementiert |
 | **PDF Upload** | Manuelle Paper-Uploads | — | — | Implementiert |
 | **EPO OPS** | Patentdaten, Prior Art | OAuth 2.0 | 5 req/s | Geplant |
-| **Semantic Scholar** | Zitationen, Influence | API Key (optional) | 100 req/s | Geplant |
+| **Semantic Scholar** | Zitationen, Influence + Paper-Ingestion | API Key (optional) | 100 req/s | Implementiert |
 
 ---
 
@@ -251,7 +254,7 @@ paper_scraper/
 │   ├── storage.py                # S3/MinIO Storage Utilities
 │   └── csv_utils.py              # CSV-Export mit Injection-Schutz
 │
-├── modules/                       # 22 Feature-Module
+├── modules/                       # 24 Feature-Module
 │   ├── auth/                     # Authentication & User Management
 │   │   ├── models.py             # Organization, User, TeamInvitation
 │   │   ├── schemas.py            # Pydantic DTOs
@@ -357,13 +360,24 @@ paper_scraper/
 │   │   ├── models.py             # RetentionPolicy, RetentionLog
 │   │   ├── schemas.py, service.py, router.py
 │   │
-│   └── notifications/             # Server-side Notifications
-│       ├── models.py             # Notification (alert/badge/system)
-│       ├── schemas.py, service.py, router.py
+│   ├── notifications/             # Server-side Notifications
+│   │   ├── models.py             # Notification (alert/badge/system)
+│   │   ├── schemas.py, service.py, router.py
+│   │
+│   ├── ingestion/                # Pipeline Control Plane
+│   │   ├── models.py             # IngestRun, SourceRecord, IngestCheckpoint
+│   │   ├── service.py            # Run/Checkpoint-Management
+│   │   ├── pipeline.py           # Multi-Source Run-Orchestrierung
+│   │   └── router.py             # /ingestion/runs APIs
+│   │
+│   └── integrations/             # Tenant-Scoped Connector Config
+│       ├── models.py             # IntegrationConnector
+│       ├── service.py, router.py
+│       └── connectors/           # MarketFeed Baseline Connector
 │
 ├── jobs/                         # Background Jobs (arq)
 │   ├── worker.py                 # WorkerSettings, Cron Jobs
-│   ├── ingestion.py              # OpenAlex Batch-Ingestion
+│   ├── ingestion.py              # Multi-Source async ingest_source_task
 │   ├── scoring.py                # Paper Scoring + Embedding-Generierung
 │   ├── alerts.py                 # Daily/Weekly Alert-Verarbeitung + Notification Creation
 │   ├── search.py                 # Embedding-Backfill
@@ -374,7 +388,7 @@ paper_scraper/
     ├── main.py                   # FastAPI App, Lifespan, Exception Handlers
     ├── dependencies.py           # DI (current_user, db session, RBAC)
     ├── middleware.py             # SecurityHeaders, Rate Limiting (slowapi)
-    └── v1/router.py              # 22 Modul-Router aggregiert
+    └── v1/router.py              # 24 Modul-Router aggregiert
 ```
 
 ### 3.2 LLM Abstraction Layer
@@ -423,13 +437,16 @@ def get_llm_client(provider: str | None = None) -> BaseLLMClient:
 
 ### 3.3 Background Jobs (arq)
 
+_Updated on 2026-02-10: Ingestion-Jobs wurden auf source-agnostischen Pipeline-Task vereinheitlicht._
+
 | Job | Zweck | Trigger |
 |-----|-------|---------|
 | `score_paper_task` | Einzelnes Paper AI-scoren | On-demand (API) |
 | `score_papers_batch_task` | Batch-Scoring | On-demand (API) |
 | `generate_embeddings_batch_task` | Vektor-Embeddings generieren | On-demand |
 | `backfill_embeddings_task` | Fehlende Embeddings nachfuellen | On-demand |
-| `ingest_openalex_task` | OpenAlex Paper-Import | On-demand (API) |
+| `ingest_source_task` | Multi-Source Paper-Import mit `ingest_run_id` (OpenAlex, PubMed, arXiv, Semantic Scholar) | On-demand (API) |
+| `ingest_openalex_task` | Backward-Compatible OpenAlex Wrapper | On-demand (Legacy/Compatibility) |
 | `process_daily_alerts_task` | Tagliche Such-Alerts | **Cron: 6:00 UTC taglich** |
 | `process_weekly_alerts_task` | Wochentliche Such-Alerts | **Cron: Montag 6:00 UTC** |
 | `process_immediate_alert_task` | Sofort-Alerts | On-demand |
@@ -585,6 +602,42 @@ ErrorBoundary
 ## 5. Datenbank-Schema
 
 ### 5.1 PostgreSQL 16 + pgvector
+
+_Updated on 2026-02-10: Foundations-Pipeline-Tabellen aktiv im Produktivpfad._
+
+```sql
+-- Foundations Pipeline (Sprint 37)
+CREATE TABLE ingest_runs (
+    id UUID PRIMARY KEY,
+    source VARCHAR(100) NOT NULL,
+    organization_id UUID,
+    initiated_by_id UUID,
+    status ingestrunstatus NOT NULL,      -- queued, running, completed, completed_with_errors, failed
+    cursor_before JSONB DEFAULT '{}',
+    cursor_after JSONB DEFAULT '{}',
+    stats_json JSONB DEFAULT '{}',
+    error_message TEXT,
+    started_at TIMESTAMPTZ NOT NULL,
+    completed_at TIMESTAMPTZ
+);
+
+CREATE TABLE source_records (
+    id UUID PRIMARY KEY,
+    source VARCHAR(100) NOT NULL,
+    source_record_id VARCHAR(255) NOT NULL,
+    content_hash VARCHAR(128) NOT NULL,
+    ingest_run_id UUID REFERENCES ingest_runs(id) ON DELETE CASCADE,
+    raw_payload_json JSONB NOT NULL,
+    UNIQUE (source, source_record_id, content_hash)
+);
+
+CREATE TABLE ingest_checkpoints (
+    source VARCHAR(100) NOT NULL,
+    scope_key VARCHAR(255) NOT NULL,
+    cursor_json JSONB NOT NULL DEFAULT '{}',
+    PRIMARY KEY (source, scope_key)
+);
+```
 
 ```sql
 -- Extensions
@@ -1231,7 +1284,9 @@ async def get_papers(db: AsyncSession, org_id: UUID) -> list[Paper]:
 | **Email** | Resend | Zuverlassig, gute DX, einfache Integration |
 | **Search** | pgvector (HNSW) + pg_trgm | Kein extra Service, skaliert bis 10M+ Dokumente |
 | **Monitoring** | Sentry + Langfuse | Error Tracking + LLM Observability |
-| **CI/CD** | GitHub Actions | Kostenlos, gut integriert |
+| **CI/CD** | GitHub Actions + Architecture Docs Gate | Kostenlos, gut integriert; erzwingt 01/04/05-Doku-Updates bei Architektur-Änderungen |
+
+_Updated on 2026-02-10: CI-Qualitätsgate für verpflichtende Architektur-Dokumentationsupdates ergänzt._
 
 ---
 

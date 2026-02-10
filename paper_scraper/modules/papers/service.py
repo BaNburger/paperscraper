@@ -435,6 +435,30 @@ class PaperService:
             if existing:
                 return True
 
+        # Fallback dedupe: title + publication year
+        title = (paper_data.get("title") or "").strip()
+        publication_date = paper_data.get("publication_date")
+        publication_year: int | None = None
+        if publication_date:
+            try:
+                publication_year = datetime.fromisoformat(publication_date).year
+            except ValueError:
+                publication_year = None
+
+        if title:
+            query = select(Paper).where(
+                Paper.organization_id == organization_id,
+                func.lower(Paper.title) == title.lower(),
+            )
+            if publication_year is not None:
+                query = query.where(
+                    func.extract("year", Paper.publication_date) == publication_year
+                )
+
+            result = await self.db.execute(query.limit(1))
+            if result.scalar_one_or_none():
+                return True
+
         return False
 
     async def ingest_from_pdf(

@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -452,9 +452,9 @@ class AlertService:
         search_service = SearchService(self.db)
         filters_dict = saved_search.filters.copy() if saved_search.filters else {}
 
-        # Add date filter to only get new papers
-        if "date_from" not in filters_dict or not filters_dict.get("date_from"):
-            filters_dict["date_from"] = since.isoformat()
+        # "New" should be based on ingestion freshness, not publication date.
+        if "ingested_from" not in filters_dict or not filters_dict.get("ingested_from"):
+            filters_dict["ingested_from"] = since.isoformat()
 
         filters = SearchFilters(**filters_dict) if filters_dict else None
 

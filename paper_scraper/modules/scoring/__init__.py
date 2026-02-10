@@ -24,7 +24,8 @@ from paper_scraper.modules.scoring.llm_client import (
     OpenAIClient,
     get_llm_client,
 )
-from paper_scraper.modules.scoring.models import PaperScore, ScoringJob
+from paper_scraper.modules.scoring.context_assembler import DefaultScoreContextAssembler
+from paper_scraper.modules.scoring.models import PaperScore, ScoringJob, ScoringPolicy
 from paper_scraper.modules.scoring.orchestrator import (
     AggregatedScore,
     ScoringOrchestrator,
@@ -39,6 +40,7 @@ __all__ = [
     "AnthropicClient",
     "OllamaClient",
     "get_llm_client",
+    "DefaultScoreContextAssembler",
     # Embeddings
     "EmbeddingClient",
     "generate_paper_embedding",
@@ -57,6 +59,7 @@ __all__ = [
     # Models
     "PaperScore",
     "ScoringJob",
+    "ScoringPolicy",
     # Service
     "ScoringService",
 ]

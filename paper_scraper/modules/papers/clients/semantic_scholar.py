@@ -66,33 +66,48 @@ class SemanticScholarClient(BaseAPIClient):
         Returns:
             List of normalized paper dictionaries.
         """
-        params: dict = {
-            "query": query,
-            "limit": min(max_results, 100),
-            "fields": _PAPER_FIELDS,
-        }
-        if year:
-            params["year"] = year
-        if fields_of_study:
-            params["fieldsOfStudy"] = ",".join(fields_of_study)
-
-        try:
-            response = await self.client.get(
-                f"{self.base_url}/paper/search",
-                params=params,
-                headers=self._headers(),
-            )
-            response.raise_for_status()
-        except Exception as e:
-            logger.warning("Semantic Scholar search failed: %s", e)
-            return []
-
-        data = response.json()
         papers = []
-        for paper in data.get("data", []):
-            normalized = self.normalize(paper)
-            if normalized:
-                papers.append(normalized)
+        offset = 0
+
+        while len(papers) < max_results:
+            remaining = max_results - len(papers)
+            params: dict = {
+                "query": query,
+                "offset": offset,
+                "limit": min(remaining, 100),
+                "fields": _PAPER_FIELDS,
+            }
+            if year:
+                params["year"] = year
+            if fields_of_study:
+                params["fieldsOfStudy"] = ",".join(fields_of_study)
+
+            try:
+                response = await self.client.get(
+                    f"{self.base_url}/paper/search",
+                    params=params,
+                    headers=self._headers(),
+                )
+                response.raise_for_status()
+            except Exception as e:
+                logger.warning("Semantic Scholar search failed: %s", e)
+                return papers
+
+            data = response.json()
+            batch = data.get("data", [])
+            if not batch:
+                break
+
+            for paper in batch:
+                normalized = self.normalize(paper)
+                if normalized:
+                    papers.append(normalized)
+                    if len(papers) >= max_results:
+                        break
+
+            offset += len(batch)
+            if len(batch) < params["limit"]:
+                break
 
         return papers
 

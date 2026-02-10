@@ -5,20 +5,13 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-from sqlalchemy.pool import NullPool
 
-from paper_scraper.core.config import settings
+from paper_scraper.core.database import get_db_session
 from paper_scraper.modules.developer import service as dev_service
 from paper_scraper.modules.developer.models import RepositoryProvider, RepositorySource
-
-
-# Create a separate engine for background jobs
-_engine = create_async_engine(
-    settings.DATABASE_URL,
-    poolclass=NullPool,
-)
-_async_session = async_sessionmaker(_engine, expire_on_commit=False)
+from paper_scraper.modules.ingestion.models import IngestRunStatus
+from paper_scraper.modules.ingestion.service import IngestionService
+from paper_scraper.modules.papers.models import PaperSource
 
 
 async def sync_repository_source_task(
@@ -36,7 +29,7 @@ async def sync_repository_source_task(
     Returns:
         Result dict with sync status and stats.
     """
-    async with _async_session() as db:
+    async with get_db_session() as db:
         try:
             source = await dev_service.get_repository_source(
                 db, UUID(org_id), UUID(source_id)
@@ -59,6 +52,14 @@ async def sync_repository_source_task(
         provider = source.provider
         papers_imported = 0
         errors = []
+        ingestion_service = IngestionService(db)
+        checkpoint = await ingestion_service.get_checkpoint(provider, str(source.id))
+        run = await ingestion_service.create_run(
+            source=provider,
+            organization_id=UUID(org_id),
+            cursor_before=checkpoint.cursor_json if checkpoint else {},
+            idempotency_key=f"repo:{source.id}:{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}",
+        )
 
         try:
             if provider == RepositoryProvider.OPENALEX.value:
@@ -77,12 +78,37 @@ async def sync_repository_source_task(
                 papers_imported, errors = await _sync_crossref(
                     db, UUID(org_id), config
                 )
+            elif provider == RepositoryProvider.SEMANTIC_SCHOLAR.value:
+                papers_imported, errors = await _sync_semantic_scholar(
+                    db, UUID(org_id), config
+                )
             else:
-                return {
-                    "status": "failed",
-                    "error": f"Unsupported provider: {provider}",
-                    "source_id": source_id,
-                }
+                raise ValueError(f"Unsupported provider: {provider}")
+
+            completed_status = (
+                IngestRunStatus.COMPLETED_WITH_ERRORS
+                if errors
+                else IngestRunStatus.COMPLETED
+            )
+            cursor_after = {
+                "last_sync_at": datetime.now(timezone.utc).isoformat(),
+                "source_id": source_id,
+                "papers_imported": papers_imported,
+            }
+            await ingestion_service.complete_run(
+                run.id,
+                status=completed_status,
+                cursor_after=cursor_after,
+                stats_json={
+                    "papers_imported": papers_imported,
+                    "error_count": len(errors),
+                },
+            )
+            await ingestion_service.upsert_checkpoint(
+                source=provider,
+                scope_key=str(source.id),
+                cursor_json=cursor_after,
+            )
 
             # Record result
             result_data = {
@@ -110,6 +136,16 @@ async def sync_repository_source_task(
                 "error": str(e),
                 "completed_at": datetime.now(timezone.utc).isoformat(),
             }
+            await ingestion_service.complete_run(
+                run.id,
+                status=IngestRunStatus.FAILED,
+                cursor_after={
+                    "last_sync_at": datetime.now(timezone.utc).isoformat(),
+                    "source_id": source_id,
+                },
+                stats_json={"papers_imported": 0, "error_count": 1},
+                error_message=str(e),
+            )
             await dev_service.record_sync_result(db, UUID(source_id), result_data, 0)
             await db.commit()
 
@@ -147,12 +183,13 @@ async def _sync_openalex(
     # Use the existing ingestion task
     result = await ingest_openalex_task(
         {},  # Empty context for direct call
-        org_id=str(org_id),
+        organization_id=str(org_id),
         query=query,
         max_results=max_results,
+        filters=filters,
     )
 
-    papers_imported = result.get("papers_ingested", 0)
+    papers_imported = result.get("papers_created", 0) + result.get("papers_updated", 0)
     errors = []
     if result.get("errors"):
         errors = result["errors"]
@@ -165,7 +202,7 @@ async def _sync_pubmed(
     org_id: UUID,
     config: dict,
 ) -> tuple[int, list[str]]:
-    """Sync from PubMed (placeholder).
+    """Sync from PubMed.
 
     Args:
         db: Database session.
@@ -175,8 +212,22 @@ async def _sync_pubmed(
     Returns:
         Tuple of (papers_imported, errors).
     """
-    # PubMed ingestion not yet implemented
-    return 0, ["PubMed ingestion not yet implemented"]
+    from paper_scraper.jobs.worker import ingest_papers_task
+
+    query = config.get("query", "")
+    max_results = config.get("max_results", 100)
+
+    if not query:
+        return 0, ["No query configured"]
+
+    result = await ingest_papers_task(
+        {},
+        source="pubmed",
+        organization_id=str(org_id),
+        query=query,
+        max_results=max_results,
+    )
+    return result.get("papers_created", 0), result.get("errors", [])
 
 
 async def _sync_arxiv(
@@ -184,7 +235,7 @@ async def _sync_arxiv(
     org_id: UUID,
     config: dict,
 ) -> tuple[int, list[str]]:
-    """Sync from arXiv (placeholder).
+    """Sync from arXiv.
 
     Args:
         db: Database session.
@@ -194,8 +245,24 @@ async def _sync_arxiv(
     Returns:
         Tuple of (papers_imported, errors).
     """
-    # arXiv ingestion not yet implemented
-    return 0, ["arXiv ingestion not yet implemented"]
+    from paper_scraper.jobs.worker import ingest_papers_task
+
+    query = config.get("query", "")
+    max_results = config.get("max_results", 100)
+    category = config.get("filters", {}).get("category")
+
+    if not query:
+        return 0, ["No query configured"]
+
+    result = await ingest_papers_task(
+        {},
+        source="arxiv",
+        organization_id=str(org_id),
+        query=query,
+        max_results=max_results,
+        category=category,
+    )
+    return result.get("papers_created", 0), result.get("errors", [])
 
 
 async def _sync_crossref(
@@ -203,7 +270,7 @@ async def _sync_crossref(
     org_id: UUID,
     config: dict,
 ) -> tuple[int, list[str]]:
-    """Sync from Crossref (placeholder).
+    """Sync from Crossref.
 
     Args:
         db: Database session.
@@ -213,8 +280,107 @@ async def _sync_crossref(
     Returns:
         Tuple of (papers_imported, errors).
     """
-    # Crossref ingestion not yet implemented
-    return 0, ["Crossref ingestion not yet implemented"]
+    from paper_scraper.modules.papers.clients.crossref import CrossrefClient
+    from paper_scraper.modules.papers.service import PaperService
+
+    query = config.get("query", "")
+    max_results = config.get("max_results", 100)
+
+    if not query:
+        return 0, ["No query configured"]
+
+    try:
+        async with CrossrefClient() as client:
+            papers_data = await client.search(query, max_results=max_results)
+    except Exception as exc:
+        return 0, [str(exc)]
+
+    service = PaperService(db)
+    result = await service._ingest_papers_batch(  # noqa: SLF001 - scoped internal use
+        papers_data=papers_data,
+        organization_id=org_id,
+        source=PaperSource.CROSSREF,
+    )
+    return result.papers_created, result.errors
+
+
+async def _sync_semantic_scholar(
+    db,
+    org_id: UUID,
+    config: dict,
+) -> tuple[int, list[str]]:
+    """Sync from Semantic Scholar."""
+    from paper_scraper.jobs.worker import ingest_papers_task
+
+    query = config.get("query", "")
+    max_results = config.get("max_results", 100)
+
+    if not query:
+        return 0, ["No query configured"]
+
+    result = await ingest_papers_task(
+        {},
+        source="semantic_scholar",
+        organization_id=str(org_id),
+        query=query,
+        max_results=max_results,
+    )
+    return result.get("papers_created", 0), result.get("errors", [])
+
+
+def _matches_cron_part(part: str, value: int) -> bool:
+    """Return whether a cron part matches the given value."""
+    if part == "*":
+        return True
+
+    for fragment in part.split(","):
+        if "/" in fragment:
+            base, step_str = fragment.split("/", 1)
+            step = int(step_str)
+            if base == "*":
+                if value % step == 0:
+                    return True
+                continue
+            if "-" in base:
+                start, end = map(int, base.split("-", 1))
+                if start <= value <= end and (value - start) % step == 0:
+                    return True
+                continue
+            start = int(base)
+            if value >= start and (value - start) % step == 0:
+                return True
+            continue
+
+        if "-" in fragment:
+            start, end = map(int, fragment.split("-", 1))
+            if start <= value <= end:
+                return True
+            continue
+
+        numeric = int(fragment)
+        if numeric == value or (value == 0 and numeric == 7):
+            return True
+
+    return False
+
+
+def _schedule_is_due(schedule: str, now: datetime) -> bool:
+    """Evaluate a simple 5-field cron expression against a UTC datetime."""
+    parts = schedule.split()
+    if len(parts) != 5:
+        return False
+
+    minute, hour, day_of_month, month, day_of_week = parts
+    # Python weekday: Monday=0..Sunday=6, cron: Sunday=0..Saturday=6
+    cron_day_of_week = (now.weekday() + 1) % 7
+
+    return (
+        _matches_cron_part(minute, now.minute)
+        and _matches_cron_part(hour, now.hour)
+        and _matches_cron_part(day_of_month, now.day)
+        and _matches_cron_part(month, now.month)
+        and _matches_cron_part(day_of_week, cron_day_of_week)
+    )
 
 
 async def run_scheduled_syncs_task(
@@ -233,7 +399,7 @@ async def run_scheduled_syncs_task(
     """
     from paper_scraper.jobs.worker import enqueue_job
 
-    async with _async_session() as db:
+    async with get_db_session() as db:
         # Get all active sources with schedules
         result = await db.execute(
             select(RepositorySource).where(
@@ -243,18 +409,24 @@ async def run_scheduled_syncs_task(
         )
         sources = list(result.scalars().all())
 
+        now = datetime.now(timezone.utc)
         syncs_queued = 0
+        syncs_skipped = 0
         for source in sources:
-            # For now, just queue all scheduled sources
-            # In production, would check if the cron schedule matches current time
+            if not source.schedule or not _schedule_is_due(source.schedule, now):
+                syncs_skipped += 1
+                continue
+
             await enqueue_job(
                 "sync_repository_source_task",
                 str(source.id),
                 str(source.organization_id),
+                job_id=f"sync:{source.id}:{now.strftime('%Y%m%d%H%M')}",
             )
             syncs_queued += 1
 
         return {
             "status": "completed",
             "syncs_queued": syncs_queued,
+            "syncs_skipped": syncs_skipped,
         }

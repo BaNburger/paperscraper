@@ -1,6 +1,7 @@
 """Service layer for scoring module."""
 
 import logging
+from base64 import b64decode
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
@@ -8,11 +9,12 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.core.exceptions import NotFoundError
-from paper_scraper.modules.model_settings.models import ModelUsage
+from paper_scraper.modules.model_settings.models import ModelConfiguration, ModelUsage
 from paper_scraper.modules.papers.models import Paper
 from paper_scraper.modules.scoring.dimensions.base import PaperContext
 from paper_scraper.modules.scoring.embeddings import generate_paper_embedding
-from paper_scraper.modules.scoring.models import PaperScore, ScoringJob
+from paper_scraper.modules.scoring.llm_client import get_llm_client
+from paper_scraper.modules.scoring.models import PaperScore, ScoringJob, ScoringPolicy
 from paper_scraper.modules.scoring.orchestrator import (
     AggregatedScore,
     ScoringOrchestrator,
@@ -22,9 +24,14 @@ from paper_scraper.modules.scoring.schemas import (
     PaperScoreListResponse,
     PaperScoreSummary,
     ScoringJobListResponse,
+    ScoringPolicyCreate,
+    ScoringPolicyListResponse,
+    ScoringPolicyResponse,
+    ScoringPolicyUpdate,
     ScoringJobResponse,
     ScoringWeightsSchema,
 )
+from paper_scraper.modules.scoring.context_assembler import DefaultScoreContextAssembler
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +41,6 @@ class ScoringService:
 
     def __init__(self, db: AsyncSession):
         self.db = db
-        self.orchestrator = ScoringOrchestrator()
 
     # =========================================================================
     # Paper Scoring
@@ -94,11 +100,13 @@ class ScoringService:
         # Fetch knowledge context if enabled
         knowledge_context = ""
         if use_knowledge_context:
-            knowledge_context = await self._get_knowledge_context(
+            assembler = DefaultScoreContextAssembler(self.db)
+            score_context = await assembler.build(
+                paper_id=paper_id,
                 organization_id=organization_id,
                 user_id=user_id,
-                keywords=paper.keywords,
             )
+            knowledge_context = score_context.prompt_context
             if knowledge_context:
                 paper_context.knowledge_context = knowledge_context
                 logger.debug(
@@ -106,8 +114,9 @@ class ScoringService:
                     f"for paper {paper_id}"
                 )
 
-        # Get orchestrator with custom weights if provided
-        orchestrator = self.orchestrator
+        # Resolve tenant-specific scoring policy (provider/model) if configured.
+        llm_client = await self._resolve_llm_client(organization_id)
+        orchestrator = ScoringOrchestrator(llm_client=llm_client)
         if weights:
             scoring_weights = ScoringWeights(
                 novelty=weights.novelty,
@@ -378,6 +387,90 @@ class ScoringService:
         await self.db.commit()
 
     # =========================================================================
+    # Scoring Policies
+    # =========================================================================
+
+    async def list_policies(self, organization_id: UUID) -> ScoringPolicyListResponse:
+        """List scoring policies for a tenant."""
+        result = await self.db.execute(
+            select(ScoringPolicy)
+            .where(ScoringPolicy.organization_id == organization_id)
+            .order_by(ScoringPolicy.is_default.desc(), ScoringPolicy.created_at.desc())
+        )
+        policies = list(result.scalars().all())
+        return ScoringPolicyListResponse(
+            items=[ScoringPolicyResponse.model_validate(policy) for policy in policies],
+            total=len(policies),
+        )
+
+    async def create_policy(
+        self,
+        organization_id: UUID,
+        data: ScoringPolicyCreate,
+    ) -> ScoringPolicy:
+        """Create a scoring policy."""
+        if data.is_default:
+            await self._unset_default_policies(organization_id)
+
+        policy = ScoringPolicy(
+            organization_id=organization_id,
+            provider=data.provider,
+            model=data.model,
+            temperature=data.temperature,
+            max_tokens=data.max_tokens,
+            secret_ref=data.secret_ref,
+            is_default=data.is_default,
+        )
+        self.db.add(policy)
+        await self.db.flush()
+        await self.db.refresh(policy)
+        return policy
+
+    async def update_policy(
+        self,
+        policy_id: UUID,
+        organization_id: UUID,
+        data: ScoringPolicyUpdate,
+    ) -> ScoringPolicy:
+        """Update an existing scoring policy."""
+        policy = await self._get_policy(policy_id, organization_id)
+        update_data = data.model_dump(exclude_unset=True)
+
+        if update_data.get("is_default"):
+            await self._unset_default_policies(organization_id)
+
+        for key, value in update_data.items():
+            setattr(policy, key, value)
+
+        await self.db.flush()
+        await self.db.refresh(policy)
+        return policy
+
+    async def _unset_default_policies(self, organization_id: UUID) -> None:
+        """Unset default flag on all policies in an org."""
+        result = await self.db.execute(
+            select(ScoringPolicy).where(
+                ScoringPolicy.organization_id == organization_id,
+                ScoringPolicy.is_default == True,  # noqa: E712
+            )
+        )
+        for policy in result.scalars().all():
+            policy.is_default = False
+
+    async def _get_policy(self, policy_id: UUID, organization_id: UUID) -> ScoringPolicy:
+        """Get a policy with tenant isolation."""
+        result = await self.db.execute(
+            select(ScoringPolicy).where(
+                ScoringPolicy.id == policy_id,
+                ScoringPolicy.organization_id == organization_id,
+            )
+        )
+        policy = result.scalar_one_or_none()
+        if policy is None:
+            raise NotFoundError("ScoringPolicy", str(policy_id))
+        return policy
+
+    # =========================================================================
     # Embeddings
     # =========================================================================
 
@@ -458,6 +551,66 @@ class ScoringService:
 
         await self.db.commit()
         return count
+
+    async def _resolve_llm_client(self, organization_id: UUID):
+        """Resolve LLM client from scoring policy, then model config, then global defaults."""
+        # 1) scoring_policies default (new pipeline primitive)
+        policy_query = (
+            select(ScoringPolicy)
+            .where(ScoringPolicy.organization_id == organization_id)
+            .order_by(ScoringPolicy.is_default.desc(), ScoringPolicy.created_at.desc())
+            .limit(1)
+        )
+        policy = (await self.db.execute(policy_query)).scalar_one_or_none()
+        if policy:
+            api_key = self._extract_api_key_from_secret_ref(policy.secret_ref)
+            try:
+                return get_llm_client(
+                    provider=policy.provider,
+                    model=policy.model,
+                    api_key=api_key,
+                )
+            except Exception as exc:
+                logger.warning("Failed to resolve scoring policy LLM client: %s", exc)
+
+        # 2) legacy model_configurations default
+        config_query = (
+            select(ModelConfiguration)
+            .where(ModelConfiguration.organization_id == organization_id)
+            .order_by(ModelConfiguration.is_default.desc(), ModelConfiguration.created_at.desc())
+            .limit(1)
+        )
+        config = (await self.db.execute(config_query)).scalar_one_or_none()
+        if config:
+            api_key = None
+            if config.api_key_encrypted:
+                try:
+                    api_key = b64decode(config.api_key_encrypted.encode()).decode()
+                except Exception:
+                    api_key = None
+            try:
+                return get_llm_client(
+                    provider=config.provider,
+                    model=config.model_name,
+                    api_key=api_key,
+                )
+            except Exception as exc:
+                logger.warning("Failed to resolve model configuration LLM client: %s", exc)
+
+        # 3) fallback to global settings
+        return get_llm_client()
+
+    @staticmethod
+    def _extract_api_key_from_secret_ref(secret_ref: str | None) -> str | None:
+        """Extract an API key from secret_ref for prototype usage.
+
+        Supports only `plain:<api_key>` format in this prototype.
+        """
+        if not secret_ref:
+            return None
+        if secret_ref.startswith("plain:"):
+            return secret_ref.replace("plain:", "", 1)
+        return None
 
     # =========================================================================
     # Private Methods

@@ -3,7 +3,6 @@
 from typing import Annotated
 from uuid import UUID
 
-import arq
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +13,8 @@ from paper_scraper.core.config import settings
 from paper_scraper.core.database import get_db
 from paper_scraper.core.exceptions import NotFoundError
 from paper_scraper.jobs.badges import trigger_badge_check
+from paper_scraper.jobs.payloads import BatchScoringJobPayload
+from paper_scraper.jobs.worker import enqueue_job
 from paper_scraper.modules.scoring.classifier import PaperClassifier
 from paper_scraper.modules.scoring.schemas import (
     BatchScoreRequest,
@@ -23,8 +24,13 @@ from paper_scraper.modules.scoring.schemas import (
     PaperScoreListResponse,
     PaperScoreResponse,
     ScoreRequest,
+    ScoringJobCreateRequest,
     ScoringJobListResponse,
     ScoringJobResponse,
+    ScoringPolicyCreate,
+    ScoringPolicyListResponse,
+    ScoringPolicyResponse,
+    ScoringPolicyUpdate,
 )
 from paper_scraper.modules.scoring.service import ScoringService
 
@@ -171,6 +177,45 @@ async def list_scores(
 
 
 @router.post(
+    "/jobs",
+    response_model=ScoringJobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Create scoring job",
+    dependencies=[Depends(require_permission(Permission.SCORING_TRIGGER))],
+)
+async def create_scoring_job(
+    request: ScoringJobCreateRequest,
+    current_user: CurrentUser,
+    scoring_service: Annotated[ScoringService, Depends(get_scoring_service)],
+) -> ScoringJobResponse:
+    """Create an async scoring job and enqueue background processing."""
+    job = await scoring_service.create_batch_job(
+        paper_ids=request.paper_ids,
+        organization_id=current_user.organization_id,
+        job_type="batch",
+    )
+
+    payload = BatchScoringJobPayload(
+        job_id=job.id,
+        organization_id=current_user.organization_id,
+        paper_ids=request.paper_ids,
+        weights=request.weights,
+    )
+
+    arq_job = await enqueue_job(
+        "score_papers_batch_task",
+        str(payload.job_id),
+        str(payload.organization_id),
+        [str(pid) for pid in payload.paper_ids],
+        payload.weights.model_dump() if payload.weights else None,
+    )
+
+    job.arq_job_id = arq_job.job_id if arq_job else None
+    await scoring_service.db.commit()
+    return ScoringJobResponse.model_validate(job)
+
+
+@router.post(
     "/batch",
     response_model=ScoringJobResponse,
     status_code=status.HTTP_202_ACCEPTED,
@@ -194,24 +239,27 @@ async def batch_score(
         job_type="batch",
     )
 
+    payload = BatchScoringJobPayload(
+        job_id=job.id,
+        organization_id=current_user.organization_id,
+        paper_ids=request.paper_ids,
+        weights=request.weights,
+    )
+
     # Enqueue arq job
-    redis = await arq.create_pool(settings.arq_redis_settings)
-    try:
-        arq_job = await redis.enqueue_job(
-            "score_papers_batch_task",
-            str(job.id),
-            str(current_user.organization_id),
-            [str(pid) for pid in request.paper_ids],
-            request.weights.model_dump() if request.weights else None,
-        )
+    arq_job = await enqueue_job(
+        "score_papers_batch_task",
+        str(payload.job_id),
+        str(payload.organization_id),
+        [str(pid) for pid in payload.paper_ids],
+        payload.weights.model_dump() if payload.weights else None,
+    )
 
-        # Update job with arq reference
-        job.arq_job_id = arq_job.job_id
-        await scoring_service.db.commit()
+    # Update job with arq reference
+    job.arq_job_id = arq_job.job_id if arq_job else None
+    await scoring_service.db.commit()
 
-        return ScoringJobResponse.model_validate(job)
-    finally:
-        await redis.close()
+    return ScoringJobResponse.model_validate(job)
 
 
 @router.get(
@@ -253,6 +301,66 @@ async def get_job(
     if not job:
         raise NotFoundError("ScoringJob", job_id)
     return ScoringJobResponse.model_validate(job)
+
+
+# =============================================================================
+# Scoring Policy Endpoints
+# =============================================================================
+
+
+@router.get(
+    "/policies",
+    response_model=ScoringPolicyListResponse,
+    summary="List scoring policies",
+    dependencies=[Depends(require_permission(Permission.SETTINGS_ADMIN))],
+)
+async def list_scoring_policies(
+    current_user: CurrentUser,
+    scoring_service: Annotated[ScoringService, Depends(get_scoring_service)],
+) -> ScoringPolicyListResponse:
+    """List scoring policies for the current organization."""
+    return await scoring_service.list_policies(current_user.organization_id)
+
+
+@router.post(
+    "/policies",
+    response_model=ScoringPolicyResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create scoring policy",
+    dependencies=[Depends(require_permission(Permission.SETTINGS_ADMIN))],
+)
+async def create_scoring_policy(
+    data: ScoringPolicyCreate,
+    current_user: CurrentUser,
+    scoring_service: Annotated[ScoringService, Depends(get_scoring_service)],
+) -> ScoringPolicyResponse:
+    """Create a scoring policy for model/provider selection."""
+    policy = await scoring_service.create_policy(
+        organization_id=current_user.organization_id,
+        data=data,
+    )
+    return ScoringPolicyResponse.model_validate(policy)
+
+
+@router.patch(
+    "/policies/{policy_id}",
+    response_model=ScoringPolicyResponse,
+    summary="Update scoring policy",
+    dependencies=[Depends(require_permission(Permission.SETTINGS_ADMIN))],
+)
+async def update_scoring_policy(
+    policy_id: UUID,
+    data: ScoringPolicyUpdate,
+    current_user: CurrentUser,
+    scoring_service: Annotated[ScoringService, Depends(get_scoring_service)],
+) -> ScoringPolicyResponse:
+    """Update an existing scoring policy."""
+    policy = await scoring_service.update_policy(
+        policy_id=policy_id,
+        organization_id=current_user.organization_id,
+        data=data,
+    )
+    return ScoringPolicyResponse.model_validate(policy)
 
 
 # =============================================================================

@@ -263,7 +263,7 @@ class TestBadgeAutoAward:
         """Test that trigger_badge_check enqueues an arq job."""
         from paper_scraper.jobs.badges import trigger_badge_check
 
-        mock_enqueue.return_value = AsyncMock()()
+        mock_enqueue.return_value = None
 
         user_id = uuid.uuid4()
         org_id = uuid.uuid4()

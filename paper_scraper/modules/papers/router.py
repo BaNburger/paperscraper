@@ -3,16 +3,19 @@
 from typing import Annotated
 from uuid import UUID
 
-import arq
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.api.dependencies import CurrentUser, require_permission
-from paper_scraper.core.config import settings
 from paper_scraper.core.permissions import Permission
 from paper_scraper.core.database import get_db
 from paper_scraper.core.exceptions import NotFoundError
 from paper_scraper.jobs.badges import trigger_badge_check
+from paper_scraper.jobs.payloads import SourceIngestionJobPayload
+from paper_scraper.jobs.worker import enqueue_job
+from paper_scraper.modules.ingestion.models import IngestRunStatus
+from paper_scraper.modules.ingestion.service import IngestionService
+from paper_scraper.modules.papers.context_service import PaperContextService
 from paper_scraper.modules.papers.note_service import NoteService
 from paper_scraper.modules.papers.schemas import (
     CitationEdge,
@@ -29,6 +32,7 @@ from paper_scraper.modules.papers.schemas import (
     NoteListResponse,
     NoteResponse,
     NoteUpdate,
+    PaperContextSnapshotResponse,
     PaperDetail,
     PaperListResponse,
     PaperResponse,
@@ -56,6 +60,81 @@ def get_note_service(
 ) -> NoteService:
     """Dependency to get note service instance."""
     return NoteService(db)
+
+
+def get_context_service(
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> PaperContextService:
+    """Dependency to get paper context service instance."""
+    return PaperContextService(db)
+
+
+def get_ingestion_service(
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> IngestionService:
+    """Dependency to get ingestion service instance."""
+    return IngestionService(db)
+
+
+async def _enqueue_ingestion_job(
+    *,
+    source: str,
+    query: str,
+    max_results: int,
+    filters: dict,
+    current_user: CurrentUser,
+    ingestion_service: IngestionService,
+) -> IngestJobResponse:
+    """Create a queued run and enqueue the async ingestion job."""
+    run = await ingestion_service.create_run(
+        source=source,
+        organization_id=current_user.organization_id,
+        initiated_by_id=current_user.id,
+        cursor_before={},
+        status=IngestRunStatus.QUEUED,
+    )
+    # Persist queued run before enqueueing to avoid worker race conditions.
+    await ingestion_service.db.commit()
+    await ingestion_service.db.refresh(run)
+
+    payload = SourceIngestionJobPayload(
+        ingest_run_id=run.id,
+        source=source,  # type: ignore[arg-type]
+        organization_id=current_user.organization_id,
+        initiated_by_id=current_user.id,
+        query=query,
+        max_results=max_results,
+        filters=filters,
+    )
+
+    try:
+        job = await enqueue_job(
+            "ingest_source_task",
+            payload.model_dump(mode="json"),
+            job_id=str(run.id),
+        )
+    except Exception as exc:
+        await ingestion_service.complete_run(
+            run_id=run.id,
+            status=IngestRunStatus.FAILED,
+            cursor_after=run.cursor_after,
+            stats_json=run.stats_json,
+            error_message=str(exc)[:2000],
+        )
+        await ingestion_service.db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to enqueue ingestion job",
+        ) from exc
+
+    job_id = str(job.job_id) if job and job.job_id else str(run.id)
+    return IngestJobResponse(
+        job_id=job_id,
+        ingest_run_id=run.id,
+        source=source,
+        status=run.status.value,
+        message=f"Ingestion job queued for source '{source}' and query: {query}",
+    )
 
 
 @router.get(
@@ -96,6 +175,46 @@ async def get_paper(
     if not paper:
         raise NotFoundError("Paper", str(paper_id))
     return paper  # type: ignore
+
+
+@router.get(
+    "/{paper_id}/context",
+    response_model=PaperContextSnapshotResponse,
+    summary="Get paper context snapshot",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
+)
+async def get_paper_context(
+    paper_id: UUID,
+    current_user: CurrentUser,
+    context_service: Annotated[PaperContextService, Depends(get_context_service)],
+) -> PaperContextSnapshotResponse:
+    """Get the current enrichment context snapshot for a paper."""
+    snapshot = await context_service.get_snapshot(
+        paper_id=paper_id,
+        organization_id=current_user.organization_id,
+    )
+    if snapshot is None:
+        raise NotFoundError("PaperContextSnapshot", str(paper_id))
+    return PaperContextSnapshotResponse.model_validate(snapshot)
+
+
+@router.post(
+    "/{paper_id}/context/refresh",
+    response_model=PaperContextSnapshotResponse,
+    summary="Refresh paper context snapshot",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
+)
+async def refresh_paper_context(
+    paper_id: UUID,
+    current_user: CurrentUser,
+    context_service: Annotated[PaperContextService, Depends(get_context_service)],
+) -> PaperContextSnapshotResponse:
+    """Refresh and persist a new context snapshot for a paper."""
+    snapshot = await context_service.refresh_snapshot(
+        paper_id=paper_id,
+        organization_id=current_user.organization_id,
+    )
+    return PaperContextSnapshotResponse.model_validate(snapshot)
 
 
 @router.delete(
@@ -192,28 +311,20 @@ async def ingest_from_openalex(
 async def ingest_from_openalex_async(
     request: IngestOpenAlexRequest,
     current_user: CurrentUser,
+    ingestion_service: Annotated[IngestionService, Depends(get_ingestion_service)],
 ) -> IngestJobResponse:
     """Start async batch import from OpenAlex via arq job queue.
 
     Returns job ID for progress tracking.
     """
-    redis = await arq.create_pool(settings.arq_redis_settings)
-    try:
-        job = await redis.enqueue_job(
-            "ingest_openalex_task",
-            str(current_user.organization_id),
-            request.query,
-            request.max_results,
-            request.filters,
-        )
-
-        return IngestJobResponse(
-            job_id=job.job_id,
-            status="queued",
-            message=f"Ingestion job queued for query: {request.query}",
-        )
-    finally:
-        await redis.close()
+    return await _enqueue_ingestion_job(
+        source="openalex",
+        query=request.query,
+        max_results=request.max_results,
+        filters={"filters": request.filters},
+        current_user=current_user,
+        ingestion_service=ingestion_service,
+    )
 
 
 @router.post(
@@ -237,6 +348,29 @@ async def ingest_from_pubmed(
 
 
 @router.post(
+    "/ingest/pubmed/async",
+    response_model=IngestJobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Async batch import from PubMed",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
+)
+async def ingest_from_pubmed_async(
+    request: IngestPubMedRequest,
+    current_user: CurrentUser,
+    ingestion_service: Annotated[IngestionService, Depends(get_ingestion_service)],
+) -> IngestJobResponse:
+    """Start async batch import from PubMed via arq job queue."""
+    return await _enqueue_ingestion_job(
+        source="pubmed",
+        query=request.query,
+        max_results=request.max_results,
+        filters={},
+        current_user=current_user,
+        ingestion_service=ingestion_service,
+    )
+
+
+@router.post(
     "/ingest/arxiv",
     response_model=IngestResult,
     summary="Batch import from arXiv",
@@ -254,6 +388,29 @@ async def ingest_from_arxiv(
         max_results=request.max_results,
         category=request.category,
         created_by_id=current_user.id,
+    )
+
+
+@router.post(
+    "/ingest/arxiv/async",
+    response_model=IngestJobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Async batch import from arXiv",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
+)
+async def ingest_from_arxiv_async(
+    request: IngestArxivRequest,
+    current_user: CurrentUser,
+    ingestion_service: Annotated[IngestionService, Depends(get_ingestion_service)],
+) -> IngestJobResponse:
+    """Start async batch import from arXiv via arq job queue."""
+    return await _enqueue_ingestion_job(
+        source="arxiv",
+        query=request.query,
+        max_results=request.max_results,
+        filters={"category": request.category} if request.category else {},
+        current_user=current_user,
+        ingestion_service=ingestion_service,
     )
 
 
@@ -512,6 +669,29 @@ async def ingest_from_semantic_scholar(
         organization_id=current_user.organization_id,
         max_results=request.max_results,
         created_by_id=current_user.id,
+    )
+
+
+@router.post(
+    "/ingest/semantic-scholar/async",
+    response_model=IngestJobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Async batch import from Semantic Scholar",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
+)
+async def ingest_from_semantic_scholar_async(
+    request: IngestSemanticScholarRequest,
+    current_user: CurrentUser,
+    ingestion_service: Annotated[IngestionService, Depends(get_ingestion_service)],
+) -> IngestJobResponse:
+    """Start async batch import from Semantic Scholar via arq job queue."""
+    return await _enqueue_ingestion_job(
+        source="semantic_scholar",
+        query=request.query,
+        max_results=request.max_results,
+        filters={},
+        current_user=current_user,
+        ingestion_service=ingestion_service,
     )
 
 

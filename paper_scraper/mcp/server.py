@@ -8,12 +8,11 @@ Usage:
     Import: from paper_scraper.mcp import create_mcp_app
 """
 
-import json
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
 
 from paper_scraper.core.config import settings
@@ -88,17 +87,24 @@ async def search_papers(
     Returns:
         List of paper summaries.
     """
-    from paper_scraper.modules.search import service as search_service
-    from paper_scraper.modules.papers.models import Paper
+    from paper_scraper.modules.search.schemas import SearchMode, SearchRequest
+    from paper_scraper.modules.search.service import SearchService
 
     async with _async_session() as db:
-        # Perform search
-        papers = await search_service.search_papers(
-            db=db,
-            org_id=ctx.org_id,
-            query=query,
-            mode=mode,
-            limit=limit,
+        try:
+            search_mode = SearchMode(mode)
+        except ValueError:
+            search_mode = SearchMode.HYBRID
+
+        service = SearchService(db)
+        response = await service.search(
+            request=SearchRequest(
+                query=query,
+                mode=search_mode,
+                page=1,
+                page_size=min(limit, 100),
+            ),
+            organization_id=ctx.org_id,
         )
 
         return [
@@ -107,10 +113,10 @@ async def search_papers(
                 "title": p.title,
                 "doi": p.doi,
                 "abstract": p.abstract[:500] if p.abstract else None,
-                "source": p.source,
+                "source": p.source.value if hasattr(p.source, "value") else str(p.source),
                 "created_at": p.created_at.isoformat() if p.created_at else None,
             }
-            for p in papers
+            for p in response.items
         ]
 
 
@@ -160,7 +166,7 @@ async def get_paper_details(
             "title": paper.title,
             "doi": paper.doi,
             "abstract": paper.abstract,
-            "source": paper.source,
+            "source": paper.source.value if hasattr(paper.source, "value") else str(paper.source),
             "publication_date": paper.publication_date.isoformat() if paper.publication_date else None,
             "created_at": paper.created_at.isoformat() if paper.created_at else None,
         }
@@ -168,13 +174,13 @@ async def get_paper_details(
         if score:
             paper_data["scores"] = {
                 "overall": score.overall_score,
-                "novelty": score.novelty_score,
-                "ip_potential": score.ip_potential_score,
-                "marketability": score.marketability_score,
-                "feasibility": score.feasibility_score,
-                "commercialization": score.commercialization_score,
-                "team_readiness": score.team_readiness_score,
-                "confidence": score.confidence,
+                "novelty": score.novelty,
+                "ip_potential": score.ip_potential,
+                "marketability": score.marketability,
+                "feasibility": score.feasibility,
+                "commercialization": score.commercialization,
+                "team_readiness": score.team_readiness,
+                "confidence": score.overall_confidence,
                 "model_version": score.model_version,
             }
 
@@ -238,14 +244,14 @@ async def import_paper_by_doi(
     Returns:
         Import result with paper info.
     """
-    from paper_scraper.modules.papers import service as papers_service
+    from paper_scraper.modules.papers.service import PaperService
 
     async with _async_session() as db:
         try:
-            paper = await papers_service.ingest_paper_by_doi(
-                db=db,
-                org_id=ctx.org_id,
+            service = PaperService(db)
+            paper = await service.ingest_by_doi(
                 doi=doi,
+                organization_id=ctx.org_id,
             )
             await db.commit()
 
@@ -276,13 +282,15 @@ async def list_projects(
     Returns:
         List of projects.
     """
-    from paper_scraper.modules.projects.models import Project
+    from paper_scraper.modules.projects.service import ProjectService
 
     async with _async_session() as db:
-        result = await db.execute(
-            select(Project).where(Project.organization_id == ctx.org_id)
+        service = ProjectService(db)
+        projects_response = await service.list_projects(
+            organization_id=ctx.org_id,
+            page=1,
+            page_size=100,
         )
-        projects = result.scalars().all()
 
         return [
             {
@@ -292,7 +300,7 @@ async def list_projects(
                 "stages": p.stages,
                 "created_at": p.created_at.isoformat() if p.created_at else None,
             }
-            for p in projects
+            for p in projects_response.items
         ]
 
 
@@ -313,15 +321,15 @@ async def move_paper_stage(
     Returns:
         Move result.
     """
-    from paper_scraper.modules.projects import service as projects_service
+    from paper_scraper.modules.projects.service import ProjectService
 
     async with _async_session() as db:
         try:
-            await projects_service.move_paper_stage(
-                db=db,
-                org_id=ctx.org_id,
+            service = ProjectService(db)
+            await service.move_paper(
                 project_id=UUID(project_id),
                 paper_id=UUID(paper_id),
+                organization_id=ctx.org_id,
                 stage=stage,
             )
             await db.commit()
@@ -368,7 +376,7 @@ async def list_recent_papers(
                 "id": str(p.id),
                 "title": p.title,
                 "doi": p.doi,
-                "source": p.source,
+                "source": p.source.value if hasattr(p.source, "value") else str(p.source),
                 "created_at": p.created_at.isoformat() if p.created_at else None,
             }
             for p in papers

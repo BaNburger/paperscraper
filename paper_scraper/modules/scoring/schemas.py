@@ -232,6 +232,64 @@ class ScoringJobListResponse(BaseModel):
     pages: int
 
 
+class ScoringJobCreateRequest(BaseModel):
+    """Request schema for job-based scoring API."""
+
+    paper_ids: list[UUID] = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="Paper IDs to score asynchronously.",
+    )
+    weights: ScoringWeightsSchema | None = None
+
+
+class ScoringPolicyCreate(BaseModel):
+    """Create request for scoring policy."""
+
+    provider: str = Field(..., min_length=1, max_length=50)
+    model: str = Field(..., min_length=1, max_length=200)
+    temperature: float = Field(default=0.3, ge=0, le=2)
+    max_tokens: int = Field(default=4096, ge=1, le=32768)
+    secret_ref: str | None = Field(default=None, max_length=255)
+    is_default: bool = True
+
+
+class ScoringPolicyUpdate(BaseModel):
+    """Partial update for scoring policy."""
+
+    provider: str | None = Field(default=None, min_length=1, max_length=50)
+    model: str | None = Field(default=None, min_length=1, max_length=200)
+    temperature: float | None = Field(default=None, ge=0, le=2)
+    max_tokens: int | None = Field(default=None, ge=1, le=32768)
+    secret_ref: str | None = Field(default=None, max_length=255)
+    is_default: bool | None = None
+
+
+class ScoringPolicyResponse(BaseModel):
+    """Response schema for scoring policy."""
+
+    id: UUID
+    organization_id: UUID
+    provider: str
+    model: str
+    temperature: float
+    max_tokens: int
+    secret_ref: str | None
+    is_default: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ScoringPolicyListResponse(BaseModel):
+    """List response for scoring policies."""
+
+    items: list[ScoringPolicyResponse]
+    total: int
+
+
 # =============================================================================
 # Embedding Schemas
 # =============================================================================

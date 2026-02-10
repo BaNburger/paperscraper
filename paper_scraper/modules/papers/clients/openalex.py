@@ -42,27 +42,38 @@ class OpenAlexClient(BaseAPIClient):
         papers = []
         per_page = min(max_results, 200)
 
-        params = {
+        params: dict[str, str | int] = {
             "search": query,
             "per_page": per_page,
             "mailto": self.email,
+            "cursor": "*",
         }
 
         if filters:
             filter_parts = [f"{k}:{v}" for k, v in filters.items()]
             params["filter"] = ",".join(filter_parts)
 
-        response = await self.client.get(
-            f"{self.base_url}/works",
-            params=params,
-        )
-        response.raise_for_status()
-        data = response.json()
+        while len(papers) < max_results:
+            response = await self.client.get(
+                f"{self.base_url}/works",
+                params=params,
+            )
+            response.raise_for_status()
+            data = response.json()
 
-        for work in data.get("results", []):
-            papers.append(self.normalize(work))
-            if len(papers) >= max_results:
+            results = data.get("results", [])
+            if not results:
                 break
+
+            for work in results:
+                papers.append(self.normalize(work))
+                if len(papers) >= max_results:
+                    break
+
+            next_cursor = (data.get("meta") or {}).get("next_cursor")
+            if not next_cursor:
+                break
+            params["cursor"] = next_cursor
 
         return papers
 

@@ -662,6 +662,10 @@ class SearchService:
             query = query.where(Paper.publication_date >= filters.date_from)
         if filters.date_to:
             query = query.where(Paper.publication_date <= filters.date_to)
+        if filters.ingested_from:
+            query = query.where(Paper.created_at >= filters.ingested_from)
+        if filters.ingested_to:
+            query = query.where(Paper.created_at <= filters.ingested_to)
 
         if filters.has_embedding is True:
             query = query.where(Paper.embedding.is_not(None))

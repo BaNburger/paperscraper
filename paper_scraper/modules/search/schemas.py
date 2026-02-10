@@ -40,6 +40,12 @@ class SearchFilters(BaseModel):
     date_to: datetime | None = Field(
         default=None, description="Filter papers published before this date"
     )
+    ingested_from: datetime | None = Field(
+        default=None, description="Filter papers ingested after this date"
+    )
+    ingested_to: datetime | None = Field(
+        default=None, description="Filter papers ingested before this date"
+    )
     has_embedding: bool | None = Field(
         default=None, description="Filter by embedding presence"
     )

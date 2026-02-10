@@ -849,20 +849,42 @@ _LLM_PROVIDERS: dict[str, type[BaseLLMClient]] = {
 }
 
 
-def get_llm_client(provider: str | None = None) -> BaseLLMClient:
+def get_llm_client(
+    provider: str | None = None,
+    model: str | None = None,
+    api_key: str | None = None,
+    org_id: str | None = None,
+    base_url: str | None = None,
+) -> BaseLLMClient:
     """
     Factory function to get LLM client based on provider setting.
 
     Args:
         provider: Override provider (openai, anthropic, ollama, azure)
+        model: Optional provider-specific model name/deployment.
+        api_key: Optional provider API key override.
+        org_id: Optional OpenAI organization id.
+        base_url: Optional base URL override (ollama).
 
     Returns:
         Configured LLM client instance
     """
     provider = provider or settings.LLM_PROVIDER
 
-    client_class = _LLM_PROVIDERS.get(provider)
-    if client_class is None:
+    if provider not in _LLM_PROVIDERS:
         raise ValueError(f"Unknown LLM provider: {provider}")
 
-    return client_class()
+    if provider == "openai":
+        return OpenAIClient(api_key=api_key, model=model, org_id=org_id)
+    if provider == "anthropic":
+        return AnthropicClient(api_key=api_key, model=model)
+    if provider == "ollama":
+        return OllamaClient(base_url=base_url, model=model)
+    if provider == "azure":
+        return AzureOpenAIClient(
+            api_key=api_key,
+            deployment=model,
+        )
+
+    # Defensive fallback for static analyzers.
+    raise ValueError(f"Unknown LLM provider: {provider}")

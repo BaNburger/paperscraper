@@ -1,11 +1,9 @@
 """Alembic migration environment configuration."""
-import asyncio
 from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import create_engine, pool
 from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from paper_scraper.core.config import settings
 from paper_scraper.core.database import Base
@@ -21,7 +19,7 @@ except ImportError:
     pass
 
 try:
-    from paper_scraper.modules.scoring.models import PaperScore, ScoringJob  # noqa: F401
+    from paper_scraper.modules.scoring.models import PaperScore, ScoringJob, ScoringPolicy  # noqa: F401
 except ImportError:
     pass
 
@@ -103,6 +101,21 @@ except ImportError:
 
 try:
     from paper_scraper.modules.notifications.models import Notification  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    from paper_scraper.modules.ingestion.models import IngestRun, SourceRecord, IngestCheckpoint  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    from paper_scraper.modules.integrations.models import IntegrationConnector  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    from paper_scraper.modules.papers.context_models import PaperContextSnapshot  # noqa: F401
 except ImportError:
     pass
 

@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, Float, ForeignKey, Index, String, Text, Uuid, func
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text, Uuid, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -129,3 +129,44 @@ class ScoringJob(Base):
 
     def __repr__(self) -> str:
         return f"<ScoringJob {self.id} status={self.status}>"
+
+
+class ScoringPolicy(Base):
+    """Organization-level model policy used for scoring."""
+
+    __tablename__ = "scoring_policies"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(
+        Uuid,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    provider: Mapped[str] = mapped_column(String(50), nullable=False)
+    model: Mapped[str] = mapped_column(String(200), nullable=False)
+    temperature: Mapped[float] = mapped_column(Float, nullable=False, server_default="0.3")
+    max_tokens: Mapped[int] = mapped_column(Integer, nullable=False, server_default="4096")
+    secret_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    organization: Mapped["Organization"] = relationship("Organization")
+
+    __table_args__ = (
+        Index("ix_scoring_policies_org_default", "organization_id", "is_default"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<ScoringPolicy {self.provider}/{self.model} org={self.organization_id}>"

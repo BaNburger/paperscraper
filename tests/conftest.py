@@ -26,7 +26,7 @@ from paper_scraper.modules.projects.models import (  # noqa: F401
     PaperStageHistory,
     Project,
 )
-from paper_scraper.modules.scoring.models import PaperScore, ScoringJob  # noqa: F401
+from paper_scraper.modules.scoring.models import PaperScore, ScoringJob, ScoringPolicy  # noqa: F401
 from paper_scraper.modules.groups.models import ResearcherGroup, GroupMember  # noqa: F401
 from paper_scraper.modules.transfer.models import (  # noqa: F401
     TransferConversation, ConversationMessage, ConversationResource,
@@ -47,6 +47,9 @@ from paper_scraper.modules.alerts.models import Alert, AlertResult  # noqa: F401
 from paper_scraper.modules.audit.models import AuditLog  # noqa: F401
 from paper_scraper.modules.notifications.models import Notification  # noqa: F401
 from paper_scraper.modules.papers.notes import PaperNote  # noqa: F401
+from paper_scraper.modules.papers.context_models import PaperContextSnapshot  # noqa: F401
+from paper_scraper.modules.ingestion.models import IngestCheckpoint, IngestRun, SourceRecord  # noqa: F401
+from paper_scraper.modules.integrations.models import IntegrationConnector  # noqa: F401
 from paper_scraper.core.security import get_password_hash
 
 

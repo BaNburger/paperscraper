@@ -87,7 +87,25 @@
 | 35 | Complete i18n (English + German) | 1 week | ✅ Complete |
 | 36 | Server-side Notifications & Real-time Polling | 1 week | ✅ Complete |
 
+### Phase 10: Foundations Pipeline (Sprint 37)
+
+| Sprint | Focus | Duration | Status |
+|--------|-------|----------|--------|
+| 37 | Foundations Pipeline: Multi-Source Async Ingestion + Run Tracking | 1-2 weeks | ✅ Slice 1 Complete (2026-02-10) |
+
 ---
+
+## Documentation Governance
+
+_Updated on 2026-02-10_
+
+For every architecture-impacting slice, documentation updates are mandatory in the same implementation change:
+
+1. Update `01_TECHNISCHE_ARCHITEKTUR.md` (actual runtime architecture and data flow).
+2. Update `04_ARCHITECTURE_DECISIONS.md` (new/changed ADR decisions).
+3. Update `05_IMPLEMENTATION_PLAN.md` (delivery status and scope progression).
+4. Add explicit date markers (`Updated on YYYY-MM-DD`) in touched sections.
+5. CI enforces this rule via `.github/scripts/check_arch_docs_gate.sh` in `.github/workflows/ci.yml`.
 
 ## Improvement Summary (February 2026 Review)
 
@@ -116,6 +134,20 @@
 | **34** | Dedicated AlertsPage with list, create/edit, results history, trigger |
 | **35** | Complete i18n coverage (English + German, ~400 translation keys) |
 | **36** | Server-side notifications module, backend persistence, real-time polling |
+
+### Sprint 37 Foundations Pipeline Status
+
+_Updated on 2026-02-10_
+
+- ✅ Multi-source async ingestion endpoints added for PubMed, arXiv, Semantic Scholar (OpenAlex aligned).
+- ✅ Async ingestion responses now include `ingest_run_id` + `source` for run traceability.
+- ✅ Queued `ingest_runs` are pre-created and committed before queue enqueue.
+- ✅ Unified `ingest_source_task` introduced; OpenAlex task retained as compatibility wrapper.
+- ✅ Pipeline supports execution via `existing_run_id` with strict source/status validation.
+- ✅ Ingestion run read endpoints now use `PAPERS_READ` permission.
+- ✅ Architecture documentation governance formalized (01/04/05 mandatory updates).
+- ✅ CI quality gate enforces mandatory architecture documentation updates on architecture-impacting changes.
+- ✅ Pytest warning cleanup completed (deprecated config removed, async mock warning fixed).
 
 ### Remaining AI Integration Gaps
 | ID | Feature | Status | Notes |
@@ -6603,7 +6635,7 @@ After Sprint 30, verify:
 - [ ] Internationalization (EN, DE)
 - [ ] Organization branding
 - [ ] EPO OPS patent integration
-- [ ] Semantic Scholar integration
+- [x] Semantic Scholar integration (sync + async ingestion path)
 - [x] Transaction management standardized
 - [ ] Test infrastructure on PostgreSQL
 - [ ] Test coverage >80%

@@ -1456,11 +1456,108 @@ async def delete_paper(...): ...
 
 ### Konsequenzen
 - (+) Feingranulare Zugriffskontrolle
-- (+) Alle 22 Router-Module geschützt
+- (+) Alle 24 Router-Module geschützt
 - (+) Viewer-Rolle kann nur lesen, keine Schreiboperationen
 - (+) Admin-Only Operations (User Management, Model Settings, Compliance)
 - (-) Mehr Complexity bei Endpoint-Definitionen
 - (-) Permission-Matrix muss gepflegt werden
+
+---
+
+## ADR-022: Foundations Ingestion Pipeline Control + Source-specific Async APIs (Sprint 37)
+
+_Updated on 2026-02-10_
+
+### Status
+**Implementiert** - 2026-02-10
+
+### Kontext
+Die Ingestion war funktional, aber uneinheitlich:
+- Async-Ingestion war praktisch OpenAlex-zentriert.
+- Es gab keine verlässliche Kopplung zwischen API-Request, Queue-Job und persistiertem Run (`ingest_run_id`).
+- Run-Monitoring war über `DEVELOPER_MANAGE` eingeschränkt, obwohl fachliche Nutzer mit Paper-Rechten Ingestion triggern.
+
+Ziel war eine nachvollziehbare, multi-source-fähige Ingestion ohne Plattform-Rewrite.
+
+### Entscheidung
+1. **Source-spezifische Async-Endpunkte** statt generischem `/ingest/{source}/async`:
+- `/papers/ingest/openalex/async`
+- `/papers/ingest/pubmed/async`
+- `/papers/ingest/arxiv/async`
+- `/papers/ingest/semantic-scholar/async`
+2. **Run pre-creation vor Queue-Enqueue**:
+- API legt `ingest_runs` mit `status=queued` an und committet vor `enqueue_job`.
+- Queue-Job-ID ist deterministisch via `run.id`.
+3. **Unified Worker Path**:
+- `ingest_source_task` verarbeitet alle unterstützten Quellen über `IngestionPipeline`.
+- `ingest_openalex_task` bleibt als Compatibility-Wrapper.
+4. **Pipeline execution by existing run**:
+- Pipeline akzeptiert `existing_run_id`, validiert `source`, erzwingt `queued -> running`, schreibt Stats/Checkpoint und finalen Status.
+5. **RBAC-Anpassung für Run-Read**:
+- `GET /ingestion/runs*` nutzt `PAPERS_READ` statt `DEVELOPER_MANAGE`.
+
+### Alternativen betrachtet
+
+| Option | Vorteile | Nachteile |
+|--------|----------|-----------|
+| **Generischer Async Endpoint** (`/ingest/{source}/async`) | Weniger Routen | Schwächere API-Klarheit, mehr Laufzeitvalidierung |
+| **Source-spezifische Endpunkte** ✓ | Klare Contracts, einfache Client-Integration | Mehr Router-Code |
+| **Run erst im Worker erzeugen** | API bleibt minimal | Race Conditions, keine direkte Run-ID für Client |
+| **Run vor Enqueue erzeugen** ✓ | Verlässliche Nachvollziehbarkeit, deterministische Job-Kopplung | Zusätzlicher DB-Write im Request-Pfad |
+
+### Konsequenzen
+- (+) Einheitlicher multi-source Async-Ingestion-Pfad
+- (+) `ingest_run_id` direkt im API-Response für Monitoring/Tracing
+- (+) Stabilere Fehlerbehandlung: enqueue failure markiert Run explizit als `failed`
+- (+) Bessere Nutzerzugänglichkeit von Run-Status via `PAPERS_READ`
+- (-) Zusätzliche Komplexität in Papers-Router (Run-Precreation + Error-Handling)
+- (-) Erhöhte Bedeutung konsistenter Dokumentation bei Architekturänderungen
+
+### Rollback/Fallback
+- Neue Async-Endpunkte sind additiv und können per Router-Flag deaktiviert werden.
+- Legacy sync-Ingestion-Endpunkte bleiben unverändert.
+- Compatibility-Wrapper (`ingest_openalex_task`) bleibt für bestehende Queue-Producer aktiv.
+
+---
+
+## ADR-023: CI-Enforced Architecture Documentation Gate
+
+_Updated on 2026-02-10_
+
+### Status
+**Implementiert** - 2026-02-10
+
+### Kontext
+Für Sprint-37 wurde festgelegt, dass Architektur-Änderungen immer mit Updates in
+`01_TECHNISCHE_ARCHITEKTUR.md`, `04_ARCHITECTURE_DECISIONS.md` und
+`05_IMPLEMENTATION_PLAN.md` geliefert werden müssen.
+Ohne technische Durchsetzung war diese Regel jedoch nur prozessual und fehleranfällig.
+
+### Entscheidung
+Ein dediziertes CI-Job-Gate (`architecture-docs-gate`) wird in GitHub Actions eingeführt:
+
+1. Der Job führt `.github/scripts/check_arch_docs_gate.sh` aus.
+2. Das Script prüft die geänderten Dateien gegen definierte architecture-impacting Pfade.
+3. Falls solche Pfade betroffen sind, müssen **alle drei Pflichtdokumente** (`01/04/05`) im gleichen Change enthalten sein.
+4. Bei fehlenden Doku-Updates schlägt der CI-Run fehl.
+
+### Alternativen betrachtet
+
+| Option | Vorteile | Nachteile |
+|--------|----------|-----------|
+| **Manuelle PR-Checklist** | Einfach, keine CI-Komplexität | Nicht verlässlich, leicht übersehbar |
+| **CODEOWNERS für Doku-Dateien** | Review-Absicherung | Erzwingt keine tatsächlichen Inhaltsupdates |
+| **CI-Gate mit Changed-File-Prüfung** ✓ | Automatisch, nachvollziehbar, skalierbar | Pflege der Pfadliste notwendig |
+
+### Konsequenzen
+- (+) Architektur-Dokumentation bleibt synchron zur Implementierung.
+- (+) Review-Last sinkt, weil die Mindestanforderung maschinell geprüft wird.
+- (-) Zusätzliche CI-Regel kann bei falsch klassifizierten Pfaden blockieren.
+- (-) Pfadliste muss bei Modulstrukturänderungen aktualisiert werden.
+
+### Rollback/Fallback
+- Temporär kann der `architecture-docs-gate`-Job aus CI entfernt werden.
+- Bei False Positives kann die Pfadliste im Script gezielt eingeschränkt werden.
 
 ---
 
@@ -1489,6 +1586,8 @@ async def delete_paper(...): ...
 | 019 | **Server-side Notifications** | PostgreSQL-backed notifications mit Frontend-Polling |
 | 020 | **Internationalisierung** | react-i18next mit EN/DE Translation |
 | 021 | **Granulares RBAC** | Permission-based Access Control auf allen Routern |
+| 022 | **Foundations Ingestion Pipeline** | Multi-Source Async-Ingestion mit pre-created Runs und Run-ID Exposure |
+| 023 | **CI Documentation Gate** | Erzwingt 01/04/05-Doku-Updates bei Architektur-Änderungen |
 
 ---
 

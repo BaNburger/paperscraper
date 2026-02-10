@@ -6,9 +6,10 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from paper_scraper.api.dependencies import CurrentUser
+from paper_scraper.api.dependencies import CurrentUser, require_permission
 from paper_scraper.core.database import get_db
 from paper_scraper.core.exceptions import NotFoundError
+from paper_scraper.core.permissions import Permission
 from paper_scraper.modules.authors.schemas import (
     AuthorContactStats,
     AuthorDetailResponse,
@@ -41,6 +42,7 @@ def get_author_service(
     "/",
     response_model=AuthorListResponse,
     summary="List authors",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def list_authors(
     current_user: CurrentUser,
@@ -62,6 +64,7 @@ async def list_authors(
     "/{author_id}",
     response_model=AuthorProfileResponse,
     summary="Get author profile",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def get_author_profile(
     author_id: UUID,
@@ -82,6 +85,7 @@ async def get_author_profile(
     "/{author_id}/detail",
     response_model=AuthorDetailResponse,
     summary="Get author detail",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def get_author_detail(
     author_id: UUID,
@@ -108,6 +112,7 @@ async def get_author_detail(
     response_model=ContactResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Log contact",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def create_contact(
     author_id: UUID,
@@ -129,6 +134,7 @@ async def create_contact(
     "/{author_id}/contacts/{contact_id}",
     response_model=ContactResponse,
     summary="Update contact",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def update_contact(
     author_id: UUID,
@@ -150,6 +156,7 @@ async def update_contact(
     "/{author_id}/contacts/{contact_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete contact",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def delete_contact(
     author_id: UUID,
@@ -168,6 +175,7 @@ async def delete_contact(
     "/{author_id}/contacts/stats",
     response_model=AuthorContactStats,
     summary="Get contact stats",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
 )
 async def get_contact_stats(
     author_id: UUID,
@@ -190,6 +198,7 @@ async def get_contact_stats(
     "/{author_id}/enrich",
     response_model=EnrichmentResult,
     summary="Enrich author data",
+    dependencies=[Depends(require_permission(Permission.PAPERS_WRITE))],
 )
 async def enrich_author(
     author_id: UUID,
