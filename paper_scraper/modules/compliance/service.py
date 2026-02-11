@@ -297,6 +297,8 @@ class ComplianceService:
                 error_message=str(e),
             )
             self.db.add(log)
+            await self.db.flush()  # Persist the error log
+            raise  # Re-raise to let caller handle the failure
 
         return ApplyRetentionResult(
             entity_type=policy.entity_type,

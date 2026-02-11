@@ -1,0 +1,148 @@
+- generic [ref=e54]:
+  - banner [ref=e55]:
+    - generic [ref=e56]:
+      - link "Frontend Audit Org 1770750074" [ref=e57] [cursor=pointer]:
+        - /url: /
+        - img [ref=e58]
+        - generic [ref=e61]: Frontend Audit Org 1770750074
+      - button "Search... ⌘K" [ref=e62]:
+        - img [ref=e63]
+        - generic [ref=e65]: Search...
+        - generic [ref=e66]: ⌘K
+      - generic [ref=e67]:
+        - button "Notifications" [ref=e69]:
+          - img [ref=e70]
+        - button "Toggle theme" [ref=e74]:
+          - img [ref=e75]
+        - button "Frontend Audit 1770750074" [ref=e82]:
+          - img [ref=e84]
+          - generic [ref=e87]: Frontend Audit 1770750074
+          - img [ref=e88]
+  - generic [ref=e90]:
+    - complementary [ref=e91]:
+      - button "Seitenleiste einklappen" [ref=e93]:
+        - img [ref=e94]
+      - navigation [ref=e96]:
+        - link "Dashboard" [ref=e97] [cursor=pointer]:
+          - /url: /
+          - img [ref=e98]
+          - generic [ref=e101]: Dashboard
+        - link "Paper" [ref=e102] [cursor=pointer]:
+          - /url: /papers
+          - img [ref=e103]
+          - generic [ref=e106]: Paper
+        - link "Projekte" [ref=e107] [cursor=pointer]:
+          - /url: /projects
+          - img [ref=e108]
+          - generic [ref=e110]: Projekte
+        - link "Suche" [ref=e111] [cursor=pointer]:
+          - /url: /search
+          - img [ref=e112]
+          - generic [ref=e115]: Suche
+        - link "Gruppen" [ref=e116] [cursor=pointer]:
+          - /url: /groups
+          - img [ref=e117]
+          - generic [ref=e121]: Gruppen
+        - link "Transfer" [ref=e122] [cursor=pointer]:
+          - /url: /transfer
+          - img [ref=e123]
+          - generic [ref=e126]: Transfer
+        - link "Einreichungen" [ref=e127] [cursor=pointer]:
+          - /url: /submissions
+          - img [ref=e128]
+          - generic [ref=e131]: Einreichungen
+        - link "Analysen" [ref=e132] [cursor=pointer]:
+          - /url: /analytics
+          - img [ref=e133]
+          - generic [ref=e135]: Analysen
+        - link "Benachrichtigungen" [ref=e136] [cursor=pointer]:
+          - /url: /alerts
+          - img [ref=e137]
+          - generic [ref=e140]: Benachrichtigungen
+      - navigation [ref=e141]:
+        - link "Abzeichen" [ref=e142] [cursor=pointer]:
+          - /url: /badges
+          - img [ref=e143]
+          - generic [ref=e149]: Abzeichen
+        - link "Team" [ref=e150] [cursor=pointer]:
+          - /url: /team
+          - img [ref=e151]
+          - generic [ref=e156]: Team
+        - link "Wissen" [ref=e157] [cursor=pointer]:
+          - /url: /knowledge
+          - img [ref=e158]
+          - generic [ref=e160]: Wissen
+        - link "Compliance" [ref=e161] [cursor=pointer]:
+          - /url: /compliance
+          - img [ref=e162]
+          - generic [ref=e164]: Compliance
+        - link "Einstellungen" [ref=e165] [cursor=pointer]:
+          - /url: /settings
+          - img [ref=e166]
+          - generic [ref=e169]: Einstellungen
+        - link "KI-Modelle" [ref=e170] [cursor=pointer]:
+          - /url: /settings/models
+          - img [ref=e171]
+          - generic [ref=e174]: KI-Modelle
+    - main [ref=e175]:
+      - generic [ref=e177]:
+        - generic [ref=e178]:
+          - heading "Willkommen zurück, Frontend" [level=1] [ref=e179]
+          - paragraph [ref=e180]: Das passiert gerade in Ihrer Forschungs-Pipeline
+        - generic [ref=e181]:
+          - generic [ref=e182]:
+            - generic [ref=e183]:
+              - heading "Gesamte Paper" [level=3] [ref=e184]
+              - img [ref=e185]
+            - generic [ref=e189]: "0"
+          - generic [ref=e190]:
+            - generic [ref=e191]:
+              - heading "Aktive Projekte" [level=3] [ref=e192]
+              - img [ref=e193]
+            - generic [ref=e196]: "0"
+          - generic [ref=e197]:
+            - generic [ref=e198]:
+              - heading "Embeddings" [level=3] [ref=e199]
+              - img [ref=e200]
+            - generic [ref=e204]: 0%
+        - generic [ref=e205]:
+          - generic [ref=e206]:
+            - generic [ref=e207]:
+              - generic [ref=e208]:
+                - heading "Neueste Paper" [level=3] [ref=e209]
+                - paragraph [ref=e210]: Zuletzt hinzugefügte Paper in Ihrer Bibliothek
+              - link "Alle anzeigen" [ref=e211] [cursor=pointer]:
+                - /url: /papers
+                - button "Alle anzeigen" [ref=e212]:
+                  - text: Alle anzeigen
+                  - img [ref=e213]
+            - generic [ref=e216]:
+              - img [ref=e217]
+              - paragraph [ref=e220]: Noch keine Paper
+              - paragraph [ref=e221]: Importieren Sie Paper, um loszulegen
+          - generic [ref=e222]:
+            - generic [ref=e223]:
+              - heading "Schnellaktionen" [level=3] [ref=e225]
+              - generic [ref=e226]:
+                - link "Paper importieren" [ref=e227] [cursor=pointer]:
+                  - /url: /papers
+                  - button "Paper importieren" [ref=e228]:
+                    - img [ref=e229]
+                    - text: Paper importieren
+                - link "Bibliothek durchsuchen" [ref=e232] [cursor=pointer]:
+                  - /url: /search
+                  - button "Bibliothek durchsuchen" [ref=e233]:
+                    - img [ref=e234]
+                    - text: Bibliothek durchsuchen
+                - link "Projekte verwalten" [ref=e237] [cursor=pointer]:
+                  - /url: /projects
+                  - button "Projekte verwalten" [ref=e238]:
+                    - img [ref=e239]
+                    - text: Projekte verwalten
+            - generic [ref=e241]:
+              - generic [ref=e242]:
+                - heading "Projekte" [level=3] [ref=e243]
+                - link "Alle anzeigen" [ref=e244] [cursor=pointer]:
+                  - /url: /projects
+                  - button "Alle anzeigen" [ref=e245]
+              - paragraph [ref=e247]: Noch keine Projekte

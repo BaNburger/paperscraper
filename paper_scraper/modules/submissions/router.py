@@ -1,5 +1,6 @@
 """FastAPI router for research submissions endpoints."""
 
+import asyncio
 import logging
 import os
 from typing import Annotated
@@ -243,7 +244,8 @@ async def upload_attachment(
     # Persist to MinIO/S3 storage
     storage = get_storage_service()
     try:
-        storage.upload_file(
+        await asyncio.to_thread(
+            storage.upload_file,
             file_content=content,
             key=file_path,
             content_type=content_type,

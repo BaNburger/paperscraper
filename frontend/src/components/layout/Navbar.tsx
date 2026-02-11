@@ -1,10 +1,31 @@
-import { useState, useRef, useEffect } from 'react'
+import { useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTheme } from '@/contexts/ThemeContext'
 import { NotificationCenter } from '@/components/NotificationCenter'
-import { FileText, LogOut, User, Settings, Building2, ChevronDown, Sun, Moon, Monitor, Command } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/DropdownMenu'
+import {
+  Building2,
+  Check,
+  ChevronDown,
+  Command,
+  FileText,
+  LogOut,
+  Monitor,
+  Moon,
+  Settings,
+  Sun,
+  User,
+} from 'lucide-react'
 import type { OrganizationBranding } from '@/types'
 
 type Theme = 'light' | 'dark' | 'system'
@@ -12,25 +33,22 @@ type Theme = 'light' | 'dark' | 'system'
 interface ThemeOption {
   value: Theme
   label: string
-  icon: LucideIcon
+  icon: typeof Sun
 }
-
-const themeOptions: ThemeOption[] = [
-  { value: 'light', label: 'Light', icon: Sun },
-  { value: 'dark', label: 'Dark', icon: Moon },
-  { value: 'system', label: 'System', icon: Monitor },
-]
 
 export function Navbar() {
   const { user, logout } = useAuth()
+  const { t } = useTranslation()
   const { theme, setTheme, resolvedTheme } = useTheme()
   const navigate = useNavigate()
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-  const [isThemeDropdownOpen, setIsThemeDropdownOpen] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-  const themeDropdownRef = useRef<HTMLDivElement>(null)
 
   const branding = user?.organization?.branding as OrganizationBranding | undefined
+
+  const themeOptions: ThemeOption[] = [
+    { value: 'light', label: t('theme.light'), icon: Sun },
+    { value: 'dark', label: t('theme.dark'), icon: Moon },
+    { value: 'system', label: t('theme.system'), icon: Monitor },
+  ]
 
   // Apply org branding colors as CSS custom properties (validated hex only)
   useEffect(() => {
@@ -47,48 +65,26 @@ export function Navbar() {
     }
   }, [branding?.primary_color, branding?.accent_color])
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent): void {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false)
-      }
-      if (themeDropdownRef.current && !themeDropdownRef.current.contains(event.target as Node)) {
-        setIsThemeDropdownOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
   function handleThemeSelect(selectedTheme: Theme): void {
     setTheme(selectedTheme)
-    setIsThemeDropdownOpen(false)
   }
 
   function handleNavigate(path: string): void {
-    setIsDropdownOpen(false)
     navigate(path)
   }
 
   function handleLogout(): void {
-    setIsDropdownOpen(false)
     logout()
   }
 
   function openCommandPalette(): void {
-    // Dispatch Cmd+K event to open command palette
-    const event = new KeyboardEvent('keydown', {
-      key: 'k',
-      metaKey: true,
-      bubbles: true,
-    })
-    document.dispatchEvent(event)
+    document.dispatchEvent(new CustomEvent('paper-scraper:open-command-palette'))
   }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-14 items-center px-4">
-        <Link to="/" className="flex items-center gap-2 font-semibold">
+        <Link to="/" className="flex items-center gap-2 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded">
           {branding?.logo_url ? (
             <img
               src={branding.logo_url}
@@ -105,109 +101,98 @@ export function Navbar() {
 
         {/* Command Palette Hint */}
         <button
+          type="button"
           onClick={openCommandPalette}
-          className="hidden md:flex items-center gap-2 ml-4 px-3 py-1.5 text-sm text-muted-foreground bg-muted/50 hover:bg-muted rounded-lg transition-colors"
+          aria-label={t('nav.openCommandPalette')}
+          className="hidden md:flex items-center gap-2 ml-4 px-3 py-1.5 text-sm text-muted-foreground bg-muted/50 hover:bg-muted rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           <Command className="h-3.5 w-3.5" />
-          <span>Search...</span>
+          <span>{t('nav.search')}</span>
           <kbd className="ml-2 px-1.5 py-0.5 text-[10px] font-mono bg-background rounded border">
             ⌘K
           </kbd>
         </button>
 
         <div className="ml-auto flex items-center gap-2">
-          {/* Notifications */}
           {user && <NotificationCenter />}
 
-          {/* Theme Toggle */}
-          <div className="relative" ref={themeDropdownRef}>
-            <button
-              onClick={() => setIsThemeDropdownOpen(!isThemeDropdownOpen)}
-              className="flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-              aria-label="Toggle theme"
-            >
-              {resolvedTheme === 'dark' ? (
-                <Moon className="h-5 w-5" />
-              ) : (
-                <Sun className="h-5 w-5" />
-              )}
-            </button>
-
-            {isThemeDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-36 rounded-md border bg-popover shadow-lg">
-                <div className="p-1">
-                  {themeOptions.map((option) => {
-                    const Icon = option.icon
-                    return (
-                      <button
-                        key={option.value}
-                        onClick={() => handleThemeSelect(option.value)}
-                        className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent ${
-                          theme === option.value ? 'bg-accent' : ''
-                        }`}
-                      >
-                        <Icon className="h-4 w-4" />
-                        {option.label}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={t('theme.toggle')}
+                className="w-9 h-9"
+              >
+                {resolvedTheme === 'dark' ? (
+                  <Moon className="h-5 w-5" />
+                ) : (
+                  <Sun className="h-5 w-5" />
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuLabel>{t('theme.title')}</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {themeOptions.map((option) => {
+                const Icon = option.icon
+                return (
+                  <DropdownMenuItem
+                    key={option.value}
+                    onSelect={() => handleThemeSelect(option.value)}
+                    className="flex items-center gap-2"
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span>{option.label}</span>
+                    {theme === option.value && <Check className="ml-auto h-4 w-4" />}
+                  </DropdownMenuItem>
+                )
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {user && (
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-lg px-2 py-1"
-              >
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  <User className="h-4 w-4 text-primary" />
-                </div>
-                <span className="hidden sm:inline">{user.full_name || user.email}</span>
-                <ChevronDown className="h-4 w-4" />
-              </button>
-
-              {isDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-56 rounded-md border bg-popover shadow-lg">
-                  <div className="p-2 border-b">
-                    <p className="text-sm font-medium">{user.full_name || 'User'}</p>
-                    <p className="text-xs text-muted-foreground">{user.email}</p>
-                    <p className="text-xs text-muted-foreground mt-1 capitalize">
-                      {user.role} at {user.organization?.name}
-                    </p>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="gap-2 h-auto px-2 py-1">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <User className="h-4 w-4 text-primary" />
                   </div>
-                  <div className="p-1">
-                    <button
-                      onClick={() => handleNavigate('/settings')}
-                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
-                    >
-                      <Settings className="h-4 w-4" />
-                      User Settings
-                    </button>
-                    {user.role === 'admin' && (
-                      <button
-                        onClick={() => handleNavigate('/settings/organization')}
-                        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
-                      >
-                        <Building2 className="h-4 w-4" />
-                        Organization Settings
-                      </button>
-                    )}
-                  </div>
-                  <div className="p-1 border-t">
-                    <button
-                      onClick={handleLogout}
-                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950"
-                    >
-                      <LogOut className="h-4 w-4" />
-                      Log out
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+                  <span className="hidden sm:inline truncate max-w-[180px]">
+                    {user.full_name || user.email}
+                  </span>
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="space-y-1">
+                  <p className="text-sm font-medium leading-none">{user.full_name || 'User'}</p>
+                  <p className="text-xs text-muted-foreground">{user.email}</p>
+                  <p className="text-xs text-muted-foreground capitalize">
+                    {user.role} {t('common.at')} {user.organization?.name}
+                  </p>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => handleNavigate('/settings')}>
+                  <Settings className="h-4 w-4 mr-2" />
+                  {t('nav.settings')}
+                </DropdownMenuItem>
+                {user.role === 'admin' && (
+                  <DropdownMenuItem onSelect={() => handleNavigate('/settings/organization')}>
+                    <Building2 className="h-4 w-4 mr-2" />
+                    {t('orgSettings.title')}
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={handleLogout}
+                  className="text-red-600 dark:text-red-400 focus:text-red-700"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  {t('auth.logout')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       </div>

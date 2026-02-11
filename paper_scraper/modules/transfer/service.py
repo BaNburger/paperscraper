@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from paper_scraper.core.exceptions import NotFoundError, ValidationError
+from paper_scraper.core.sql_utils import escape_like
 from paper_scraper.modules.auth.models import User
 from paper_scraper.modules.papers.models import Author, Paper
 from paper_scraper.modules.transfer.models import (
@@ -77,7 +78,7 @@ class TransferService:
 
         if search:
             # Escape SQL LIKE special characters to prevent unexpected matching
-            escaped_search = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            escaped_search = escape_like(search)
             base_query = base_query.where(
                 TransferConversation.title.ilike(f"%{escaped_search}%", escape="\\")
             )

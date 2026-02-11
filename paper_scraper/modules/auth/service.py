@@ -1,5 +1,6 @@
 """Service layer for authentication module."""
 
+import asyncio
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -1131,10 +1132,10 @@ class AuthService:
         key = f"orgs/{org_id}/logo{ext}"
 
         storage = StorageService()
-        storage.upload_file(file_content, key, content_type)
+        await asyncio.to_thread(storage.upload_file, file_content, key, content_type)
         # Generate a pre-signed URL (24h max) for the logo
         # TODO: Consider a proxy endpoint for permanent logo URLs
-        logo_url = storage.get_download_url(key, expires_in=24 * 3600)
+        logo_url = await asyncio.to_thread(storage.get_download_url, key, expires_in=24 * 3600)
 
         current_branding = dict(org.branding) if org.branding else {}
         current_branding["logo_url"] = logo_url

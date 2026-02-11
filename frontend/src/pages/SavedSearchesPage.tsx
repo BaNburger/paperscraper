@@ -8,10 +8,11 @@ import {
   useRevokeShareLink,
   useRunSavedSearch,
 } from '@/hooks/useSavedSearches'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
+import { AccessibleModal } from '@/components/ui/AccessibleModal'
 import {
   Bookmark,
   Search,
@@ -304,64 +305,56 @@ export function SavedSearchesPage() {
         </>
       )}
 
-      {/* Share Link Modal */}
-      {showShareModal && selectedSearch && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <Card className="w-full max-w-md mx-4">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>{t('savedSearches.shareLink')}</CardTitle>
-              <button
+      {selectedSearch && (
+        <AccessibleModal
+          open={showShareModal}
+          onOpenChange={(open) => {
+            setShowShareModal(open)
+            if (!open) {
+              setSelectedSearch(null)
+            }
+          }}
+          title={t('savedSearches.shareLink')}
+          description={t('savedSearches.shareLinkDescription')}
+          contentClassName="w-[min(95vw,30rem)]"
+        >
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                value={selectedSearch.share_url || ''}
+                readOnly
+                className="font-mono text-sm"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleCopyLink(selectedSearch.share_url || '')}
+              >
+                {copiedLink ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              </Button>
+            </div>
+            <div className="flex justify-between pt-4 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => handleRevokeShare(selectedSearch.id)}
+                disabled={revokeShareLink.isPending}
+              >
+                {t('savedSearches.revokeLink')}
+              </Button>
+              <Button
+                type="button"
                 onClick={() => {
                   setShowShareModal(false)
                   setSelectedSearch(null)
                 }}
-                className="p-1 hover:bg-muted rounded"
               >
-                <X className="h-5 w-5" />
-              </button>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                {t('savedSearches.shareLinkDescription')}
-              </p>
-              <div className="flex gap-2">
-                <Input
-                  value={selectedSearch.share_url || ''}
-                  readOnly
-                  className="font-mono text-sm"
-                />
-                <Button
-                  variant="outline"
-                  onClick={() => handleCopyLink(selectedSearch.share_url || '')}
-                >
-                  {copiedLink ? (
-                    <Check className="h-4 w-4" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-              <div className="flex justify-between pt-4 border-t">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleRevokeShare(selectedSearch.id)}
-                  disabled={revokeShareLink.isPending}
-                >
-                  {t('savedSearches.revokeLink')}
-                </Button>
-                <Button
-                  onClick={() => {
-                    setShowShareModal(false)
-                    setSelectedSearch(null)
-                  }}
-                >
-                  {t('savedSearches.done')}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                {t('savedSearches.done')}
+              </Button>
+            </div>
+          </div>
+        </AccessibleModal>
       )}
     </div>
   )

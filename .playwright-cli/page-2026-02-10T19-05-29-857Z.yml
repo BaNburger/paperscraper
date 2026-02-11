@@ -1,0 +1,88 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - link "Frontend Audit Org 1770750074" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - img [ref=e7]
+        - generic [ref=e10]: Frontend Audit Org 1770750074
+      - button "Search... ⌘K" [ref=e11]:
+        - img [ref=e12]
+        - generic [ref=e14]: Search...
+        - generic [ref=e15]: ⌘K
+      - generic [ref=e16]:
+        - button "Notifications" [ref=e18]:
+          - img [ref=e19]
+        - button "Toggle theme" [ref=e23]:
+          - img [ref=e24]
+        - button "Frontend Audit 1770750074" [ref=e31]:
+          - img [ref=e33]
+          - generic [ref=e36]: Frontend Audit 1770750074
+          - img [ref=e37]
+  - generic [ref=e39]:
+    - complementary [ref=e40]:
+      - button "Seitenleiste einklappen" [ref=e42]:
+        - img [ref=e43]
+      - navigation [ref=e45]:
+        - link "Dashboard" [ref=e46] [cursor=pointer]:
+          - /url: /
+          - img [ref=e47]
+          - generic [ref=e50]: Dashboard
+        - link "Paper" [ref=e51] [cursor=pointer]:
+          - /url: /papers
+          - img [ref=e52]
+          - generic [ref=e55]: Paper
+        - link "Projekte" [ref=e56] [cursor=pointer]:
+          - /url: /projects
+          - img [ref=e57]
+          - generic [ref=e59]: Projekte
+        - link "Suche" [ref=e60] [cursor=pointer]:
+          - /url: /search
+          - img [ref=e61]
+          - generic [ref=e64]: Suche
+        - link "Gruppen" [ref=e65] [cursor=pointer]:
+          - /url: /groups
+          - img [ref=e66]
+          - generic [ref=e70]: Gruppen
+        - link "Transfer" [ref=e71] [cursor=pointer]:
+          - /url: /transfer
+          - img [ref=e72]
+          - generic [ref=e75]: Transfer
+        - link "Einreichungen" [ref=e76] [cursor=pointer]:
+          - /url: /submissions
+          - img [ref=e77]
+          - generic [ref=e80]: Einreichungen
+        - link "Analysen" [ref=e81] [cursor=pointer]:
+          - /url: /analytics
+          - img [ref=e82]
+          - generic [ref=e84]: Analysen
+        - link "Benachrichtigungen" [ref=e85] [cursor=pointer]:
+          - /url: /alerts
+          - img [ref=e86]
+          - generic [ref=e89]: Benachrichtigungen
+      - navigation [ref=e90]:
+        - link "Abzeichen" [ref=e91] [cursor=pointer]:
+          - /url: /badges
+          - img [ref=e92]
+          - generic [ref=e98]: Abzeichen
+        - link "Team" [ref=e99] [cursor=pointer]:
+          - /url: /team
+          - img [ref=e100]
+          - generic [ref=e105]: Team
+        - link "Wissen" [ref=e106] [cursor=pointer]:
+          - /url: /knowledge
+          - img [ref=e107]
+          - generic [ref=e109]: Wissen
+        - link "Compliance" [ref=e110] [cursor=pointer]:
+          - /url: /compliance
+          - img [ref=e111]
+          - generic [ref=e113]: Compliance
+        - link "Einstellungen" [ref=e114] [cursor=pointer]:
+          - /url: /settings
+          - img [ref=e115]
+          - generic [ref=e118]: Einstellungen
+        - link "KI-Modelle" [ref=e119] [cursor=pointer]:
+          - /url: /settings/models
+          - img [ref=e120]
+          - generic [ref=e123]: KI-Modelle
+    - main [ref=e124]:
+      - img [ref=e127]

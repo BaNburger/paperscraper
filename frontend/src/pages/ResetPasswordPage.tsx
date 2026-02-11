@@ -54,7 +54,7 @@ export function ResetPasswordPage() {
 
   if (!token) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
+      <main className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1 text-center">
             <CardTitle className="text-2xl text-destructive">{t('auth.invalidLink')}</CardTitle>
@@ -68,13 +68,13 @@ export function ResetPasswordPage() {
             </Link>
           </CardFooter>
         </Card>
-      </div>
+      </main>
     )
   }
 
   if (isSuccess) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
+      <main className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1 text-center">
             <div className="flex justify-center mb-4">
@@ -91,12 +91,12 @@ export function ResetPasswordPage() {
             </Button>
           </CardFooter>
         </Card>
-      </div>
+      </main>
     )
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
+    <main className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
@@ -144,6 +144,6 @@ export function ResetPasswordPage() {
           </CardFooter>
         </form>
       </Card>
-    </div>
+    </main>
   )
 }

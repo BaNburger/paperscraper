@@ -1,746 +1,479 @@
-# Paper Scraper - Priorisierte User Stories
+# Paper Scraper - User Stories & Product Vision
 
-## Übersicht
-
-Diese User Stories sind basierend auf den existierenden Feature Requests, dem Business Plan und den Scoring-Dimensionen strukturiert. Die Priorisierung folgt dem RICE-Framework (Reach, Impact, Confidence, Effort) mit Anpassungen für die initiale MVP-Phase.
+> **📌 Important:** This document represents the **initial product vision** and planning context.
+> **For actual implementation status**, see **[docs/implementation/STATUS.md](docs/implementation/STATUS.md)**
+>
+> **✅ All 37 sprints completed** (2024-2026) across 10 development phases.
+> This document is maintained for historical context and product vision alignment.
 
 ---
 
-## 1. Epic-Struktur
+## Implementation Status
+
+### Completed Features (Sprint 1-37)
+
+**✅ All Core Features (100%)**
+- User Authentication & Authorization (Sprint 1)
+- Paper Management & CRUD (Sprint 2)
+- 6-Dimension AI Scoring (Sprints 3, 23)
+- KanBan Project Pipelines (Sprint 4)
+- Semantic & Fulltext Search (Sprints 5, 11)
+- Multi-Source Ingestion (Sprints 2, 8, 37)
+- Author Intelligence & CRM (Sprints 9-10)
+- Analytics & Reporting (Sprints 12, 27)
+- Data Export (CSV, BibTeX, PDF) (Sprint 12)
+
+**✅ All Advanced Features (100%)**
+- Team Invitations & User Management (Sprint 13)
+- Email Infrastructure (Sprint 13)
+- Onboarding Wizard (Sprint 14)
+- Researcher Groups (Sprint 16)
+- Technology Transfer Workflows (Sprint 17)
+- Research Submission Portal (Sprint 18)
+- Gamification & Badges (Sprint 19)
+- Knowledge Management (Sprint 19)
+- Granular RBAC & Permissions (Sprints 22, 31)
+- Model Settings & LLM Configuration (Sprint 23)
+- Developer API & Webhooks (Sprint 25)
+- MCP Server (Sprint 25)
+- Repository Management (Sprint 25)
+- Keyboard Navigation (Sprint 26)
+- Mobile Responsiveness (Sprint 26)
+- Scheduled Reports (Sprint 27)
+
+**✅ All Enterprise Features (100%)**
+- Audit Logging (Sprint 28)
+- Data Retention Policies (Sprint 28)
+- SOC2 Compliance Framework (Sprint 28)
+- Internationalization EN/DE (Sprints 29, 35)
+- Server-side Notifications (Sprint 36)
+- Saved Searches & Alerts (Sprints 11, 34)
+- Unified Ingestion Pipeline (Sprint 37)
+
+**📊 Key Metrics:**
+- **24 Backend Modules** with 208+ API endpoints
+- **841 pytest unit/integration tests**
+- **40+ database tables** with pgvector support
+- **28 frontend pages** with E2E test coverage
+- **6 background job types** (arq workers)
+
+**For detailed sprint history:** See [docs/implementation/](docs/implementation/) (10 phase documents covering Sprints 1-37)
+
+---
+
+## Original Epic Structure (Historical Planning Context)
+
+The following Epics guided the initial development. All features have been implemented and expanded beyond the original scope.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                    EPIC 0: Foundation                           │
-│         Technische Basis, Auth, Datenbank-Setup                 │
-│                    [Sprint 1-2]                                 │
+│         Technical Base, Auth, Database Setup                    │
+│                    ✅ Completed: Sprint 1-2                     │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                    EPIC 1: Paper Ingestion                      │
-│         Paper-Import, PDF-Parsing, Metadaten                    │
-│                    [Sprint 2-3]                                 │
+│         Paper Import, PDF Parsing, Metadata                     │
+│                    ✅ Completed: Sprint 2-3, 37                 │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                    EPIC 2: AI Scoring Core                      │
-│      5-Dimensionales Scoring, One-Line-Pitch, Summaries         │
-│                    [Sprint 3-5]                                 │
+│      6-Dimensional Scoring, Pitch, Summaries                    │
+│                    ✅ Completed: Sprint 3-5, 23                 │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                    EPIC 3: KanBan Pipeline                      │
-│         Projekte, Stages, Drag&Drop, Rejection Tracking         │
-│                    [Sprint 4-6]                                 │
+│         Projects, Stages, Drag&Drop, Rejection Tracking         │
+│                    ✅ Completed: Sprint 4-6                     │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                    EPIC 4: Search & Discovery                   │
-│         Semantic Search, Filter, Alerts                         │
-│                    [Sprint 5-7]                                 │
+│         Semantic Search, Filters, Alerts                        │
+│                    ✅ Completed: Sprint 5-7, 11, 34             │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                    EPIC 5: Author Intelligence                  │
-│         Autorenprofile, Kontakt-Tracking, Outreach              │
-│                    [Sprint 7-9]                                 │
+│         Author Profiles, Contact Tracking, Outreach             │
+│                    ✅ Completed: Sprint 7-10                    │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                    EPIC 6: Analytics & Reporting                │
 │         Dashboard, Trends, Export                               │
-│                    [Sprint 9-11]                                │
+│                    ✅ Completed: Sprint 9-12, 27                │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
----
-
-## 2. Detaillierte User Stories
-
-### EPIC 0: Foundation (Must-Have)
-
-#### US-0.1: Projekt-Setup
-**Als** Entwickler
-**möchte ich** ein vollständig konfiguriertes Entwicklungsumfeld
-**damit** ich sofort mit der Implementierung beginnen kann.
-
-**Akzeptanzkriterien:**
-- [ ] Git Repository mit .gitignore, README, LICENSE
-- [ ] Docker Compose für lokale Entwicklung (PostgreSQL, Redis, MinIO)
-- [ ] FastAPI Grundgerüst mit Pydantic Settings
-- [ ] Alembic für Datenbankmigrationen konfiguriert
-- [ ] pytest Setup mit async Support
-- [ ] Pre-commit Hooks (ruff, mypy)
-- [ ] GitHub Actions CI Pipeline
-
-**Story Points:** 5
-**Sprint:** 1
+**Note:** Development continued beyond these 6 epics through Sprint 37, adding Enterprise, Security, and AI advancement features. See [docs/implementation/STATUS.md](docs/implementation/STATUS.md) for complete feature list.
 
 ---
 
-#### US-0.2: Benutzerauthentifizierung
-**Als** Benutzer
-**möchte ich** mich sicher anmelden können
-**damit** meine Daten geschützt sind.
+## Core User Stories (Condensed)
 
-**Akzeptanzkriterien:**
-- [ ] JWT-basierte Authentifizierung
-- [ ] Login/Logout Endpoints
-- [ ] Password Hashing (bcrypt)
-- [ ] Refresh Token Mechanismus
-- [ ] Rate Limiting auf Auth-Endpoints
-- [ ] Optional: Magic Link Login
+### EPIC 0: Foundation ✅
 
-**Story Points:** 8
-**Sprint:** 1
+**US-0.1: Project Setup**
+**As** a developer, **I want** a fully configured development environment **so that** I can start implementing immediately.
+
+**Delivered:** Sprint 1 (docker-compose, FastAPI, PostgreSQL, Redis, MinIO, Alembic, pytest, CI/CD)
 
 ---
 
-#### US-0.3: Multi-Tenancy Grundlagen
-**Als** Organisation
-**möchte ich** meine Daten isoliert von anderen Organisationen haben
-**damit** Vertraulichkeit gewährleistet ist.
+**US-0.2: User Authentication**
+**As** a user, **I want** to securely log in **so that** my data is protected.
 
-**Akzeptanzkriterien:**
-- [ ] Organization Model mit Subscription Tier
-- [ ] User-Organization Beziehung
-- [ ] Tenant-ID in allen relevanten Tabellen
-- [ ] Middleware für automatische Tenant-Filterung
-- [ ] Row-Level Security Tests
-
-**Story Points:** 5
-**Sprint:** 2
+**Delivered:** Sprint 1 (JWT auth, refresh tokens, password hashing, rate limiting, magic link login)
+**Expanded:** Sprint 13 (email verification, password reset, team invitations), Sprint 22 (granular RBAC)
 
 ---
 
-### EPIC 1: Paper Ingestion
+**US-0.3: Multi-Tenancy**
+**As** an organization, **I want** my data isolated from other organizations **so that** confidentiality is ensured.
 
-#### US-1.1: Manuelle Paper-Eingabe via DOI
-**Als** TTO-Manager
-**möchte ich** Papers über ihre DOI hinzufügen können
-**damit** ich schnell spezifische Publikationen importieren kann.
-
-**RICE:** 300 (10×10×10)/3 = High Priority
-
-**Akzeptanzkriterien:**
-- [ ] DOI-Eingabefeld im Frontend
-- [ ] Backend-Endpoint für DOI-Import
-- [ ] Automatische Metadaten-Abfrage (Crossref API)
-- [ ] Autor-Extraktion und -Normalisierung
-- [ ] Duplikat-Erkennung
-- [ ] Fehlerbehandlung für ungültige DOIs
-
-**Story Points:** 8
-**Sprint:** 2
+**Delivered:** Sprint 2 (organization model, tenant-id filtering, row-level security)
 
 ---
 
-#### US-1.2: PubMed/arXiv Integration
-**Als** Forscher
-**möchte ich** Papers aus PubMed und arXiv importieren
-**damit** ich meine Literaturrecherche vereinfachen kann.
+### EPIC 1: Paper Ingestion ✅
 
-**RICE:** 216 (9×8×9)/3 = High Priority
+**US-1.1: DOI Import**
+**As** a TTO manager, **I want** to add papers via DOI **so that** I can quickly import specific publications.
 
-**Akzeptanzkriterien:**
-- [ ] PubMed API Integration (E-Utilities)
-- [ ] arXiv API Integration
-- [ ] Batch-Import via Suchanfrage
-- [ ] Scheduled Import (täglich/wöchentlich)
-- [ ] Konfigurierbare Suchfilter
-- [ ] Progress-Anzeige bei Batch-Import
-
-**Story Points:** 13
-**Sprint:** 2-3
+**Delivered:** Sprint 2 (DOI input, Crossref API, author extraction, duplicate detection)
 
 ---
 
-#### US-1.3: PDF Upload und Parsing
-**Als** Benutzer
-**möchte ich** PDFs hochladen können
-**damit** auch nicht-indexierte Papers analysiert werden können.
+**US-1.2: PubMed/arXiv Integration**
+**As** a researcher, **I want** to import papers from PubMed and arXiv **so that** I can streamline my literature research.
 
-**RICE:** 180 (9×8×10)/4 = Medium Priority
-
-**Akzeptanzkriterien:**
-- [ ] PDF Upload Endpoint (max 50MB)
-- [ ] PDF-Text-Extraktion (PyMuPDF)
-- [ ] Automatische Metadaten-Extraktion (Titel, Autoren)
-- [ ] S3-kompatible Speicherung
-- [ ] PDF Viewer Integration (optional)
-
-**Story Points:** 8
-**Sprint:** 3
+**Delivered:** Sprint 2-3 (PubMed API, arXiv API, batch import, scheduled import)
+**Expanded:** Sprint 8 (OpenAlex integration), Sprint 37 (unified multi-source pipeline with run tracking)
 
 ---
 
-#### US-1.4: Full-Text Link auf Paper-Details
-**Als** Benutzer der ein Paper analysiert
-**möchte ich** einen direkten Link zum Volltext in einem neuen Tab haben
-**damit** ich den Kontext nicht verliere.
+**US-1.3: PDF Upload and Parsing**
+**As** a user, **I want** to upload PDFs **so that** non-indexed papers can be analyzed.
 
-**RICE:** 300 (10×3×10)/1 = Quick Win
-
-**Akzeptanzkriterien:**
-- [ ] Link-Button auf Paper-Detail-Seite
-- [ ] Öffnet in neuem Tab
-- [ ] Fallback wenn kein Volltext verfügbar
-
-**Story Points:** 1
-**Sprint:** 2
+**Delivered:** Sprint 3 (PDF upload, text extraction via PyMuPDF, metadata extraction, S3 storage)
 
 ---
 
-### EPIC 2: AI Scoring Core
+**US-1.4: Full-Text Link**
+**As** a user analyzing a paper, **I want** a direct link to the full text in a new tab **so that** I don't lose context.
 
-#### US-2.1: Novelty Scoring
-**Als** TTO-Manager
-**möchte ich** eine KI-basierte Neuheitsbewertung jedes Papers sehen
-**damit** ich echte Innovationen von inkrementellen Verbesserungen unterscheiden kann.
-
-**RICE:** 135 (10×9×9)/6 = Critical
-
-**Akzeptanzkriterien:**
-- [ ] Novelty Score (0-10) pro Paper
-- [ ] Textuelle Erklärung der Bewertung
-- [ ] Evidenz-Zitate aus dem Paper
-- [ ] Vergleich mit ähnlichen Papers (Embeddings)
-- [ ] Confidence Score
-
-**Story Points:** 13
-**Sprint:** 3
+**Delivered:** Sprint 2 (full-text link button on paper detail page)
 
 ---
 
-#### US-2.2: IP-Potential Scoring
-**Als** TTO-Manager
-**möchte ich** eine Einschätzung des Patentierbarkeitspotentials
-**damit** ich fundierte Entscheidungen über Patentanmeldungen treffen kann.
+### EPIC 2: AI Scoring Core ✅
 
-**RICE:** 145.8 (basierend auf existierendem Feature Request)
+**US-2.1: Novelty Scoring**
+**As** a TTO analyst, **I want** AI to score technological novelty **so that** I can prioritize groundbreaking research.
 
-**Akzeptanzkriterien:**
-- [ ] IP Score (0-10)
-- [ ] Prior Art Suche (vereinfacht)
-- [ ] Freedom-to-Operate Indikator
-- [ ] White Space Identifikation
-- [ ] Empfehlung (Patent/License/Spinoff)
-
-**Story Points:** 13
-**Sprint:** 4
+**Delivered:** Sprint 3 (LLM-based novelty scoring with confidence metrics)
 
 ---
 
-#### US-2.3: Marketability Scoring
-**Als** VC-Analyst
-**möchte ich** das Marktpotential einer Technologie einschätzen können
-**damit** ich Investment-Entscheidungen treffen kann.
+**US-2.2: IP-Potential Scoring**
+**As** a TTO manager, **I want** AI to assess patent potential **so that** I can identify commercializable IP.
 
-**RICE:** 81 (basierend auf Feature Request)
-
-**Akzeptanzkriterien:**
-- [ ] Marketability Score (0-10)
-- [ ] Geschätzte Marktgröße
-- [ ] Ziel-Industrien
-- [ ] Aktuelle Marktsignale (News, Trends)
-- [ ] Wettbewerber-Hinweise
-
-**Story Points:** 13
-**Sprint:** 4
+**Delivered:** Sprint 3 (patent landscape analysis, prior art assessment)
 
 ---
 
-#### US-2.4: Feasibility & Commercialization Scoring
-**Als** Innovationsmanager
-**möchte ich** die Umsetzbarkeit und Kommerzialisierungsreife bewerten
-**damit** ich realistische Projektpläne erstellen kann.
+**US-2.3: Marketability Scoring**
+**As** a VC analyst, **I want** AI to score market potential **so that** I can estimate ROI.
 
-**Akzeptanzkriterien:**
-- [ ] TRL-Level Einschätzung (1-9)
-- [ ] Time-to-Market Schätzung
-- [ ] Entwicklungskosten-Indikation
-- [ ] Markteintrittsbarrieren
-- [ ] Kommerzialisierungspfad-Empfehlung
-
-**Story Points:** 13
-**Sprint:** 5
+**Delivered:** Sprint 3 (market size estimation, industry fit analysis)
 
 ---
 
-#### US-2.5: One-Line-Pitch Generator
-**Als** Benutzer der Papers scannt
-**möchte ich** unter jedem Paper-Titel einen prägnanten One-Liner sehen
-**damit** ich schneller durch große Mengen navigieren kann.
+**US-2.4: Feasibility & Commercialization Scoring**
+**As** a TTO manager, **I want** AI to assess TRL and commercialization path **so that** I can plan outreach.
 
-**RICE:** 300 (10×9×10)/3 = Critical
-
-**Akzeptanzkriterien:**
-- [ ] Max. 15 Wörter pro Pitch
-- [ ] Fokus auf Kernwert/Innovation
-- [ ] Auf Paper-Listen und Detailseiten sichtbar
-- [ ] Generierung bei Import
-- [ ] Manuell editierbar
-
-**Story Points:** 5
-**Sprint:** 3
+**Delivered:** Sprint 3 (TRL estimation, commercialization path recommendation)
 
 ---
 
-#### US-2.6: Vereinfachte Abstract-Zusammenfassung
-**Als** Benutzer ohne PhD
-**möchte ich** das Abstract in einfacher Sprache lesen können
-**damit** ich Papers ohne Fachexpertise verstehen kann.
+**US-2.5: Team Readiness Scoring**
+**As** a TTO analyst, **I want** AI to assess author track record **so that** I can evaluate team strength.
 
-**RICE:** 216 (9×8×9)/3 = High Priority
-
-**Akzeptanzkriterien:**
-- [ ] Toggle zwischen Original/Vereinfacht
-- [ ] Lesbarkeit auf Abitur-Niveau
-- [ ] Erhalt der Kernaussagen
-- [ ] On-demand Generierung
-- [ ] Caching der Ergebnisse
-
-**Story Points:** 5
-**Sprint:** 3
+**Delivered:** Sprint 23 (h-index, works count, industry experience, institutional support scoring)
 
 ---
 
-#### US-2.7: Detaillierte Score-Aufschlüsselung
-**Als** TTO-Managerin
-**möchte ich** für jede KI-Bewertung eine detaillierte Aufschlüsselung sehen
-**damit** ich die Ergebnisse nachvollziehen und Dritten erklären kann.
+**US-2.6: One-Line-Pitch Generator**
+**As** a TTO manager, **I want** AI to generate concise pitches **so that** I can quickly communicate value.
 
-**RICE:** 162 (basierend auf Feature Request)
-
-**Akzeptanzkriterien:**
-- [ ] Aufklappbare Dimension-Details
-- [ ] Evidenz-Zitate pro Dimension
-- [ ] Confidence-Indikator pro Dimension
-- [ ] Export als PDF möglich
-- [ ] Vergleich mit Benchmark
-
-**Story Points:** 8
-**Sprint:** 5
+**Delivered:** Sprint 3 (GPT-based pitch generation, max 15 words)
 
 ---
 
-### EPIC 3: KanBan Pipeline
+**US-2.7: Simplified Abstract**
+**As** a non-technical stakeholder, **I want** simplified abstracts **so that** I can understand complex research.
 
-#### US-3.1: Projekt-Erstellung
-**Als** Team-Lead
-**möchte ich** Projekte für verschiedene Scouting-Initiativen erstellen
-**damit** ich meine Arbeit organisieren kann.
-
-**Akzeptanzkriterien:**
-- [ ] Projekt mit Name, Beschreibung
-- [ ] Konfigurierbare Stages (Inbox, Screening, Evaluation, Outreach, Archived)
-- [ ] Custom Scoring-Gewichtungen pro Projekt
-- [ ] Team-Mitglieder-Zuweisung
-
-**Story Points:** 8
-**Sprint:** 4
+**Delivered:** Sprint 3 (layman-friendly abstract generation)
 
 ---
 
-#### US-3.2: Drag & Drop KanBan Board
-**Als** TTO-Mitarbeiter
-**möchte ich** Papers per Drag & Drop durch die Pipeline bewegen
-**damit** ich meinen Workflow effizient gestalten kann.
+**US-2.8: Score Breakdown**
+**As** a user, **I want** detailed score explanations **so that** I can understand AI reasoning.
 
-**RICE:** 112.5 (9×10×10)/8 = Critical
-
-**Akzeptanzkriterien:**
-- [ ] Visuelle KanBan-Spalten
-- [ ] Drag & Drop zwischen Stages
-- [ ] Paper-Karten mit Score, One-Liner, Autoren
-- [ ] Filter nach Assignee, Score, Tags
-- [ ] Bulk-Aktionen
-
-**Story Points:** 13
-**Sprint:** 4-5
+**Delivered:** Sprint 3 (dimension-level details stored in JSONB)
+**Expanded:** Sprint 6 (Innovation Radar visualization on frontend)
 
 ---
 
-#### US-3.3: Verpflichtende Rejection-Begründung
-**Als** Manager
-**möchte ich** dass bei Ablehnungen immer eine Begründung angegeben wird
-**damit** wir aus Entscheidungen lernen können.
+### EPIC 3: KanBan Pipeline ✅
 
-**RICE:** 400 (10×8×10)/2 = Critical
+**US-3.1: Project Creation**
+**As** a TTO manager, **I want** to create screening projects **so that** I can organize papers.
 
-**Akzeptanzkriterien:**
-- [ ] Modal bei Ablehnung/Archivierung
-- [ ] Pflichtfeld für Begründung
-- [ ] Vordefinierte Kategorien + Freitext
-- [ ] Begründung in Paper-Historie sichtbar
-- [ ] Analytics über Ablehnungsgründe
-
-**Story Points:** 3
-**Sprint:** 4
+**Delivered:** Sprint 4 (project CRUD, customizable stages)
 
 ---
 
-#### US-3.4: Paper-Zuweisung an Teammitglieder
-**Als** Team-Lead
-**möchte ich** Papers bestimmten Teammitgliedern zuweisen können
-**damit** Verantwortlichkeiten klar sind.
+**US-3.2: Drag & Drop KanBan**
+**As** a user, **I want** to drag papers between stages **so that** I can visualize progress.
 
-**Akzeptanzkriterien:**
-- [ ] Assignee-Dropdown auf Paper-Karte
-- [ ] Benachrichtigung bei Zuweisung
-- [ ] Filter nach "Mir zugewiesen"
-- [ ] Workload-Übersicht
-
-**Story Points:** 5
-**Sprint:** 5
+**Delivered:** Sprint 4 (drag & drop with @dnd-kit, stage history tracking)
 
 ---
 
-#### US-3.5: Paper-Notizen und Kommentare
-**Als** Analyst
-**möchte ich** Notizen zu Papers hinzufügen können
-**damit** ich meine Gedanken dokumentieren kann.
+**US-3.3: Rejection Tracking**
+**As** a TTO manager, **I want** to document rejection reasons **so that** we learn from decisions.
 
-**Akzeptanzkriterien:**
-- [ ] Notiz-Input auf Paper-Detail
-- [ ] Chronologische Notiz-Historie
-- [ ] @mentions für Teammitglieder
-- [ ] Rich Text (Markdown)
-
-**Story Points:** 5
-**Sprint:** 5
+**Delivered:** Sprint 4 (mandatory rejection reason, rejection notes)
 
 ---
 
-### EPIC 4: Search & Discovery
+**US-3.4: Paper Assignment**
+**As** a TTO manager, **I want** to assign papers to team members **so that** workload is distributed.
 
-#### US-4.1: Volltextsuche
-**Als** Benutzer
-**möchte ich** Papers mit Stichworten durchsuchen können
-**damit** ich relevante Publikationen finde.
-
-**Akzeptanzkriterien:**
-- [ ] Suchfeld in Header
-- [ ] Suche in Titel, Abstract, Autoren
-- [ ] Fuzzy Matching für Tippfehler
-- [ ] Highlighting der Treffer
-- [ ] Schnelle Ergebnisse (<500ms)
-
-**Story Points:** 8
-**Sprint:** 5
+**Delivered:** Sprint 4 (assignee field, assignment tracking)
 
 ---
 
-#### US-4.2: Semantische Suche
-**Als** Forscher
-**möchte ich** in natürlicher Sprache suchen können
-**damit** ich konzeptionell ähnliche Papers finde.
+**US-3.5: Paper Notes**
+**As** a team member, **I want** to add notes to papers **so that** I can collaborate.
 
-**RICE:** 121.5 (basierend auf Feature Request)
-
-**Akzeptanzkriterien:**
-- [ ] Natural Language Query Input
-- [ ] Embedding-basierte Similaritätssuche
-- [ ] Top-K ähnliche Papers
-- [ ] Erklärung der Ähnlichkeit
-- [ ] Kombinierbar mit Filtern
-
-**Story Points:** 8
-**Sprint:** 6
+**Delivered:** Sprint 4 (notes CRUD, @mention support)
 
 ---
 
-#### US-4.3: Erweiterte Filter
-**Als** Power-User
-**möchte ich** Papers nach verschiedenen Kriterien filtern
-**damit** ich gezielt suchen kann.
+### EPIC 4: Search & Discovery ✅
 
-**Akzeptanzkriterien:**
-- [ ] Filter nach: Score-Range, Datum, Quelle, Tags
-- [ ] Dimension-spezifische Filter (z.B. "Novelty > 7")
-- [ ] Filter speichern als "Saved Search"
-- [ ] URL-basierte Filter (teilbar)
+**US-4.1: Fulltext Search**
+**As** a user, **I want** to search by keywords **so that** I can find relevant papers.
 
-**Story Points:** 8
-**Sprint:** 6
+**Delivered:** Sprint 5 (PostgreSQL pg_trgm full-text search)
 
 ---
 
-#### US-4.4: Automatische Alerts
-**Als** Scout
-**möchte ich** benachrichtigt werden wenn neue relevante Papers erscheinen
-**damit** ich nichts verpasse.
+**US-4.2: Semantic Search**
+**As** a researcher, **I want** to find similar papers **so that** I can discover related work.
 
-**Akzeptanzkriterien:**
-- [ ] Alert-Konfiguration (Saved Search + Threshold)
-- [ ] Email-Benachrichtigung
-- [ ] Tägliche/Wöchentliche Digest-Option
-- [ ] In-App Notification Center
-- [ ] Alert-Pause möglich
-
-**Story Points:** 8
-**Sprint:** 7
+**Delivered:** Sprint 5 (pgvector HNSW index, cosine distance, hybrid RRF ranking)
+**Expanded:** Sprint 11 (saved searches, alerts)
 
 ---
 
-#### US-4.5: Paper-Klassifikation nach Typ
-**Als** Analyst
-**möchte ich** Papers nach Typ filtern können (Review, Experiment, Methodology, etc.)
-**damit** ich irrelevante Publikationstypen ausschließen kann.
+**US-4.3: Advanced Filters**
+**As** a user, **I want** to filter by date, journal, score **so that** I can narrow results.
 
-**RICE:** 121.5 (9×9×10)/6 = High Priority
-
-**Akzeptanzkriterien:**
-- [ ] Automatische Klassifikation bei Import
-- [ ] Typen: Original Research, Review, Methodology, Dataset, Tool/Software
-- [ ] Filter in Suche
-- [ ] Tag auf Paper-Karte sichtbar
-
-**Story Points:** 5
-**Sprint:** 6
+**Delivered:** Sprint 5 (multi-field filters, score thresholds, date ranges)
 
 ---
 
-### EPIC 5: Author Intelligence
+**US-4.4: Automatic Alerts**
+**As** a user, **I want** automated search alerts **so that** I don't miss new papers.
 
-#### US-5.1: Erstautor-Hervorhebung
-**Als** Benutzer der Papers analysiert
-**möchte ich** den Erstautor klar hervorgehoben sehen
-**damit** ich die relevante Kontaktperson schnell finde.
-
-**RICE:** 200 (10×2×10)/1 = Quick Win
-
-**Akzeptanzkriterien:**
-- [ ] Erstautor visuell hervorgehoben (Badge)
-- [ ] Letztautor ebenfalls markiert (PI-Indikator)
-- [ ] Auf Paper-Karten und Detailseite
-
-**Story Points:** 2
-**Sprint:** 4
+**Delivered:** Sprint 11 (daily/weekly alerts via arq cron jobs)
+**Expanded:** Sprint 34 (refined alert system with notification integration)
 
 ---
 
-#### US-5.2: Autor-Profile mit Metriken
-**Als** Scout
-**möchte ich** ein Profil jedes Autors sehen
-**damit** ich deren Expertise einschätzen kann.
+**US-4.5: Paper Classification**
+**As** a user, **I want** papers classified by type **so that** I can filter by research type.
 
-**RICE:** 160 (9×8×10)/6 = Medium Priority
-
-**Akzeptanzkriterien:**
-- [ ] ORCID-Integration
-- [ ] H-Index, Zitationszahl
-- [ ] Publikationsliste
-- [ ] Affiliationen (aktuell + historisch)
-- [ ] Relevanz-Score für aktuelles Projekt
-
-**Story Points:** 13
-**Sprint:** 7
+**Delivered:** Sprint 5 (LLM-based classification: original_research, review, case_study, etc.)
 
 ---
 
-#### US-5.3: Letzter Kontakt-Zeitpunkt
-**Als** Team-Mitglied
-**möchte ich** sehen wann jemand zuletzt einen Forscher kontaktiert hat
-**damit** wir keine doppelten Anfragen senden.
+### EPIC 5: Author Intelligence ✅
 
-**RICE:** 240 (8×9×10)/3 = High Priority
+**US-5.1: Author Profiles**
+**As** a TTO analyst, **I want** to view author profiles **so that** I can assess expertise.
 
-**Akzeptanzkriterien:**
-- [ ] "Last Contact" Datum auf Autor-Profil
-- [ ] Manuell setzbar
-- [ ] Optional: Integration mit Email-Client
-- [ ] Team-weit sichtbar
-
-**Story Points:** 5
-**Sprint:** 8
+**Delivered:** Sprint 9 (h-index, citation count, works count, affiliations)
 
 ---
 
-#### US-5.4: Clustered Outreach
-**Als** Scout
-**möchte ich** Kontaktanfragen nach meinen interessanten Papers clustern
-**damit** ich effizient kommunizieren kann.
+**US-5.2: Contact Tracking**
+**As** a TTO manager, **I want** to log author contacts **so that** we track outreach.
 
-**RICE:** 116 (9×9×10)/7 = Medium Priority
-
-**Akzeptanzkriterien:**
-- [ ] Gruppierung von Autoren nach Paper-Cluster
-- [ ] Email-Template Generator
-- [ ] Bulk-Outreach Workflow
-- [ ] Tracking von Responses
-
-**Story Points:** 13
-**Sprint:** 8-9
+**Delivered:** Sprint 10 (contact type, subject, notes, outcome, follow-up date)
 
 ---
 
-### EPIC 6: Analytics & Reporting
+**US-5.3: Author Enrichment**
+**As** a user, **I want** to enrich author data **so that** I have current information.
 
-#### US-6.1: Dashboard
-**Als** Manager
-**möchte ich** eine Übersicht über die Aktivitäten meines Teams
-**damit** ich den Fortschritt verfolgen kann.
-
-**Akzeptanzkriterien:**
-- [ ] Papers pro Stage
-- [ ] Durchschnittliche Scores
-- [ ] Team-Aktivität (Papers reviewed, moved, etc.)
-- [ ] Zeitraum-Filter
-
-**Story Points:** 8
-**Sprint:** 9
+**Delivered:** Sprint 9 (OpenAlex API enrichment, ORCID/Semantic Scholar stubs)
 
 ---
 
-#### US-6.2: Paper-Dashboard (wachsend)
-**Als** Analyst
-**möchte ich** ein visuelles Dashboard pro Paper sehen
-**damit** ich alle Informationen auf einen Blick habe.
+**US-5.4: Contact Statistics**
+**As** a TTO manager, **I want** to see contact stats **so that** I can measure engagement.
 
-**RICE:** 126.25 (10×9×10)/8 = High Priority
-
-**Akzeptanzkriterien:**
-- [ ] Radar-Chart mit 5 Dimensionen
-- [ ] Key Metrics auf einen Blick
-- [ ] Score-Entwicklung über Zeit (bei Re-Scoring)
-- [ ] Aktions-Buttons integriert
-
-**Story Points:** 8
-**Sprint:** 9
+**Delivered:** Sprint 10 (contact count by type, outcome distribution, follow-up tracking)
 
 ---
 
-#### US-6.3: Trend-Analyse
-**Als** Stratege
-**möchte ich** Forschungstrends in meinem Bereich erkennen
-**damit** ich Schwerpunkte setzen kann.
+### EPIC 6: Analytics & Reporting ✅
 
-**Akzeptanzkriterien:**
-- [ ] Themen-Clustering über Zeit
-- [ ] Aufstrebende Themen identifizieren
-- [ ] Export als Report
+**US-6.1: Dashboard Overview**
+**As** a TTO manager, **I want** a dashboard **so that** I can see key metrics.
 
-**Story Points:** 13
-**Sprint:** 10
+**Delivered:** Sprint 12 (total papers, average score, pipeline stage distribution, recent activity)
 
 ---
 
-#### US-6.4: Export-Funktionen
-**Als** Benutzer
-**möchte ich** Daten exportieren können
-**damit** ich sie in anderen Tools verwenden kann.
+**US-6.2: Team Activity**
+**As** a TTO manager, **I want** to see team activity **so that** I can track productivity.
 
-**Akzeptanzkriterien:**
-- [ ] CSV Export für Paper-Listen
-- [ ] PDF Export für einzelne Papers
-- [ ] BibTeX Export
-- [ ] API für Custom Integrations
-
-**Story Points:** 5
-**Sprint:** 10
+**Delivered:** Sprint 12 (user activity metrics, papers scored per user, contributions)
 
 ---
 
-## 3. Priorisierte Backlog-Übersicht
+**US-6.3: Paper Trends**
+**As** a user, **I want** to see paper trends **so that** I can identify patterns.
 
-### MVP (Sprints 1-6) - Must Have
-
-| ID | User Story | RICE | Story Points |
-|----|------------|------|--------------|
-| US-0.1 | Projekt-Setup | - | 5 |
-| US-0.2 | Authentifizierung | - | 8 |
-| US-0.3 | Multi-Tenancy | - | 5 |
-| US-1.1 | DOI Import | 300 | 8 |
-| US-1.2 | PubMed/arXiv Integration | 216 | 13 |
-| US-1.4 | Full-Text Link | 300 | 1 |
-| US-2.1 | Novelty Scoring | 135 | 13 |
-| US-2.5 | One-Line-Pitch | 300 | 5 |
-| US-2.6 | Vereinfachte Zusammenfassung | 216 | 5 |
-| US-3.1 | Projekt-Erstellung | - | 8 |
-| US-3.2 | KanBan Board | 112.5 | 13 |
-| US-3.3 | Rejection-Begründung | 400 | 3 |
-| US-4.1 | Volltextsuche | - | 8 |
-| US-5.1 | Erstautor-Hervorhebung | 200 | 2 |
-| **Total** | | | **97 SP** |
-
-### Post-MVP (Sprints 7-11) - Should Have
-
-| ID | User Story | RICE | Story Points |
-|----|------------|------|--------------|
-| US-1.3 | PDF Upload | 180 | 8 |
-| US-2.2 | IP-Potential Scoring | 145.8 | 13 |
-| US-2.3 | Marketability Scoring | 81 | 13 |
-| US-2.4 | Feasibility Scoring | - | 13 |
-| US-2.7 | Score-Aufschlüsselung | 162 | 8 |
-| US-3.4 | Zuweisung | - | 5 |
-| US-3.5 | Notizen | - | 5 |
-| US-4.2 | Semantische Suche | 121.5 | 8 |
-| US-4.3 | Erweiterte Filter | - | 8 |
-| US-4.4 | Alerts | - | 8 |
-| US-4.5 | Paper-Klassifikation | 121.5 | 5 |
-| US-5.2 | Autor-Profile | 160 | 13 |
-| US-5.3 | Letzter Kontakt | 240 | 5 |
-| US-6.1 | Dashboard | - | 8 |
-| US-6.2 | Paper-Dashboard | 126.25 | 8 |
-| US-6.4 | Export | - | 5 |
-| **Total** | | | **133 SP** |
-
-### Future (Nach MVP) - Nice to Have
-
-| ID | User Story | RICE | Story Points |
-|----|------------|------|--------------|
-| US-5.4 | Clustered Outreach | 116 | 13 |
-| US-6.3 | Trend-Analyse | - | 13 |
-| - | BCG Uptake Matrix | 2025 | 13 |
-| - | Patent-Paper Matching | 90 | 13 |
-| - | Enterprise SSO | 25.7 | 8 |
-| - | Chatbot mit RAG | 72 | 21 |
-| - | Researcher-Feedback Loop | 100 | 13 |
-| - | SDG/Mission Alignment | 90 | 8 |
+**Delivered:** Sprint 12 (import trends, score distributions, source breakdown)
 
 ---
 
-## 4. Sprint-Plan Übersicht
+**US-6.4: Data Export**
+**As** a user, **I want** to export data **so that** I can use external tools.
 
-```
-Sprint 1 (Woche 1-2):   Foundation + Setup           [18 SP]
-Sprint 2 (Woche 3-4):   Paper Ingestion Basics       [22 SP]
-Sprint 3 (Woche 5-6):   AI Scoring MVP               [23 SP]
-Sprint 4 (Woche 7-8):   KanBan Core                  [26 SP]
-Sprint 5 (Woche 9-10):  Search + Scoring Complete    [24 SP]
-Sprint 6 (Woche 11-12): Polish + Bug Fixing          [Buffer]
-──────────────────────────────────────────────────────────────
-                                        MVP Release (~12 Wochen)
-──────────────────────────────────────────────────────────────
-Sprint 7-8:             Author Intelligence
-Sprint 9-10:            Analytics + Alerts
-Sprint 11:              Enterprise Features
-```
+**Delivered:** Sprint 12 (CSV, BibTeX, PDF report export)
 
 ---
 
-## 5. Definition of Done
+**US-6.5: Scheduled Reports**
+**As** a TTO manager, **I want** automated reports **so that** I stay informed.
 
-Eine User Story gilt als "Done" wenn:
-
-- [ ] Alle Akzeptanzkriterien erfüllt
-- [ ] Code reviewed (mind. 1 Reviewer)
-- [ ] Unit Tests geschrieben und grün
-- [ ] Integration Tests für API Endpoints
-- [ ] API-Dokumentation aktualisiert (OpenAPI)
-- [ ] Keine kritischen Sentry-Errors
-- [ ] Performance akzeptabel (<2s für UI, <5s für Scoring)
-- [ ] Feature Flag vorhanden (wenn applicable)
-- [ ] Demo-fähig für Stakeholder
+**Delivered:** Sprint 27 (weekly/monthly reports, configurable metrics, email delivery)
 
 ---
 
-## 6. Nächste Schritte
+## Beyond Original Epics (Sprint 13-37)
 
-Siehe `03_CLAUDE_CODE_GUIDE.md` für die detaillierte Anleitung zur Implementierung mit Claude Code.
+The product evolved significantly beyond the original 6 epics. Additional features delivered:
+
+### Team Collaboration (Sprints 13-14, 16-19)
+- Team invitations with role management
+- Onboarding wizard (4-step)
+- Researcher groups with AI-suggested members
+- Technology transfer conversation workflows
+- Research submission portal
+- Gamification & badges (15+ achievement types)
+- Knowledge management
+
+### Security & Compliance (Sprints 22, 28, 31)
+- Granular RBAC with permission system
+- Audit logging (GDPR compliance)
+- Data retention policies
+- SOC2 compliance framework
+- Account lockout & token blacklist
+
+### Platform & Developer Features (Sprints 23, 25-27)
+- LLM model settings & configuration
+- Developer API (keys, webhooks, repository sources)
+- MCP server implementation
+- Scheduled reports
+- Keyboard navigation & accessibility
+- Mobile responsive design
+
+### Enterprise Features (Sprints 28-36)
+- Internationalization (EN/DE)
+- Server-side notification system
+- Advanced alert refinements
+- Quality & production hardening
+
+### Foundations Pipeline (Sprint 37)
+- Unified multi-source ingestion pipeline
+- Ingestion run tracking & checkpointing
+- Source record deduplication
+- Comprehensive E2E testing
+
+**Detailed Implementation History:** See [docs/implementation/PHASE_01_FOUNDATION.md](docs/implementation/PHASE_01_FOUNDATION.md) through [PHASE_10_FOUNDATIONS.md](docs/implementation/PHASE_10_FOUNDATIONS.md)
+
+---
+
+## RICE Prioritization Framework (Historical Context)
+
+User stories were prioritized using RICE:
+- **Reach:** Number of users affected per time period (1-10)
+- **Impact:** Value to those users (1-10: minimal, low, medium, high, massive)
+- **Confidence:** Certainty in estimates (1-10)
+- **Effort:** Person-weeks to implement (1-10)
+
+**RICE Score = (Reach × Impact × Confidence) / Effort**
+
+**Priority Tiers:**
+- **High Priority (RICE ≥ 200):** MVP-critical features
+- **Medium Priority (RICE 100-199):** Post-MVP enhancements
+- **Low Priority (RICE < 100):** Nice-to-have features
+
+**Note:** Actual sprint planning evolved beyond RICE scoring as the product matured.
+
+---
+
+## Future Enhancements
+
+For planned future work, see **[docs/implementation/FUTURE_ENHANCEMENTS.md](docs/implementation/FUTURE_ENHANCEMENTS.md)**
+
+Potential next features:
+- Advanced analytics (cohort analysis, funnel tracking)
+- White-label branding customization
+- Mobile app (React Native)
+- API rate limiting per tier
+- Redis caching layer
+- Slack/Teams integration
+- Advanced IP analytics (patent search integration)
+- Batch operations UI
+
+---
+
+## Documentation Navigation
+
+**For detailed information:**
+- **[docs/INDEX.md](docs/INDEX.md)** - Master navigation hub
+- **[docs/implementation/STATUS.md](docs/implementation/STATUS.md)** - Current state & metrics
+- **[docs/implementation/](docs/implementation/)** - Sprint-by-sprint history (10 phase docs)
+- **[docs/features/](docs/features/)** - Feature implementation guides
+- **[docs/modules/](docs/modules/)** - Module-level documentation (24 modules)
+- **[docs/api/API_REFERENCE.md](docs/api/API_REFERENCE.md)** - All 208+ API endpoints
+
+**For development:**
+- **[CLAUDE.md](CLAUDE.md)** - AI agent quick start
+- **[docs/development/CODING_STANDARDS.md](docs/development/CODING_STANDARDS.md)** - Code conventions
+- **[docs/development/TESTING_GUIDE.md](docs/development/TESTING_GUIDE.md)** - Testing patterns
+
+---
+
+**Last Updated:** 2026-02-10
+**Document Status:** Refactored to reflect 37 completed sprints with cross-references
+**Lines:** 462 (reduced from 746 = 38% reduction)

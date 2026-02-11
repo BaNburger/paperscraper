@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import csv
+import logging
 from pathlib import Path
 from typing import Any
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 
 class MarketFeedConnector:
@@ -71,7 +74,8 @@ class MarketFeedConnector:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 response = await client.get(url)
                 response.raise_for_status()
-        except Exception:
+        except Exception as e:
+            logger.warning("Failed to load market signals from %s: %s", url, e)
             return []
 
         payload = response.json()

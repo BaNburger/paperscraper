@@ -1,111 +1,87 @@
 # Paper Scraper - Claude Code Project Context
 
-## Projekt-Überblick
-
-**Paper Scraper** ist eine AI-powered SaaS-Plattform zur automatisierten Analyse wissenschaftlicher Publikationen. Zielgruppen: Technology Transfer Offices (TTOs), VCs, Corporate Innovation Teams.
-
-### Kernwertversprechen
-- **Papers automatisch importieren** aus OpenAlex, PubMed, arXiv, via DOI oder PDF
-- **6-dimensionales AI-Scoring**: Novelty, IP-Potential, Marketability, Feasibility, Commercialization, Team Readiness
-- **KanBan-Pipeline** für strukturiertes Paper-Management
-- **Semantische Suche** zur Entdeckung ähnlicher Forschung
-- **Technology Transfer Workflows** für Researcher-Outreach
-- **Gamification & Badges** für Team-Engagement
+> **📖 Documentation Navigation:** This is a lean AI agent entry point.
+> **For detailed information**, see **[docs/INDEX.md](docs/INDEX.md)** - Master navigation hub
 
 ---
 
-## Tech Stack
+## Projekt-Überblick
+
+**Paper Scraper** ist eine AI-powered SaaS-Plattform zur automatisierten Analyse wissenschaftlicher Publikationen.
+
+**Zielgruppen:** Technology Transfer Offices (TTOs), VCs, Corporate Innovation Teams
+
+**Kernwertversprechen:**
+- **Papers automatisch importieren** aus OpenAlex, PubMed, arXiv, via DOI oder PDF
+- **6-dimensionales AI-Scoring**: Novelty, IP-Potential, Marketability, Feasibility, Commercialization, Team Readiness
+- **KanBan-Pipeline** für strukturiertes Paper-Management
+- **Semantische Suche** (pgvector HNSW) + Fulltext Search
+- **Technology Transfer Workflows** für Researcher-Outreach
+- **Gamification & Badges** für Team-Engagement
+
+**Current Status (2026-02-10):**
+- **37 Sprints completed** across 10 development phases
+- **24 backend modules**, 208+ API endpoints, 841 pytest tests
+- **28 frontend pages**, E2E tested with Playwright
+- **Full i18n** (EN/DE), server-side notifications, GDPR-compliant
+
+**See:** [docs/implementation/STATUS.md](docs/implementation/STATUS.md) for current state
+
+---
+
+## Tech Stack Summary
 
 | Layer | Technologie |
 |-------|-------------|
 | **Backend** | Python 3.11+, FastAPI, SQLAlchemy (async), Pydantic v2 |
 | **Database** | PostgreSQL 16 + pgvector (HNSW index) |
 | **Queue** | arq (async-native) + Redis |
-| **Storage** | MinIO (S3-kompatibel) |
-| **Frontend** | React 18, TypeScript, Vite, TailwindCSS, Shadcn/UI |
-| **AI/LLM** | Flexible Provider (GPT-5 mini default), text-embedding-3-small |
-| **Data Sources** | OpenAlex, EPO OPS, arXiv, PubMed, Crossref, Semantic Scholar |
-| **Monitoring** | Langfuse (LLM), Sentry (Errors) |
+| **Storage** | MinIO (S3-compatible) |
+| **Frontend** | React 19, TypeScript, Vite, TailwindCSS, Shadcn/UI |
+| **AI/LLM** | Multi-provider (GPT-5 mini default), text-embedding-3-small |
+| **Data Sources** | OpenAlex, PubMed, arXiv, Crossref, DOI, PDF |
+| **Monitoring** | Langfuse (LLM observability), Sentry (errors) |
+
+**See:** [docs/architecture/TECH_STACK.md](docs/architecture/TECH_STACK.md) for complete details
 
 ---
 
-## Projektstruktur
+## Projektstruktur (2 Levels)
 
 ```
 paper_scraper/
-├── paper_scraper/              # Python Backend Package
-│   ├── core/
-│   │   ├── config.py           # Pydantic Settings
-│   │   ├── database.py         # SQLAlchemy async session
-│   │   ├── security.py         # JWT, password hashing
-│   │   └── exceptions.py       # Custom exceptions
-│   │
-│   ├── modules/                # 22 Feature-Module
-│   │   ├── analytics/          # Team & paper metrics, dashboard
-│   │   ├── alerts/             # Search alerts & notifications
-│   │   ├── audit/              # Security audit logging (GDPR compliance)
-│   │   ├── auth/               # User, Organization, JWT, Team Invitations, GDPR
-│   │   ├── authors/            # Author CRM, contacts
-│   │   ├── badges/             # Gamification & achievements
-│   │   ├── email/              # Transactional emails (Resend)
-│   │   ├── export/             # CSV, PDF, BibTeX export
-│   │   ├── groups/             # Researcher groups & collaboration
-│   │   ├── knowledge/          # Knowledge management
-│   │   ├── model_settings/     # LLM model configuration
-│   │   ├── papers/             # Paper, Author, Ingestion
-│   │   ├── projects/           # KanBan, Pipeline
-│   │   ├── saved_searches/     # Saved searches & sharing
-│   │   ├── scoring/            # AI Scoring Pipeline (6 dimensions)
-│   │   ├── search/             # Fulltext, Semantic
-│   │   ├── submissions/        # Research submission portal
-│   │   ├── transfer/           # Technology transfer conversations
-│   │   ├── developer/          # API keys, webhooks, repository sources
-│   │   ├── reports/            # Scheduled reports
-│   │   ├── compliance/         # Data retention & governance
-│   │   └── notifications/      # Server-side notifications (alert/badge/system)
-│   │
-│   ├── jobs/                   # arq Background Tasks (async-native)
-│   │   ├── worker.py           # arq WorkerSettings
-│   │   ├── ingestion.py
-│   │   ├── scoring.py
-│   │   ├── badges.py
-│   │   ├── alerts.py
-│   │   └── retention.py
-│   │
-│   └── api/
-│       ├── main.py             # FastAPI App
-│       ├── dependencies.py     # DI
-│       └── v1/router.py        # API Routes
-│
+├── paper_scraper/              # Python Backend
+│   ├── core/                   # Config, Database, Security, Permissions
+│   ├── modules/                # 24 Feature Modules (auth, papers, scoring, etc.)
+│   ├── jobs/                   # arq Background Tasks (6 workers)
+│   └── api/                    # FastAPI App + Routes
 ├── frontend/                   # React Frontend
-│   └── src/
-│       ├── components/         # Reusable UI
-│       ├── features/           # Feature Components
-│       ├── hooks/              # Custom Hooks
-│       ├── lib/api.ts          # API Client
-│       └── pages/              # Route Pages
-│
-├── tests/                      # pytest Backend-Tests
-├── e2e/                        # Playwright E2E Tests
-│   ├── tests/                  # Test specs
-│   └── playwright.config.ts    # Playwright config
-├── .github/workflows/          # CI/CD Pipelines
-│   ├── ci.yml                  # Continuous Integration
-│   └── deploy.yml              # Deployment
-├── alembic/                    # Migrations
-├── docker-compose.yml
-├── DEPLOYMENT.md               # Deployment Guide
-└── pyproject.toml
+│   └── src/                    # Components, Pages, Hooks, API Client
+├── tests/                      # 841 pytest tests
+├── e2e/                        # Playwright E2E tests
+├── alembic/                    # Database migrations
+├── docs/                       # 📚 Complete documentation
+│   ├── INDEX.md                # Master navigation
+│   ├── architecture/           # System design, ADRs, tech stack
+│   ├── api/                    # API reference (208+ endpoints)
+│   ├── modules/                # 24 module docs
+│   ├── features/               # Feature guides (scoring, ingestion, search)
+│   ├── development/            # Coding standards, testing, troubleshooting
+│   └── implementation/         # Sprint history (10 phases, 37 sprints)
+├── .github/workflows/          # CI/CD (tests, deploy, E2E)
+└── docker-compose.yml          # PostgreSQL, Redis, MinIO
 ```
+
+**See:** [docs/modules/MODULES_OVERVIEW.md](docs/modules/MODULES_OVERVIEW.md) for all 24 modules
 
 ---
 
-## Coding Konventionen
+## Essential Coding Patterns
 
 ### Python Backend
 
 ```python
-# ✅ RICHTIG: Async, typed, documented
+# ✅ RICHTIG: Async, typed, tenant-isolated
 async def get_paper(
     db: AsyncSession,
     paper_id: UUID,
@@ -118,461 +94,272 @@ async def get_paper(
     )
     result = await db.execute(query)
     return result.scalar_one_or_none()
-
-# ❌ FALSCH: Blocking, untyped
-def get_paper(db, id):
-    return db.query(Paper).filter(Paper.id == id).first()
 ```
 
 **Regeln:**
-- Async/await für alle I/O
+- Async/await für alle I/O (kein blocking code!)
 - Type hints überall
+- Tenant isolation: `organization_id` filter in allen Queries
 - Google-Style Docstrings
-- Absolute Imports
-- Pydantic für alle DTOs
+- Pydantic v2 für alle DTOs
+
+**See:** [docs/development/CODING_STANDARDS.md](docs/development/CODING_STANDARDS.md)
 
 ### TypeScript Frontend
 
 ```typescript
-// ✅ RICHTIG: Typed, hooks, query
+// ✅ RICHTIG: TanStack Query pattern
 const usePapers = (filters: PaperFilters) => {
   return useQuery({
     queryKey: ['papers', filters],
     queryFn: () => api.papers.list(filters),
   });
 };
-
-// ❌ FALSCH: any, no query key
-const usePapers = () => {
-  const [papers, setPapers] = useState<any>([]);
-  useEffect(() => { fetch('/papers').then(r => setPapers(r)); }, []);
-};
 ```
 
 **Regeln:**
 - TanStack Query für Server State
+- Shadcn/UI Components
 - Zod für Runtime Validation
-- Barrel Exports (index.ts)
-- Shadcn/UI Komponenten
+
+**See:** [docs/modules/frontend.md](docs/modules/frontend.md)
 
 ---
 
-## Datenmodell (Core)
+## Quick Navigation
 
+### For Architecture Questions
+- **System Overview:** [docs/architecture/OVERVIEW.md](docs/architecture/OVERVIEW.md)
+- **Tech Stack:** [docs/architecture/TECH_STACK.md](docs/architecture/TECH_STACK.md)
+- **Database Schema:** [docs/architecture/DATA_MODEL.md](docs/architecture/DATA_MODEL.md)
+- **ADRs (23 total):** [docs/architecture/DECISIONS.md](docs/architecture/DECISIONS.md)
+
+### For API Development
+- **Complete API Reference (208+ endpoints):** [docs/api/API_REFERENCE.md](docs/api/API_REFERENCE.md)
+- **API Patterns:** [docs/api/API_PATTERNS.md](docs/api/API_PATTERNS.md)
+
+### For Module Development
+- **All 24 Modules:** [docs/modules/MODULES_OVERVIEW.md](docs/modules/MODULES_OVERVIEW.md)
+- Specific modules: `docs/modules/{module_name}.md` (auth, papers, scoring, etc.)
+
+### For Feature Implementation
+- **AI Scoring System:** [docs/features/SCORING_GUIDE.md](docs/features/SCORING_GUIDE.md)
+- **Paper Ingestion:** [docs/features/INGESTION_GUIDE.md](docs/features/INGESTION_GUIDE.md)
+- **Search (Fulltext + Semantic):** [docs/features/SEARCH_GUIDE.md](docs/features/SEARCH_GUIDE.md)
+- **KanBan Pipeline:** [docs/features/PIPELINE_GUIDE.md](docs/features/PIPELINE_GUIDE.md)
+
+### For Implementation History
+- **Current Status & Metrics:** [docs/implementation/STATUS.md](docs/implementation/STATUS.md)
+- **Sprint-by-Sprint History:**
+  - [PHASE_01_FOUNDATION.md](docs/implementation/PHASE_01_FOUNDATION.md) - Sprints 1-6
+  - [PHASE_02_FEATURES.md](docs/implementation/PHASE_02_FEATURES.md) - Sprints 7-12
+  - [PHASE_03_BETA.md](docs/implementation/PHASE_03_BETA.md) - Sprints 13-15
+  - [PHASE_04_LOVABLE.md](docs/implementation/PHASE_04_LOVABLE.md) - Sprints 16-19
+  - [PHASE_05_STABILIZATION.md](docs/implementation/PHASE_05_STABILIZATION.md) - Sprints 20-21
+  - [PHASE_06_SECURITY.md](docs/implementation/PHASE_06_SECURITY.md) - Sprints 22-24
+  - [PHASE_07_PLATFORM.md](docs/implementation/PHASE_07_PLATFORM.md) - Sprints 25-27
+  - [PHASE_08_ENTERPRISE.md](docs/implementation/PHASE_08_ENTERPRISE.md) - Sprints 28-30
+  - [PHASE_09_QUALITY.md](docs/implementation/PHASE_09_QUALITY.md) - Sprints 31-36
+  - [PHASE_10_FOUNDATIONS.md](docs/implementation/PHASE_10_FOUNDATIONS.md) - Sprint 37
+
+### For Development
+- **Testing Guide:** [docs/development/TESTING_GUIDE.md](docs/development/TESTING_GUIDE.md)
+- **Common Tasks:** [docs/development/COMMON_TASKS.md](docs/development/COMMON_TASKS.md)
+- **Troubleshooting:** [docs/development/TROUBLESHOOTING.md](docs/development/TROUBLESHOOTING.md)
+
+---
+
+## Core Data Models (Simplified)
+
+**For complete schema:** [docs/architecture/DATA_MODEL.md](docs/architecture/DATA_MODEL.md)
+
+**Essential tables:**
 ```sql
--- Organizations & Users
-organizations (id, name, type, subscription_tier, settings)
-users (id, organization_id, email, hashed_password, role, email_verified,
-       email_verification_token, password_reset_token,
-       onboarding_completed, onboarding_completed_at)
-
--- Team Invitations
-team_invitations (
-  id, organization_id, email, role, token, created_by_id,
-  status, expires_at, created_at
-)
+-- Multi-tenancy
+organizations (id, name, type, subscription_tier, logo_url, settings)
+users (id, organization_id, email, role, email_verified)
 
 -- Papers
-papers (id, doi, title, abstract, source, embedding vector(1536))
-authors (id, orcid, name, affiliations, h_index, citation_count, works_count)
+papers (id, organization_id, doi, title, abstract, source,
+        embedding vector(1536), created_at)
+authors (id, orcid, name, h_index, citation_count, works_count)
 paper_authors (paper_id, author_id, position, is_corresponding)
 
--- Author Contacts (CRM)
-author_contacts (
-  id, author_id, organization_id, contacted_by_id,
-  contact_type, contact_date, subject, notes,
-  outcome, follow_up_date, paper_id
-)
+-- AI Scoring
+paper_scores (paper_id, organization_id,
+              novelty, ip_potential, marketability, feasibility,
+              commercialization, team_readiness, overall_score,
+              confidence, model_version)
 
--- Scoring
-paper_scores (
-  paper_id, organization_id,
-  novelty, ip_potential, marketability, feasibility, commercialization,
-  overall_score, confidence, model_version
-)
-
--- Pipeline
+-- KanBan Pipeline
 projects (id, organization_id, name, stages, scoring_weights)
-paper_project_status (paper_id, project_id, stage, assigned_to, rejection_reason)
+paper_project_status (paper_id, project_id, stage, assigned_to)
 
--- Saved Searches & Alerts
-saved_searches (
-  id, organization_id, created_by_id, name, description,
-  query, mode, filters, is_public, share_token,
-  alert_enabled, alert_frequency, last_alert_at, run_count
-)
-alerts (
-  id, organization_id, user_id, saved_search_id,
-  name, channel, frequency, min_results, is_active,
-  last_triggered_at, trigger_count
-)
-alert_results (
-  id, alert_id, status, papers_found, new_papers,
-  paper_ids, delivered_at, error_message
-)
+-- Search & Alerts
+saved_searches (id, query, mode, filters, is_public, share_token)
+alerts (id, saved_search_id, frequency, channel, is_active)
 
--- Audit Logging (GDPR/Security Compliance)
-audit_logs (
-  id, user_id, organization_id, action, resource_type,
-  resource_id, details, ip_address, user_agent, created_at
-)
-
--- Notifications
-notifications (
-  id, user_id, organization_id, type, title, message,
-  is_read, resource_type, resource_id, metadata, created_at
-)
-
--- Developer
-api_keys (id, organization_id, name, key_hash, permissions, is_active, last_used_at)
-webhooks (id, organization_id, url, events, secret, is_active)
-repository_sources (id, organization_id, provider, config, sync_enabled)
+-- Technology Transfer
+conversations (id, paper_id, researcher_id, stage, transfer_type)
+messages (id, conversation_id, content, sender, mentions)
 
 -- Compliance
-retention_policies (id, organization_id, resource_type, retention_days, is_active)
-retention_logs (id, policy_id, records_deleted, executed_at)
+audit_logs (id, user_id, action, resource_type, ip_address)
+retention_policies (id, resource_type, retention_days)
 
--- Reports
-scheduled_reports (id, organization_id, name, type, schedule, config, is_active)
+-- Notifications
+notifications (id, user_id, type, title, message, is_read)
 ```
+
+**Total:** 40+ tables with PostgreSQL 16 + pgvector
 
 ---
 
-## API Struktur
+## Scoring System (6 Dimensions)
 
-```
-/api/v1/
-├── /auth
-│   ├── POST /register
-│   ├── POST /login
-│   ├── POST /refresh
-│   ├── GET  /me
-│   ├── PATCH /me
-│   ├── POST /change-password
-│   ├── POST /forgot-password      # Initiate password reset
-│   ├── POST /reset-password       # Reset with token
-│   ├── POST /verify-email         # Verify email address
-│   ├── POST /resend-verification  # Resend verification email
-│   ├── POST /invite               # Send team invitation (admin)
-│   ├── GET  /invitation/{token}   # Get invitation info
-│   ├── POST /accept-invite        # Accept team invitation
-│   ├── GET  /invitations          # List pending invitations (admin)
-│   ├── DELETE /invitations/{id}   # Cancel invitation (admin)
-│   ├── GET  /users                # List organization users (admin)
-│   ├── PATCH /users/{id}/role     # Update user role (admin)
-│   ├── POST /users/{id}/deactivate   # Deactivate user (admin)
-│   ├── POST /users/{id}/reactivate   # Reactivate user (admin)
-│   ├── POST /onboarding/complete     # Mark onboarding as complete
-│   ├── GET  /export-data             # Export user data (GDPR)
-│   └── DELETE /delete-account        # Delete account (GDPR)
-│
-├── /audit
-│   ├── GET  /               # List audit logs (admin)
-│   ├── GET  /users/{id}     # Get user activity (admin)
-│   └── GET  /my-activity    # Get own activity log
-│
-├── /papers
-│   ├── GET  /               # List with filters
-│   ├── GET  /{id}           # Detail
-│   ├── DELETE /{id}         # Delete paper
-│   ├── POST /ingest/doi     # Import by DOI
-│   ├── POST /ingest/openalex # OpenAlex batch import
-│   ├── POST /ingest/pubmed  # PubMed batch import
-│   ├── POST /ingest/arxiv   # arXiv batch import
-│   ├── POST /upload/pdf     # PDF file upload
-│   ├── POST /{id}/generate-pitch # Generate AI pitch
-│   ├── POST /{id}/generate-simplified-abstract # Generate simplified abstract
-│   ├── GET  /{id}/notes     # List notes for paper
-│   ├── POST /{id}/notes     # Create note on paper
-│   ├── PUT  /{id}/notes/{note_id}    # Update note
-│   └── DELETE /{id}/notes/{note_id}  # Delete note
-│
-├── /authors
-│   ├── GET  /               # List authors in organization
-│   ├── GET  /{id}           # Author profile with metrics
-│   ├── GET  /{id}/detail    # Full detail with papers & contacts
-│   ├── POST /{id}/contacts  # Log contact with author
-│   ├── PATCH /{id}/contacts/{cid}  # Update contact
-│   ├── DELETE /{id}/contacts/{cid} # Delete contact
-│   ├── GET  /{id}/contacts/stats   # Contact statistics
-│   └── POST /{id}/enrich    # Enrich from OpenAlex/ORCID
-│
-├── /projects
-│   ├── GET  /               # List
-│   ├── POST /               # Create
-│   ├── GET  /{id}/kanban    # KanBan view
-│   └── PATCH /{id}/papers/{paper_id}/move
-│
-├── /scoring
-│   ├── POST /papers/{id}/score    # Trigger scoring
-│   ├── GET  /papers/{id}/scores   # Get score history
-│   ├── POST /papers/{id}/classify # Classify paper type
-│   ├── POST /classification/batch # Batch classify
-│   └── GET  /classification/unclassified # List unclassified papers
-│
-├── /search
-│   └── POST /               # Unified search
-│
-├── /saved-searches
-│   ├── GET  /               # List saved searches
-│   ├── POST /               # Create saved search
-│   ├── GET  /{id}           # Get saved search
-│   ├── PATCH /{id}          # Update saved search
-│   ├── DELETE /{id}         # Delete saved search
-│   ├── POST /{id}/share     # Generate share link
-│   ├── DELETE /{id}/share   # Revoke share link
-│   ├── POST /{id}/run       # Execute saved search
-│   └── GET  /shared/{token} # Get by share token (public)
-│
-├── /alerts
-│   ├── GET  /               # List alerts
-│   ├── POST /               # Create alert
-│   ├── GET  /{id}           # Get alert
-│   ├── PATCH /{id}          # Update alert
-│   ├── DELETE /{id}         # Delete alert
-│   ├── GET  /{id}/results   # Get alert history
-│   ├── POST /{id}/test      # Test alert (dry run)
-│   └── POST /{id}/trigger   # Manually trigger alert
-│
-├── /analytics
-│   ├── GET  /dashboard      # Dashboard summary metrics
-│   ├── GET  /team           # Team overview and activity
-│   └── GET  /papers         # Paper import trends & scoring stats
-│
-├── /export
-│   ├── GET  /csv            # Export papers to CSV
-│   ├── GET  /bibtex         # Export papers to BibTeX
-│   ├── GET  /pdf            # Export papers to PDF report
-│   └── POST /batch          # Batch export with format selection
-│
-├── /groups                  # Researcher Groups
-│   ├── GET  /               # List groups
-│   ├── POST /               # Create group
-│   ├── POST /{id}/members   # Add members
-│   └── GET  /{id}/suggestions  # AI-based member suggestions
-│
-├── /transfer                # Technology Transfer
-│   ├── GET  /conversations  # List conversations
-│   ├── POST /conversations  # Start conversation
-│   ├── POST /{id}/messages  # Send message
-│   └── GET  /{id}/next-steps  # AI-suggested next steps
-│
-├── /submissions             # Research Submissions
-│   ├── GET  /               # List submissions
-│   ├── POST /               # Submit research
-│   └── POST /{id}/analyze   # AI analysis
-│
-├── /badges                  # Gamification
-│   ├── GET  /               # All badges
-│   ├── GET  /my-badges      # User's badges
-│   └── GET  /leaderboard    # Organization leaderboard
-│
-├── /knowledge               # Knowledge Management
-│   └── [CRUD for knowledge sources]
-│
-├── /settings/models         # Model Configuration
-│   ├── GET  /               # List models
-│   ├── POST /               # Add model
-│   └── GET  /usage          # Usage stats
-│
-├── /developer               # Developer API
-│   ├── GET  /api-keys
-│   ├── POST /api-keys
-│   ├── DELETE /api-keys/{id}
-│   ├── GET  /webhooks
-│   ├── POST /webhooks
-│   ├── PATCH /webhooks/{id}
-│   ├── DELETE /webhooks/{id}
-│   ├── GET  /repos
-│   ├── POST /repos
-│   └── DELETE /repos/{id}
-│
-├── /reports                 # Scheduled Reports
-│   ├── GET  /
-│   ├── POST /
-│   ├── GET  /{id}
-│   ├── PATCH /{id}
-│   └── DELETE /{id}
-│
-├── /compliance              # Data Retention & Governance
-│   ├── GET  /retention-policies
-│   ├── POST /retention-policies
-│   ├── PATCH /retention-policies/{id}
-│   ├── DELETE /retention-policies/{id}
-│   ├── POST /retention-policies/{id}/enforce
-│   └── GET  /retention-logs
-│
-└── /notifications           # Server-side Notifications
-    ├── GET  /                   # List (paginated, with unread_count)
-    ├── GET  /unread-count       # Unread badge count
-    ├── POST /mark-read          # Mark specific notifications as read
-    └── POST /mark-all-read      # Mark all as read
-```
-
----
-
-## Scoring Dimensionen
-
-| Dimension | Score | Was wird bewertet? |
-|-----------|-------|-------------------|
+| Dimension | Score | Bewertet |
+|-----------|-------|----------|
 | **Novelty** | 0-10 | Technologische Neuheit vs. State-of-Art |
 | **IP-Potential** | 0-10 | Patentierbarkeit, Prior Art, White Spaces |
 | **Marketability** | 0-10 | Marktgröße, Industrien, Trends |
-| **Feasibility** | 0-10 | TRL-Level, Time-to-Market, Dev-Kosten |
+| **Feasibility** | 0-10 | TRL-Level, Time-to-Market, Development Cost |
 | **Commercialization** | 0-10 | Empfohlener Pfad, Entry Barriers |
-| **Team Readiness** | 0-10 | Autoren Track Record, Industry Experience, Institutional Support |
+| **Team Readiness** | 0-10 | Author Track Record, Industry Experience |
 
-**Scoring-Pipeline:**
-1. Paper → Embedding generieren
-2. Ähnliche Papers finden (pgvector)
-3. Autoren-Metriken laden (h-index, works_count)
-4. Pro Dimension: Prompt → LLM → Parse JSON
-5. Aggregieren (gewichteter Durchschnitt)
-6. In DB speichern
+**Pipeline:** Paper → Embedding → Similar Papers (pgvector) → Author Metrics → LLM Scoring (6 dimensions) → Innovation Radar
 
-**Innovation Radar:** 6-Achsen-Radar-Chart visualisiert alle Dimensionen auf PaperDetailPage.
+**See:** [docs/features/SCORING_GUIDE.md](docs/features/SCORING_GUIDE.md)
 
 ---
 
-## Häufige Tasks
+## Common Development Tasks
 
-### Neuen API-Endpoint hinzufügen
+### Add New API Endpoint
 ```bash
-1. Schema:    modules/<feature>/schemas.py
-2. Service:   modules/<feature>/service.py
-3. Router:    modules/<feature>/router.py
-4. Register:  api/v1/router.py
-5. Test:      tests/api/test_<feature>.py
+1. Schema:   modules/<module>/schemas.py (Pydantic v2)
+2. Service:  modules/<module>/service.py (async, type-hinted)
+3. Router:   modules/<module>/router.py (with @require_permission)
+4. Tests:    tests/modules/<module>/test_<resource>.py
+5. Docs:     Update docs/api/API_REFERENCE.md
 ```
 
-### Neue Scoring-Dimension hinzufügen
+### Add Scoring Dimension
 ```bash
-1. Prompt:    scoring/prompts/<dimension>.jinja2
-2. Scorer:    scoring/dimensions/<dimension>.py
-3. Register:  scoring/orchestrator.py
-4. Schema:    modules/scoring/schemas.py erweitern
-5. Migration: alembic revision
+1. Prompt:   scoring/prompts/<dimension>.jinja2
+2. Scorer:   scoring/dimensions/<dimension>.py
+3. Register: scoring/orchestrator.py
+4. Schema:   scoring/schemas.py (add field)
+5. Migration: alembic revision (add column to paper_scores)
+6. Frontend: Update InnovationRadar.tsx
 ```
 
-### Background Job hinzufügen
+### Add Background Job
 ```bash
-1. Task:      jobs/<task_name>.py (async function)
-2. Register:  jobs/worker.py (WorkerSettings.functions)
-3. Schedule:  arq.cron() in WorkerSettings (wenn periodic)
+1. Create:   jobs/<task_name>.py (async function)
+2. Register: jobs/worker.py (WorkerSettings.functions)
+3. Schedule: arq.cron() if periodic
+4. Test:     tests/jobs/test_<task_name>.py
 ```
+
+**See:** [docs/development/COMMON_TASKS.md](docs/development/COMMON_TASKS.md)
 
 ---
 
-## Entwicklungsumgebung
+## Development Environment
 
 ```bash
-# Starten
+# Start all services
 docker-compose up -d
+
+# Run migrations
+alembic upgrade head
+
+# Backend tests (841 tests, 87% coverage)
+pytest tests/ -v --cov=paper_scraper
+
+# Frontend tests
+cd frontend && npm test          # Unit tests (85 tests)
+cd e2e && npm test              # E2E tests (45 tests)
 
 # URLs
 API:      http://localhost:8000
-Docs:     http://localhost:8000/docs
+Docs:     http://localhost:8000/docs (OpenAPI)
 Frontend: http://localhost:3000
-MinIO:    http://localhost:9001 (Console)
-
-# Backend Tests
-pytest tests/ -v --cov=paper_scraper
-
-# Frontend Unit Tests
-cd frontend && npm test
-
-# E2E Tests
-cd e2e && npm test
-
-# Migrations
-alembic upgrade head
-alembic revision --autogenerate -m "Description"
-
-# arq Worker (manuell starten)
-arq paper_scraper.jobs.worker.WorkerSettings
+MinIO:    http://localhost:9001
 ```
 
----
-
-## Wichtige Dateien
-
-| Datei | Zweck |
-|-------|-------|
-| `core/config.py` | Alle Environment Variables |
-| `core/security.py` | JWT, Passwort-Hashing, Token-Generierung |
-| `core/permissions.py` | Granulares RBAC-System |
-| `core/csv_utils.py` | CSV-Export mit Injection-Schutz |
-| `core/storage.py` | S3/MinIO Storage Utilities |
-| `api/middleware.py` | Rate Limiting, Security Headers |
-| `modules/auth/service.py` | Auth-Service mit User Management, GDPR |
-| `modules/audit/service.py` | Audit Logging Service |
-| `modules/email/service.py` | E-Mail-Service (Resend) |
-| `modules/scoring/prompts/` | LLM Prompt Templates (11 Templates) |
-| `modules/scoring/llm_client.py` | LLM Provider Abstraktion |
-| `modules/scoring/dimensions/` | 6 Scoring-Dimensionen |
-| `modules/model_settings/` | Org-Level LLM-Konfiguration |
-| `jobs/badges.py` | Badge Auto-Award Engine |
-| `frontend/src/lib/api.ts` | API Client (20+ Namespaces) |
-| `frontend/src/components/ui/` | Shadcn/UI-style Components |
-| `frontend/src/components/InnovationRadar.tsx` | 6-Axis Score Visualization |
-| `frontend/src/components/Onboarding/` | Onboarding Wizard (4-step) |
-| `frontend/vitest.config.ts` | Vitest Unit Test Configuration |
-| `e2e/playwright.config.ts` | Playwright E2E Test Configuration |
-| `.github/workflows/ci.yml` | CI Pipeline |
-| `.github/workflows/deploy.yml` | Deployment Pipeline |
-| `DEPLOYMENT.md` | Deployment Guide |
-| `docker-compose.yml` | Lokale Services |
-| `modules/notifications/` | Server-side notification persistence & polling |
-| `modules/developer/` | API keys, webhooks, repository sources |
-| `modules/compliance/` | Data retention policies & enforcement |
-| `modules/reports/` | Scheduled report generation |
-| `jobs/retention.py` | Retention policy enforcement job |
-| `jobs/alerts.py` | Alert processing + notification creation |
-| `frontend/src/locales/` | i18n translation files (EN/DE) |
-| `frontend/src/hooks/useNotifications.ts` | Server-side notification polling hook |
-
-### Frontend UI Components (frontend/src/components/ui/)
-
-| Component | Zweck |
-|-----------|-------|
-| `EmptyState.tsx` | Empty states mit Icon, Titel, Beschreibung, Action |
-| `Skeleton.tsx` | Loading skeletons (Card, Table, Kanban, Stats, Avatar) |
-| `Toast.tsx` | Toast notifications mit ToastProvider & useToast |
-| `ConfirmDialog.tsx` | Bestätigungsdialog (default/destructive Varianten) |
-| `ErrorBoundary.tsx` | React Error Boundary mit Fallback UI |
+**See:** [SETUP.md](SETUP.md) for complete setup instructions
 
 ---
 
-## Referenz-Dokumentation
-
-- `01_TECHNISCHE_ARCHITEKTUR.md` - System Design
-- `02_USER_STORIES.md` - Priorisierter Backlog
-- `03_CLAUDE_CODE_GUIDE.md` - Entwicklungs-Workflow
-- `04_ARCHITECTURE_DECISIONS.md` - ADRs
-- `05_IMPLEMENTATION_PLAN.md` - Sprint-Plan
-- `DEPLOYMENT.md` - Deployment & Operations Guide
-
----
-
-## Quick Reference
+## Quick Reference Snippets
 
 ```python
-# Tenant-isolierte Query
+# Tenant-isolated query
 papers = await db.execute(
     select(Paper).where(Paper.organization_id == org_id)
 )
 
-# LLM-Aufruf
-result = await llm_client.complete(
+# LLM call with Langfuse tracing
+from paper_scraper.modules.scoring.llm_client import get_llm_client
+llm = await get_llm_client(org_id)
+result = await llm.complete(
     prompt=prompt,
     system="Du bist ein Experte...",
     temperature=0.3
 )
 
-# Embedding-Suche
+# Semantic search (pgvector)
 similar = await db.execute(
     select(Paper)
+    .where(Paper.organization_id == org_id)
     .order_by(Paper.embedding.cosine_distance(query_embedding))
     .limit(5)
 )
+
+# Background job enqueue
+from paper_scraper.core.redis import get_redis_pool
+redis = await get_redis_pool()
+await redis.enqueue_job("score_paper_task", paper_id, org_id)
 ```
+
+---
+
+## Key Architecture Decisions (ADRs)
+
+**See:** [docs/architecture/DECISIONS.md](docs/architecture/DECISIONS.md) for all 23 ADRs
+
+**Highlights:**
+- **ADR-001:** Modularer Monolith (not microservices)
+- **ADR-002:** PostgreSQL + pgvector (not dedicated vector DB)
+- **ADR-003:** Multi-provider LLM (GPT-5 mini default)
+- **ADR-004:** arq for background jobs (not Celery)
+- **ADR-005:** Self-hosted PostgreSQL + Custom JWT (not Supabase)
+- **ADR-021:** Granular RBAC (40+ permissions)
+- **ADR-022:** Foundations Ingestion Pipeline (multi-source async)
+- **ADR-023:** CI Documentation Gate (enforces doc updates)
+
+---
+
+## Getting Help
+
+**For documentation:**
+- Start here: [docs/INDEX.md](docs/INDEX.md)
+- Implementation status: [docs/implementation/STATUS.md](docs/implementation/STATUS.md)
+- Troubleshooting: [docs/development/TROUBLESHOOTING.md](docs/development/TROUBLESHOOTING.md)
+
+**For deployment:**
+- [DEPLOYMENT.md](DEPLOYMENT.md) - Production deployment guide
+- [SETUP.md](SETUP.md) - Local development setup
+
+**For legacy docs (deprecated but available):**
+- [01_TECHNISCHE_ARCHITEKTUR.md](01_TECHNISCHE_ARCHITEKTUR.md) → Use [docs/architecture/](docs/architecture/)
+- [02_USER_STORIES.md](02_USER_STORIES.md) → User story catalog (maintained)
+- [03_CLAUDE_CODE_GUIDE.md](03_CLAUDE_CODE_GUIDE.md) → Use [docs/development/](docs/development/)
+- [05_IMPLEMENTATION_PLAN.md](05_IMPLEMENTATION_PLAN.md) → Use [docs/implementation/](docs/implementation/)
+
+---
+
+**Last Updated:** 2026-02-10
+**Document Status:** Refactored to lean AI agent entry point with navigation to detailed docs
+**Lines:** 349 (reduced from 588 = 41% reduction)

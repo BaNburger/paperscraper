@@ -13,6 +13,11 @@ export interface Notification {
   timestamp: string
 }
 
+interface NotificationQueryOptions {
+  enabled?: boolean
+  poll?: boolean
+}
+
 function toNotification(item: NotificationItem): Notification {
   return {
     id: item.id,
@@ -26,15 +31,20 @@ function toNotification(item: NotificationItem): Notification {
   }
 }
 
-export function useNotifications(limit = 20) {
+export function useNotifications(limit = 20, options?: NotificationQueryOptions) {
   const queryClient = useQueryClient()
+  const shouldPoll = options?.poll ?? true
+  const isVisible = () =>
+    typeof document === 'undefined' || document.visibilityState === 'visible'
 
-  // Fetch notifications from backend with polling
+  // Fetch full notifications payload only when needed (e.g., panel open)
   const notificationsQuery = useQuery({
     queryKey: ['notifications', 'list', limit],
     queryFn: () => notificationsApi.list({ page: 1, page_size: limit }),
+    enabled: options?.enabled ?? true,
     staleTime: 1000 * 30, // 30 seconds
-    refetchInterval: 1000 * 60, // Poll every 60 seconds
+    refetchInterval: () =>
+      shouldPoll && isVisible() ? 1000 * 60 : false,
   })
 
   // Lightweight unread count query for badge display (polls more frequently)
@@ -42,7 +52,8 @@ export function useNotifications(limit = 20) {
     queryKey: ['notifications', 'unread-count'],
     queryFn: () => notificationsApi.getUnreadCount(),
     staleTime: 1000 * 15, // 15 seconds
-    refetchInterval: 1000 * 30, // Poll every 30 seconds
+    refetchInterval: () =>
+      shouldPoll && isVisible() ? 1000 * 30 : false,
   })
 
   const notifications = (notificationsQuery.data?.items ?? []).map(toNotification)

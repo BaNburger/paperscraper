@@ -2,7 +2,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { X, Keyboard } from 'lucide-react'
 import { getShortcutsByCategory } from '@/hooks/useKeyboardShortcuts'
 
-interface KeyboardShortcutsDialogProps {
+export interface KeyboardShortcutsDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }

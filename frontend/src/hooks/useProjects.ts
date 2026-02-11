@@ -1,10 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { projectsApi } from '@/lib/api'
 
-export function useProjects() {
+interface QueryControlOptions {
+  enabled?: boolean
+  staleTime?: number
+}
+
+export function useProjects(options?: QueryControlOptions) {
   return useQuery({
     queryKey: ['projects'],
     queryFn: () => projectsApi.list(),
+    enabled: options?.enabled ?? true,
+    staleTime: options?.staleTime,
   })
 }
 

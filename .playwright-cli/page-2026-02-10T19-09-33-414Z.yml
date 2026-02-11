@@ -1,0 +1,301 @@
+- generic:
+  - generic:
+    - generic:
+      - banner:
+        - generic:
+          - link:
+            - /url: /
+            - img
+          - generic:
+            - generic:
+              - button:
+                - img
+            - generic:
+              - button:
+                - img
+            - generic:
+              - button:
+                - generic:
+                  - img
+                - img
+      - generic:
+        - main:
+          - generic:
+            - generic:
+              - generic:
+                - heading [level=1]: Willkommen zurück, Frontend
+                - paragraph: Das passiert gerade in Ihrer Forschungs-Pipeline
+              - generic:
+                - generic:
+                  - generic:
+                    - heading [level=3]: Gesamte Paper
+                    - img
+                  - generic:
+                    - generic: "0"
+                - generic:
+                  - generic:
+                    - heading [level=3]: Aktive Projekte
+                    - img
+                  - generic:
+                    - generic: "0"
+                - generic:
+                  - generic:
+                    - heading [level=3]: Embeddings
+                    - img
+                  - generic:
+                    - generic: 0%
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - heading [level=3]: Neueste Paper
+                      - paragraph: Zuletzt hinzugefügte Paper in Ihrer Bibliothek
+                    - link:
+                      - /url: /papers
+                      - button:
+                        - text: Alle anzeigen
+                        - img
+                  - generic:
+                    - generic:
+                      - img
+                      - paragraph: Noch keine Paper
+                      - paragraph: Importieren Sie Paper, um loszulegen
+                - generic:
+                  - generic:
+                    - generic:
+                      - heading [level=3]: Schnellaktionen
+                    - generic:
+                      - link:
+                        - /url: /papers
+                        - button:
+                          - img
+                          - text: Paper importieren
+                      - link:
+                        - /url: /search
+                        - button:
+                          - img
+                          - text: Bibliothek durchsuchen
+                      - link:
+                        - /url: /projects
+                        - button:
+                          - img
+                          - text: Projekte verwalten
+                  - generic:
+                    - generic:
+                      - heading [level=3]: Projekte
+                      - link:
+                        - /url: /projects
+                        - button: Alle anzeigen
+                    - generic:
+                      - paragraph: Noch keine Projekte
+      - navigation:
+        - generic:
+          - link:
+            - /url: /
+            - img
+            - generic: Home
+          - link:
+            - /url: /papers
+            - img
+            - generic: Papers
+          - link:
+            - /url: /projects
+            - img
+            - generic: Projects
+          - link:
+            - /url: /search
+            - img
+            - generic: Search
+          - button:
+            - img
+            - generic: More
+  - dialog:
+    - heading [level=2]:
+      - img
+      - text: Keyboard Shortcuts
+    - generic:
+      - generic:
+        - heading [level=3]: General
+        - generic:
+          - generic:
+            - generic: Open Command Palette
+            - generic:
+              - generic:
+                - generic: ⌘K
+          - generic:
+            - generic: Focus Search
+            - generic:
+              - generic:
+                - generic: /
+          - generic:
+            - generic: Show Keyboard Shortcuts
+            - generic:
+              - generic:
+                - generic: "?"
+      - generic:
+        - heading [level=3]: Navigation
+        - generic:
+          - generic:
+            - generic: Go to Dashboard
+            - generic:
+              - generic:
+                - generic: g
+                - text: then
+              - generic:
+                - generic: d
+          - generic:
+            - generic: Go to Papers
+            - generic:
+              - generic:
+                - generic: g
+                - text: then
+              - generic:
+                - generic: p
+          - generic:
+            - generic: Go to Projects (KanBan)
+            - generic:
+              - generic:
+                - generic: g
+                - text: then
+              - generic:
+                - generic: k
+          - generic:
+            - generic: Go to Search
+            - generic:
+              - generic:
+                - generic: g
+                - text: then
+              - generic:
+                - generic: s
+          - generic:
+            - generic: Go to Analytics
+            - generic:
+              - generic:
+                - generic: g
+                - text: then
+              - generic:
+                - generic: a
+          - generic:
+            - generic: Go to Transfer
+            - generic:
+              - generic:
+                - generic: g
+                - text: then
+              - generic:
+                - generic: t
+          - generic:
+            - generic: Go to Badges
+            - generic:
+              - generic:
+                - generic: g
+                - text: then
+              - generic:
+                - generic: b
+          - generic:
+            - generic: Go to Groups
+            - generic:
+              - generic:
+                - generic: g
+                - text: then
+              - generic:
+                - generic: g
+      - generic:
+        - heading [level=3]: Actions
+        - generic:
+          - generic:
+            - generic: Import Papers
+            - generic:
+              - generic:
+                - generic: "n"
+                - text: then
+              - generic:
+                - generic: p
+          - generic:
+            - generic: New Project
+            - generic:
+              - generic:
+                - generic: "n"
+                - text: then
+              - generic:
+                - generic: j
+    - generic: Press Esc to close
+    - button:
+      - img
+  - dialog "Global Command Menu" [ref=e241]:
+    - generic [ref=e242]:
+      - generic [ref=e243]: Global Command Menu
+      - combobox "Global Command Menu" [expanded] [active] [ref=e244]
+      - listbox "Suggestions" [ref=e245]:
+        - generic [ref=e246]:
+          - generic [ref=e247]: Quick Actions
+          - group "Quick Actions" [ref=e248]:
+            - option "Import Papers n p" [selected] [ref=e249] [cursor=pointer]:
+              - img [ref=e250]
+              - generic [ref=e253]: Import Papers
+              - generic [ref=e254]: n p
+            - option "New Project n j" [ref=e255] [cursor=pointer]:
+              - img [ref=e256]
+              - generic [ref=e257]: New Project
+              - generic [ref=e258]: n j
+            - option "Search Papers /" [ref=e259] [cursor=pointer]:
+              - img [ref=e260]
+              - generic [ref=e263]: Search Papers
+              - generic [ref=e264]: /
+          - generic [ref=e265]: Navigation
+          - group "Navigation" [ref=e266]:
+            - option "Dashboard g d" [ref=e267] [cursor=pointer]:
+              - img [ref=e268]
+              - generic [ref=e271]: Dashboard
+              - generic [ref=e272]: g d
+            - option "Papers g p" [ref=e273] [cursor=pointer]:
+              - img [ref=e274]
+              - generic [ref=e277]: Papers
+              - generic [ref=e278]: g p
+            - option "Projects g k" [ref=e279] [cursor=pointer]:
+              - img [ref=e280]
+              - generic [ref=e282]: Projects
+              - generic [ref=e283]: g k
+            - option "Search g s" [ref=e284] [cursor=pointer]:
+              - img [ref=e285]
+              - generic [ref=e288]: Search
+              - generic [ref=e289]: g s
+            - option "Groups" [ref=e290] [cursor=pointer]:
+              - img [ref=e291]
+              - generic [ref=e295]: Groups
+            - option "Transfer" [ref=e296] [cursor=pointer]:
+              - img [ref=e297]
+              - generic [ref=e300]: Transfer
+            - option "Submissions" [ref=e301] [cursor=pointer]:
+              - img [ref=e302]
+              - generic [ref=e305]: Submissions
+            - option "Analytics g a" [ref=e306] [cursor=pointer]:
+              - img [ref=e307]
+              - generic [ref=e309]: Analytics
+              - generic [ref=e310]: g a
+            - option "Badges" [ref=e311] [cursor=pointer]:
+              - img [ref=e312]
+              - generic [ref=e318]: Badges
+            - option "Knowledge" [ref=e319] [cursor=pointer]:
+              - img [ref=e320]
+              - generic [ref=e322]: Knowledge
+            - option "Team" [ref=e323] [cursor=pointer]:
+              - img [ref=e324]
+              - generic [ref=e329]: Team
+          - generic [ref=e330]: Settings
+          - group "Settings" [ref=e331]:
+            - option "User Settings" [ref=e332] [cursor=pointer]:
+              - img [ref=e333]
+              - generic [ref=e336]: User Settings
+            - option "Organization Settings" [ref=e337] [cursor=pointer]:
+              - img [ref=e338]
+              - generic [ref=e342]: Organization Settings
+            - option "AI Models" [ref=e343] [cursor=pointer]:
+              - img [ref=e344]
+              - generic [ref=e347]: AI Models
+            - option "Developer Settings" [ref=e348] [cursor=pointer]:
+              - img [ref=e349]
+              - generic [ref=e353]: Developer Settings
+            - option "Keyboard Shortcuts ?" [ref=e354] [cursor=pointer]:
+              - img [ref=e355]
+              - generic [ref=e357]: Keyboard Shortcuts
+              - generic [ref=e358]: "?"

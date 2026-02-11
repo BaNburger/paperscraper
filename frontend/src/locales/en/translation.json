@@ -15,8 +15,29 @@
     "settings": "Settings",
     "aiModels": "AI Models",
     "alerts": "Alerts",
+    "menu": "Menu",
+    "more": "More",
+    "navigation": "Navigation",
+    "mainNavigation": "Main navigation",
+    "secondaryNavigation": "Secondary navigation",
+    "primaryMobileNavigation": "Primary mobile navigation",
+    "navigationMenu": "Navigation menu",
+    "mobileMenuDescription": "Navigate to app sections and settings from this menu.",
+    "openCommandPalette": "Open command palette",
+    "globalCommandMenu": "Global command menu",
+    "commandMenuDescription": "Type a command or search for papers, projects, and groups.",
+    "commandMenuPlaceholder": "Type a command or search...",
+    "recent": "Recent",
+    "keyboardShortcuts": "Keyboard Shortcuts",
     "expandSidebar": "Expand sidebar",
     "collapseSidebar": "Collapse sidebar"
+  },
+  "theme": {
+    "title": "Theme",
+    "toggle": "Toggle theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
   },
   "auth": {
     "login": "Log In",
@@ -123,6 +144,7 @@
     "subtitle": "Manage your research paper library",
     "importPaper": "Import Paper",
     "importPapers": "Import Papers",
+    "importDescription": "Import papers by DOI, OpenAlex, PubMed, arXiv, or PDF upload.",
     "searchPlaceholder": "Search papers by title or abstract...",
     "noPapers": "No papers yet",
     "noPapersDescription": "Import your first paper to get started.",
@@ -304,7 +326,9 @@
     "metricComparison": "Metric Comparison",
     "metric": "Metric",
     "relevance": "Relevance",
-    "published": "Published"
+    "published": "Published",
+    "resultsListLabel": "Search results",
+    "openResult": "Open"
   },
   "savedSearches": {
     "title": "Saved Searches",
@@ -838,7 +862,9 @@
     "createAlert": "Create Alert",
     "viewPaper": "View Paper",
     "viewDetails": "View Details",
-    "markAsRead": "Mark as Read"
+    "markAsRead": "Mark as Read",
+    "setupAlertsHint": "Set up alerts to get notified about new papers.",
+    "viewAll": "View all notifications"
   },
   "compliance": {
     "title": "Compliance",
@@ -930,9 +956,11 @@
     "close": "Close",
     "search": "Search",
     "filter": "Filter",
+    "skipToContent": "Skip to content",
     "export": "Export",
     "import": "Import",
     "noResults": "No results found",
+    "at": "at",
     "page": "Page",
     "of": "of",
     "pageOf": "Page {{page}} of {{pages}}",

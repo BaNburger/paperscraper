@@ -1,0 +1,23 @@
+- generic [ref=e4]:
+  - generic [ref=e5]:
+    - img [ref=e7]
+    - heading "Willkommen zurück" [level=3] [ref=e10]
+    - paragraph [ref=e11]: Melden Sie sich bei Ihrem Paper Scraper Konto an
+  - generic [ref=e12]:
+    - generic [ref=e13]:
+      - generic [ref=e14]:
+        - text: E-Mail
+        - textbox "E-Mail" [ref=e16]:
+          - /placeholder: you@example.com
+      - generic [ref=e17]:
+        - generic [ref=e18]:
+          - generic [ref=e19]: Passwort
+          - link "Passwort vergessen?" [ref=e20] [cursor=pointer]:
+            - /url: /forgot-password
+        - textbox "Passwort" [ref=e22]
+    - generic [ref=e23]:
+      - button "Anmelden" [ref=e24]
+      - paragraph [ref=e25]:
+        - text: Noch kein Konto?
+        - link "Registrieren" [ref=e26] [cursor=pointer]:
+          - /url: /register

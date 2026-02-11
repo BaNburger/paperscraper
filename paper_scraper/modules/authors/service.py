@@ -1,5 +1,6 @@
 """Service layer for authors module."""
 
+import logging
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
@@ -22,6 +23,8 @@ from paper_scraper.modules.authors.schemas import (
     EnrichmentResult,
 )
 from paper_scraper.modules.papers.models import Author, Paper, PaperAuthor
+
+logger = logging.getLogger(__name__)
 
 
 class AuthorService:
@@ -471,26 +474,30 @@ class AuthorService:
                         author.affiliations = affiliations
                         updated_fields.append("affiliations")
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("OpenAlex enrichment failed for author %s: %s", author.id, e)
 
         return updated_fields
 
     async def _enrich_from_orcid(
         self, author: Author, force_update: bool
     ) -> list[str]:
-        """Enrich author from ORCID API."""
-        # ORCID enrichment implementation
-        # For now, return empty - can be implemented with ORCID API
-        return []
+        """Enrich author from ORCID API.
+
+        Raises:
+            NotImplementedError: ORCID enrichment is not yet implemented.
+        """
+        raise NotImplementedError("ORCID enrichment not yet implemented")
 
     async def _enrich_from_semantic_scholar(
         self, author: Author, force_update: bool
     ) -> list[str]:
-        """Enrich author from Semantic Scholar API."""
-        # Semantic Scholar enrichment implementation
-        # For now, return empty - can be implemented with Semantic Scholar API
-        return []
+        """Enrich author from Semantic Scholar API.
+
+        Raises:
+            NotImplementedError: Semantic Scholar enrichment is not yet implemented.
+        """
+        raise NotImplementedError("Semantic Scholar enrichment not yet implemented")
 
     # =========================================================================
     # Private Methods

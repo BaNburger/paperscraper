@@ -1,0 +1,182 @@
+- generic [ref=e6]:
+  - banner [ref=e7]:
+    - generic [ref=e8]:
+      - link "Frontend Audit Org 1770750074" [ref=e9] [cursor=pointer]:
+        - /url: /
+        - img [ref=e10]
+        - generic [ref=e13]: Frontend Audit Org 1770750074
+      - button "Search... ⌘K" [ref=e14]:
+        - img [ref=e15]
+        - generic [ref=e17]: Search...
+        - generic [ref=e18]: ⌘K
+      - generic [ref=e19]:
+        - button "Notifications" [ref=e21]:
+          - img [ref=e22]
+        - button "Toggle theme" [ref=e26]:
+          - img [ref=e27]
+        - button "Frontend Audit 1770750074" [ref=e34]:
+          - img [ref=e36]
+          - generic [ref=e39]: Frontend Audit 1770750074
+          - img [ref=e40]
+  - generic [ref=e42]:
+    - complementary [ref=e43]:
+      - button "Seitenleiste einklappen" [ref=e45]:
+        - img [ref=e46]
+      - navigation [ref=e48]:
+        - link "Dashboard" [ref=e49] [cursor=pointer]:
+          - /url: /
+          - img [ref=e50]
+          - generic [ref=e53]: Dashboard
+        - link "Paper" [ref=e54] [cursor=pointer]:
+          - /url: /papers
+          - img [ref=e55]
+          - generic [ref=e58]: Paper
+        - link "Projekte" [ref=e59] [cursor=pointer]:
+          - /url: /projects
+          - img [ref=e60]
+          - generic [ref=e62]: Projekte
+        - link "Suche" [ref=e63] [cursor=pointer]:
+          - /url: /search
+          - img [ref=e64]
+          - generic [ref=e67]: Suche
+        - link "Gruppen" [ref=e68] [cursor=pointer]:
+          - /url: /groups
+          - img [ref=e69]
+          - generic [ref=e73]: Gruppen
+        - link "Transfer" [ref=e74] [cursor=pointer]:
+          - /url: /transfer
+          - img [ref=e75]
+          - generic [ref=e78]: Transfer
+        - link "Einreichungen" [ref=e79] [cursor=pointer]:
+          - /url: /submissions
+          - img [ref=e80]
+          - generic [ref=e83]: Einreichungen
+        - link "Analysen" [ref=e84] [cursor=pointer]:
+          - /url: /analytics
+          - img [ref=e85]
+          - generic [ref=e87]: Analysen
+        - link "Benachrichtigungen" [ref=e88] [cursor=pointer]:
+          - /url: /alerts
+          - img [ref=e89]
+          - generic [ref=e92]: Benachrichtigungen
+      - navigation [ref=e93]:
+        - link "Abzeichen" [ref=e94] [cursor=pointer]:
+          - /url: /badges
+          - img [ref=e95]
+          - generic [ref=e101]: Abzeichen
+        - link "Team" [ref=e102] [cursor=pointer]:
+          - /url: /team
+          - img [ref=e103]
+          - generic [ref=e108]: Team
+        - link "Wissen" [ref=e109] [cursor=pointer]:
+          - /url: /knowledge
+          - img [ref=e110]
+          - generic [ref=e112]: Wissen
+        - link "Compliance" [ref=e113] [cursor=pointer]:
+          - /url: /compliance
+          - img [ref=e114]
+          - generic [ref=e116]: Compliance
+        - link "Einstellungen" [ref=e117] [cursor=pointer]:
+          - /url: /settings
+          - img [ref=e118]
+          - generic [ref=e121]: Einstellungen
+        - link "KI-Modelle" [ref=e122] [cursor=pointer]:
+          - /url: /settings/models
+          - img [ref=e123]
+          - generic [ref=e126]: KI-Modelle
+    - main [ref=e127]:
+      - generic [ref=e129]:
+        - generic [ref=e130]:
+          - heading "Einstellungen" [level=1] [ref=e131]
+          - paragraph [ref=e132]: Verwalten Sie Ihre Kontoeinstellungen und Präferenzen
+        - generic [ref=e133]:
+          - generic [ref=e134]:
+            - generic [ref=e135]:
+              - generic [ref=e136]:
+                - img [ref=e137]
+                - heading "Profile" [level=3] [ref=e140]
+              - paragraph [ref=e141]: Update your personal information
+            - generic [ref=e142]:
+              - generic [ref=e143]:
+                - text: Email
+                - textbox "Email" [disabled] [ref=e145]: frontendaudit-1770750074@example.com
+                - paragraph [ref=e146]: Email cannot be changed
+              - generic [ref=e147]:
+                - text: Full Name
+                - textbox "Full Name" [ref=e149]:
+                  - /placeholder: Enter your full name
+                  - text: Frontend Audit 1770750074
+              - generic [ref=e150]:
+                - text: Role
+                - textbox "Role" [disabled] [ref=e152]: admin
+              - button "Save Changes" [ref=e153]
+          - generic [ref=e154]:
+            - generic [ref=e155]:
+              - generic [ref=e156]:
+                - img [ref=e157]
+                - heading "Notifications" [level=3] [ref=e160]
+              - paragraph [ref=e161]: Configure how you receive notifications
+            - generic [ref=e162]:
+              - generic [ref=e163]:
+                - generic [ref=e164]:
+                  - text: Email Notifications
+                  - paragraph [ref=e165]: Receive email updates about your papers and alerts
+                - button [ref=e166]
+              - generic [ref=e168]:
+                - text: Alert Digest Frequency
+                - combobox "Alert Digest Frequency" [ref=e169]:
+                  - option "Immediately"
+                  - option "Daily digest" [selected]
+                  - option "Weekly digest"
+              - button "Save Preferences" [ref=e170]
+          - generic [ref=e171]:
+            - generic [ref=e172]:
+              - generic [ref=e173]:
+                - img [ref=e174]
+                - heading "Password" [level=3] [ref=e177]
+              - paragraph [ref=e178]: Change your password to keep your account secure
+            - generic [ref=e179]:
+              - generic [ref=e180]:
+                - text: Current Password
+                - textbox "Current Password" [ref=e183]:
+                  - /placeholder: Enter current password
+              - generic [ref=e184]:
+                - text: New Password
+                - textbox "New Password" [ref=e187]:
+                  - /placeholder: Enter new password (min 8 characters)
+              - generic [ref=e188]:
+                - text: Confirm New Password
+                - generic [ref=e189]:
+                  - textbox "Confirm New Password" [ref=e191]:
+                    - /placeholder: Confirm new password
+                  - button [ref=e192]:
+                    - img [ref=e193]
+              - button "Change Password" [disabled]
+          - generic [ref=e196]:
+            - generic [ref=e197]:
+              - generic [ref=e198]:
+                - img [ref=e199]
+                - heading "Sprache" [level=3] [ref=e202]
+              - paragraph [ref=e203]: Wählen Sie Ihre bevorzugte Sprache
+            - generic [ref=e205]:
+              - text: Anzeigesprache
+              - combobox "Anzeigesprache" [ref=e206]:
+                - option "English"
+                - option "Deutsch" [selected]
+          - generic [ref=e207]:
+            - generic [ref=e209]:
+              - img [ref=e210]
+              - heading "Kontoinformationen" [level=3] [ref=e213]
+            - generic [ref=e214]:
+              - generic [ref=e215]:
+                - generic [ref=e216]: Organization
+                - generic [ref=e217]: Frontend Audit Org 1770750074
+              - generic [ref=e218]:
+                - generic [ref=e219]: Subscription
+                - generic [ref=e220]: free
+              - generic [ref=e221]:
+                - generic [ref=e222]: Member since
+                - generic [ref=e223]: 10.2.2026
+              - generic [ref=e224]:
+                - generic [ref=e225]: Account Status
+                - generic [ref=e226]: Active

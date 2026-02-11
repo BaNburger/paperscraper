@@ -47,7 +47,7 @@ export function AcceptInvitePage() {
     }
 
     loadInvitationInfo()
-  }, [token])
+  }, [token, t])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -88,7 +88,7 @@ export function AcceptInvitePage() {
 
   if (loadingInfo) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
+      <main className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1 text-center">
             <div className="flex justify-center mb-4">
@@ -97,13 +97,13 @@ export function AcceptInvitePage() {
             <CardTitle className="text-2xl">{t('auth.loadingInvitation')}</CardTitle>
           </CardHeader>
         </Card>
-      </div>
+      </main>
     )
   }
 
   if (loadError) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
+      <main className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1 text-center">
             <div className="flex justify-center mb-4">
@@ -123,12 +123,12 @@ export function AcceptInvitePage() {
             </Link>
           </CardFooter>
         </Card>
-      </div>
+      </main>
     )
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
+    <main className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
@@ -208,6 +208,6 @@ export function AcceptInvitePage() {
           </CardFooter>
         </form>
       </Card>
-    </div>
+    </main>
   )
 }

@@ -41,7 +41,7 @@ import { papersApi, scoringApi } from '@/lib/api'
 
 // ---- Helpers ----
 
-const mockedPapersApi = papersApi as {
+const mockedPapersApi = papersApi as unknown as {
   list: ReturnType<typeof vi.fn>
   get: ReturnType<typeof vi.fn>
   delete: ReturnType<typeof vi.fn>
@@ -49,7 +49,7 @@ const mockedPapersApi = papersApi as {
   ingestFromOpenAlex: ReturnType<typeof vi.fn>
 }
 
-const mockedScoringApi = scoringApi as {
+const mockedScoringApi = scoringApi as unknown as {
   scorePaper: ReturnType<typeof vi.fn>
   getLatestScore: ReturnType<typeof vi.fn>
 }

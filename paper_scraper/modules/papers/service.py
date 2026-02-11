@@ -1,5 +1,6 @@
 """Service layer for papers module."""
 
+import logging
 from datetime import datetime
 from uuid import UUID
 
@@ -9,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from paper_scraper.core.exceptions import DuplicateError, NotFoundError
+from paper_scraper.core.sql_utils import escape_like
 from paper_scraper.modules.papers.clients.arxiv import ArxivClient
 from paper_scraper.modules.papers.clients.crossref import CrossrefClient
 from paper_scraper.modules.papers.clients.openalex import OpenAlexClient
@@ -17,17 +19,7 @@ from paper_scraper.modules.papers.models import Author, Paper, PaperAuthor, Pape
 from paper_scraper.modules.papers.schemas import IngestResult, PaperListResponse
 from paper_scraper.modules.scoring.pitch_generator import PitchGenerator, SimplifiedAbstractGenerator
 
-
-def _escape_like(text: str) -> str:
-    """Escape special characters for SQL LIKE patterns.
-
-    Args:
-        text: The search text to escape.
-
-    Returns:
-        Text with LIKE special characters (%, _) escaped.
-    """
-    return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+logger = logging.getLogger(__name__)
 
 
 def _api_error_result(source: str, error: Exception) -> IngestResult:
@@ -108,7 +100,7 @@ class PaperService:
 
         if search:
             # Escape LIKE special characters to prevent pattern injection
-            search_filter = f"%{_escape_like(search)}%"
+            search_filter = f"%{escape_like(search)}%"
             query = query.where(
                 Paper.title.ilike(search_filter, escape="\\")
                 | Paper.abstract.ilike(search_filter, escape="\\")
@@ -556,7 +548,7 @@ class PaperService:
             try:
                 pub_date = datetime.fromisoformat(data["publication_date"])
             except ValueError:
-                pass
+                logger.warning("Invalid publication_date format: %s", data["publication_date"])
 
         # Create paper
         paper = Paper(

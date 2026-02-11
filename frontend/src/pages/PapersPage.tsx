@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
@@ -9,13 +9,14 @@ import {
   useIngestFromArxiv,
   useUploadPdf,
 } from '@/hooks'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
 import { Badge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { SkeletonCard } from '@/components/ui/Skeleton'
+import { AccessibleModal } from '@/components/ui/AccessibleModal'
 import {
   FileText,
   Search,
@@ -66,6 +67,15 @@ export function PapersPage() {
   const ingestFromPubMed = useIngestFromPubMed()
   const ingestFromArxiv = useIngestFromArxiv()
   const uploadPdf = useUploadPdf()
+
+  useEffect(() => {
+    if (searchParams.get('import') !== 'true') return
+    const openFrame = window.requestAnimationFrame(() => setShowImportModal(true))
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.delete('import')
+    setSearchParams(nextParams, { replace: true })
+    return () => window.cancelAnimationFrame(openFrame)
+  }, [searchParams, setSearchParams])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -603,63 +613,71 @@ export function PapersPage() {
         </>
       )}
 
-      {/* Import Modal */}
-      {showImportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <Card className="w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>{t('papers.importPapers')}</CardTitle>
-              <button
-                onClick={closeModal}
-                className="p-1 hover:bg-muted rounded"
-                aria-label={t('common.close')}
+      <AccessibleModal
+        open={showImportModal}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeModal()
+          }
+        }}
+        title={t('papers.importPapers')}
+        description={t('papers.importDescription')}
+        contentClassName="w-[min(95vw,48rem)]"
+      >
+        <div className="space-y-4">
+          <div
+            className="flex flex-wrap gap-2"
+            role="tablist"
+            aria-label={t('papers.importPapers')}
+          >
+            {[
+              { id: 'doi' as const, label: 'DOI' },
+              { id: 'openalex' as const, label: 'OpenAlex' },
+              { id: 'pubmed' as const, label: 'PubMed' },
+              { id: 'arxiv' as const, label: 'arXiv' },
+              { id: 'pdf' as const, label: t('papers.pdfUpload') },
+            ].map((tab) => (
+              <Button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={importMode === tab.id}
+                aria-controls={`import-panel-${tab.id}`}
+                id={`import-tab-${tab.id}`}
+                variant={importMode === tab.id ? 'default' : 'outline'}
+                onClick={() => {
+                  setImportMode(tab.id)
+                  setImportResult(null)
+                }}
+                size="sm"
               >
-                <X className="h-5 w-5" />
-              </button>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Mode Tabs */}
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { id: 'doi' as const, label: 'DOI' },
-                  { id: 'openalex' as const, label: 'OpenAlex' },
-                  { id: 'pubmed' as const, label: 'PubMed' },
-                  { id: 'arxiv' as const, label: 'arXiv' },
-                  { id: 'pdf' as const, label: t('papers.pdfUpload') },
-                ].map((tab) => (
-                  <Button
-                    key={tab.id}
-                    variant={importMode === tab.id ? 'default' : 'outline'}
-                    onClick={() => {
-                      setImportMode(tab.id)
-                      setImportResult(null)
-                    }}
-                    size="sm"
-                  >
-                    {tab.label}
-                  </Button>
-                ))}
-              </div>
+                {tab.label}
+              </Button>
+            ))}
+          </div>
 
-              {/* Import Result Message */}
-              {importResult && (
-                <div
-                  className={`rounded-md p-3 text-sm ${
-                    importResult.type === 'success'
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                      : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                  }`}
-                >
-                  {importResult.message}
-                </div>
-              )}
+          {importResult && (
+            <div
+              className={`rounded-md p-3 text-sm ${
+                importResult.type === 'success'
+                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                  : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+              }`}
+              role={importResult.type === 'error' ? 'alert' : 'status'}
+            >
+              {importResult.message}
+            </div>
+          )}
 
-              {/* Form for selected mode */}
-              {renderImportForm()}
-            </CardContent>
-          </Card>
+          <div
+            role="tabpanel"
+            id={`import-panel-${importMode}`}
+            aria-labelledby={`import-tab-${importMode}`}
+          >
+            {renderImportForm()}
+          </div>
         </div>
-      )}
+      </AccessibleModal>
     </div>
   )
 }

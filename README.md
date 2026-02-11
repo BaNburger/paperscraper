@@ -7,7 +7,7 @@ AI-powered SaaS platform for automated analysis of scientific publications.
 ## Features
 
 - **Paper Import** - DOI, OpenAlex, PubMed, arXiv, Crossref
-- **5-Dimensional AI Scoring** - Novelty, IP Potential, Marketability, Feasibility, Commercialization
+- **6-Dimensional AI Scoring** - Novelty, IP Potential, Marketability, Feasibility, Commercialization, Team Readiness
 - **KanBan Pipeline** - Structured paper management workflow
 - **Semantic Search** - Vector-based similarity using pgvector
 

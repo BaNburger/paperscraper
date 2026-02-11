@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/Toast'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { AccessibleModal } from '@/components/ui/AccessibleModal'
 import type {
   RetentionPolicy,
   RetentionEntityType,
@@ -498,74 +499,79 @@ function CreateRetentionPolicyDialog({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-background rounded-lg p-6 w-full max-w-md">
-        <h2 className="text-lg font-bold mb-4">{t('compliance.createRetentionPolicy')}</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">{t('compliance.entityType')}</label>
-            <select
-              value={entityType}
-              onChange={(e) => setEntityType(e.target.value as RetentionEntityType)}
-              className="w-full border rounded-md px-3 py-2"
-            >
-              {Object.entries(ENTITY_TYPE_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </div>
+    <AccessibleModal
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+      title={t('compliance.createRetentionPolicy')}
+      description={t('compliance.retentionPoliciesDescription')}
+      contentClassName="w-[min(95vw,34rem)]"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium mb-1">{t('compliance.entityType')}</label>
+          <select
+            value={entityType}
+            onChange={(e) => setEntityType(e.target.value as RetentionEntityType)}
+            className="w-full border rounded-md px-3 py-2"
+          >
+            {Object.entries(ENTITY_TYPE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">{t('compliance.retentionPeriod')}</label>
-            <input
-              type="number"
-              value={retentionDays}
-              onChange={(e) => setRetentionDays(parseInt(e.target.value) || 0)}
-              min={1}
-              max={3650}
-              className="w-full border rounded-md px-3 py-2"
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">{t('compliance.retentionPeriod')}</label>
+          <input
+            type="number"
+            value={retentionDays}
+            onChange={(e) => setRetentionDays(parseInt(e.target.value) || 0)}
+            min={1}
+            max={3650}
+            className="w-full border rounded-md px-3 py-2"
+          />
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">{t('compliance.action')}</label>
-            <select
-              value={action}
-              onChange={(e) => setAction(e.target.value as RetentionAction)}
-              className="w-full border rounded-md px-3 py-2"
-            >
-              {Object.entries(ACTION_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">{t('compliance.action')}</label>
+          <select
+            value={action}
+            onChange={(e) => setAction(e.target.value as RetentionAction)}
+            className="w-full border rounded-md px-3 py-2"
+          >
+            {Object.entries(ACTION_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">{t('compliance.descriptionOptional')}</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={2}
-              className="w-full border rounded-md px-3 py-2"
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">{t('compliance.descriptionOptional')}</label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={2}
+            className="w-full border rounded-md px-3 py-2"
+          />
+        </div>
 
-          <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
-              {t('common.cancel')}
-            </Button>
-            <Button type="submit" disabled={createMutation.isPending}>
-              {createMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {t('common.create')}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="flex justify-end gap-2 pt-4">
+          <Button type="button" variant="outline" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button type="submit" disabled={createMutation.isPending}>
+            {createMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {t('common.create')}
+          </Button>
+        </div>
+      </form>
+    </AccessibleModal>
   )
 }
 

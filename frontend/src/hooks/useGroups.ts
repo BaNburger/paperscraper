@@ -2,10 +2,20 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { groupsApi } from '@/lib/api'
 import type { CreateGroupRequest, UpdateGroupRequest } from '@/types'
 
-export function useGroups(params?: { page?: number; page_size?: number; type?: string }) {
+interface QueryControlOptions {
+  enabled?: boolean
+  staleTime?: number
+}
+
+export function useGroups(
+  params?: { page?: number; page_size?: number; type?: string },
+  options?: QueryControlOptions
+) {
   return useQuery({
     queryKey: ['groups', params],
     queryFn: () => groupsApi.list(params),
+    enabled: options?.enabled ?? true,
+    staleTime: options?.staleTime,
   })
 }
 

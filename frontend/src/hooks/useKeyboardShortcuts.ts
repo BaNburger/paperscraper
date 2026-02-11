@@ -31,6 +31,24 @@ export const KEYBOARD_SHORTCUTS = {
 
 type ShortcutKey = keyof typeof KEYBOARD_SHORTCUTS
 
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  return (
+    target.tagName === 'INPUT' ||
+    target.tagName === 'TEXTAREA' ||
+    target.isContentEditable
+  )
+}
+
+function isOverlayOpen(): boolean {
+  return (
+    document.querySelector('[role="dialog"][aria-modal="true"]') !== null ||
+    document.querySelector('[data-state="open"][role="dialog"]') !== null ||
+    document.querySelector('[data-state="open"][role="menu"]') !== null ||
+    document.querySelector('[data-radix-dropdown-menu-content][data-state="open"]') !== null
+  )
+}
+
 export function useKeyboardShortcuts(onShowHelp?: () => void) {
   const navigate = useNavigate()
 
@@ -95,25 +113,28 @@ export function useKeyboardShortcuts(onShowHelp?: () => void) {
     let pendingTimeout: ReturnType<typeof setTimeout> | null = null
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is typing in an input, textarea, or contenteditable
-      const target = e.target as HTMLElement
-      if (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable
-      ) {
-        // Allow ? and / shortcuts even in inputs
-        if (e.key !== '?' && e.key !== '/') {
-          return
+      const typingInField = isTypingTarget(e.target)
+      const dialogOpen = isOverlayOpen()
+
+      // Prevent global shortcuts while interacting with dialogs.
+      if (dialogOpen) {
+        if (e.key === 'Escape') {
+          pendingKey = null
+          if (pendingTimeout) {
+            clearTimeout(pendingTimeout)
+            pendingTimeout = null
+          }
         }
-        // Don't trigger / shortcut if typing in search
-        if (e.key === '/' && target.getAttribute('placeholder')?.includes('Search')) {
-          return
-        }
+        return
       }
 
       // Ignore if command/ctrl/alt is pressed (except for ?)
       if ((e.metaKey || e.ctrlKey || e.altKey) && e.key !== '?') {
+        return
+      }
+
+      // Ignore shortcuts while typing, except explicit help shortcut.
+      if (typingInField && e.key !== '?') {
         return
       }
 
@@ -125,6 +146,9 @@ export function useKeyboardShortcuts(onShowHelp?: () => void) {
       }
 
       if (e.key === '/') {
+        if (typingInField) {
+          return
+        }
         e.preventDefault()
         handleShortcut('/')
         return

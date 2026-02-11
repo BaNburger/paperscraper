@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import DOMPurify from 'dompurify'
 import { useSearchMutation, usePaper } from '@/hooks'
 
@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/Label'
 import { Badge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { SkeletonCard } from '@/components/ui/Skeleton'
+import { AccessibleModal } from '@/components/ui/AccessibleModal'
 import {
   Search,
   TrendingUp,
@@ -165,162 +166,154 @@ function ComparisonRadarChart({ papers }: { papers: { title: string; score: Pape
 
 // Comparison modal component
 function ComparisonModal({
+  open,
   papers,
-  onClose,
+  onOpenChange,
 }: {
+  open: boolean
   papers: SearchResult[]
-  onClose: () => void
+  onOpenChange: (open: boolean) => void
 }) {
   const { t } = useTranslation()
   const papersWithScores = papers.filter((p) => p.latest_score)
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-background rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] overflow-auto">
-        <div className="sticky top-0 bg-background border-b p-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold">{t('search.paperComparison')}</h2>
-            <p className="text-sm text-muted-foreground">
-              {t('search.comparingPapers', { count: papers.length })}
-            </p>
-          </div>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
-
-        <div className="p-6 space-y-6">
-          {/* Radar Chart */}
-          {papersWithScores.length > 0 ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('search.scoreComparison')}</CardTitle>
-                <CardDescription>{t('search.radarChartOverlay')}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex justify-center">
-                <ComparisonRadarChart
-                  papers={papersWithScores.map((p) => ({
-                    title: p.paper.title,
-                    score: p.latest_score!,
-                  }))}
-                />
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              {t('search.noScoresForComparison')}
-            </div>
-          )}
-
-          {/* Comparison Table */}
+    <AccessibleModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t('search.paperComparison')}
+      description={t('search.comparingPapers', { count: papers.length })}
+      contentClassName="w-[min(95vw,72rem)]"
+    >
+      <div className="space-y-6">
+        {/* Radar Chart */}
+        {papersWithScores.length > 0 ? (
           <Card>
             <CardHeader>
-              <CardTitle>{t('search.metricComparison')}</CardTitle>
+              <CardTitle>{t('search.scoreComparison')}</CardTitle>
+              <CardDescription>{t('search.radarChartOverlay')}</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-2 font-medium">{t('search.metric')}</th>
-                      {papers.map((p) => (
-                        <th key={p.paper.id} className="text-center p-2 font-medium">
-                          <div className="max-w-[150px] truncate" title={p.paper.title}>
-                            {p.paper.title.slice(0, 30)}...
-                          </div>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-b">
-                      <td className="p-2 font-medium">{t('papers.overallScore')}</td>
-                      {papers.map((p) => (
-                        <td key={p.paper.id} className="text-center p-2">
-                          {p.latest_score ? (
-                            <span className={getScoreColor(p.latest_score.overall_score)}>
-                              {p.latest_score.overall_score.toFixed(1)}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </td>
-                      ))}
-                    </tr>
-                    <tr className="border-b">
-                      <td className="p-2 font-medium">{t('papers.novelty')}</td>
-                      {papers.map((p) => (
-                        <td key={p.paper.id} className="text-center p-2">
-                          {p.latest_score?.novelty?.toFixed(1) ?? '-'}
-                        </td>
-                      ))}
-                    </tr>
-                    <tr className="border-b">
-                      <td className="p-2 font-medium">{t('papers.ipPotential')}</td>
-                      {papers.map((p) => (
-                        <td key={p.paper.id} className="text-center p-2">
-                          {p.latest_score?.ip_potential?.toFixed(1) ?? '-'}
-                        </td>
-                      ))}
-                    </tr>
-                    <tr className="border-b">
-                      <td className="p-2 font-medium">{t('papers.marketability')}</td>
-                      {papers.map((p) => (
-                        <td key={p.paper.id} className="text-center p-2">
-                          {p.latest_score?.marketability?.toFixed(1) ?? '-'}
-                        </td>
-                      ))}
-                    </tr>
-                    <tr className="border-b">
-                      <td className="p-2 font-medium">{t('papers.feasibility')}</td>
-                      {papers.map((p) => (
-                        <td key={p.paper.id} className="text-center p-2">
-                          {p.latest_score?.feasibility?.toFixed(1) ?? '-'}
-                        </td>
-                      ))}
-                    </tr>
-                    <tr className="border-b">
-                      <td className="p-2 font-medium">{t('papers.teamReadiness')}</td>
-                      {papers.map((p) => (
-                        <td key={p.paper.id} className="text-center p-2">
-                          {p.latest_score?.team_readiness?.toFixed(1) ?? '-'}
-                        </td>
-                      ))}
-                    </tr>
-                    <tr className="border-b">
-                      <td className="p-2 font-medium">{t('search.relevance')}</td>
-                      {papers.map((p) => (
-                        <td key={p.paper.id} className="text-center p-2">
-                          {(p.relevance_score * 100).toFixed(0)}%
-                        </td>
-                      ))}
-                    </tr>
-                    <tr className="border-b">
-                      <td className="p-2 font-medium">{t('papers.source')}</td>
-                      {papers.map((p) => (
-                        <td key={p.paper.id} className="text-center p-2">
-                          <Badge variant="outline">{p.paper.source}</Badge>
-                        </td>
-                      ))}
-                    </tr>
-                    <tr>
-                      <td className="p-2 font-medium">{t('search.published')}</td>
-                      {papers.map((p) => (
-                        <td key={p.paper.id} className="text-center p-2">
-                          {p.paper.publication_date
-                            ? formatDate(p.paper.publication_date)
-                            : '-'}
-                        </td>
-                      ))}
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+            <CardContent className="flex justify-center">
+              <ComparisonRadarChart
+                papers={papersWithScores.map((p) => ({
+                  title: p.paper.title,
+                  score: p.latest_score!,
+                }))}
+              />
             </CardContent>
           </Card>
-        </div>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground">
+            {t('search.noScoresForComparison')}
+          </div>
+        )}
+
+        {/* Comparison Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('search.metricComparison')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left p-2 font-medium">{t('search.metric')}</th>
+                    {papers.map((p) => (
+                      <th key={p.paper.id} className="text-center p-2 font-medium">
+                        <div className="max-w-[150px] truncate" title={p.paper.title}>
+                          {p.paper.title.slice(0, 30)}...
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b">
+                    <td className="p-2 font-medium">{t('papers.overallScore')}</td>
+                    {papers.map((p) => (
+                      <td key={p.paper.id} className="text-center p-2">
+                        {p.latest_score ? (
+                          <span className={getScoreColor(p.latest_score.overall_score)}>
+                            {p.latest_score.overall_score.toFixed(1)}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr className="border-b">
+                    <td className="p-2 font-medium">{t('papers.novelty')}</td>
+                    {papers.map((p) => (
+                      <td key={p.paper.id} className="text-center p-2">
+                        {p.latest_score?.novelty?.toFixed(1) ?? '-'}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr className="border-b">
+                    <td className="p-2 font-medium">{t('papers.ipPotential')}</td>
+                    {papers.map((p) => (
+                      <td key={p.paper.id} className="text-center p-2">
+                        {p.latest_score?.ip_potential?.toFixed(1) ?? '-'}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr className="border-b">
+                    <td className="p-2 font-medium">{t('papers.marketability')}</td>
+                    {papers.map((p) => (
+                      <td key={p.paper.id} className="text-center p-2">
+                        {p.latest_score?.marketability?.toFixed(1) ?? '-'}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr className="border-b">
+                    <td className="p-2 font-medium">{t('papers.feasibility')}</td>
+                    {papers.map((p) => (
+                      <td key={p.paper.id} className="text-center p-2">
+                        {p.latest_score?.feasibility?.toFixed(1) ?? '-'}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr className="border-b">
+                    <td className="p-2 font-medium">{t('papers.teamReadiness')}</td>
+                    {papers.map((p) => (
+                      <td key={p.paper.id} className="text-center p-2">
+                        {p.latest_score?.team_readiness?.toFixed(1) ?? '-'}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr className="border-b">
+                    <td className="p-2 font-medium">{t('search.relevance')}</td>
+                    {papers.map((p) => (
+                      <td key={p.paper.id} className="text-center p-2">
+                        {(p.relevance_score * 100).toFixed(0)}%
+                      </td>
+                    ))}
+                  </tr>
+                  <tr className="border-b">
+                    <td className="p-2 font-medium">{t('papers.source')}</td>
+                    {papers.map((p) => (
+                      <td key={p.paper.id} className="text-center p-2">
+                        <Badge variant="outline">{p.paper.source}</Badge>
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className="p-2 font-medium">{t('search.published')}</td>
+                    {papers.map((p) => (
+                      <td key={p.paper.id} className="text-center p-2">
+                        {p.paper.publication_date ? formatDate(p.paper.publication_date) : '-'}
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-    </div>
+    </AccessibleModal>
   )
 }
 
@@ -466,6 +459,7 @@ function PreviewPanel({
 
 export function SearchPage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [mode, setMode] = useState<SearchMode>('hybrid')
   const [page, setPage] = useState(1)
@@ -477,6 +471,7 @@ export function SearchPage() {
   const [selectedForCompare, setSelectedForCompare] = useState<Set<string>>(new Set())
   const [showComparison, setShowComparison] = useState(false)
   const resultsRef = useRef<HTMLDivElement>(null)
+  const resultItemRefs = useRef<Array<HTMLDivElement | null>>([])
 
   const searchModes = searchModeDefs.map((m) => ({
     ...m,
@@ -517,51 +512,60 @@ export function SearchPage() {
   }
 
   const result = searchMutation.data
-  const results = result?.results ?? []
+  const results = useMemo(() => result?.results ?? [], [result])
   const selectedResult = selectedIndex >= 0 ? results[selectedIndex] : null
   const papersForCompare = results.filter((r) => selectedForCompare.has(r.paper.id))
 
-  // Keyboard navigation for results
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
+  const focusResultItem = useCallback((index: number) => {
+    const item = resultItemRefs.current[index]
+    if (!item) return
+    item.focus()
+    item.scrollIntoView({ block: 'nearest' })
+  }, [])
+
+  const handleResultsKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLElement>) => {
       if (!results.length) return
 
       if (e.key === 'ArrowDown' || e.key === 'j') {
         e.preventDefault()
-        setSelectedIndex((prev) => Math.min(prev + 1, results.length - 1))
-      } else if (e.key === 'ArrowUp' || e.key === 'k') {
+        const nextIndex =
+          selectedIndex < 0 ? 0 : Math.min(selectedIndex + 1, results.length - 1)
+        setSelectedIndex(nextIndex)
+        focusResultItem(nextIndex)
+        return
+      }
+
+      if (e.key === 'ArrowUp' || e.key === 'k') {
         e.preventDefault()
-        setSelectedIndex((prev) => Math.max(prev - 1, 0))
-      } else if (e.key === 'Enter' && selectedIndex >= 0) {
+        const nextIndex =
+          selectedIndex < 0 ? 0 : Math.max(selectedIndex - 1, 0)
+        setSelectedIndex(nextIndex)
+        focusResultItem(nextIndex)
+        return
+      }
+
+      if (e.key === 'Enter' && selectedIndex >= 0) {
         e.preventDefault()
-        window.location.href = `/papers/${results[selectedIndex].paper.id}`
-      } else if (e.key === 'Escape') {
+        navigate(`/papers/${results[selectedIndex].paper.id}`)
+        return
+      }
+
+      if (e.key === 'Escape') {
         setSelectedIndex(-1)
       }
     },
-    [results, selectedIndex]
+    [focusResultItem, navigate, results, selectedIndex]
   )
-
-  useEffect(() => {
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [handleKeyDown])
-
-  // Scroll selected item into view
-  useEffect(() => {
-    if (selectedIndex >= 0 && resultsRef.current) {
-      const items = resultsRef.current.querySelectorAll('[data-result-item]')
-      items[selectedIndex]?.scrollIntoView({ block: 'nearest' })
-    }
-  }, [selectedIndex])
 
   return (
     <div className="space-y-6">
       {/* Comparison Modal */}
       {showComparison && papersForCompare.length >= 2 && (
         <ComparisonModal
+          open={showComparison}
           papers={papersForCompare}
-          onClose={() => setShowComparison(false)}
+          onOpenChange={setShowComparison}
         />
       )}
 
@@ -740,15 +744,26 @@ export function SearchPage() {
                 </CardContent>
               </Card>
             ) : (
-              <div ref={resultsRef} className="space-y-2">
+              <div
+                ref={resultsRef}
+                role="listbox"
+                aria-label={t('search.resultsListLabel')}
+                className="space-y-2"
+                onKeyDown={handleResultsKeyDown}
+              >
                 {results.map((item, index) => (
                   <div
                     key={item.paper.id}
-                    data-result-item
+                    ref={(element) => {
+                      resultItemRefs.current[index] = element
+                    }}
+                    role="option"
+                    aria-selected={selectedIndex === index}
+                    tabIndex={0}
                     onClick={() => setSelectedIndex(index)}
-                    onDoubleClick={() => (window.location.href = `/papers/${item.paper.id}`)}
+                    onFocus={() => setSelectedIndex(index)}
                     className={cn(
-                      'cursor-pointer transition-all',
+                      'transition-all rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                       selectedIndex === index && 'ring-2 ring-primary ring-offset-2 ring-offset-background rounded-lg'
                     )}
                   >
@@ -824,6 +839,18 @@ export function SearchPage() {
                                 </span>
                               </div>
                             )}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                navigate(`/papers/${item.paper.id}`)
+                              }}
+                            >
+                              <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                              {t('search.openResult')}
+                            </Button>
                           </div>
                         </div>
                       </CardContent>

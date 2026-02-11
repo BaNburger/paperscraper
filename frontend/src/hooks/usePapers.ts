@@ -1,10 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { papersApi, scoringApi } from '@/lib/api'
 
-export function usePapers(params: { page?: number; page_size?: number; search?: string }) {
+interface QueryControlOptions {
+  enabled?: boolean
+  staleTime?: number
+}
+
+export function usePapers(
+  params: { page?: number; page_size?: number; search?: string },
+  options?: QueryControlOptions
+) {
   return useQuery({
     queryKey: ['papers', params],
     queryFn: () => papersApi.list(params),
+    enabled: options?.enabled ?? true,
+    staleTime: options?.staleTime,
   })
 }
 

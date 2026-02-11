@@ -2,6 +2,7 @@
 
 /* Light theme CSS variables (default) */
 :root {
+  --font-sans: 'Manrope', 'Avenir Next', 'SF Pro Text', 'Segoe UI', sans-serif;
   --theme-primary: #2563eb;
   --theme-primary-foreground: #ffffff;
   --theme-secondary: #6b7280;
@@ -21,10 +22,15 @@
   --theme-card-foreground: #111827;
   --theme-popover: #ffffff;
   --theme-popover-foreground: #111827;
+  --surface-elevated: #ffffff;
+  --surface-subtle: #f8fafc;
+  --focus-ring: color-mix(in srgb, var(--theme-primary) 55%, white);
+  --content-max-width: 84rem;
 }
 
 /* Dark theme CSS variables */
 .dark {
+  --font-sans: 'Manrope', 'Avenir Next', 'SF Pro Text', 'Segoe UI', sans-serif;
   --theme-primary: #3b82f6;
   --theme-primary-foreground: #ffffff;
   --theme-secondary: #9ca3af;
@@ -44,6 +50,9 @@
   --theme-card-foreground: #f9fafb;
   --theme-popover: #1f2937;
   --theme-popover-foreground: #f9fafb;
+  --surface-elevated: #1f2937;
+  --surface-subtle: #111827;
+  --focus-ring: color-mix(in srgb, var(--theme-primary) 55%, #111827);
 }
 
 @theme {
@@ -91,20 +100,69 @@
 }
 
 html {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body {
   margin: 0;
   background-color: var(--color-background);
   color: var(--color-foreground);
+  background-image:
+    radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--theme-primary) 10%, transparent) 0%, transparent 38%),
+    radial-gradient(circle at 100% 100%, color-mix(in srgb, var(--theme-primary) 8%, transparent) 0%, transparent 42%);
+  background-attachment: fixed;
 }
 
 #root {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+main {
+  scroll-behavior: smooth;
+}
+
+a {
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.16em;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.page-reveal {
+  animation: page-reveal 240ms ease-out both;
+}
+
+@keyframes page-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

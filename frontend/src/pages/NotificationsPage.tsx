@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Bell, CheckCheck, Filter, FileText, AlertTriangle, Check, Clock } from 'lucide-react'
 import { useNotifications, type Notification } from '@/hooks/useNotifications'
 import { formatDistanceToNow, format } from 'date-fns'
@@ -14,6 +14,7 @@ type FilterType = 'all' | 'unread' | 'alert' | 'badge' | 'system'
 
 export function NotificationsPage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const [filter, setFilter] = useState<FilterType>('all')
   const {
     notifications,
@@ -98,7 +99,7 @@ export function NotificationsPage() {
                 filter === 'all'
                   ? {
                       label: t('notifications.createAlert'),
-                      onClick: () => (window.location.href = '/search'),
+                      onClick: () => navigate('/search'),
                     }
                   : undefined
               }

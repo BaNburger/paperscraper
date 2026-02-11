@@ -15,8 +15,29 @@
     "settings": "Einstellungen",
     "aiModels": "KI-Modelle",
     "alerts": "Benachrichtigungen",
+    "menu": "Menü",
+    "more": "Mehr",
+    "navigation": "Navigation",
+    "mainNavigation": "Hauptnavigation",
+    "secondaryNavigation": "Sekundäre Navigation",
+    "primaryMobileNavigation": "Primäre mobile Navigation",
+    "navigationMenu": "Navigationsmenü",
+    "mobileMenuDescription": "Navigieren Sie von diesem Menü aus zu App-Bereichen und Einstellungen.",
+    "openCommandPalette": "Befehlspalette öffnen",
+    "globalCommandMenu": "Globale Befehlspalette",
+    "commandMenuDescription": "Geben Sie einen Befehl ein oder suchen Sie nach Papern, Projekten und Gruppen.",
+    "commandMenuPlaceholder": "Befehl eingeben oder suchen...",
+    "recent": "Zuletzt verwendet",
+    "keyboardShortcuts": "Tastenkürzel",
     "expandSidebar": "Seitenleiste ausklappen",
     "collapseSidebar": "Seitenleiste einklappen"
+  },
+  "theme": {
+    "title": "Design",
+    "toggle": "Design umschalten",
+    "light": "Hell",
+    "dark": "Dunkel",
+    "system": "System"
   },
   "auth": {
     "login": "Anmelden",
@@ -123,6 +144,7 @@
     "subtitle": "Verwalten Sie Ihre Forschungspapier-Bibliothek",
     "importPaper": "Paper importieren",
     "importPapers": "Paper importieren",
+    "importDescription": "Importieren Sie Paper per DOI, OpenAlex, PubMed, arXiv oder PDF-Upload.",
     "searchPlaceholder": "Paper nach Titel oder Zusammenfassung suchen...",
     "noPapers": "Noch keine Paper",
     "noPapersDescription": "Importieren Sie Ihr erstes Paper, um loszulegen.",
@@ -304,7 +326,9 @@
     "metricComparison": "Metrik-Vergleich",
     "metric": "Metrik",
     "relevance": "Relevanz",
-    "published": "Veröffentlicht"
+    "published": "Veröffentlicht",
+    "resultsListLabel": "Suchergebnisse",
+    "openResult": "Öffnen"
   },
   "savedSearches": {
     "title": "Gespeicherte Suchen",
@@ -838,7 +862,9 @@
     "createAlert": "Alarm erstellen",
     "viewPaper": "Paper anzeigen",
     "viewDetails": "Details anzeigen",
-    "markAsRead": "Als gelesen markieren"
+    "markAsRead": "Als gelesen markieren",
+    "setupAlertsHint": "Richten Sie Alarme ein, um über neue Paper informiert zu werden.",
+    "viewAll": "Alle Benachrichtigungen anzeigen"
   },
   "compliance": {
     "title": "Compliance",
@@ -930,9 +956,11 @@
     "close": "Schließen",
     "search": "Suchen",
     "filter": "Filtern",
+    "skipToContent": "Zum Inhalt springen",
     "export": "Exportieren",
     "import": "Importieren",
     "noResults": "Keine Ergebnisse gefunden",
+    "at": "bei",
     "page": "Seite",
     "of": "von",
     "pageOf": "Seite {{page}} von {{pages}}",

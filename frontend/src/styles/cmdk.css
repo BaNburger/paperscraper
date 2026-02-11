@@ -1,25 +1,10 @@
-/* Command Palette Styles - cmdk */
-
-[cmdk-dialog] {
-  position: fixed;
-  z-index: 9999;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-
-[cmdk-overlay] {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 9998;
-}
+/* Command Palette Styles */
 
 .cmdk-dialog {
   width: 100%;
   max-width: 640px;
-  background: hsl(var(--popover));
-  border: 1px solid hsl(var(--border));
+  background: var(--color-popover);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
@@ -43,13 +28,13 @@
   font-size: 16px;
   background: transparent;
   border: none;
-  border-bottom: 1px solid hsl(var(--border));
-  color: hsl(var(--foreground));
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-foreground);
   outline: none;
 }
 
 .cmdk-input::placeholder {
-  color: hsl(var(--muted-foreground));
+  color: var(--color-muted-foreground);
 }
 
 .cmdk-list {
@@ -61,7 +46,7 @@
 .cmdk-empty {
   padding: 32px;
   text-align: center;
-  color: hsl(var(--muted-foreground));
+  color: var(--color-muted-foreground);
   font-size: 14px;
 }
 
@@ -77,7 +62,7 @@
   padding: 8px 12px;
   font-size: 12px;
   font-weight: 500;
-  color: hsl(var(--muted-foreground));
+  color: var(--color-muted-foreground);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -90,13 +75,13 @@
   border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
-  color: hsl(var(--foreground));
+  color: var(--color-foreground);
   transition: background-color 0.15s;
 }
 
 .cmdk-item[data-selected='true'],
 .cmdk-item:hover {
-  background: hsl(var(--accent));
+  background: var(--color-accent);
 }
 
 .cmdk-item[data-disabled='true'] {
@@ -107,13 +92,13 @@
 .cmdk-icon {
   width: 18px;
   height: 18px;
-  color: hsl(var(--muted-foreground));
+  color: var(--color-muted-foreground);
   flex-shrink: 0;
 }
 
 .cmdk-item[data-selected='true'] .cmdk-icon,
 .cmdk-item:hover .cmdk-icon {
-  color: hsl(var(--foreground));
+  color: var(--color-foreground);
 }
 
 .cmdk-item-text {
@@ -127,8 +112,8 @@
   font-size: 11px;
   padding: 2px 6px;
   border-radius: 4px;
-  background: hsl(var(--muted));
-  color: hsl(var(--muted-foreground));
+  background: var(--color-muted);
+  color: var(--color-muted-foreground);
   text-transform: capitalize;
 }
 
@@ -139,10 +124,10 @@
   padding: 2px 6px;
   font-size: 11px;
   font-family: monospace;
-  background: hsl(var(--muted));
-  color: hsl(var(--muted-foreground));
+  background: var(--color-muted);
+  color: var(--color-muted-foreground);
   border-radius: 4px;
-  border: 1px solid hsl(var(--border));
+  border: 1px solid var(--color-border);
 }
 
 /* Dark mode adjustments */
@@ -160,10 +145,10 @@
 }
 
 .cmdk-list::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted));
+  background: var(--color-muted);
   border-radius: 4px;
 }
 
 .cmdk-list::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.3);
+  background: color-mix(in srgb, var(--color-muted-foreground) 30%, transparent);
 }
