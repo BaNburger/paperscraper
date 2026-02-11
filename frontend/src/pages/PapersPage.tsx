@@ -70,12 +70,15 @@ export function PapersPage() {
 
   useEffect(() => {
     if (searchParams.get('import') !== 'true') return
-    const openFrame = window.requestAnimationFrame(() => setShowImportModal(true))
-    const nextParams = new URLSearchParams(searchParams)
-    nextParams.delete('import')
-    setSearchParams(nextParams, { replace: true })
+    const openFrame = window.requestAnimationFrame(() => {
+      setShowImportModal(true)
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.delete('import')
+      setSearchParams(nextParams, { replace: true })
+    })
     return () => window.cancelAnimationFrame(openFrame)
-  }, [searchParams, setSearchParams])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()

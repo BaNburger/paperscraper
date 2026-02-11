@@ -2,7 +2,7 @@
 
 
 def escape_like(text: str) -> str:
-    """Escape special characters for SQL LIKE patterns.
+    r"""Escape special characters for SQL LIKE patterns.
 
     This function escapes the wildcard characters used in SQL LIKE clauses:
     - Backslash (\) - Used as the escape character itself

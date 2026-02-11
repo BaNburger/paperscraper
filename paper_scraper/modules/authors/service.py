@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from paper_scraper.core.config import settings
 from paper_scraper.core.exceptions import NotFoundError
+from paper_scraper.core.sql_utils import escape_like
 from paper_scraper.modules.authors.models import AuthorContact, ContactOutcome
 from paper_scraper.modules.authors.schemas import (
     AuthorContactStats,
@@ -40,12 +41,13 @@ class AuthorService:
     async def get_author(
         self,
         author_id: UUID,
-        organization_id: UUID | None = None,
+        organization_id: UUID,
     ) -> Author | None:
-        """Get an author by ID, optionally filtered by organization."""
-        query = select(Author).where(Author.id == author_id)
-        if organization_id:
-            query = query.where(Author.organization_id == organization_id)
+        """Get an author by ID with mandatory tenant isolation."""
+        query = select(Author).where(
+            Author.id == author_id,
+            Author.organization_id == organization_id,
+        )
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
@@ -167,39 +169,74 @@ class AuthorService:
         base_query = select(Author).where(Author.organization_id == organization_id)
 
         if search:
-            search_filter = f"%{search}%"
-            base_query = base_query.where(Author.name.ilike(search_filter))
+            search_filter = f"%{escape_like(search)}%"
+            base_query = base_query.where(Author.name.ilike(search_filter, escape="\\"))
 
         # Count total
         count_query = select(func.count()).select_from(base_query.subquery())
         total = (await self.db.execute(count_query)).scalar() or 0
 
-        # Paginate
-        query = base_query.order_by(Author.name)
+        # Correlated subqueries to avoid N+1
+        paper_count_sq = (
+            select(func.count())
+            .select_from(PaperAuthor)
+            .join(Paper)
+            .where(
+                PaperAuthor.author_id == Author.id,
+                Paper.organization_id == organization_id,
+            )
+            .correlate(Author)
+            .scalar_subquery()
+            .label("paper_count")
+        )
+
+        thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+        recent_contacts_sq = (
+            select(func.count())
+            .where(
+                AuthorContact.author_id == Author.id,
+                AuthorContact.organization_id == organization_id,
+                AuthorContact.contact_date >= thirty_days_ago,
+            )
+            .correlate(Author)
+            .scalar_subquery()
+            .label("recent_contacts_count")
+        )
+
+        last_contact_sq = (
+            select(func.max(AuthorContact.contact_date))
+            .where(
+                AuthorContact.author_id == Author.id,
+                AuthorContact.organization_id == organization_id,
+            )
+            .correlate(Author)
+            .scalar_subquery()
+            .label("last_contact_date")
+        )
+
+        # Single query with all stats
+        query = (
+            select(Author, paper_count_sq, recent_contacts_sq, last_contact_sq)
+            .where(Author.organization_id == organization_id)
+        )
+        if search:
+            search_filter = f"%{escape_like(search)}%"
+            query = query.where(Author.name.ilike(search_filter, escape="\\"))
+
+        query = query.order_by(Author.name)
         query = query.offset((page - 1) * page_size).limit(page_size)
 
         result = await self.db.execute(query)
-        authors = list(result.scalars().all())
+        rows = result.all()
 
-        # Build response with stats
         items = []
-        for author in authors:
-            # Get paper count for this org
-            paper_count_result = await self.db.execute(
-                select(func.count())
-                .select_from(PaperAuthor)
-                .join(Paper)
-                .where(
-                    PaperAuthor.author_id == author.id,
-                    Paper.organization_id == organization_id,
-                )
-            )
-            paper_count = paper_count_result.scalar() or 0
-
-            contact_stats = await self._get_contact_stats(author.id, organization_id)
-
+        for author, paper_count, recent_count, last_contact_date in rows:
+            contact_stats = {
+                "recent_count": recent_count or 0,
+                "last_contact_date": last_contact_date,
+            }
             items.append(
-                self._build_author_profile_response(author, paper_count, contact_stats)
+                self._build_author_profile_response(author, paper_count or 0, contact_stats)
             )
 
         return AuthorListResponse(

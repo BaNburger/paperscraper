@@ -89,11 +89,10 @@ class SemanticScholarClient(BaseAPIClient):
                     headers=self._headers(),
                 )
                 response.raise_for_status()
+                data = response.json()
             except Exception as e:
                 logger.warning("Semantic Scholar search failed: %s", e)
                 return papers
-
-            data = response.json()
             batch = data.get("data", [])
             if not batch:
                 break
@@ -129,11 +128,10 @@ class SemanticScholarClient(BaseAPIClient):
             if response.status_code == 404:
                 return None
             response.raise_for_status()
+            return self.normalize(response.json())
         except Exception as e:
             logger.warning("Semantic Scholar get_by_id failed: %s", e)
             return None
-
-        return self.normalize(response.json())
 
     async def get_citations(
         self,
@@ -161,11 +159,10 @@ class SemanticScholarClient(BaseAPIClient):
             if response.status_code == 404:
                 return []
             response.raise_for_status()
+            data = response.json()
         except Exception as e:
             logger.warning("Semantic Scholar get_citations failed: %s", e)
             return []
-
-        data = response.json()
         citations = []
         for item in data.get("data", []):
             citing_paper = item.get("citingPaper", {})
@@ -204,11 +201,10 @@ class SemanticScholarClient(BaseAPIClient):
             if response.status_code == 404:
                 return []
             response.raise_for_status()
+            data = response.json()
         except Exception as e:
             logger.warning("Semantic Scholar get_references failed: %s", e)
             return []
-
-        data = response.json()
         refs = []
         for item in data.get("data", []):
             cited_paper = item.get("citedPaper", {})

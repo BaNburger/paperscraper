@@ -1,7 +1,13 @@
 """OpenAlex API client - Primary data source."""
 
+import logging
+
+import httpx
+
 from paper_scraper.core.config import settings
 from paper_scraper.modules.papers.clients.base import BaseAPIClient
+
+logger = logging.getLogger(__name__)
 
 
 class OpenAlexClient(BaseAPIClient):
@@ -54,12 +60,19 @@ class OpenAlexClient(BaseAPIClient):
             params["filter"] = ",".join(filter_parts)
 
         while len(papers) < max_results:
-            response = await self.client.get(
-                f"{self.base_url}/works",
-                params=params,
-            )
-            response.raise_for_status()
-            data = response.json()
+            try:
+                response = await self.client.get(
+                    f"{self.base_url}/works",
+                    params=params,
+                )
+                response.raise_for_status()
+                data = response.json()
+            except (httpx.HTTPStatusError, httpx.RequestError, httpx.TimeoutException) as e:
+                logger.warning("OpenAlex search failed: %s", e)
+                return papers
+            except ValueError as e:
+                logger.warning("OpenAlex returned invalid JSON: %s", e)
+                return papers
 
             results = data.get("results", [])
             if not results:
@@ -86,14 +99,21 @@ class OpenAlexClient(BaseAPIClient):
         Returns:
             Normalized paper dict or None if not found.
         """
-        response = await self.client.get(
-            f"{self.base_url}/works/{openalex_id}",
-            params={"mailto": self.email},
-        )
-        if response.status_code == 404:
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/works/{openalex_id}",
+                params={"mailto": self.email},
+            )
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            return self.normalize(response.json())
+        except (httpx.HTTPStatusError, httpx.RequestError, httpx.TimeoutException) as e:
+            logger.warning("OpenAlex get_by_id failed for %s: %s", openalex_id, e)
             return None
-        response.raise_for_status()
-        return self.normalize(response.json())
+        except ValueError as e:
+            logger.warning("OpenAlex get_by_id returned invalid JSON: %s", e)
+            return None
 
     async def get_by_doi(self, doi: str) -> dict | None:
         """Get paper by DOI.
@@ -107,14 +127,21 @@ class OpenAlexClient(BaseAPIClient):
         # Clean DOI
         doi = doi.replace("https://doi.org/", "").replace("http://dx.doi.org/", "")
 
-        response = await self.client.get(
-            f"{self.base_url}/works/doi:{doi}",
-            params={"mailto": self.email},
-        )
-        if response.status_code == 404:
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/works/doi:{doi}",
+                params={"mailto": self.email},
+            )
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            return self.normalize(response.json())
+        except (httpx.HTTPStatusError, httpx.RequestError, httpx.TimeoutException) as e:
+            logger.warning("OpenAlex get_by_doi failed for %s: %s", doi, e)
             return None
-        response.raise_for_status()
-        return self.normalize(response.json())
+        except ValueError as e:
+            logger.warning("OpenAlex get_by_doi returned invalid JSON: %s", e)
+            return None
 
     def normalize(self, work: dict) -> dict:
         """Normalize OpenAlex work to standard format.

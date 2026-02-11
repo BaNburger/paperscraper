@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from paper_scraper.core.exceptions import DuplicateError, NotFoundError, ValidationError
+from paper_scraper.core.sql_utils import escape_like
 from paper_scraper.modules.auth.models import User
 from paper_scraper.modules.papers.models import Paper
 from paper_scraper.modules.projects.models import (
@@ -97,8 +98,8 @@ class ProjectService:
         query = select(Project).where(Project.organization_id == organization_id)
 
         if search:
-            search_filter = f"%{search}%"
-            query = query.where(Project.name.ilike(search_filter))
+            search_filter = f"%{escape_like(search)}%"
+            query = query.where(Project.name.ilike(search_filter, escape="\\"))
 
         # Count total
         count_query = select(func.count()).select_from(query.subquery())

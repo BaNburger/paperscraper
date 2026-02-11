@@ -1,7 +1,13 @@
 """Crossref API client - DOI resolution fallback."""
 
+import logging
+
+import httpx
+
 from paper_scraper.core.config import settings
 from paper_scraper.modules.papers.clients.base import BaseAPIClient
+
+logger = logging.getLogger(__name__)
 
 
 class CrossrefClient(BaseAPIClient):
@@ -32,16 +38,23 @@ class CrossrefClient(BaseAPIClient):
         Returns:
             List of normalized paper dicts.
         """
-        response = await self.client.get(
-            f"{self.base_url}/works",
-            params={
-                "query": query,
-                "rows": min(max_results, 1000),
-                "mailto": self.email,
-            },
-        )
-        response.raise_for_status()
-        data = response.json()
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/works",
+                params={
+                    "query": query,
+                    "rows": min(max_results, 1000),
+                    "mailto": self.email,
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
+        except (httpx.HTTPStatusError, httpx.RequestError, httpx.TimeoutException) as e:
+            logger.warning("Crossref search failed: %s", e)
+            return []
+        except ValueError as e:
+            logger.warning("Crossref returned invalid JSON: %s", e)
+            return []
 
         return [
             self.normalize(item) for item in data.get("message", {}).get("items", [])
@@ -58,14 +71,21 @@ class CrossrefClient(BaseAPIClient):
         """
         doi = doi.replace("https://doi.org/", "").replace("http://dx.doi.org/", "")
 
-        response = await self.client.get(
-            f"{self.base_url}/works/{doi}",
-            params={"mailto": self.email},
-        )
-        if response.status_code == 404:
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/works/{doi}",
+                params={"mailto": self.email},
+            )
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            return self.normalize(response.json().get("message", {}))
+        except (httpx.HTTPStatusError, httpx.RequestError, httpx.TimeoutException) as e:
+            logger.warning("Crossref get_by_id failed for %s: %s", doi, e)
             return None
-        response.raise_for_status()
-        return self.normalize(response.json().get("message", {}))
+        except ValueError as e:
+            logger.warning("Crossref get_by_id returned invalid JSON: %s", e)
+            return None
 
     def normalize(self, item: dict) -> dict:
         """Normalize Crossref item to standard format.

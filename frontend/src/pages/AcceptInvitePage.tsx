@@ -29,24 +29,29 @@ export function AcceptInvitePage() {
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
+    let isMounted = true
+
     async function loadInvitationInfo() {
       if (!token) {
-        setLoadError(t('auth.invalidInvitationLink'))
-        setLoadingInfo(false)
+        if (isMounted) {
+          setLoadError(t('auth.invalidInvitationLink'))
+          setLoadingInfo(false)
+        }
         return
       }
 
       try {
         const info = await authApi.getInvitationInfo(token)
-        setInvitationInfo(info)
+        if (isMounted) setInvitationInfo(info)
       } catch (err) {
-        setLoadError(getApiErrorMessage(err, t('auth.invitationExpired')))
+        if (isMounted) setLoadError(getApiErrorMessage(err, t('auth.invitationExpired')))
       } finally {
-        setLoadingInfo(false)
+        if (isMounted) setLoadingInfo(false)
       }
     }
 
     loadInvitationInfo()
+    return () => { isMounted = false }
   }, [token, t])
 
   const handleSubmit = async (e: React.FormEvent) => {

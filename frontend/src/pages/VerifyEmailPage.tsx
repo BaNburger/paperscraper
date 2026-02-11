@@ -16,23 +16,30 @@ export function VerifyEmailPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
+    let isMounted = true
+
     async function verifyEmail() {
       if (!token) {
-        setStatus('error')
-        setError(t('auth.invalidVerificationLink'))
+        if (isMounted) {
+          setStatus('error')
+          setError(t('auth.invalidVerificationLink'))
+        }
         return
       }
 
       try {
         await authApi.verifyEmail(token)
-        setStatus('success')
+        if (isMounted) setStatus('success')
       } catch (err) {
-        setStatus('error')
-        setError(getApiErrorMessage(err, t('auth.verificationFailed')))
+        if (isMounted) {
+          setStatus('error')
+          setError(getApiErrorMessage(err, t('auth.verificationFailed')))
+        }
       }
     }
 
     verifyEmail()
+    return () => { isMounted = false }
   }, [token, t])
 
   if (status === 'loading') {

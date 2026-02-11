@@ -1,9 +1,14 @@
 """PubMed E-utilities API client."""
 
+import logging
 import xml.etree.ElementTree as ET
+
+import httpx
 
 from paper_scraper.core.config import settings
 from paper_scraper.modules.papers.clients.base import BaseAPIClient
+
+logger = logging.getLogger(__name__)
 
 
 class PubMedClient(BaseAPIClient):
@@ -47,12 +52,19 @@ class PubMedClient(BaseAPIClient):
         if self.api_key:
             search_params["api_key"] = self.api_key
 
-        search_response = await self.client.get(
-            f"{self.base_url}/esearch.fcgi",
-            params=search_params,
-        )
-        search_response.raise_for_status()
-        search_data = search_response.json()
+        try:
+            search_response = await self.client.get(
+                f"{self.base_url}/esearch.fcgi",
+                params=search_params,
+            )
+            search_response.raise_for_status()
+            search_data = search_response.json()
+        except (httpx.HTTPStatusError, httpx.RequestError, httpx.TimeoutException) as e:
+            logger.warning("PubMed search failed: %s", e)
+            return []
+        except ValueError as e:
+            logger.warning("PubMed search returned invalid JSON: %s", e)
+            return []
 
         pmids = search_data.get("esearchresult", {}).get("idlist", [])
         if not pmids:
@@ -68,11 +80,15 @@ class PubMedClient(BaseAPIClient):
         if self.api_key:
             fetch_params["api_key"] = self.api_key
 
-        fetch_response = await self.client.get(
-            f"{self.base_url}/efetch.fcgi",
-            params=fetch_params,
-        )
-        fetch_response.raise_for_status()
+        try:
+            fetch_response = await self.client.get(
+                f"{self.base_url}/efetch.fcgi",
+                params=fetch_params,
+            )
+            fetch_response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError, httpx.TimeoutException) as e:
+            logger.warning("PubMed fetch failed: %s", e)
+            return []
 
         # Parse XML response
         return self._parse_pubmed_xml(fetch_response.text)
@@ -88,13 +104,17 @@ class PubMedClient(BaseAPIClient):
         if self.api_key:
             params["api_key"] = self.api_key
 
-        response = await self.client.get(
-            f"{self.base_url}/efetch.fcgi",
-            params=params,
-        )
-        if response.status_code == 404:
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/efetch.fcgi",
+                params=params,
+            )
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError, httpx.TimeoutException) as e:
+            logger.warning("PubMed get_by_id failed for %s: %s", pmid, e)
             return None
-        response.raise_for_status()
 
         papers = self._parse_pubmed_xml(response.text)
         return papers[0] if papers else None
