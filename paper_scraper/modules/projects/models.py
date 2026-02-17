@@ -1,61 +1,45 @@
-"""SQLAlchemy models for projects module."""
+"""SQLAlchemy models for research groups module (replaces KanBan projects)."""
 
 import enum
 from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     DateTime,
-    Enum,
+    Float,
     ForeignKey,
     Index,
     Integer,
     JSON,
     String,
     Text,
-    UniqueConstraint,
     Uuid,
     func,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from paper_scraper.core.database import Base
 
 if TYPE_CHECKING:
-    from paper_scraper.modules.auth.models import Organization, User
-    from paper_scraper.modules.papers.models import Paper
+    from paper_scraper.modules.auth.models import Organization
+    from paper_scraper.modules.papers.models import Author, Paper
 
 
-class ProjectStage(str, enum.Enum):
-    """Default pipeline stages for paper review."""
+class SyncStatus(str, enum.Enum):
+    """Sync status for research group paper import."""
 
-    INBOX = "inbox"
-    SCREENING = "screening"
-    EVALUATION = "evaluation"
-    SHORTLISTED = "shortlisted"
-    CONTACTED = "contacted"
-    REJECTED = "rejected"
-    ARCHIVED = "archived"
-
-
-class RejectionReason(str, enum.Enum):
-    """Predefined reasons for rejecting a paper."""
-
-    OUT_OF_SCOPE = "out_of_scope"
-    LOW_NOVELTY = "low_novelty"
-    LOW_COMMERCIAL_POTENTIAL = "low_commercial_potential"
-    IP_CONCERNS = "ip_concerns"
-    INSUFFICIENT_DATA = "insufficient_data"
-    COMPETITOR_OWNED = "competitor_owned"
-    TOO_EARLY_STAGE = "too_early_stage"
-    TOO_LATE_STAGE = "too_late_stage"
-    DUPLICATE = "duplicate"
-    OTHER = "other"
+    IDLE = "idle"
+    IMPORTING = "importing"
+    CLUSTERING = "clustering"
+    READY = "ready"
+    FAILED = "failed"
 
 
 class Project(Base):
-    """Project model for organizing papers in a KanBan pipeline."""
+    """Research group model — represents an academic chair/lab/institution."""
 
     __tablename__ = "projects"
 
@@ -67,40 +51,38 @@ class Project(Base):
         index=True,
     )
 
-    # Project metadata
+    # Group metadata
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    # Configurable pipeline stages (JSON array of stage names)
-    # Default stages can be overridden per project
-    stages: Mapped[list] = mapped_column(
-        JSON,
-        nullable=False,
-        default=lambda: [
-            {"name": "inbox", "label": "Inbox", "order": 0},
-            {"name": "screening", "label": "Screening", "order": 1},
-            {"name": "evaluation", "label": "Evaluation", "order": 2},
-            {"name": "shortlisted", "label": "Shortlisted", "order": 3},
-            {"name": "contacted", "label": "Contacted", "order": 4},
-            {"name": "rejected", "label": "Rejected", "order": 5},
-            {"name": "archived", "label": "Archived", "order": 6},
-        ],
+    # Institution / researcher info
+    institution_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    openalex_institution_id: Mapped[str | None] = mapped_column(
+        String(100), nullable=True
+    )
+    pi_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    pi_author_id: Mapped[UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("authors.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    openalex_author_id: Mapped[str | None] = mapped_column(
+        String(100), nullable=True
     )
 
-    # Scoring weights for this project (overrides default weights)
-    scoring_weights: Mapped[dict] = mapped_column(
-        JSON,
-        nullable=False,
-        default=lambda: {
-            "novelty": 0.20,
-            "ip_potential": 0.20,
-            "marketability": 0.20,
-            "feasibility": 0.20,
-            "commercialization": 0.20,
-        },
+    # Denormalized counts
+    paper_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    cluster_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    # Sync state
+    sync_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=SyncStatus.IDLE.value
+    )
+    last_synced_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
 
-    # Project settings (e.g., auto-score on add, notification settings)
+    # Extensible settings
     settings: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
 
     # Timestamps
@@ -116,65 +98,76 @@ class Project(Base):
 
     # Relationships
     organization: Mapped["Organization"] = relationship("Organization")
-    paper_statuses: Mapped[list["PaperProjectStatus"]] = relationship(
-        "PaperProjectStatus",
+    pi_author: Mapped["Author | None"] = relationship("Author")
+    papers: Mapped[list["ProjectPaper"]] = relationship(
+        "ProjectPaper",
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )
+    clusters: Mapped[list["ProjectCluster"]] = relationship(
+        "ProjectCluster",
         back_populates="project",
         cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:
-        return f"<Project {self.name}>"
+        return f"<Project(ResearchGroup) {self.name}>"
 
 
-class PaperProjectStatus(Base):
-    """Association model tracking a paper's position in a project's pipeline."""
+class ProjectPaper(Base):
+    """Junction table: paper belongs to a research group."""
 
-    __tablename__ = "paper_project_statuses"
+    __tablename__ = "project_papers"
 
-    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-
-    # Foreign keys
+    project_id: Mapped[UUID] = mapped_column(
+        Uuid,
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
     paper_id: Mapped[UUID] = mapped_column(
         Uuid,
         ForeignKey("papers.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
+        primary_key=True,
     )
+    added_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    # Relationships
+    project: Mapped["Project"] = relationship("Project", back_populates="papers")
+    paper: Mapped["Paper"] = relationship("Paper")
+
+    __table_args__ = (
+        Index("ix_project_papers_paper_id", "paper_id"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<ProjectPaper project={self.project_id} paper={self.paper_id}>"
+
+
+class ProjectCluster(Base):
+    """Topic cluster within a research group."""
+
+    __tablename__ = "project_clusters"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
     project_id: Mapped[UUID] = mapped_column(
         Uuid,
         ForeignKey("projects.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-
-    # Current stage in pipeline
-    stage: Mapped[str] = mapped_column(
-        String(50), nullable=False, default="inbox"
-    )
-
-    # Position within stage for ordering (lower = higher in list)
-    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-
-    # Assignment
-    assigned_to_id: Mapped[UUID | None] = mapped_column(
+    organization_id: Mapped[UUID] = mapped_column(
         Uuid,
-        ForeignKey("users.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
     )
 
-    # Notes and rejection tracking
-    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    rejection_reason: Mapped[RejectionReason | None] = mapped_column(
-        Enum(RejectionReason), nullable=True
-    )
-    rejection_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-    # Priority (1=highest, 5=lowest)
-    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
-
-    # Tags for filtering (JSON array of strings)
-    tags: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    label: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    keywords: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    paper_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    centroid: Mapped[list | None] = mapped_column(Vector(1536), nullable=True)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
@@ -187,66 +180,40 @@ class PaperProjectStatus(Base):
         nullable=False,
     )
 
-    # Stage transition tracking
-    stage_entered_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-
     # Relationships
-    paper: Mapped["Paper"] = relationship("Paper", backref="project_statuses")
-    project: Mapped["Project"] = relationship(
-        "Project", back_populates="paper_statuses"
-    )
-    assigned_to: Mapped["User | None"] = relationship("User")
-
-    __table_args__ = (
-        # Each paper can only be in a project once
-        UniqueConstraint("paper_id", "project_id", name="uq_paper_project"),
-        # Index for efficient KanBan queries (get all papers in a stage)
-        Index("ix_paper_project_status_project_stage", "project_id", "stage"),
-        # Index for finding papers by assignee
-        Index("ix_paper_project_status_assigned", "assigned_to_id"),
+    project: Mapped["Project"] = relationship("Project", back_populates="clusters")
+    cluster_papers: Mapped[list["ProjectClusterPaper"]] = relationship(
+        "ProjectClusterPaper",
+        back_populates="cluster",
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:
-        return f"<PaperProjectStatus paper={self.paper_id} stage={self.stage}>"
+        return f"<ProjectCluster {self.label} ({self.paper_count} papers)>"
 
 
-class PaperStageHistory(Base):
-    """Audit log for paper stage transitions."""
+class ProjectClusterPaper(Base):
+    """Junction table: paper belongs to a cluster within a research group."""
 
-    __tablename__ = "paper_stage_history"
+    __tablename__ = "project_cluster_papers"
 
-    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-
-    # Foreign keys
-    paper_project_status_id: Mapped[UUID] = mapped_column(
+    cluster_id: Mapped[UUID] = mapped_column(
         Uuid,
-        ForeignKey("paper_project_statuses.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
+        ForeignKey("project_clusters.id", ondelete="CASCADE"),
+        primary_key=True,
     )
-    changed_by_id: Mapped[UUID | None] = mapped_column(
+    paper_id: Mapped[UUID] = mapped_column(
         Uuid,
-        ForeignKey("users.id", ondelete="SET NULL"),
-        nullable=True,
+        ForeignKey("papers.id", ondelete="CASCADE"),
+        primary_key=True,
     )
-
-    # Transition details
-    from_stage: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    to_stage: Mapped[str] = mapped_column(String(50), nullable=False)
-    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-    # Timestamp
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    similarity_score: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Relationships
-    paper_project_status: Mapped["PaperProjectStatus"] = relationship(
-        "PaperProjectStatus", backref="stage_history"
+    cluster: Mapped["ProjectCluster"] = relationship(
+        "ProjectCluster", back_populates="cluster_papers"
     )
-    changed_by: Mapped["User | None"] = relationship("User")
+    paper: Mapped["Paper"] = relationship("Paper")
 
     def __repr__(self) -> str:
-        return f"<PaperStageHistory {self.from_stage} -> {self.to_stage}>"
+        return f"<ProjectClusterPaper cluster={self.cluster_id} paper={self.paper_id}>"

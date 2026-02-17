@@ -24,7 +24,7 @@ except ImportError:
     pass
 
 try:
-    from paper_scraper.modules.projects.models import Project, PaperProjectStatus, PaperStageHistory  # noqa: F401
+    from paper_scraper.modules.projects.models import Project, ProjectPaper, ProjectCluster, ProjectClusterPaper  # noqa: F401
 except ImportError:
     pass
 

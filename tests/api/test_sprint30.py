@@ -4,11 +4,9 @@ Covers:
 - Badge stats CTE optimization (get_user_stats with scalar subqueries)
 - Organization-level custom badges (list_badges org filtering)
 - Knowledge pagination (list_personal / list_organization)
-- Pipeline stage time calculation (_calculate_avg_time_per_stage)
 - Search activity tracking for gamification
 """
 
-from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
@@ -23,12 +21,6 @@ from paper_scraper.modules.knowledge.models import KnowledgeScope, KnowledgeSour
 from paper_scraper.modules.knowledge.service import KnowledgeService
 from paper_scraper.modules.papers.models import Paper
 from paper_scraper.modules.papers.notes import PaperNote  # noqa: F401 (table creation)
-from paper_scraper.modules.projects.models import (
-    PaperProjectStatus,
-    PaperStageHistory,
-    Project,
-)
-from paper_scraper.modules.projects.service import ProjectService
 from paper_scraper.modules.scoring.models import PaperScore
 from paper_scraper.modules.search.models import SearchActivity
 from paper_scraper.modules.authors.models import AuthorContact  # noqa: F401 (table creation)
@@ -57,22 +49,6 @@ async def test_paper(
     await db_session.flush()
     await db_session.refresh(paper)
     return paper
-
-
-@pytest_asyncio.fixture
-async def test_project(
-    db_session: AsyncSession,
-    test_organization: Organization,
-) -> Project:
-    """Create a test project with default stages."""
-    project = Project(
-        organization_id=test_organization.id,
-        name="Sprint 30 Test Project",
-    )
-    db_session.add(project)
-    await db_session.flush()
-    await db_session.refresh(project)
-    return project
 
 
 @pytest_asyncio.fixture
@@ -573,141 +549,6 @@ class TestKnowledgePagination:
 # ---------------------------------------------------------------------------
 # Pipeline Stage Time Calculation Tests
 # ---------------------------------------------------------------------------
-
-
-class TestPipelineStageTimeCalculation:
-    """Test _calculate_avg_time_per_stage computes average hours per stage
-    from PaperStageHistory records."""
-
-    @pytest.mark.asyncio
-    async def test_avg_time_empty_project(
-        self,
-        db_session: AsyncSession,
-        test_organization: Organization,
-        test_project: Project,
-    ) -> None:
-        """A project with no papers should return an empty dict."""
-        service = ProjectService(db_session)
-        result = await service._calculate_avg_time_per_stage(test_project.id)
-        assert result == {}
-
-    @pytest.mark.asyncio
-    async def test_avg_time_single_transition(
-        self,
-        db_session: AsyncSession,
-        test_organization: Organization,
-        test_project: Project,
-        test_paper: Paper,
-    ) -> None:
-        """A single stage transition should produce a correct average."""
-        # Arrange -- add paper to project
-        status = PaperProjectStatus(
-            paper_id=test_paper.id,
-            project_id=test_project.id,
-            stage="screening",
-            position=1,
-        )
-        db_session.add(status)
-        await db_session.flush()
-
-        now = datetime.now(timezone.utc)
-
-        # Create two history entries: inbox -> screening (2 hours apart)
-        h1 = PaperStageHistory(
-            paper_project_status_id=status.id,
-            from_stage=None,
-            to_stage="inbox",
-            created_at=now - timedelta(hours=2),
-        )
-        h2 = PaperStageHistory(
-            paper_project_status_id=status.id,
-            from_stage="inbox",
-            to_stage="screening",
-            created_at=now,
-        )
-        db_session.add_all([h1, h2])
-        await db_session.flush()
-
-        # Act
-        service = ProjectService(db_session)
-        result = await service._calculate_avg_time_per_stage(test_project.id)
-
-        # Assert -- paper spent 2 hours in "inbox"
-        assert "inbox" in result
-        assert abs(result["inbox"] - 2.0) < 0.1
-
-    @pytest.mark.asyncio
-    async def test_avg_time_multiple_transitions(
-        self,
-        db_session: AsyncSession,
-        test_organization: Organization,
-        test_project: Project,
-        test_paper: Paper,
-    ) -> None:
-        """Multiple transitions should produce correct averages across stages."""
-        status = PaperProjectStatus(
-            paper_id=test_paper.id,
-            project_id=test_project.id,
-            stage="evaluation",
-            position=1,
-        )
-        db_session.add(status)
-        await db_session.flush()
-
-        now = datetime.now(timezone.utc)
-
-        # inbox (3h) -> screening (1h) -> evaluation
-        h1 = PaperStageHistory(
-            paper_project_status_id=status.id,
-            from_stage=None,
-            to_stage="inbox",
-            created_at=now - timedelta(hours=4),
-        )
-        h2 = PaperStageHistory(
-            paper_project_status_id=status.id,
-            from_stage="inbox",
-            to_stage="screening",
-            created_at=now - timedelta(hours=1),
-        )
-        h3 = PaperStageHistory(
-            paper_project_status_id=status.id,
-            from_stage="screening",
-            to_stage="evaluation",
-            created_at=now,
-        )
-        db_session.add_all([h1, h2, h3])
-        await db_session.flush()
-
-        service = ProjectService(db_session)
-        result = await service._calculate_avg_time_per_stage(test_project.id)
-
-        # inbox duration: 3 hours, screening duration: 1 hour
-        assert "inbox" in result
-        assert abs(result["inbox"] - 3.0) < 0.1
-        assert "screening" in result
-        assert abs(result["screening"] - 1.0) < 0.1
-        # evaluation has no subsequent transition so it should NOT appear
-        assert "evaluation" not in result
-
-    @pytest.mark.asyncio
-    async def test_avg_time_statistics_endpoint(
-        self,
-        authenticated_client: AsyncClient,
-        db_session: AsyncSession,
-        test_organization: Organization,
-        test_project: Project,
-    ) -> None:
-        """The project statistics endpoint should include avg_time_per_stage."""
-        response = await authenticated_client.get(
-            f"/api/v1/projects/{test_project.id}/statistics"
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert "avg_time_per_stage" in data
-        assert isinstance(data["avg_time_per_stage"], dict)
-        assert "papers_by_stage" in data
-        assert data["total_papers"] == 0
 
 
 # ---------------------------------------------------------------------------

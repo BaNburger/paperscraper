@@ -143,6 +143,97 @@ class OpenAlexClient(BaseAPIClient):
             logger.warning("OpenAlex get_by_doi returned invalid JSON: %s", e)
             return None
 
+    async def search_institutions(
+        self,
+        query: str,
+        max_results: int = 10,
+    ) -> list[dict]:
+        """Search OpenAlex for institutions.
+
+        Args:
+            query: Search query string (e.g., "MIT", "Stanford").
+            max_results: Maximum results to return (max 25).
+
+        Returns:
+            List of institution dicts with id, display_name, etc.
+        """
+        per_page = min(max_results, 25)
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/institutions",
+                params={
+                    "search": query,
+                    "per_page": per_page,
+                    "mailto": self.email,
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
+        except (httpx.HTTPStatusError, httpx.RequestError, httpx.TimeoutException) as e:
+            logger.warning("OpenAlex institution search failed: %s", e)
+            return []
+        except ValueError as e:
+            logger.warning("OpenAlex institution search returned invalid JSON: %s", e)
+            return []
+
+        results = []
+        for inst in data.get("results", []):
+            results.append({
+                "openalex_id": inst.get("id", ""),
+                "display_name": inst.get("display_name", "Unknown"),
+                "country_code": inst.get("country_code"),
+                "type": inst.get("type"),
+                "works_count": inst.get("works_count", 0),
+                "cited_by_count": inst.get("cited_by_count", 0),
+            })
+        return results
+
+    async def search_authors(
+        self,
+        query: str,
+        max_results: int = 10,
+    ) -> list[dict]:
+        """Search OpenAlex for authors.
+
+        Args:
+            query: Search query string (e.g., "John Smith").
+            max_results: Maximum results to return (max 25).
+
+        Returns:
+            List of author dicts with id, display_name, etc.
+        """
+        per_page = min(max_results, 25)
+        try:
+            response = await self.client.get(
+                f"{self.base_url}/authors",
+                params={
+                    "search": query,
+                    "per_page": per_page,
+                    "mailto": self.email,
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
+        except (httpx.HTTPStatusError, httpx.RequestError, httpx.TimeoutException) as e:
+            logger.warning("OpenAlex author search failed: %s", e)
+            return []
+        except ValueError as e:
+            logger.warning("OpenAlex author search returned invalid JSON: %s", e)
+            return []
+
+        results = []
+        for author in data.get("results", []):
+            last_inst = author.get("last_known_institutions") or []
+            last_inst_name = last_inst[0].get("display_name") if last_inst else None
+            results.append({
+                "openalex_id": author.get("id", ""),
+                "display_name": author.get("display_name", "Unknown"),
+                "works_count": author.get("works_count", 0),
+                "cited_by_count": author.get("cited_by_count", 0),
+                "last_known_institution": last_inst_name,
+            })
+        return results
+
     def normalize(self, work: dict) -> dict:
         """Normalize OpenAlex work to standard format.
 

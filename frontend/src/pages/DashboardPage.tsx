@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import {
   FileText,
-  FolderKanban,
+  UsersRound,
   Search,
   TrendingUp,
   Loader2,
@@ -122,7 +122,7 @@ export function DashboardPage() {
     {
       title: t('dashboard.activeProjects'),
       value: projects?.total ?? 0,
-      icon: FolderKanban,
+      icon: UsersRound,
       color: 'text-green-600',
     },
     {

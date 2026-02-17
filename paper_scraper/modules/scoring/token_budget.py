@@ -71,6 +71,7 @@ class DimensionTokenBudget:
     enrichment: int = 400
     knowledge: int = 200
     jstor: int = 400
+    author_profiles: int = 0
 
 
 # Per-dimension budget allocations — different dimensions prioritize
@@ -85,12 +86,13 @@ DIMENSION_BUDGETS: dict[str, DimensionTokenBudget] = {
         jstor=500,
     ),
     "ip_potential": DimensionTokenBudget(
-        total=2400,
+        total=2600,
         similar_papers=400,
         citation_graph=500,
-        enrichment=800,
+        enrichment=600,
         knowledge=300,
         jstor=400,
+        author_profiles=200,
     ),
     "marketability": DimensionTokenBudget(
         total=2300,
@@ -101,12 +103,13 @@ DIMENSION_BUDGETS: dict[str, DimensionTokenBudget] = {
         jstor=300,
     ),
     "feasibility": DimensionTokenBudget(
-        total=2400,
+        total=2600,
         similar_papers=700,
         citation_graph=400,
-        enrichment=500,
+        enrichment=300,
         knowledge=400,
         jstor=400,
+        author_profiles=200,
     ),
     "commercialization": DimensionTokenBudget(
         total=2200,
@@ -118,10 +121,11 @@ DIMENSION_BUDGETS: dict[str, DimensionTokenBudget] = {
     ),
     "team_readiness": DimensionTokenBudget(
         total=2200,
-        similar_papers=400,
-        citation_graph=300,
-        enrichment=400,
-        knowledge=900,
-        jstor=200,
+        similar_papers=380,
+        citation_graph=0,
+        enrichment=190,
+        knowledge=870,
+        jstor=0,
+        author_profiles=680,
     ),
 }

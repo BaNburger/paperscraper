@@ -1,11 +1,3 @@
----
-name: story
-description: Implement a user story end-to-end — from clarification through deployment
-argument-hint: <user story or feature description>
-disable-model-invocation: true
-allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Task, TodoWrite, AskUserQuestion, EnterPlanMode, ExitPlanMode, WebSearch, WebFetch, NotebookEdit
----
-
 # User Story Implementation Workflow
 
 You are implementing a user story for the **PaperScraper** platform. The user story is:

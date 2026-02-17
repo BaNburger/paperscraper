@@ -25,7 +25,7 @@ from paper_scraper.modules.analytics.schemas import (
 from paper_scraper.modules.auth.models import Organization, User
 from paper_scraper.modules.papers.models import Paper
 from paper_scraper.modules.papers.notes import PaperNote
-from paper_scraper.modules.projects.models import PaperProjectStatus, Project
+from paper_scraper.modules.projects.models import Project
 from paper_scraper.modules.scoring.models import PaperScore
 from paper_scraper.modules.transfer.models import TransferConversation, TransferStage
 
@@ -501,31 +501,26 @@ class AnalyticsService:
             scored_query = scored_query.where(PaperScore.created_at <= datetime.combine(end_date, datetime.max.time()))
         total_scored = await self._count_records(scored_query)
 
-        # 3. Papers in pipeline (any project stage beyond inbox)
+        # 3. Papers in research groups (via project_papers junction table)
+        from paper_scraper.modules.projects.models import ProjectPaper
+
         pipeline_query = (
-            select(func.count(func.distinct(PaperProjectStatus.paper_id)))
-            .where(PaperProjectStatus.stage.notin_(["inbox", "rejected", "archived"]))
+            select(func.count(func.distinct(ProjectPaper.paper_id)))
         )
         if project_id:
-            pipeline_query = pipeline_query.where(PaperProjectStatus.project_id == project_id)
+            pipeline_query = pipeline_query.where(ProjectPaper.project_id == project_id)
         else:
             pipeline_query = pipeline_query.join(
-                Project, Project.id == PaperProjectStatus.project_id
+                Project, Project.id == ProjectPaper.project_id
             ).where(Project.organization_id == organization_id)
         total_in_pipeline = await self._count_records(pipeline_query)
 
-        # 4. Papers marked as contacted
-        contacted_query = (
-            select(func.count(func.distinct(PaperProjectStatus.paper_id)))
-            .where(PaperProjectStatus.stage == "contacted")
+        # 4. Contacted papers (from transfer conversations)
+        total_contacted = await self._count_records(
+            select(func.count(func.distinct(TransferConversation.paper_id))).where(
+                TransferConversation.organization_id == organization_id,
+            )
         )
-        if project_id:
-            contacted_query = contacted_query.where(PaperProjectStatus.project_id == project_id)
-        else:
-            contacted_query = contacted_query.join(
-                Project, Project.id == PaperProjectStatus.project_id
-            ).where(Project.organization_id == organization_id)
-        total_contacted = await self._count_records(contacted_query)
 
         # 5. Transferred (conversations closed_won)
         transferred_query = select(func.count(TransferConversation.id)).where(
@@ -629,14 +624,10 @@ class AnalyticsService:
         )
         org_scoring_rate = round(org_scored_papers / org_total_papers * 100, 1) if org_total_papers > 0 else 0.0
 
-        # Org pipeline conversion (papers that reached contacted stage)
+        # Org pipeline conversion (papers in transfer conversations)
         org_contacted = await self._count_records(
-            select(func.count(func.distinct(PaperProjectStatus.paper_id)))
-            .join(Project, Project.id == PaperProjectStatus.project_id)
-            .where(
-                Project.organization_id == organization_id,
-                PaperProjectStatus.stage == "contacted",
-            )
+            select(func.count(func.distinct(TransferConversation.paper_id)))
+            .where(TransferConversation.organization_id == organization_id)
         )
         org_conversion_rate = round(org_contacted / org_total_papers * 100, 1) if org_total_papers > 0 else 0.0
 
@@ -658,10 +649,9 @@ class AnalyticsService:
         platform_row = platform_scoring_result.one()
         platform_scoring_rate = round(platform_row.scored / platform_row.total * 100, 1) if platform_row.total > 0 else 0.0
 
-        # Platform conversion rate
+        # Platform conversion rate (papers in any transfer conversation)
         platform_contacted_result = await self.db.execute(
-            select(func.count(func.distinct(PaperProjectStatus.paper_id)))
-            .where(PaperProjectStatus.stage == "contacted")
+            select(func.count(func.distinct(TransferConversation.paper_id)))
         )
         platform_contacted = platform_contacted_result.scalar() or 0
         platform_total_papers = await self._count_records(select(func.count(Paper.id)))

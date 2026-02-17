@@ -6,14 +6,13 @@ import {
   ArrowRightLeft,
   Download,
   FileText,
-  FolderKanban,
+  UsersRound,
   Keyboard,
   Moon,
   Plus,
   Search,
   Sun,
   Upload,
-  UsersRound,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTheme } from '@/contexts/ThemeContext'
@@ -184,7 +183,7 @@ export function CommandPalette({ onShowKeyboardShortcuts }: CommandPaletteProps)
                     className="cmdk-item"
                   >
                     {item.type === 'paper' && <FileText className="cmdk-icon" />}
-                    {item.type === 'project' && <FolderKanban className="cmdk-icon" />}
+                    {item.type === 'project' && <UsersRound className="cmdk-icon" />}
                     {item.type === 'group' && <UsersRound className="cmdk-icon" />}
                     <span className="cmdk-item-text">{item.title}</span>
                     <span className="cmdk-badge">{item.type}</span>
@@ -335,7 +334,7 @@ export function CommandPalette({ onShowKeyboardShortcuts }: CommandPaletteProps)
                     onSelect={() => handleProjectSelect(project)}
                     className="cmdk-item"
                   >
-                    <FolderKanban className="cmdk-icon" />
+                    <UsersRound className="cmdk-icon" />
                     <span className="cmdk-item-text">{project.name}</span>
                     <span className="cmdk-badge">
                       {project.is_active ? t('dashboard.active') : t('dashboard.inactive')}

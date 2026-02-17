@@ -9,7 +9,6 @@ import {
   Code2,
   Compass,
   FileText,
-  FolderKanban,
   Home,
   Inbox,
   LayoutDashboard,
@@ -270,7 +269,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
   {
     path: '/projects',
     labelKey: 'nav.projects',
-    icon: FolderKanban,
+    icon: Users,
     desktopGroup: 'main',
     sidebarGroup: 'evaluate',
     mobileBottom: true,

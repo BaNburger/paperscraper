@@ -1,10 +1,14 @@
 """Pydantic schemas for scoring module."""
 
+import re
 from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+
+_ORCID_RE = re.compile(r"^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$")
+_GITHUB_LOGIN_RE = re.compile(r"^[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,37}[a-zA-Z0-9])?$")
 
 
 # =============================================================================
@@ -155,6 +159,40 @@ class JstorReferenceSchema(BaseModel):
     jstor_url: str | None = None
 
 
+class AuthorProfileSchema(BaseModel):
+    """An author's enriched profile used as scoring context."""
+
+    name: str
+    orcid: str | None = None
+    github_username: str | None = None
+    github_public_repos: int | None = Field(default=None, ge=0, le=500_000)
+    github_followers: int | None = Field(default=None, ge=0, le=10_000_000)
+    github_top_languages: list[str] = Field(default_factory=list)
+    github_popular_repos: list[str] = Field(default_factory=list)
+    orcid_current_employment: str | None = None
+    orcid_past_affiliations: list[str] = Field(default_factory=list)
+    orcid_funding_count: int | None = Field(default=None, ge=0, le=100_000)
+    orcid_peer_review_count: int | None = Field(default=None, ge=0, le=100_000)
+
+    @field_validator("orcid", mode="before")
+    @classmethod
+    def validate_orcid(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        if not _ORCID_RE.match(str(v)):
+            return None
+        return v
+
+    @field_validator("github_username", mode="before")
+    @classmethod
+    def validate_github_username(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        if not _GITHUB_LOGIN_RE.match(str(v)):
+            return None
+        return v
+
+
 class PaperScoreResponse(BaseModel):
     """Response schema for paper score."""
 
@@ -187,28 +225,37 @@ class PaperScoreResponse(BaseModel):
         description="JSTOR papers used as scoring context",
     )
 
+    # Author profiles
+    author_profiles: list[AuthorProfileSchema] = Field(
+        default_factory=list,
+        description="Author profiles from GitHub and ORCID used as scoring context",
+    )
+
     model_config = {"from_attributes": True}
 
     @model_validator(mode="before")
     @classmethod
-    def extract_jstor_references(cls, data: Any) -> Any:
-        """Extract jstor_references from dimension_details._metadata."""
+    def extract_metadata_fields(cls, data: Any) -> Any:
+        """Extract jstor_references and author_profiles from dimension_details._metadata."""
         if isinstance(data, dict):
             details = data.get("dimension_details") or {}
             meta = details.get("_metadata") or {}
             if "jstor_references" not in data:
                 data["jstor_references"] = meta.get("jstor_references", [])
+            if "author_profiles" not in data:
+                data["author_profiles"] = meta.get("author_profiles", [])
         elif hasattr(data, "dimension_details"):
             details = data.dimension_details or {}
             meta = details.get("_metadata") or {}
-            if not hasattr(data, "jstor_references"):
-                # Convert ORM object to dict for mutation
-                data_dict = {}
-                for key in cls.model_fields:
-                    if hasattr(data, key):
-                        data_dict[key] = getattr(data, key)
-                data_dict["jstor_references"] = meta.get("jstor_references", [])
-                return data_dict
+            # Always convert ORM object to dict — jstor_references and
+            # author_profiles are never real ORM columns.
+            data_dict = {}
+            for key in cls.model_fields:
+                if hasattr(data, key):
+                    data_dict[key] = getattr(data, key)
+            data_dict["jstor_references"] = meta.get("jstor_references", [])
+            data_dict["author_profiles"] = meta.get("author_profiles", [])
+            return data_dict
         return data
 
 

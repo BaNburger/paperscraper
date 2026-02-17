@@ -5,7 +5,6 @@ import {
   usePaper, usePaperScore, useScorePaper, useDeletePaper,
   useSimilarPapers, useGenerateSimplifiedAbstract, useRelatedPatents,
   useCitationGraph, useGeneratePitch,
-  useProjects, useAddPaperToProject,
   useCreateConversation,
   useMobileBreakpoint,
   useModelConfigurations,
@@ -32,7 +31,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '@/components/ui/DropdownMenu'
 import {
@@ -69,7 +67,6 @@ import {
   UserCheck,
   ThumbsUp,
   ThumbsDown,
-  FolderPlus,
   ArrowRightLeft,
   MoreHorizontal,
   Check,
@@ -79,7 +76,7 @@ import {
   Library,
   Link as LinkIcon,
 } from 'lucide-react'
-import { formatDate, getScoreColor, cn } from '@/lib/utils'
+import { formatDate, getScoreColor, cn, safeExternalUrl } from '@/lib/utils'
 import { getApiErrorMessage } from '@/types'
 import type { TransferType } from '@/types'
 import { exportApi } from '@/lib/api'
@@ -126,6 +123,7 @@ export function PaperDetailPage() {
   const [showPatentsSection, setShowPatentsSection] = useState(false)
   const [showCitationSection, setShowCitationSection] = useState(false)
   const [showJstorSection, setShowJstorSection] = useState(false)
+  const [showAuthorProfilesSection, setShowAuthorProfilesSection] = useState(false)
   const chunkRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   const scoreDimensions = scoreDimensionDefs.map((d) => ({ ...d, label: t(d.labelKey) }))
@@ -146,8 +144,7 @@ export function PaperDetailPage() {
   const deletePaper = useDeletePaper()
   const generateSimplified = useGenerateSimplifiedAbstract()
   const generatePitch = useGeneratePitch()
-  const { data: projectsData, isLoading: projectsLoading } = useProjects()
-  const addPaperToProject = useAddPaperToProject()
+  // Research groups auto-import papers; manual add-to-project removed
   const createConversation = useCreateConversation()
   const readerChunks = readerData?.chunks ?? []
   const highlightItems = highlightsData?.items ?? []
@@ -223,31 +220,9 @@ export function PaperDetailPage() {
     }
   }
 
-  const handleAddToProject = async (projectId: string, projectName: string): Promise<boolean> => {
-    try {
-      await addPaperToProject.mutateAsync({ projectId, paperId: id })
-      toast.success(
-        t('papers.addedToProject'),
-        t('papers.addedToProjectDescription', { project: projectName })
-      )
-      return true
-    } catch (err) {
-      const message = getApiErrorMessage(err, t('papers.addToProjectFailed'))
-      toast.error(t('papers.addToProjectFailedTitle'), message)
-      return false
-    }
-  }
-
-  const handleInteresting = async () => {
-    const projects = projectsData?.items
-    if (!projects?.length) {
-      toast.error(t('papers.addToProjectFailedTitle'), t('papers.noProjectsAvailable'))
-      return
-    }
-    if (projects.length === 1) {
-      const success = await handleAddToProject(projects[0].id, projects[0].name)
-      if (success) setMarkedInteresting(true)
-    }
+  const handleInteresting = () => {
+    setMarkedInteresting(true)
+    toast.success(t('papers.marked'), t('papers.markedDescription', 'Paper marked as interesting'))
   }
 
   const handleSkip = () => {
@@ -360,8 +335,6 @@ export function PaperDetailPage() {
     )
   }
 
-  const projects = projectsData?.items ?? []
-  const hasMultipleProjects = projects.length > 1
   const hasBothAiSummaries = !!(paper.one_line_pitch && paper.simplified_abstract)
 
   return (
@@ -397,36 +370,11 @@ export function PaperDetailPage() {
               <Check className="h-4 w-4 mr-1" />
               {t('papers.marked')}
             </Button>
-          ) : hasMultipleProjects ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <ThumbsUp className="h-4 w-4 mr-1" />
-                  {t('papers.interesting')}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56">
-                <DropdownMenuLabel>{t('papers.selectProject')}</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {projects.map((project) => (
-                  <DropdownMenuItem
-                    key={project.id}
-                    onClick={async () => {
-                      const success = await handleAddToProject(project.id, project.name)
-                      if (success) setMarkedInteresting(true)
-                    }}
-                  >
-                    {project.name}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
           ) : (
             <Button
               variant="outline"
               size="sm"
               onClick={handleInteresting}
-              isLoading={addPaperToProject.isPending}
             >
               <ThumbsUp className="h-4 w-4 mr-1" />
               {t('papers.interesting')}
@@ -442,37 +390,6 @@ export function PaperDetailPage() {
 
         {/* Actions Group */}
         <div className="flex items-center gap-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" disabled={projectsLoading}>
-                <FolderPlus className="h-4 w-4 mr-1" />
-                {t('papers.addToProject')}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56">
-              <DropdownMenuLabel>{t('papers.selectProject')}</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {projectsLoading ? (
-                <div className="flex justify-center py-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                </div>
-              ) : !projects.length ? (
-                <DropdownMenuItem disabled>
-                  {t('papers.noProjectsAvailable')}
-                </DropdownMenuItem>
-              ) : (
-                projects.map((project) => (
-                  <DropdownMenuItem
-                    key={project.id}
-                    onClick={() => handleAddToProject(project.id, project.name)}
-                  >
-                    {project.name}
-                  </DropdownMenuItem>
-                ))
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
           <Button
             variant="outline"
             size="sm"
@@ -1173,7 +1090,7 @@ export function PaperDetailPage() {
                   {patentsData.patents.map((patent) => (
                     <a
                       key={patent.patent_number}
-                      href={patent.espacenet_url}
+                      href={safeExternalUrl(patent.espacenet_url) ?? '#'}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="block rounded-lg border p-3 hover:bg-muted/50 transition-colors"
@@ -1334,7 +1251,7 @@ export function PaperDetailPage() {
                       </div>
                       {ref.jstor_url && (
                         <a
-                          href={ref.jstor_url}
+                          href={safeExternalUrl(ref.jstor_url) ?? '#'}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="shrink-0"
@@ -1348,6 +1265,109 @@ export function PaperDetailPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      )}
+
+      {/* Author Profile Enrichment */}
+      {showAdvancedTab && score?.author_profiles && score.author_profiles.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <button
+              className="flex w-full items-center justify-between text-left"
+              onClick={() => setShowAuthorProfilesSection((prev) => !prev)}
+            >
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  {t('papers.authorProfiles', 'Author Profile Enrichment')}
+                </CardTitle>
+                <CardDescription>
+                  {t('papers.authorProfilesDescription', {
+                    count: score.author_profiles.length,
+                    defaultValue: '{{count}} author profiles enriched via GitHub & ORCID',
+                  })}
+                </CardDescription>
+              </div>
+              {showAuthorProfilesSection ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </button>
+          </CardHeader>
+          {showAuthorProfilesSection && (
+            <CardContent>
+              <div className="space-y-4">
+                {score.author_profiles.map((profile, idx) => (
+                  <div key={profile.orcid || profile.github_username || idx} className="rounded-lg border p-3 space-y-2">
+                    <p className="text-sm font-medium">{profile.name}</p>
+
+                    {/* ORCID data */}
+                    {profile.orcid_current_employment && (
+                      <div className="text-sm text-muted-foreground">
+                        {t('papers.authorCurrentEmployment', 'Current employer')}: {profile.orcid_current_employment}
+                      </div>
+                    )}
+                    {profile.orcid_past_affiliations && profile.orcid_past_affiliations.length > 0 && (
+                      <div className="text-xs text-muted-foreground">
+                        {profile.orcid_past_affiliations.join(' · ')}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {profile.orcid_funding_count != null && profile.orcid_funding_count > 0 && (
+                        <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs">
+                          {t('papers.authorFunding', { count: profile.orcid_funding_count, defaultValue: '{{count}} research grants' })}
+                        </span>
+                      )}
+                      {profile.orcid_peer_review_count != null && profile.orcid_peer_review_count > 0 && (
+                        <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs">
+                          {profile.orcid_peer_review_count} peer reviews
+                        </span>
+                      )}
+                    </div>
+
+                    {/* GitHub data */}
+                    {profile.github_username && (
+                      <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
+                        <a
+                          href={safeExternalUrl(`https://github.com/${profile.github_username}`) ?? '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 hover:text-foreground"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          @{profile.github_username}
+                        </a>
+                        {profile.github_public_repos != null && (
+                          <span>{profile.github_public_repos} repos</span>
+                        )}
+                        {profile.github_followers != null && profile.github_followers > 0 && (
+                          <span>{profile.github_followers} followers</span>
+                        )}
+                        {profile.github_top_languages && profile.github_top_languages.length > 0 && (
+                          <span>{profile.github_top_languages.slice(0, 3).join(', ')}</span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Profile links */}
+                    {profile.orcid && (
+                      <div className="flex items-center gap-2 mt-1">
+                        <a
+                          href={safeExternalUrl(`https://orcid.org/${profile.orcid}`) ?? '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          ORCID
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <p className="text-xs text-muted-foreground italic">
+                  {t('papers.authorProfilesLimitation', 'Note: LinkedIn and ResearchGate are not available via free APIs. GitHub matching uses name similarity and may occasionally match incorrectly.')}
+                </p>
               </div>
             </CardContent>
           )}

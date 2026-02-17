@@ -278,39 +278,27 @@ class DiscoveryService:
         paper_ids: list[UUID],
         user_id: UUID,
     ) -> int:
-        """Add newly imported papers to the target project inbox.
+        """Add newly imported papers to the target research group.
 
         Args:
             organization_id: Tenant org.
-            project_id: Target project.
+            project_id: Target research group.
             paper_ids: Explicit list of paper UUIDs to add.
             user_id: User performing the action.
 
         Returns:
-            Number of papers successfully added to the project.
+            Number of papers successfully added to the research group.
         """
         if not paper_ids:
             return 0
 
         try:
             project_service = ProjectService(self.db)
-            added = 0
-            for paper_id in paper_ids:
-                try:
-                    await project_service.add_paper_to_project(
-                        project_id=project_id,
-                        paper_id=paper_id,
-                        organization_id=organization_id,
-                        stage="inbox",
-                        user_id=user_id,
-                    )
-                    added += 1
-                except Exception:
-                    # Paper might already be in project (DuplicateError)
-                    pass
-
-            return added
-
+            return await project_service.add_papers_to_project(
+                project_id=project_id,
+                organization_id=organization_id,
+                paper_ids=paper_ids,
+            )
         except Exception as exc:
             logger.warning("Failed to add papers to project: %s", exc)
             return 0

@@ -1,50 +1,43 @@
-"""Service layer for projects module."""
+"""Service layer for research groups module."""
 
-from collections import Counter
+import logging
 from datetime import datetime, timezone
-from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from paper_scraper.core.exceptions import DuplicateError, NotFoundError, ValidationError
+from paper_scraper.core.exceptions import NotFoundError
 from paper_scraper.core.sql_utils import escape_like
-from paper_scraper.modules.auth.models import User
 from paper_scraper.modules.papers.models import Paper
 from paper_scraper.modules.projects.models import (
-    PaperProjectStatus,
-    PaperStageHistory,
     Project,
-    RejectionReason,
+    ProjectCluster,
+    ProjectClusterPaper,
+    ProjectPaper,
+    SyncStatus,
 )
 from paper_scraper.modules.projects.schemas import (
-    BatchAddPapersRequest,
-    KanBanBoardResponse,
-    KanBanStage,
-    PaperInProjectResponse,
-    PaperProjectStatusResponse,
-    PaperSummaryForProject,
+    ClusterDetailResponse,
+    ClusterPaperSummary,
+    ClusterResponse,
     ProjectCreate,
     ProjectListResponse,
     ProjectResponse,
-    ProjectStatistics,
     ProjectUpdate,
-    StageHistoryEntry,
-    UserSummary,
 )
-from paper_scraper.modules.scoring.models import PaperScore
+
+logger = logging.getLogger(__name__)
 
 
 class ProjectService:
-    """Service for project management and KanBan operations."""
+    """Service for research group management and clustering."""
 
     def __init__(self, db: AsyncSession):
         self.db = db
 
     # =========================================================================
-    # Project CRUD
+    # Research Group CRUD
     # =========================================================================
 
     async def create_project(
@@ -52,22 +45,18 @@ class ProjectService:
         data: ProjectCreate,
         organization_id: UUID,
     ) -> Project:
-        """Create a new project."""
+        """Create a new research group."""
         project = Project(
             organization_id=organization_id,
             name=data.name,
             description=data.description,
-            settings=data.settings,
+            institution_name=data.institution_name,
+            openalex_institution_id=data.openalex_institution_id,
+            pi_name=data.pi_name,
+            openalex_author_id=data.openalex_author_id,
+            sync_status=SyncStatus.IDLE.value,
+            settings={"max_papers": data.max_papers},
         )
-
-        # Set custom stages if provided
-        if data.stages:
-            project.stages = [s.model_dump() for s in data.stages]
-
-        # Set custom weights if provided
-        if data.scoring_weights:
-            project.scoring_weights = data.scoring_weights.model_dump()
-
         self.db.add(project)
         await self.db.flush()
         await self.db.refresh(project)
@@ -78,7 +67,7 @@ class ProjectService:
         project_id: UUID,
         organization_id: UUID,
     ) -> Project | None:
-        """Get a project by ID with tenant isolation."""
+        """Get a research group by ID with tenant isolation."""
         result = await self.db.execute(
             select(Project).where(
                 Project.id == project_id,
@@ -94,7 +83,7 @@ class ProjectService:
         page_size: int = 20,
         search: str | None = None,
     ) -> ProjectListResponse:
-        """List projects with pagination."""
+        """List research groups with pagination."""
         query = select(Project).where(Project.organization_id == organization_id)
 
         if search:
@@ -126,25 +115,15 @@ class ProjectService:
         organization_id: UUID,
         data: ProjectUpdate,
     ) -> Project:
-        """Update a project."""
+        """Update a research group."""
         project = await self.get_project(project_id, organization_id)
         if not project:
-            raise NotFoundError("Project", project_id)
+            raise NotFoundError("Project", str(project_id))
 
+        allowed_fields = {"name", "description"}
         update_data = data.model_dump(exclude_unset=True)
-
-        # Convert nested Pydantic models to dicts
-        if stages := update_data.get("stages"):
-            update_data["stages"] = [
-                s.model_dump() if hasattr(s, "model_dump") else s for s in stages
-            ]
-
-        if weights := update_data.get("scoring_weights"):
-            if hasattr(weights, "model_dump"):
-                update_data["scoring_weights"] = weights.model_dump()
-
         for key, value in update_data.items():
-            if value is not None:
+            if value is not None and key in allowed_fields:
                 setattr(project, key, value)
 
         await self.db.flush()
@@ -156,650 +135,414 @@ class ProjectService:
         project_id: UUID,
         organization_id: UUID,
     ) -> None:
-        """Delete a project."""
+        """Delete a research group and all its clusters."""
         project = await self.get_project(project_id, organization_id)
         if not project:
-            raise NotFoundError("Project", project_id)
+            raise NotFoundError("Project", str(project_id))
 
         await self.db.delete(project)
         await self.db.flush()
 
     # =========================================================================
-    # Paper Management in Projects
+    # Sync Management
     # =========================================================================
 
-    async def add_paper_to_project(
-        self,
-        project_id: UUID,
-        paper_id: UUID,
-        organization_id: UUID,
-        stage: str = "inbox",
-        assigned_to_id: UUID | None = None,
-        notes: str | None = None,
-        priority: int = 3,
-        tags: list[str] | None = None,
-        user_id: UUID | None = None,
-    ) -> PaperProjectStatus:
-        """Add a paper to a project."""
-        await self._require_project(project_id, organization_id)
-
-        # Verify paper exists and belongs to org
-        paper = await self._get_paper(paper_id, organization_id)
-        if not paper:
-            raise NotFoundError("Paper", paper_id)
-
-        # Check if paper already in project
-        existing = await self._get_paper_status(paper_id, project_id)
-        if existing:
-            raise DuplicateError("PaperProjectStatus", "paper_id", str(paper_id))
-
-        # Get max position for the stage
-        max_pos = await self._get_max_position(project_id, stage)
-
-        # Create status
-        status = PaperProjectStatus(
-            paper_id=paper_id,
-            project_id=project_id,
-            stage=stage,
-            position=max_pos + 1,
-            assigned_to_id=assigned_to_id,
-            notes=notes,
-            priority=priority,
-            tags=tags or [],
-        )
-        self.db.add(status)
-        await self.db.flush()
-
-        # Record history
-        history = PaperStageHistory(
-            paper_project_status_id=status.id,
-            changed_by_id=user_id,
-            from_stage=None,
-            to_stage=stage,
-            comment="Added to project",
-        )
-        self.db.add(history)
-
-        await self.db.flush()
-        await self.db.refresh(status)
-        return status
-
-    async def batch_add_papers(
-        self,
-        project_id: UUID,
-        organization_id: UUID,
-        request: BatchAddPapersRequest,
-        user_id: UUID | None = None,
-    ) -> dict[str, Any]:
-        """Add multiple papers to a project."""
-        await self._require_project(project_id, organization_id)
-
-        added = 0
-        skipped = 0
-        errors: list[str] = []
-
-        # Get max position for the stage
-        max_pos = await self._get_max_position(project_id, request.stage)
-
-        for paper_id in request.paper_ids:
-            try:
-                # Check paper exists
-                paper = await self._get_paper(paper_id, organization_id)
-                if not paper:
-                    errors.append(f"Paper {paper_id} not found")
-                    continue
-
-                # Check if already in project
-                existing = await self._get_paper_status(paper_id, project_id)
-                if existing:
-                    skipped += 1
-                    continue
-
-                max_pos += 1
-                status = PaperProjectStatus(
-                    paper_id=paper_id,
-                    project_id=project_id,
-                    stage=request.stage,
-                    position=max_pos,
-                    tags=request.tags,
-                )
-                self.db.add(status)
-                await self.db.flush()
-
-                # Record history
-                history = PaperStageHistory(
-                    paper_project_status_id=status.id,
-                    changed_by_id=user_id,
-                    from_stage=None,
-                    to_stage=request.stage,
-                    comment="Added via batch import",
-                )
-                self.db.add(history)
-
-                added += 1
-            except Exception as e:
-                errors.append(f"Error adding paper {paper_id}: {str(e)}")
-
-        await self.db.flush()
-
-        return {
-            "added": added,
-            "skipped": skipped,
-            "errors": errors,
-        }
-
-    async def remove_paper_from_project(
-        self,
-        project_id: UUID,
-        paper_id: UUID,
-        organization_id: UUID,
-    ) -> None:
-        """Remove a paper from a project."""
-        await self._require_project(project_id, organization_id)
-
-        status = await self._get_paper_status(paper_id, project_id)
-        if not status:
-            raise NotFoundError("PaperProjectStatus", paper_id)
-
-        await self.db.delete(status)
-        await self.db.flush()
-
-    async def move_paper(
-        self,
-        project_id: UUID,
-        paper_id: UUID,
-        organization_id: UUID,
-        stage: str,
-        position: int | None = None,
-        comment: str | None = None,
-        user_id: UUID | None = None,
-    ) -> PaperProjectStatus:
-        """Move a paper to a different stage in the pipeline."""
-        project = await self._require_project(project_id, organization_id)
-
-        # Verify stage exists in project
-        stage_names = [s["name"] for s in project.stages]
-        if stage not in stage_names:
-            raise ValidationError(f"Stage '{stage}' not found in project", field="stage")
-
-        status = await self._get_paper_status(paper_id, project_id)
-        if not status:
-            raise NotFoundError("PaperProjectStatus", paper_id)
-
-        old_stage = status.stage
-
-        # Update stage
-        status.stage = stage
-        status.stage_entered_at = datetime.now(timezone.utc)
-
-        # Handle position
-        if position is not None:
-            # Reorder papers in target stage
-            await self._reorder_stage(project_id, stage, status.id, position)
-            status.position = position
-        else:
-            # Add to end of stage
-            max_pos = await self._get_max_position(project_id, stage)
-            status.position = max_pos + 1
-
-        # Clear rejection info if moving out of rejected
-        if old_stage == "rejected" and stage != "rejected":
-            status.rejection_reason = None
-            status.rejection_notes = None
-
-        # Record history
-        history = PaperStageHistory(
-            paper_project_status_id=status.id,
-            changed_by_id=user_id,
-            from_stage=old_stage,
-            to_stage=stage,
-            comment=comment,
-        )
-        self.db.add(history)
-
-        await self.db.flush()
-        await self.db.refresh(status)
-        return status
-
-    async def reject_paper(
-        self,
-        project_id: UUID,
-        paper_id: UUID,
-        organization_id: UUID,
-        reason: RejectionReason,
-        notes: str | None = None,
-        comment: str | None = None,
-        user_id: UUID | None = None,
-    ) -> PaperProjectStatus:
-        """Reject a paper in a project."""
-        status = await self.move_paper(
-            project_id=project_id,
-            paper_id=paper_id,
-            organization_id=organization_id,
-            stage="rejected",
-            comment=comment or f"Rejected: {reason.value}",
-            user_id=user_id,
-        )
-
-        status.rejection_reason = reason
-        status.rejection_notes = notes
-
-        await self.db.flush()
-        await self.db.refresh(status)
-        return status
-
-    async def update_paper_status(
-        self,
-        project_id: UUID,
-        paper_id: UUID,
-        organization_id: UUID,
-        assigned_to_id: UUID | None = None,
-        notes: str | None = None,
-        priority: int | None = None,
-        tags: list[str] | None = None,
-    ) -> PaperProjectStatus:
-        """Update paper status metadata (assignment, notes, etc.)."""
-        await self._require_project(project_id, organization_id)
-
-        status = await self._get_paper_status(paper_id, project_id)
-        if not status:
-            raise NotFoundError("PaperProjectStatus", paper_id)
-
-        if assigned_to_id is not None:
-            # Verify user belongs to the organization
-            user_result = await self.db.execute(
-                select(User).where(
-                    User.id == assigned_to_id,
-                    User.organization_id == organization_id,
-                )
-            )
-            if not user_result.scalar_one_or_none():
-                raise ValidationError(
-                    "Assigned user not found in organization",
-                    field="assigned_to_id",
-                )
-            status.assigned_to_id = assigned_to_id
-        if notes is not None:
-            status.notes = notes
-        if priority is not None:
-            status.priority = priority
-        if tags is not None:
-            status.tags = tags
-
-        await self.db.flush()
-        await self.db.refresh(status)
-        return status
-
-    # =========================================================================
-    # KanBan Views
-    # =========================================================================
-
-    async def get_kanban_board(
-        self,
-        project_id: UUID,
-        organization_id: UUID,
-        include_scores: bool = True,
-    ) -> KanBanBoardResponse:
-        """Get complete KanBan board view for a project."""
-        project = await self._require_project(project_id, organization_id)
-
-        # Get all paper statuses with relationships
-        result = await self.db.execute(
-            select(PaperProjectStatus)
-            .options(
-                selectinload(PaperProjectStatus.paper),
-                selectinload(PaperProjectStatus.assigned_to),
-            )
-            .where(PaperProjectStatus.project_id == project_id)
-            .order_by(PaperProjectStatus.position)
-        )
-        statuses = list(result.scalars().all())
-
-        # Group by stage
-        papers_by_stage: dict[str, list[PaperInProjectResponse]] = {}
-        for stage_config in project.stages:
-            papers_by_stage[stage_config["name"]] = []
-
-        # Get latest scores if requested
-        paper_ids = [s.paper_id for s in statuses]
-        latest_scores: dict[UUID, PaperScore] = {}
-        if include_scores and paper_ids:
-            latest_scores = await self._get_latest_scores(paper_ids, organization_id)
-
-        # Build response
-        for status in statuses:
-            paper_response = PaperInProjectResponse(
-                status=PaperProjectStatusResponse.model_validate(status),
-                paper=PaperSummaryForProject.model_validate(status.paper),
-                assigned_to=UserSummary.model_validate(status.assigned_to)
-                if status.assigned_to
-                else None,
-                latest_score=self._score_to_dict(latest_scores.get(status.paper_id)),
-            )
-
-            if status.stage in papers_by_stage:
-                papers_by_stage[status.stage].append(paper_response)
-
-        # Build stages list
-        kanban_stages = []
-        for stage_config in project.stages:
-            stage_name = stage_config["name"]
-            papers = papers_by_stage.get(stage_name, [])
-            kanban_stages.append(
-                KanBanStage(
-                    name=stage_name,
-                    label=stage_config["label"],
-                    order=stage_config["order"],
-                    paper_count=len(papers),
-                    papers=papers,
-                )
-            )
-
-        return KanBanBoardResponse(
-            project=ProjectResponse.model_validate(project),
-            stages=kanban_stages,
-            total_papers=len(statuses),
-        )
-
-    async def get_paper_in_project(
-        self,
-        project_id: UUID,
-        paper_id: UUID,
-        organization_id: UUID,
-    ) -> PaperInProjectResponse | None:
-        """Get a paper's status in a project."""
-        await self._require_project(project_id, organization_id)
-
-        result = await self.db.execute(
-            select(PaperProjectStatus)
-            .options(
-                selectinload(PaperProjectStatus.paper),
-                selectinload(PaperProjectStatus.assigned_to),
-            )
-            .where(
-                PaperProjectStatus.project_id == project_id,
-                PaperProjectStatus.paper_id == paper_id,
-            )
-        )
-        status = result.scalar_one_or_none()
-        if not status:
-            return None
-
-        # Get latest score
-        scores = await self._get_latest_scores([paper_id], organization_id)
-
-        return PaperInProjectResponse(
-            status=PaperProjectStatusResponse.model_validate(status),
-            paper=PaperSummaryForProject.model_validate(status.paper),
-            assigned_to=UserSummary.model_validate(status.assigned_to)
-            if status.assigned_to
-            else None,
-            latest_score=self._score_to_dict(scores.get(paper_id)),
-        )
-
-    async def get_paper_history(
-        self,
-        project_id: UUID,
-        paper_id: UUID,
-        organization_id: UUID,
-    ) -> list[StageHistoryEntry]:
-        """Get stage transition history for a paper in a project."""
-        await self._require_project(project_id, organization_id)
-
-        status = await self._get_paper_status(paper_id, project_id)
-        if not status:
-            raise NotFoundError("PaperProjectStatus", paper_id)
-
-        result = await self.db.execute(
-            select(PaperStageHistory)
-            .options(selectinload(PaperStageHistory.changed_by))
-            .where(PaperStageHistory.paper_project_status_id == status.id)
-            .order_by(PaperStageHistory.created_at.desc())
-        )
-        history = list(result.scalars().all())
-
-        return [
-            StageHistoryEntry(
-                id=h.id,
-                from_stage=h.from_stage,
-                to_stage=h.to_stage,
-                comment=h.comment,
-                changed_by=UserSummary.model_validate(h.changed_by)
-                if h.changed_by
-                else None,
-                created_at=h.created_at,
-            )
-            for h in history
-        ]
-
-    # =========================================================================
-    # Statistics
-    # =========================================================================
-
-    async def get_project_statistics(
-        self,
-        project_id: UUID,
-        organization_id: UUID,
-    ) -> ProjectStatistics:
-        """Get statistics for a project."""
-        project = await self._require_project(project_id, organization_id)
-
-        # Get all statuses
-        result = await self.db.execute(
-            select(PaperProjectStatus).where(
-                PaperProjectStatus.project_id == project_id
-            )
-        )
-        statuses = list(result.scalars().all())
-
-        # Initialize stage counts with zeros for all configured stages
-        stage_names = [stage["name"] for stage in project.stages]
-        papers_by_stage = dict.fromkeys(stage_names, 0)
-        papers_by_stage.update(Counter(s.stage for s in statuses if s.stage in papers_by_stage))
-
-        # Count by priority (initialize all levels 1-5)
-        papers_by_priority = {i: 0 for i in range(1, 6)}
-        papers_by_priority.update(Counter(s.priority for s in statuses))
-
-        # Count rejection reasons
-        rejection_reasons = dict(Counter(
-            s.rejection_reason.value for s in statuses if s.rejection_reason
-        ))
-
-        # Calculate average time per stage from history
-        avg_time_per_stage = await self._calculate_avg_time_per_stage(project_id)
-
-        return ProjectStatistics(
-            project_id=project_id,
-            total_papers=len(statuses),
-            papers_by_stage=papers_by_stage,
-            papers_by_priority=papers_by_priority,
-            avg_time_per_stage=avg_time_per_stage,
-            rejection_reasons=rejection_reasons,
-        )
-
-    async def _calculate_avg_time_per_stage(
-        self,
-        project_id: UUID,
-    ) -> dict[str, float]:
-        """Calculate average time spent in each stage (in hours).
-
-        Uses PaperStageHistory to compute time between consecutive
-        stage transitions for each paper in the project.
-        """
-        # Get all history entries for this project's paper statuses
-        status_ids_query = select(PaperProjectStatus.id).where(
-            PaperProjectStatus.project_id == project_id
-        )
-
-        result = await self.db.execute(
-            select(PaperStageHistory)
-            .where(PaperStageHistory.paper_project_status_id.in_(status_ids_query))
-            .order_by(
-                PaperStageHistory.paper_project_status_id,
-                PaperStageHistory.created_at,
-            )
-        )
-        history_entries = list(result.scalars().all())
-
-        # Group by paper_project_status_id and calculate time in each stage
-        stage_durations: dict[str, list[float]] = {}
-        entries_by_status: dict[UUID, list[PaperStageHistory]] = {}
-
-        for entry in history_entries:
-            entries_by_status.setdefault(entry.paper_project_status_id, []).append(entry)
-
-        for entries in entries_by_status.values():
-            for i, entry in enumerate(entries):
-                # Time in a stage = time until next transition
-                if i + 1 < len(entries):
-                    next_entry = entries[i + 1]
-                    duration_hours = (
-                        next_entry.created_at - entry.created_at
-                    ).total_seconds() / 3600
-                    stage = entry.to_stage
-                    stage_durations.setdefault(stage, []).append(duration_hours)
-
-        # Calculate averages
-        avg_times: dict[str, float] = {}
-        for stage, durations in stage_durations.items():
-            if durations:
-                avg_times[stage] = round(sum(durations) / len(durations), 2)
-
-        return avg_times
-
-    # =========================================================================
-    # Private Methods
-    # =========================================================================
-
-    async def _require_project(
+    async def start_sync(
         self,
         project_id: UUID,
         organization_id: UUID,
     ) -> Project:
-        """Get project or raise NotFoundError if not found."""
+        """Mark a research group as syncing and return it."""
         project = await self.get_project(project_id, organization_id)
         if not project:
-            raise NotFoundError("Project", project_id)
+            raise NotFoundError("Project", str(project_id))
+
+        project.sync_status = SyncStatus.IMPORTING.value
+        await self.db.flush()
+        await self.db.refresh(project)
         return project
 
-    async def _get_paper(
+    async def update_sync_status(
         self,
-        paper_id: UUID,
+        project_id: UUID,
         organization_id: UUID,
-    ) -> Paper | None:
-        """Get paper with tenant isolation."""
+        status: SyncStatus,
+        paper_count: int | None = None,
+        cluster_count: int | None = None,
+    ) -> None:
+        """Update sync status and counts for a research group (tenant-isolated)."""
         result = await self.db.execute(
-            select(Paper).where(
-                Paper.id == paper_id,
+            select(Project).where(
+                Project.id == project_id,
+                Project.organization_id == organization_id,
+            )
+        )
+        project = result.scalar_one_or_none()
+        if not project:
+            return
+
+        project.sync_status = status.value
+        if paper_count is not None:
+            project.paper_count = paper_count
+        if cluster_count is not None:
+            project.cluster_count = cluster_count
+        if status == SyncStatus.READY:
+            project.last_synced_at = datetime.now(timezone.utc)
+
+        await self.db.flush()
+
+    # =========================================================================
+    # Paper Management
+    # =========================================================================
+
+    async def add_papers_to_project(
+        self,
+        project_id: UUID,
+        organization_id: UUID,
+        paper_ids: list[UUID],
+    ) -> int:
+        """Add papers to a research group (skip duplicates, tenant-isolated).
+
+        Validates that all papers belong to the same organization before adding.
+
+        Returns:
+            Number of papers actually added.
+        """
+        if not paper_ids:
+            return 0
+
+        # Validate papers belong to the same organization
+        valid_result = await self.db.execute(
+            select(Paper.id).where(
+                Paper.id.in_(paper_ids),
                 Paper.organization_id == organization_id,
             )
         )
-        return result.scalar_one_or_none()
+        valid_ids = {row[0] for row in valid_result.all()}
 
-    async def _get_paper_status(
-        self,
-        paper_id: UUID,
-        project_id: UUID,
-    ) -> PaperProjectStatus | None:
-        """Get paper status in a project."""
-        result = await self.db.execute(
-            select(PaperProjectStatus).where(
-                PaperProjectStatus.paper_id == paper_id,
-                PaperProjectStatus.project_id == project_id,
+        # Find existing associations
+        existing_result = await self.db.execute(
+            select(ProjectPaper.paper_id).where(
+                ProjectPaper.project_id == project_id,
+                ProjectPaper.paper_id.in_(list(valid_ids)),
             )
         )
-        return result.scalar_one_or_none()
+        existing_ids = {row[0] for row in existing_result.all()}
 
-    async def _get_max_position(
+        added = 0
+        for paper_id in valid_ids:
+            if paper_id not in existing_ids:
+                self.db.add(ProjectPaper(
+                    project_id=project_id,
+                    paper_id=paper_id,
+                ))
+                added += 1
+
+        if added > 0:
+            await self.db.flush()
+
+        return added
+
+    async def list_project_papers(
         self,
         project_id: UUID,
-        stage: str,
+        organization_id: UUID,
+    ) -> list[ClusterPaperSummary]:
+        """List all papers in a research group (flat list)."""
+        project = await self.get_project(project_id, organization_id)
+        if not project:
+            raise NotFoundError("Project", str(project_id))
+
+        result = await self.db.execute(
+            select(Paper)
+            .join(ProjectPaper, ProjectPaper.paper_id == Paper.id)
+            .where(ProjectPaper.project_id == project_id)
+            .order_by(Paper.citations_count.desc().nullslast())
+        )
+        papers = list(result.scalars().all())
+
+        authors_map = await self._batch_get_authors_display([p.id for p in papers])
+
+        return [self._paper_to_summary(p, authors_map=authors_map) for p in papers]
+
+    # =========================================================================
+    # Cluster Management
+    # =========================================================================
+
+    async def save_clusters(
+        self,
+        project_id: UUID,
+        organization_id: UUID,
+        cluster_data: list[dict],
     ) -> int:
-        """Get the maximum position in a stage."""
-        result = await self.db.execute(
-            select(func.max(PaperProjectStatus.position)).where(
-                PaperProjectStatus.project_id == project_id,
-                PaperProjectStatus.stage == stage,
+        """Save cluster results, replacing any existing clusters.
+
+        Args:
+            project_id: Research group ID.
+            organization_id: Tenant org.
+            cluster_data: List of dicts with keys:
+                label, keywords, paper_ids, centroid, similarities
+
+        Returns:
+            Number of clusters created.
+        """
+        # Delete existing clusters for this project
+        await self.db.execute(
+            delete(ProjectCluster).where(
+                ProjectCluster.project_id == project_id
             )
         )
-        return result.scalar() or 0
-
-    async def _reorder_stage(
-        self,
-        project_id: UUID,
-        stage: str,
-        moving_status_id: UUID,
-        target_position: int,
-    ) -> None:
-        """Reorder papers in a stage when inserting at a specific position."""
-        # Get all statuses in the stage except the one being moved
-        result = await self.db.execute(
-            select(PaperProjectStatus)
-            .where(
-                PaperProjectStatus.project_id == project_id,
-                PaperProjectStatus.stage == stage,
-                PaperProjectStatus.id != moving_status_id,
-            )
-            .order_by(PaperProjectStatus.position)
-        )
-        statuses = list(result.scalars().all())
-
-        # Reorder
-        new_position = 0
-        for status in statuses:
-            if new_position == target_position:
-                new_position += 1
-            status.position = new_position
-            new_position += 1
-
-        # Flush position changes to ensure they persist
         await self.db.flush()
 
-    async def _get_latest_scores(
+        created = 0
+        for cdata in cluster_data:
+            cluster = ProjectCluster(
+                project_id=project_id,
+                organization_id=organization_id,
+                label=cdata["label"],
+                keywords=cdata.get("keywords", []),
+                paper_count=len(cdata.get("paper_ids", [])),
+                centroid=cdata.get("centroid"),
+            )
+            self.db.add(cluster)
+            # Flush to generate cluster.id for paper associations
+            await self.db.flush()
+
+            paper_ids = cdata.get("paper_ids", [])
+            similarities = cdata.get("similarities", {})
+            for pid in paper_ids:
+                self.db.add(ProjectClusterPaper(
+                    cluster_id=cluster.id,
+                    paper_id=pid,
+                    similarity_score=similarities.get(pid),
+                ))
+
+            created += 1
+
+        if created > 0:
+            await self.db.flush()
+        return created
+
+    async def list_clusters(
+        self,
+        project_id: UUID,
+        organization_id: UUID,
+    ) -> list[ClusterResponse]:
+        """List all clusters for a research group with top papers.
+
+        Uses batch queries to avoid N+1: fetches all clusters, then all
+        top papers across all clusters in a single query.
+        """
+        project = await self.get_project(project_id, organization_id)
+        if not project:
+            raise NotFoundError("Project", str(project_id))
+
+        result = await self.db.execute(
+            select(ProjectCluster)
+            .where(ProjectCluster.project_id == project_id)
+            .order_by(ProjectCluster.paper_count.desc())
+        )
+        clusters = list(result.scalars().all())
+
+        if not clusters:
+            return []
+
+        # Batch-fetch top papers for ALL clusters in one query
+        cluster_ids = [c.id for c in clusters]
+        papers_result = await self.db.execute(
+            select(
+                ProjectClusterPaper.cluster_id,
+                Paper,
+                ProjectClusterPaper.similarity_score,
+            )
+            .join(Paper, Paper.id == ProjectClusterPaper.paper_id)
+            .where(ProjectClusterPaper.cluster_id.in_(cluster_ids))
+            .order_by(
+                ProjectClusterPaper.cluster_id,
+                Paper.citations_count.desc().nullslast(),
+            )
+        )
+        all_rows = papers_result.all()
+
+        # Group by cluster, keep top 3 per cluster
+        from collections import defaultdict
+
+        papers_by_cluster: dict[UUID, list[tuple]] = defaultdict(list)
+        for cluster_id, paper, sim in all_rows:
+            if len(papers_by_cluster[cluster_id]) < 3:
+                papers_by_cluster[cluster_id].append((paper, sim))
+
+        # Batch-fetch author names for all top papers
+        all_paper_ids = [
+            p.id for papers in papers_by_cluster.values() for p, _ in papers
+        ]
+        authors_map = await self._batch_get_authors_display(all_paper_ids)
+
+        responses = []
+        for cluster in clusters:
+            top = papers_by_cluster.get(cluster.id, [])
+            top_papers = [
+                self._paper_to_summary(paper, similarity_score=sim, authors_map=authors_map)
+                for paper, sim in top
+            ]
+            responses.append(ClusterResponse(
+                id=cluster.id,
+                label=cluster.label,
+                description=cluster.description,
+                keywords=cluster.keywords or [],
+                paper_count=cluster.paper_count,
+                top_papers=top_papers,
+            ))
+
+        return responses
+
+    async def get_cluster_detail(
+        self,
+        project_id: UUID,
+        cluster_id: UUID,
+        organization_id: UUID,
+    ) -> ClusterDetailResponse:
+        """Get full cluster detail with all papers."""
+        project = await self.get_project(project_id, organization_id)
+        if not project:
+            raise NotFoundError("Project", str(project_id))
+
+        result = await self.db.execute(
+            select(ProjectCluster).where(
+                ProjectCluster.id == cluster_id,
+                ProjectCluster.project_id == project_id,
+            )
+        )
+        cluster = result.scalar_one_or_none()
+        if not cluster:
+            raise NotFoundError("Cluster", str(cluster_id))
+
+        papers = await self._get_cluster_top_papers(cluster.id, limit=500)
+
+        return ClusterDetailResponse(
+            id=cluster.id,
+            label=cluster.label,
+            description=cluster.description,
+            keywords=cluster.keywords or [],
+            paper_count=cluster.paper_count,
+            papers=papers,
+        )
+
+    async def update_cluster_label(
+        self,
+        project_id: UUID,
+        cluster_id: UUID,
+        organization_id: UUID,
+        label: str,
+    ) -> ProjectCluster:
+        """Update a cluster's label."""
+        project = await self.get_project(project_id, organization_id)
+        if not project:
+            raise NotFoundError("Project", str(project_id))
+
+        result = await self.db.execute(
+            select(ProjectCluster).where(
+                ProjectCluster.id == cluster_id,
+                ProjectCluster.project_id == project_id,
+            )
+        )
+        cluster = result.scalar_one_or_none()
+        if not cluster:
+            raise NotFoundError("Cluster", str(cluster_id))
+
+        cluster.label = label
+        await self.db.flush()
+        await self.db.refresh(cluster)
+        return cluster
+
+    # =========================================================================
+    # Private Helpers
+    # =========================================================================
+
+    async def _get_cluster_top_papers(
+        self,
+        cluster_id: UUID,
+        limit: int = 3,
+    ) -> list[ClusterPaperSummary]:
+        """Get top papers in a cluster, ordered by citations."""
+        result = await self.db.execute(
+            select(Paper, ProjectClusterPaper.similarity_score)
+            .join(
+                ProjectClusterPaper,
+                ProjectClusterPaper.paper_id == Paper.id,
+            )
+            .where(ProjectClusterPaper.cluster_id == cluster_id)
+            .order_by(Paper.citations_count.desc().nullslast())
+            .limit(limit)
+        )
+        rows = result.all()
+
+        paper_ids = [paper.id for paper, _ in rows]
+        authors_map = await self._batch_get_authors_display(paper_ids)
+
+        return [
+            self._paper_to_summary(paper, similarity_score=sim, authors_map=authors_map)
+            for paper, sim in rows
+        ]
+
+    async def _batch_get_authors_display(
         self,
         paper_ids: list[UUID],
-        organization_id: UUID,
-    ) -> dict[UUID, PaperScore]:
-        """Get latest scores for a list of papers."""
+    ) -> dict[UUID, str]:
+        """Batch-fetch formatted author names for a list of papers.
+
+        Returns:
+            Dict mapping paper_id → "Smith J, et al." style display string.
+        """
         if not paper_ids:
             return {}
 
-        # Subquery to get latest score per paper
-        subquery = (
-            select(
-                PaperScore.paper_id,
-                func.max(PaperScore.created_at).label("latest"),
-            )
-            .where(
-                PaperScore.paper_id.in_(paper_ids),
-                PaperScore.organization_id == organization_id,
-            )
-            .group_by(PaperScore.paper_id)
-            .subquery()
-        )
+        from paper_scraper.modules.papers.models import Author, PaperAuthor
 
         result = await self.db.execute(
-            select(PaperScore).join(
-                subquery,
-                (PaperScore.paper_id == subquery.c.paper_id)
-                & (PaperScore.created_at == subquery.c.latest),
-            )
+            select(PaperAuthor.paper_id, Author.name)
+            .join(Author, Author.id == PaperAuthor.author_id)
+            .where(PaperAuthor.paper_id.in_(paper_ids))
+            .order_by(PaperAuthor.paper_id, PaperAuthor.position)
         )
-        scores = result.scalars().all()
-        return {score.paper_id: score for score in scores}
 
-    def _score_to_dict(self, score: PaperScore | None) -> dict[str, Any] | None:
-        """Convert a PaperScore to a dict for response."""
-        if not score:
-            return None
-        return {
-            "overall_score": score.overall_score,
-            "novelty": score.novelty,
-            "ip_potential": score.ip_potential,
-            "marketability": score.marketability,
-            "feasibility": score.feasibility,
-            "commercialization": score.commercialization,
-            "model_version": score.model_version,
-            "created_at": score.created_at.isoformat(),
-        }
+        from collections import defaultdict
+
+        names_by_paper: dict[UUID, list[str]] = defaultdict(list)
+        for paper_id, name in result.all():
+            names_by_paper[paper_id].append(name)
+
+        display_map: dict[UUID, str] = {}
+        for paper_id, names in names_by_paper.items():
+            if len(names) > 2:
+                display_map[paper_id] = f"{names[0]}, et al."
+            elif names:
+                display_map[paper_id] = ", ".join(names)
+            else:
+                display_map[paper_id] = ""
+
+        return display_map
+
+    def _paper_to_summary(
+        self,
+        paper: Paper,
+        similarity_score: float | None = None,
+        authors_map: dict[UUID, str] | None = None,
+    ) -> ClusterPaperSummary:
+        """Convert a Paper model to a ClusterPaperSummary."""
+        pub_date = None
+        if paper.publication_date:
+            pub_date = paper.publication_date.strftime("%Y-%m-%d")
+
+        authors_display = ""
+        if authors_map:
+            authors_display = authors_map.get(paper.id, "")
+
+        return ClusterPaperSummary(
+            id=paper.id,
+            title=paper.title or "Untitled",
+            authors_display=authors_display,
+            publication_date=pub_date,
+            citations_count=paper.citations_count,
+            similarity_score=similarity_score,
+        )

@@ -45,6 +45,7 @@ from paper_scraper.jobs.discovery import (
     process_discovery_weekly_task,
     run_discovery_task,
 )
+from paper_scraper.jobs.research_groups import sync_research_group_task
 
 
 async def startup(ctx: dict[str, Any]) -> None:
@@ -176,6 +177,7 @@ class WorkerSettings:
         process_discovery_weekly_task,
         run_discovery_task,
         cleanup_expired_score_cache_task,
+        sync_research_group_task,
     ]
 
     # Cron jobs for scheduled tasks

@@ -9,10 +9,11 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from paper_scraper.core.exceptions import NotFoundError
 from paper_scraper.modules.model_settings.models import ModelConfiguration, ModelUsage
-from paper_scraper.modules.papers.models import Paper
+from paper_scraper.modules.papers.models import Paper, PaperAuthor
 from paper_scraper.modules.scoring.dimensions.base import PaperContext
 from paper_scraper.modules.scoring.embeddings import generate_paper_embedding
 from paper_scraper.modules.scoring.llm_client import get_llm_client
@@ -117,6 +118,7 @@ class ScoringService:
         knowledge_context = ""
         dimension_contexts = None
         jstor_references: list[dict] = []
+        author_profiles: list[dict] = []
         if use_knowledge_context:
             builder = DimensionContextBuilder(self.db)
             dim_result = await builder.build_all(
@@ -128,16 +130,18 @@ class ScoringService:
             )
             dimension_contexts = dim_result.contexts
             jstor_references = dim_result.metadata.get("_jstor_references", [])
+            author_profiles = dim_result.metadata.get("_author_profiles", [])
             if dim_result.has_knowledge_context:
                 # Sentinel: org-specific knowledge was used — skip global cache write
                 knowledge_context = "dimension_specific"
             if dimension_contexts:
                 logger.debug(
                     "Built dimension-specific contexts for %d dimensions "
-                    "(paper %s, %d JSTOR refs)",
+                    "(paper %s, %d JSTOR refs, %d author profiles)",
                     len(dimension_contexts),
                     paper_id,
                     len(jstor_references),
+                    len(author_profiles),
                 )
 
         # Resolve tenant-specific scoring policy (provider/model) if configured.
@@ -173,7 +177,8 @@ class ScoringService:
 
         # Save score to database
         score = await self._save_score(
-            paper, organization_id, result, knowledge_context, jstor_references
+            paper, organization_id, result, knowledge_context,
+            jstor_references, author_profiles,
         )
 
         # Log usage if tracked
@@ -686,9 +691,13 @@ class ScoringService:
         paper_id: UUID,
         organization_id: UUID,
     ) -> Paper | None:
-        """Get paper with tenant isolation."""
+        """Get paper with tenant isolation and eager-loaded authors."""
         result = await self.db.execute(
-            select(Paper).where(
+            select(Paper)
+            .options(
+                selectinload(Paper.authors).selectinload(PaperAuthor.author)
+            )
+            .where(
                 Paper.id == paper_id,
                 Paper.organization_id == organization_id,
             )
@@ -725,6 +734,7 @@ class ScoringService:
         result: AggregatedScore,
         knowledge_context: str = "",
         jstor_references: list[dict] | None = None,
+        author_profiles: list[dict] | None = None,
     ) -> PaperScore:
         """Save scoring result to database."""
         # Extract dimension details for storage
@@ -737,7 +747,7 @@ class ScoringService:
                 "details": dim_result.details,
             }
 
-        # Add metadata about knowledge context usage and JSTOR references
+        # Add metadata about knowledge context usage, JSTOR refs, and author profiles
         metadata: dict = {}
         if knowledge_context:
             metadata["knowledge_context_used"] = True
@@ -745,6 +755,9 @@ class ScoringService:
         if jstor_references:
             metadata["jstor_references"] = jstor_references
             metadata["jstor_count"] = len(jstor_references)
+        if author_profiles:
+            metadata["author_profiles"] = author_profiles
+            metadata["author_profiles_count"] = len(author_profiles)
         if metadata:
             dimension_details["_metadata"] = metadata
 

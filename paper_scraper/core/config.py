@@ -119,6 +119,13 @@ class Settings(BaseSettings):
     SEMANTIC_SCHOLAR_API_KEY: str | None = None
     SEMANTIC_SCHOLAR_BASE_URL: str = "https://api.semanticscholar.org/graph/v1"
 
+    # GitHub API (optional token for higher rate limits: 60/hr → 5000/hr)
+    GITHUB_API_TOKEN: SecretStr | None = None
+    GITHUB_API_BASE_URL: str = "https://api.github.com"
+
+    # ORCID Public API (free, no auth required)
+    ORCID_API_BASE_URL: str = "https://pub.orcid.org/v3.0"
+
     # ==========================================================================
     # Observability
     # ==========================================================================

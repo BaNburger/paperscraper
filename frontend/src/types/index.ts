@@ -267,6 +267,20 @@ export interface JstorReference {
   jstor_url?: string
 }
 
+export interface ScoringAuthorProfile {
+  name: string
+  orcid?: string
+  github_username?: string
+  github_public_repos?: number
+  github_followers?: number
+  github_top_languages: string[]
+  github_popular_repos: string[]
+  orcid_current_employment?: string
+  orcid_past_affiliations: string[]
+  orcid_funding_count?: number
+  orcid_peer_review_count?: number
+}
+
 export interface PaperScore {
   id: string
   paper_id: string
@@ -288,6 +302,7 @@ export interface PaperScore {
   model_version: string
   created_at: string
   jstor_references?: JstorReference[]
+  author_profiles?: ScoringAuthorProfile[]
 }
 
 export interface ScoreResponse {
@@ -295,92 +310,93 @@ export interface ScoreResponse {
   paper: Paper
 }
 
-// Project types
-export interface ProjectStage {
-  id: string
-  name: string
-  color: string
-  order: number
-}
-
-export interface Project {
+// Research Group types (replaces KanBan projects)
+export interface ResearchGroup {
   id: string
   organization_id: string
   name: string
   description?: string
-  stages: ProjectStage[]
-  scoring_weights: Record<string, number>
-  is_active: boolean
+  institution_name?: string
+  openalex_institution_id?: string
+  pi_name?: string
+  openalex_author_id?: string
+  paper_count: number
+  cluster_count: number
+  sync_status: 'idle' | 'importing' | 'clustering' | 'ready' | 'failed'
+  last_synced_at?: string
   created_at: string
   updated_at: string
 }
 
+// Keep Project as alias for backward compatibility in dependent code
+export type Project = ResearchGroup
+
 export interface ProjectListResponse {
-  items: Project[]
+  items: ResearchGroup[]
   total: number
   page: number
   page_size: number
   pages: number
 }
 
-export interface PaperProjectStatus {
-  paper_id: string
-  project_id: string
-  stage: string
-  priority: number
-  tags: string[]
-  notes?: string
-  assigned_to?: string
-  rejection_reason?: string
-  rejection_notes?: string
-  added_at: string
-  updated_at: string
-}
-
-export interface KanbanPaper extends Paper {
-  status: PaperProjectStatus
-  latest_score?: PaperScore
-}
-
-export interface KanbanColumn {
-  stage: ProjectStage
-  papers: KanbanPaper[]
-  count: number
-}
-
-export interface KanbanBoard {
-  project: Project
-  columns: KanbanColumn[]
-}
-
-// Backend API response types (different from frontend types)
-export interface BackendKanbanPaper {
-  status: PaperProjectStatus
-  paper: Paper
-  assigned_to?: { id: string; email: string; full_name?: string }
-  latest_score?: PaperScore
-}
-
-export interface BackendKanbanStage {
-  name: string
+export interface ResearchCluster {
+  id: string
   label: string
-  order: number
+  description?: string
+  keywords: string[]
   paper_count: number
-  papers: BackendKanbanPaper[]
+  top_papers: ClusterPaper[]
 }
 
-export interface BackendKanbanResponse {
-  project: Project
-  stages: BackendKanbanStage[]
-  total_papers: number
+export interface ClusterPaper {
+  id: string
+  title: string
+  authors_display: string
+  publication_date?: string
+  citations_count?: number
+  similarity_score?: number
 }
 
-export interface ProjectStatistics {
-  total_papers: number
-  by_stage: Record<string, number>
-  by_priority: Record<string, number>
-  rejection_reasons: Record<string, number>
-  average_score?: number
+export interface ClusterDetail {
+  id: string
+  label: string
+  description?: string
+  keywords: string[]
+  paper_count: number
+  papers: ClusterPaper[]
+}
+
+export interface InstitutionSearchResult {
+  openalex_id: string
+  display_name: string
+  country_code?: string
+  type?: string
+  works_count: number
+  cited_by_count: number
+}
+
+export interface AuthorSearchResult {
+  openalex_id: string
+  display_name: string
+  works_count: number
+  cited_by_count: number
+  last_known_institution?: string
+}
+
+export interface CreateResearchGroup {
+  name: string
+  description?: string
+  openalex_institution_id?: string
+  openalex_author_id?: string
+  institution_name?: string
+  pi_name?: string
+  max_papers?: number
+}
+
+export interface SyncResponse {
+  project_id: string
+  status: string
+  message: string
 }
 
 // Search types

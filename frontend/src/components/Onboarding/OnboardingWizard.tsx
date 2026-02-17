@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Check, ChevronRight, Building2, FileText, FolderKanban, Sparkles } from 'lucide-react'
+import { Check, ChevronRight, Building2, FileText, UsersRound, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -31,9 +31,9 @@ const steps = [
   },
   {
     id: 'project',
-    title: 'Create Project',
-    description: 'Set up your first pipeline',
-    icon: FolderKanban,
+    title: 'Research Group',
+    description: 'Track a research group',
+    icon: UsersRound,
   },
   {
     id: 'score',

@@ -8,6 +8,10 @@ Usage:
     Import: from paper_scraper.mcp import create_mcp_app
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 from typing import Any
 from uuid import UUID
 
@@ -271,16 +275,16 @@ async def import_paper_by_doi(
             }
 
 
-async def list_projects(
+async def list_research_groups(
     ctx: MCPContext,
 ) -> list[dict[str, Any]]:
-    """List KanBan projects.
+    """List research groups.
 
     Args:
         ctx: MCP context with authentication.
 
     Returns:
-        List of projects.
+        List of research groups with cluster counts.
     """
     from paper_scraper.modules.projects.service import ProjectService
 
@@ -297,54 +301,69 @@ async def list_projects(
                 "id": str(p.id),
                 "name": p.name,
                 "description": p.description,
-                "stages": p.stages,
+                "institution_name": p.institution_name,
+                "pi_name": p.pi_name,
+                "paper_count": p.paper_count,
+                "cluster_count": p.cluster_count,
+                "sync_status": p.sync_status,
                 "created_at": p.created_at.isoformat() if p.created_at else None,
             }
             for p in projects_response.items
         ]
 
 
-async def move_paper_stage(
+async def get_research_group_details(
     ctx: MCPContext,
     project_id: str,
-    paper_id: str,
-    stage: str,
 ) -> dict[str, Any]:
-    """Move a paper to a different stage in the pipeline.
+    """Get research group details with clusters.
 
     Args:
         ctx: MCP context with authentication.
-        project_id: Project ID.
-        paper_id: Paper ID.
-        stage: Target stage name.
+        project_id: Research group ID.
 
     Returns:
-        Move result.
+        Research group with clusters.
     """
     from paper_scraper.modules.projects.service import ProjectService
 
     async with _async_session() as db:
         try:
             service = ProjectService(db)
-            await service.move_paper(
+            project = await service.get_project(
                 project_id=UUID(project_id),
-                paper_id=UUID(paper_id),
                 organization_id=ctx.org_id,
-                stage=stage,
             )
-            await db.commit()
+            if not project:
+                return {"success": False, "error": "Research group not found"}
+
+            clusters = await service.list_clusters(
+                project_id=UUID(project_id),
+                organization_id=ctx.org_id,
+            )
 
             return {
                 "success": True,
-                "paper_id": paper_id,
-                "project_id": project_id,
-                "new_stage": stage,
+                "id": str(project.id),
+                "name": project.name,
+                "description": project.description,
+                "institution_name": project.institution_name,
+                "pi_name": project.pi_name,
+                "paper_count": project.paper_count,
+                "cluster_count": project.cluster_count,
+                "clusters": [
+                    {
+                        "id": str(c.id),
+                        "label": c.label,
+                        "keywords": c.keywords,
+                        "paper_count": c.paper_count,
+                    }
+                    for c in clusters
+                ],
             }
-        except Exception as e:
-            return {
-                "success": False,
-                "error": str(e),
-            }
+        except Exception:
+            logger.exception("Failed to get research group details for %s", project_id)
+            return {"success": False, "error": "Failed to load research group details"}
 
 
 async def list_recent_papers(
@@ -435,19 +454,17 @@ def create_mcp_app():
                 },
                 "handler": import_paper_by_doi,
             },
-            "list_projects": {
-                "description": "List KanBan projects for paper pipeline management.",
+            "list_research_groups": {
+                "description": "List research groups with cluster and paper counts.",
                 "parameters": {},
-                "handler": list_projects,
+                "handler": list_research_groups,
             },
-            "move_paper_stage": {
-                "description": "Move a paper to a different stage in the project pipeline.",
+            "get_research_group_details": {
+                "description": "Get a research group's details including topic clusters.",
                 "parameters": {
-                    "project_id": {"type": "string", "description": "Project UUID"},
-                    "paper_id": {"type": "string", "description": "Paper UUID"},
-                    "stage": {"type": "string", "description": "Target stage name"},
+                    "project_id": {"type": "string", "description": "Research group UUID"},
                 },
-                "handler": move_paper_stage,
+                "handler": get_research_group_details,
             },
             "list_recent_papers": {
                 "description": "List recent papers in the library.",

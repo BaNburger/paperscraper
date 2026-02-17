@@ -21,7 +21,7 @@ import { AccessibleModal } from '@/components/ui/AccessibleModal'
 import { useToast } from '@/components/ui/Toast'
 import {
   FileText,
-  FolderKanban,
+  UsersRound,
   Search,
   Plus,
   ChevronLeft,
@@ -516,7 +516,7 @@ export function PapersPage() {
       {/* Workflow banner: papers -> projects */}
       <WorkflowBanner
         bannerId="papers-to-projects"
-        icon={FolderKanban}
+        icon={UsersRound}
         message={t('workflow.banner.readyToEvaluate', 'You have papers in your library. Create a project to start evaluating them.')}
         ctaLabel={t('workflow.banner.readyToEvaluateCta', 'Create Project')}
         ctaPath="/projects"

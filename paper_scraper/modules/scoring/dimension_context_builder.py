@@ -19,6 +19,10 @@ from paper_scraper.modules.scoring.citation_graph import (
     CitationGraph,
     fetch_citation_graph,
 )
+from paper_scraper.modules.scoring.author_profile_client import (
+    AuthorProfileResult,
+    fetch_author_profiles,
+)
 from paper_scraper.modules.scoring.jstor_client import (
     JstorSearchResult,
     build_jstor_query,
@@ -48,6 +52,7 @@ USES_CITATION_GRAPH = {"novelty", "ip_potential", "marketability", "feasibility"
 USES_PATENTS = {"ip_potential", "novelty"}
 USES_MARKET_SIGNALS = {"marketability", "commercialization"}
 USES_JSTOR_CONTEXT = {"novelty", "ip_potential", "marketability", "feasibility", "commercialization"}
+USES_AUTHOR_PROFILES = {"team_readiness", "ip_potential", "feasibility"}
 
 
 @dataclass
@@ -100,6 +105,7 @@ class DimensionContextBuilder:
         )
         citation_graph = await self._get_citation_graph(paper)
         jstor_result = await self._get_jstor_references(paper)
+        author_profile_result = await self._get_author_profiles(paper)
 
         if knowledge_sources:
             result.has_knowledge_context = True
@@ -118,6 +124,12 @@ class DimensionContextBuilder:
                 for p in jstor_result.papers[:8]
             ]
 
+        # Store author profiles in metadata for later extraction by the service
+        if author_profile_result.profiles:
+            result.metadata["_author_profiles"] = [
+                p.to_schema_dict() for p in author_profile_result.profiles
+            ]
+
         # Build context for each dimension
         for dim_name in target_dims:
             budget = DIMENSION_BUDGETS.get(dim_name, DimensionTokenBudget())
@@ -127,6 +139,7 @@ class DimensionContextBuilder:
                 similar_papers=similar_papers,
                 citation_graph=citation_graph,
                 jstor_result=jstor_result,
+                author_profile_result=author_profile_result,
                 snapshot_data=snapshot_data,
                 knowledge_sources=knowledge_sources,
             )
@@ -136,6 +149,7 @@ class DimensionContextBuilder:
                 "budget": budget.total,
                 "has_citations": not citation_graph.is_empty,
                 "has_jstor": not jstor_result.is_empty,
+                "has_author_profiles": not author_profile_result.is_empty,
                 "has_patents": bool(snapshot_data.get("patents", {}).get("data")),
                 "has_market": bool(snapshot_data.get("market", {}).get("data")),
                 "knowledge_sources": len(knowledge_sources),
@@ -150,6 +164,7 @@ class DimensionContextBuilder:
         similar_papers: list[Paper] | None,
         citation_graph: CitationGraph,
         jstor_result: JstorSearchResult,
+        author_profile_result: AuthorProfileResult,
         snapshot_data: dict,
         knowledge_sources: list,
     ) -> str:
@@ -171,6 +186,12 @@ class DimensionContextBuilder:
         if dimension in USES_JSTOR_CONTEXT and not jstor_result.is_empty:
             section = self._format_jstor_references(jstor_result, dimension)
             section = truncate_to_tokens(section, budget.jstor)
+            if section:
+                sections.append(section)
+
+        if dimension in USES_AUTHOR_PROFILES and not author_profile_result.is_empty:
+            section = self._format_author_profiles(author_profile_result, dimension)
+            section = truncate_to_tokens(section, budget.author_profiles)
             if section:
                 sections.append(section)
 
@@ -428,3 +449,87 @@ class DimensionContextBuilder:
                 "Failed to fetch JSTOR references for paper %s: %s", paper.id, e
             )
             return JstorSearchResult(errors=[str(e)])
+
+    async def _get_author_profiles(self, paper: Paper) -> AuthorProfileResult:
+        """Fetch GitHub and ORCID profiles for paper authors."""
+        try:
+            # Extract Author ORM objects from loaded PaperAuthor relationships
+            paper_authors = getattr(paper, "authors", None) or []
+            sorted_pas = sorted(paper_authors, key=lambda pa: pa.position)
+            authors = [pa.author for pa in sorted_pas if pa.author]
+            if not authors:
+                return AuthorProfileResult()
+            return await fetch_author_profiles(authors, max_authors=5)
+        except Exception as e:
+            logger.warning(
+                "Failed to fetch author profiles for paper %s: %s", paper.id, e
+            )
+            return AuthorProfileResult(errors=[str(e)])
+
+    def _format_author_profiles(
+        self,
+        result: AuthorProfileResult,
+        dimension: str,
+    ) -> str:
+        """Format author profiles as a context string for a dimension."""
+        if not result.profiles:
+            return ""
+
+        headers = {
+            "team_readiness": "## Author Profile Enrichment (GitHub & ORCID)",
+            "ip_potential": "## Author Background (Industry & Research Experience)",
+            "feasibility": "## Author Technical Depth",
+        }
+        header = headers.get(dimension, "## Author Profiles")
+
+        lines = [header]
+        for profile in result.profiles:
+            safe_name = sanitize_text_for_prompt(profile.name, max_length=100)
+            lines.append(f"\n### {safe_name}")
+
+            if profile.orcid_data:
+                o = profile.orcid_data
+                if o.current_employment:
+                    safe_emp = sanitize_text_for_prompt(
+                        o.current_employment, max_length=150
+                    )
+                    lines.append(f"Current affiliation: {safe_emp}")
+                if o.past_affiliations:
+                    safe_past = [
+                        sanitize_text_for_prompt(a, max_length=100)
+                        for a in o.past_affiliations[:3]
+                    ]
+                    lines.append(f"Past affiliations: {', '.join(safe_past)}")
+                if o.education:
+                    safe_edu = [
+                        sanitize_text_for_prompt(e, max_length=100)
+                        for e in o.education[:2]
+                    ]
+                    lines.append(f"Education: {', '.join(safe_edu)}")
+                if o.funding_count:
+                    lines.append(f"Research grants: {o.funding_count}")
+                if o.peer_review_count:
+                    lines.append(f"Peer reviews: {o.peer_review_count}")
+                if o.works_count:
+                    lines.append(f"ORCID works: {o.works_count}")
+
+            if profile.github:
+                g = profile.github
+                gh_line = f"GitHub: @{g.username}"
+                gh_line += f" ({g.public_repos} repos, {g.followers} followers)"
+                lines.append(gh_line)
+                if g.top_languages:
+                    lines.append(
+                        f"Primary languages: {', '.join(g.top_languages[:5])}"
+                    )
+                if g.company:
+                    safe_company = sanitize_text_for_prompt(g.company, max_length=100)
+                    lines.append(f"Company: {safe_company}")
+                if dimension == "team_readiness" and g.popular_repos:
+                    safe_repos = [
+                        sanitize_text_for_prompt(r, max_length=50)
+                        for r in g.popular_repos[:3]
+                    ]
+                    lines.append(f"Notable repos: {', '.join(safe_repos)}")
+
+        return "\n".join(lines)

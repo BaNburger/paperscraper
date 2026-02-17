@@ -22,9 +22,10 @@ from paper_scraper.core.security import create_access_token
 from paper_scraper.modules.auth.models import Organization, User, UserRole
 from paper_scraper.modules.papers.models import Author, Paper, PaperAuthor  # noqa: F401
 from paper_scraper.modules.projects.models import (  # noqa: F401
-    PaperProjectStatus,
-    PaperStageHistory,
     Project,
+    ProjectCluster,
+    ProjectClusterPaper,
+    ProjectPaper,
 )
 from paper_scraper.modules.scoring.models import PaperScore, ScoringJob, ScoringPolicy, GlobalScoreCache  # noqa: F401
 from paper_scraper.modules.groups.models import ResearcherGroup, GroupMember  # noqa: F401

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, Loader2, FolderKanban } from 'lucide-react'
+import { Check, Loader2, UsersRound } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
@@ -11,13 +11,6 @@ interface CreateProjectStepProps {
   onNext: () => void
   onSkip: () => void
 }
-
-const defaultStages = [
-  { id: 'inbox', name: 'Inbox', color: '#6B7280', order: 0 },
-  { id: 'review', name: 'Under Review', color: '#3B82F6', order: 1 },
-  { id: 'shortlist', name: 'Shortlisted', color: '#10B981', order: 2 },
-  { id: 'rejected', name: 'Rejected', color: '#EF4444', order: 3 },
-]
 
 export function CreateProjectStep({
   projectId,
@@ -38,15 +31,14 @@ export function CreateProjectStep({
     setError(null)
 
     try {
-      const project = await projectsApi.create({
+      const group = await projectsApi.create({
         name: name.trim(),
         description: description.trim() || undefined,
-        stages: defaultStages,
       })
-      onProjectCreated(project.id)
+      onProjectCreated(group.id)
       setCreated(true)
-    } catch (err) {
-      setError('Failed to create project. Please try again.')
+    } catch {
+      setError('Failed to create research group. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -60,9 +52,10 @@ export function CreateProjectStep({
             <Check className="h-8 w-8 text-green-600" />
           </div>
           <div className="text-center">
-            <h3 className="font-semibold text-lg">Project Created!</h3>
+            <h3 className="font-semibold text-lg">Research Group Created!</h3>
             <p className="text-muted-foreground mt-1">
-              Your project "{name}" is ready with a KanBan pipeline
+              Your research group &ldquo;{name}&rdquo; is ready. You can search for institutions or
+              researchers later to import publications.
             </p>
           </div>
         </div>
@@ -77,15 +70,15 @@ export function CreateProjectStep({
   return (
     <div className="space-y-6">
       <p className="text-center text-muted-foreground">
-        Create a project to organize papers in a KanBan-style pipeline
+        Create a research group to track publications from an institution or researcher
       </p>
 
       <div className="max-w-md mx-auto space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="name">Project name</Label>
+          <Label htmlFor="name">Group name</Label>
           <Input
             id="name"
-            placeholder="e.g., Q1 2026 Deep Tech Scout"
+            placeholder="e.g., ML Lab @ MIT"
             value={name}
             onChange={(e) => setName(e.target.value)}
             disabled={isLoading}
@@ -96,33 +89,11 @@ export function CreateProjectStep({
           <Label htmlFor="description">Description (optional)</Label>
           <Input
             id="description"
-            placeholder="What is this project for?"
+            placeholder="What does this group research?"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             disabled={isLoading}
           />
-        </div>
-
-        {/* Pipeline Preview */}
-        <div className="space-y-2">
-          <Label>Pipeline stages</Label>
-          <div className="flex gap-2 flex-wrap">
-            {defaultStages.map((stage) => (
-              <div
-                key={stage.id}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm bg-muted"
-              >
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: stage.color }}
-                />
-                {stage.name}
-              </div>
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            You can customize stages later in project settings
-          </p>
         </div>
 
         {error && (
@@ -142,8 +113,8 @@ export function CreateProjectStep({
             </>
           ) : (
             <>
-              <FolderKanban className="h-4 w-4 mr-2" />
-              Create Project
+              <UsersRound className="h-4 w-4 mr-2" />
+              Create Research Group
             </>
           )}
         </Button>
