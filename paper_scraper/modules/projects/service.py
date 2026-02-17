@@ -1,6 +1,7 @@
 """Service layer for research groups module."""
 
 import logging
+from collections import defaultdict
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -9,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.core.exceptions import NotFoundError
 from paper_scraper.core.sql_utils import escape_like
-from paper_scraper.modules.papers.models import Paper
+from paper_scraper.modules.papers.models import Author, Paper, PaperAuthor
 from paper_scraper.modules.projects.models import (
     Project,
     ProjectCluster,
@@ -123,7 +124,7 @@ class ProjectService:
         allowed_fields = {"name", "description"}
         update_data = data.model_dump(exclude_unset=True)
         for key, value in update_data.items():
-            if value is not None and key in allowed_fields:
+            if key in allowed_fields:
                 setattr(project, key, value)
 
         await self.db.flush()
@@ -300,6 +301,7 @@ class ProjectService:
                 project_id=project_id,
                 organization_id=organization_id,
                 label=cdata["label"],
+                description=cdata.get("description"),
                 keywords=cdata.get("keywords", []),
                 paper_count=len(cdata.get("paper_ids", [])),
                 centroid=cdata.get("centroid"),
@@ -365,8 +367,6 @@ class ProjectService:
         all_rows = papers_result.all()
 
         # Group by cluster, keep top 3 per cluster
-        from collections import defaultdict
-
         papers_by_cluster: dict[UUID, list[tuple]] = defaultdict(list)
         for cluster_id, paper, sim in all_rows:
             if len(papers_by_cluster[cluster_id]) < 3:
@@ -497,8 +497,6 @@ class ProjectService:
         if not paper_ids:
             return {}
 
-        from paper_scraper.modules.papers.models import Author, PaperAuthor
-
         result = await self.db.execute(
             select(PaperAuthor.paper_id, Author.name)
             .join(Author, Author.id == PaperAuthor.author_id)
@@ -506,22 +504,14 @@ class ProjectService:
             .order_by(PaperAuthor.paper_id, PaperAuthor.position)
         )
 
-        from collections import defaultdict
-
         names_by_paper: dict[UUID, list[str]] = defaultdict(list)
         for paper_id, name in result.all():
             names_by_paper[paper_id].append(name)
 
-        display_map: dict[UUID, str] = {}
-        for paper_id, names in names_by_paper.items():
-            if len(names) > 2:
-                display_map[paper_id] = f"{names[0]}, et al."
-            elif names:
-                display_map[paper_id] = ", ".join(names)
-            else:
-                display_map[paper_id] = ""
-
-        return display_map
+        return {
+            paper_id: f"{names[0]}, et al." if len(names) > 2 else ", ".join(names)
+            for paper_id, names in names_by_paper.items()
+        }
 
     def _paper_to_summary(
         self,
@@ -530,19 +520,11 @@ class ProjectService:
         authors_map: dict[UUID, str] | None = None,
     ) -> ClusterPaperSummary:
         """Convert a Paper model to a ClusterPaperSummary."""
-        pub_date = None
-        if paper.publication_date:
-            pub_date = paper.publication_date.strftime("%Y-%m-%d")
-
-        authors_display = ""
-        if authors_map:
-            authors_display = authors_map.get(paper.id, "")
-
         return ClusterPaperSummary(
             id=paper.id,
             title=paper.title or "Untitled",
-            authors_display=authors_display,
-            publication_date=pub_date,
+            authors_display=(authors_map or {}).get(paper.id, ""),
+            publication_date=paper.publication_date.strftime("%Y-%m-%d") if paper.publication_date else None,
             citations_count=paper.citations_count,
             similarity_score=similarity_score,
         )

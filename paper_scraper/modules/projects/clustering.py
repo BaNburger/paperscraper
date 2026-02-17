@@ -1,16 +1,33 @@
-"""Pure-Python topic clustering for research group papers.
+"""Topic clustering for research group papers.
 
 Uses cosine similarity on paper embeddings (1536-dim from text-embedding-3-small)
-with a greedy centroid-based algorithm.  No numpy/scipy dependency.
+with a greedy centroid-based algorithm. Uses numpy when available for ~100x speedup,
+falls back to pure Python.
 """
 
+from __future__ import annotations
+
+import json
 import logging
 import math
 from collections import Counter
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 logger = logging.getLogger(__name__)
+
+# Optional numpy accelerator (available transitively via openai SDK in Docker)
+try:
+    import numpy as np
+
+    _HAS_NUMPY = True
+except ImportError:
+    np = None  # type: ignore[assignment]
+    _HAS_NUMPY = False
+
+if TYPE_CHECKING:
+    from paper_scraper.modules.scoring.llm_client import BaseLLMClient
 
 # ---------------------------------------------------------------------------
 # Config
@@ -28,7 +45,7 @@ MAX_CLUSTERS = 30
 
 @dataclass
 class ClusterAssignment:
-    """Result of clustering: paper_id → cluster_index."""
+    """Result of clustering: paper_id -> cluster_index."""
 
     paper_id: UUID
     cluster_index: int
@@ -47,12 +64,20 @@ class ClusterInfo:
 
 
 # ---------------------------------------------------------------------------
-# Cosine similarity (pure Python, 1536-dim)
+# Vector math (numpy-accelerated with pure-Python fallback)
 # ---------------------------------------------------------------------------
 
 
 def _cosine_similarity(a: list[float], b: list[float]) -> float:
     """Compute cosine similarity between two vectors."""
+    if _HAS_NUMPY:
+        va = np.asarray(a)
+        vb = np.asarray(b)
+        denom = float(np.linalg.norm(va) * np.linalg.norm(vb))
+        if denom == 0.0:
+            return 0.0
+        return float(np.dot(va, vb) / denom)
+    # Pure Python fallback
     dot = 0.0
     norm_a = 0.0
     norm_b = 0.0
@@ -70,6 +95,8 @@ def _compute_centroid(embeddings: list[list[float]]) -> list[float]:
     """Compute the mean (centroid) of a list of embeddings."""
     if not embeddings:
         return []
+    if _HAS_NUMPY:
+        return np.mean(embeddings, axis=0).tolist()
     dim = len(embeddings[0])
     centroid = [0.0] * dim
     n = len(embeddings)
@@ -77,6 +104,27 @@ def _compute_centroid(embeddings: list[list[float]]) -> list[float]:
         for i in range(dim):
             centroid[i] += emb[i]
     return [c / n for c in centroid]
+
+
+def _batch_cosine_similarities(
+    embedding: list[float], centroids: list[list[float]]
+) -> list[float]:
+    """Compute cosine similarity of one embedding against all centroids.
+
+    Returns list of similarities, one per centroid.
+    """
+    if _HAS_NUMPY and len(centroids) > 1:
+        emb = np.asarray(embedding)
+        mat = np.asarray(centroids)
+        emb_norm = np.linalg.norm(emb)
+        if emb_norm == 0.0:
+            return [0.0] * len(centroids)
+        mat_norms = np.linalg.norm(mat, axis=1)
+        mat_norms[mat_norms == 0.0] = 1.0  # avoid division by zero
+        sims = (mat @ emb) / (mat_norms * emb_norm)
+        return sims.tolist()
+    # Fallback: per-centroid loop
+    return [_cosine_similarity(embedding, c) for c in centroids]
 
 
 # ---------------------------------------------------------------------------
@@ -93,11 +141,11 @@ def cluster_embeddings(
     """Cluster papers by embedding similarity using greedy centroid assignment.
 
     Algorithm:
-    1. First paper → cluster 0 seed.
+    1. First paper -> cluster 0 seed.
     2. For each subsequent paper:
        a. Find the most similar existing centroid.
-       b. If similarity > threshold → assign to that cluster.
-       c. Otherwise → create a new cluster.
+       b. If similarity > threshold -> assign to that cluster.
+       c. Otherwise -> create a new cluster.
     3. Merge small clusters (< min_cluster_size) into the nearest cluster.
 
     Args:
@@ -119,36 +167,25 @@ def cluster_embeddings(
     # -- Phase 1: Greedy centroid assignment --
     cluster_members: list[list[int]] = [[0]]  # cluster 0 starts with paper 0
     centroids: list[list[float]] = [embeddings[0][:]]
-    assignments = [0] * n  # paper index → cluster index
-    similarities = [1.0] * n  # paper index → similarity to its centroid
+    assignments = [0] * n  # paper index -> cluster index
+    similarities = [1.0] * n  # paper index -> similarity to its centroid
 
     for i in range(1, n):
         emb = embeddings[i]
-        best_cluster = -1
-        best_sim = -1.0
 
-        for c_idx, centroid in enumerate(centroids):
-            sim = _cosine_similarity(emb, centroid)
-            if sim > best_sim:
-                best_sim = sim
-                best_cluster = c_idx
+        # Find best matching centroid
+        sims = _batch_cosine_similarities(emb, centroids)
+        best_cluster = max(range(len(sims)), key=lambda c: sims[c])
+        best_sim = sims[best_cluster]
 
-        if best_sim < similarity_threshold and len(centroids) < MAX_CLUSTERS:
-            # New cluster
-            best_cluster = len(centroids)
-            centroids.append(emb[:])
-            cluster_members.append([])
-            best_sim = 1.0  # self-similarity
-
-        # If we hit MAX_CLUSTERS, force into closest
-        if best_cluster >= len(centroids):
-            best_cluster = 0
-            best_sim = _cosine_similarity(emb, centroids[0])
-            for c_idx, centroid in enumerate(centroids[1:], 1):
-                sim = _cosine_similarity(emb, centroid)
-                if sim > best_sim:
-                    best_sim = sim
-                    best_cluster = c_idx
+        if best_sim < similarity_threshold:
+            if len(centroids) < MAX_CLUSTERS:
+                # New cluster
+                best_cluster = len(centroids)
+                centroids.append(emb[:])
+                cluster_members.append([])
+                best_sim = 1.0  # self-similarity
+            # else: best_cluster is already the closest existing centroid
 
         assignments[i] = best_cluster
         similarities[i] = best_sim
@@ -194,7 +231,7 @@ def cluster_embeddings(
 
     result_assignments: list[ClusterAssignment] = []
     for i in range(n):
-        new_idx = remap.get(assignments[i], 0)
+        new_idx = remap[assignments[i]]
         result_assignments.append(
             ClusterAssignment(paper_ids[i], new_idx, similarities[i])
         )
@@ -202,17 +239,18 @@ def cluster_embeddings(
     final_centroids = [centroids[old] for old in active_clusters]
 
     logger.info(
-        "Clustered %d papers into %d clusters (threshold=%.2f)",
+        "Clustered %d papers into %d clusters (threshold=%.2f, numpy=%s)",
         n,
         len(active_clusters),
         similarity_threshold,
+        _HAS_NUMPY,
     )
 
     return result_assignments, final_centroids
 
 
 # ---------------------------------------------------------------------------
-# Cluster label generation
+# Cluster label generation (keyword-based fallback)
 # ---------------------------------------------------------------------------
 
 
@@ -239,3 +277,97 @@ def generate_cluster_label(
         label = " / ".join(kw.title() for kw in top)
         return label, top
     return "Uncategorized", []
+
+
+# ---------------------------------------------------------------------------
+# LLM-powered cluster label generation
+# ---------------------------------------------------------------------------
+
+
+async def generate_cluster_labels_llm(
+    clusters: list[dict[str, Any]],
+    llm_client: BaseLLMClient,
+) -> list[dict[str, Any]]:
+    """Generate descriptive labels for all clusters using a single LLM call.
+
+    Args:
+        clusters: List of dicts with keys:
+            - index: cluster index
+            - keywords: list of top keywords
+            - paper_titles: list of paper titles (max 5 per cluster)
+        llm_client: Configured LLM client instance.
+
+    Returns:
+        List of dicts with keys: index, label, description.
+        Returns empty list on any failure (caller should use keyword fallback).
+    """
+    from paper_scraper.modules.scoring.llm_client import sanitize_text_for_prompt
+
+    if not clusters:
+        return []
+
+    # Build compact cluster summaries for the prompt
+    cluster_summaries = []
+    for c in clusters:
+        titles = [
+            sanitize_text_for_prompt(t, max_length=150)
+            for t in c.get("paper_titles", [])[:5]
+        ]
+        kws = c.get("keywords", [])[:5]
+        cluster_summaries.append({
+            "index": c["index"],
+            "keywords": kws,
+            "sample_titles": titles,
+        })
+
+    prompt = f"""Given the following research paper clusters, generate a concise label (3-8 words) and a one-sentence description for each cluster.
+
+Clusters:
+{json.dumps(cluster_summaries, indent=2)}
+
+Respond with valid JSON:
+{{
+  "clusters": [
+    {{"index": 0, "label": "...", "description": "..."}},
+    ...
+  ]
+}}
+
+Rules:
+- Labels should be specific and descriptive (e.g., "Deep Learning for Medical Imaging" not "Machine Learning Papers")
+- Descriptions should summarize the research theme in one sentence
+- Keep labels under 60 characters
+- Do NOT include generic words like "Research", "Studies", or "Papers" in labels"""
+
+    try:
+        result = await llm_client.complete_json(
+            prompt=prompt,
+            system="You are a research taxonomy expert. Respond only with valid JSON.",
+            temperature=0.3,
+            max_tokens=1024,
+        )
+
+        labeled = result.get("clusters", [])
+        validated: list[dict[str, Any]] = []
+        for item in labeled:
+            if isinstance(item, dict) and "index" in item and "label" in item:
+                validated.append({
+                    "index": item["index"],
+                    "label": str(item["label"])[:255],
+                    "description": str(item.get("description", ""))[:500] or None,
+                })
+
+        if len(validated) == len(clusters):
+            logger.info("LLM generated labels for %d clusters", len(validated))
+            return validated
+
+        logger.warning(
+            "LLM returned %d labels for %d clusters, falling back to keywords",
+            len(validated),
+            len(clusters),
+        )
+        return []
+
+    except Exception as e:
+        logger.warning("LLM cluster labeling failed, using keyword fallback: %s", e)
+        return []

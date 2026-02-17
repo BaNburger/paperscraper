@@ -161,6 +161,7 @@ class ProjectCluster(Base):
         Uuid,
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
     )
 
     label: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -214,6 +215,10 @@ class ProjectClusterPaper(Base):
         "ProjectCluster", back_populates="cluster_papers"
     )
     paper: Mapped["Paper"] = relationship("Paper")
+
+    __table_args__ = (
+        Index("ix_project_cluster_papers_paper_id", "paper_id"),
+    )
 
     def __repr__(self) -> str:
         return f"<ProjectClusterPaper cluster={self.cluster_id} paper={self.paper_id}>"

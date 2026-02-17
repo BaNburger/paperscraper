@@ -9,18 +9,17 @@ Usage:
 """
 
 import logging
-
-logger = logging.getLogger(__name__)
-
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from paper_scraper.core.config import settings
 from paper_scraper.core.exceptions import NotFoundError
+
+logger = logging.getLogger(__name__)
 
 
 # Create database engine for MCP server
@@ -327,18 +326,20 @@ async def get_research_group_details(
     """
     from paper_scraper.modules.projects.service import ProjectService
 
+    proj_uuid = UUID(project_id)
+
     async with _async_session() as db:
         try:
             service = ProjectService(db)
             project = await service.get_project(
-                project_id=UUID(project_id),
+                project_id=proj_uuid,
                 organization_id=ctx.org_id,
             )
             if not project:
                 return {"success": False, "error": "Research group not found"}
 
             clusters = await service.list_clusters(
-                project_id=UUID(project_id),
+                project_id=proj_uuid,
                 organization_id=ctx.org_id,
             )
 

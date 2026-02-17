@@ -8,12 +8,10 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.api.dependencies import CurrentUser, require_permission
-from paper_scraper.core.permissions import Permission
 from paper_scraper.core.database import get_db
 from paper_scraper.core.exceptions import NotFoundError
+from paper_scraper.core.permissions import Permission
 from paper_scraper.modules.papers.clients.openalex import OpenAlexClient
-
-logger = logging.getLogger(__name__)
 from paper_scraper.modules.projects.schemas import (
     AuthorSearchResult,
     ClusterDetailResponse,
@@ -27,7 +25,10 @@ from paper_scraper.modules.projects.schemas import (
     ProjectUpdate,
     SyncResponse,
 )
+from paper_scraper.modules.projects.models import SyncStatus
 from paper_scraper.modules.projects.service import ProjectService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -111,7 +112,7 @@ async def create_project(
                 max_papers=data.max_papers,
                 job_id=f"sync_rg_{project.id}",
             )
-            project.sync_status = "importing"
+            project.sync_status = SyncStatus.IMPORTING.value
             await project_service.db.flush()
             await project_service.db.refresh(project)
         except Exception:
@@ -240,16 +241,21 @@ async def sync_project(
             max_papers=max_papers,
             job_id=f"sync_rg_{project.id}",
         )
-        project.sync_status = "importing"
+        project.sync_status = SyncStatus.IMPORTING.value
         await project_service.db.flush()
     except Exception:
         logger.warning(
             "Failed to enqueue sync for research group %s", project.id
         )
+        return SyncResponse(
+            project_id=project.id,
+            status=project.sync_status,
+            message="Failed to start sync. Please try again later.",
+        )
 
     return SyncResponse(
         project_id=project.id,
-        status="importing",
+        status=SyncStatus.IMPORTING.value,
         message="Sync started. Papers will be imported and clustered in the background.",
     )
 
