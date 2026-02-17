@@ -166,9 +166,8 @@ def _crossref_item_to_jstor_paper(item: dict) -> JstorPaper:
     # Abstract (often sparse for JSTOR content)
     abstract = item.get("abstract")
     if abstract:
-        # Crossref abstracts may contain JATS XML tags
-        abstract = abstract.replace("<jats:p>", "").replace("</jats:p>", "")
-        abstract = abstract.replace("<jats:italic>", "").replace("</jats:italic>", "")
+        # Strip all JATS XML / HTML tags from Crossref abstracts
+        abstract = re.sub(r"<[^>]+>", "", abstract)
         abstract = abstract[:500]
 
     # Citation count
