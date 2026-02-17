@@ -18,6 +18,7 @@ from paper_scraper.jobs.badges import (
 )
 from paper_scraper.jobs.ingestion import ingest_openalex_task, ingest_source_task
 from paper_scraper.jobs.scoring import (
+    cleanup_expired_score_cache_task,
     generate_embeddings_batch_task,
     score_paper_task,
     score_papers_batch_task,
@@ -38,6 +39,11 @@ from paper_scraper.jobs.retention import (
     apply_retention_policies_task,
     run_nightly_retention_task,
     preview_retention_impact_task,
+)
+from paper_scraper.jobs.discovery import (
+    process_discovery_daily_task,
+    process_discovery_weekly_task,
+    run_discovery_task,
 )
 
 
@@ -166,6 +172,10 @@ class WorkerSettings:
         apply_retention_policies_task,
         run_nightly_retention_task,
         preview_retention_impact_task,
+        process_discovery_daily_task,
+        process_discovery_weekly_task,
+        run_discovery_task,
+        cleanup_expired_score_cache_task,
     ]
 
     # Cron jobs for scheduled tasks
@@ -184,6 +194,12 @@ class WorkerSettings:
         arq.cron(process_monthly_reports_task, day=1, hour=8, minute=0),
         # Nightly retention policy enforcement at 3:00 AM UTC
         arq.cron(run_nightly_retention_task, hour=3, minute=0),
+        # Daily discovery profiles at 5:00 AM UTC
+        arq.cron(process_discovery_daily_task, hour=5, minute=0),
+        # Weekly discovery profiles on Monday at 5:00 AM UTC
+        arq.cron(process_discovery_weekly_task, weekday=0, hour=5, minute=0),
+        # Daily cleanup of expired global score cache at 3:30 AM UTC
+        arq.cron(cleanup_expired_score_cache_task, hour=3, minute=30),
     ]
 
     # Redis connection settings

@@ -26,7 +26,7 @@ from paper_scraper.modules.projects.models import (  # noqa: F401
     PaperStageHistory,
     Project,
 )
-from paper_scraper.modules.scoring.models import PaperScore, ScoringJob, ScoringPolicy  # noqa: F401
+from paper_scraper.modules.scoring.models import PaperScore, ScoringJob, ScoringPolicy, GlobalScoreCache  # noqa: F401
 from paper_scraper.modules.groups.models import ResearcherGroup, GroupMember  # noqa: F401
 from paper_scraper.modules.transfer.models import (  # noqa: F401
     TransferConversation, ConversationMessage, ConversationResource,
@@ -49,7 +49,21 @@ from paper_scraper.modules.notifications.models import Notification  # noqa: F40
 from paper_scraper.modules.papers.notes import PaperNote  # noqa: F401
 from paper_scraper.modules.papers.context_models import PaperContextSnapshot  # noqa: F401
 from paper_scraper.modules.ingestion.models import IngestCheckpoint, IngestRun, SourceRecord  # noqa: F401
-from paper_scraper.modules.integrations.models import IntegrationConnector  # noqa: F401
+from paper_scraper.modules.integrations.models import (  # noqa: F401
+    IntegrationConnector,
+    ZoteroConnection,
+    ZoteroItemLink,
+    ZoteroSyncRun,
+)
+from paper_scraper.modules.library.models import (  # noqa: F401
+    LibraryCollection,
+    LibraryCollectionItem,
+    PaperTag,
+    PaperTextChunk,
+    PaperHighlight,
+)
+from paper_scraper.modules.trends.models import TrendTopic, TrendSnapshot, TrendPaper  # noqa: F401
+from paper_scraper.modules.discovery.models import DiscoveryRun  # noqa: F401
 from paper_scraper.core.security import get_password_hash
 
 

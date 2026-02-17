@@ -20,7 +20,9 @@ You are an expert technology assessment specialist evaluating the technical feas
 **Publication Date:** {{ paper.publication_date }}
 {% endif %}
 
-{% if paper.knowledge_context %}
+{% if dimension_context %}
+{{ dimension_context }}
+{% elif paper.knowledge_context %}
 {{ paper.knowledge_context }}
 {% endif %}
 

@@ -212,6 +212,104 @@ class TestExportEndpoints:
         assert "Testing PDF export functionality" in content
 
     @pytest.mark.asyncio
+    async def test_export_ris_with_data(
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+        db_session: AsyncSession,
+        test_user: User,
+    ):
+        """Test RIS export returns valid RIS records."""
+        paper = Paper(
+            organization_id=test_user.organization_id,
+            title="RIS Export Paper",
+            abstract="RIS abstract",
+            doi="10.1234/ris.test",
+            source=PaperSource.MANUAL,
+            journal="Journal of RIS",
+        )
+        db_session.add(paper)
+        await db_session.flush()
+
+        response = await client.get("/api/v1/export/ris", headers=auth_headers)
+        assert response.status_code == 200
+        assert response.headers["x-paper-count"] == "1"
+
+        content = response.text
+        assert "TY  - JOUR" in content
+        assert "TI  - RIS Export Paper" in content
+        assert "DO  - 10.1234/ris.test" in content
+        assert "ER  - " in content
+
+    @pytest.mark.asyncio
+    async def test_export_csljson_with_data(
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+        db_session: AsyncSession,
+        test_user: User,
+    ):
+        """Test CSL JSON export returns parseable citation objects."""
+        paper = Paper(
+            organization_id=test_user.organization_id,
+            title="CSL JSON Export Paper",
+            abstract="CSL abstract",
+            doi="10.1234/csljson.test",
+            source=PaperSource.MANUAL,
+            journal="Citation Journal",
+        )
+        db_session.add(paper)
+        await db_session.flush()
+
+        response = await client.get("/api/v1/export/csljson", headers=auth_headers)
+        assert response.status_code == 200
+        assert response.headers["x-paper-count"] == "1"
+
+        import json
+
+        payload = json.loads(response.text)
+        assert isinstance(payload, list)
+        assert len(payload) == 1
+        assert payload[0]["title"] == "CSL JSON Export Paper"
+        assert payload[0]["DOI"] == "10.1234/csljson.test"
+        assert payload[0]["type"] == "article-journal"
+
+    @pytest.mark.asyncio
+    async def test_batch_export_ris_and_csljson(
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+        db_session: AsyncSession,
+        test_user: User,
+    ):
+        """Test batch export supports RIS and CSL JSON formats."""
+        paper = Paper(
+            organization_id=test_user.organization_id,
+            title="Batch Export Paper",
+            source=PaperSource.MANUAL,
+        )
+        db_session.add(paper)
+        await db_session.flush()
+
+        ris_response = await client.post(
+            "/api/v1/export/batch",
+            params={"format": "ris"},
+            json=[str(paper.id)],
+            headers=auth_headers,
+        )
+        assert ris_response.status_code == 200
+        assert "TY  - JOUR" in ris_response.text
+
+        csl_response = await client.post(
+            "/api/v1/export/batch",
+            params={"format": "csljson"},
+            json=[str(paper.id)],
+            headers=auth_headers,
+        )
+        assert csl_response.status_code == 200
+        assert "\"type\": \"article-journal\"" in csl_response.text
+
+    @pytest.mark.asyncio
     async def test_batch_export_csv(
         self,
         client: AsyncClient,

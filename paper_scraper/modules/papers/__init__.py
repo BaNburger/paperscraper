@@ -1,19 +1,10 @@
-"""Papers module - Paper management and ingestion."""
+"""Papers package.
 
-from paper_scraper.modules.papers.models import Author, Paper, PaperAuthor, PaperSource
-from paper_scraper.modules.papers.context_models import PaperContextSnapshot
-from paper_scraper.modules.papers.context_service import PaperContextService
-from paper_scraper.modules.papers.service import PaperService
+Keep package initialization light to avoid circular imports.
+Import concrete modules directly, e.g.:
+- ``paper_scraper.modules.papers.models``
+- ``paper_scraper.modules.papers.service``
+- ``paper_scraper.modules.papers.router``
+"""
 
-# Note: router is not exported here to avoid circular imports.
-# Import it directly: from paper_scraper.modules.papers.router import router
-
-__all__ = [
-    "Paper",
-    "Author",
-    "PaperAuthor",
-    "PaperSource",
-    "PaperService",
-    "PaperContextSnapshot",
-    "PaperContextService",
-]
+__all__: list[str] = []

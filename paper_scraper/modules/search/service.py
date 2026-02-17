@@ -407,13 +407,13 @@ class SearchService:
         total = (await self.db.execute(count_query)).scalar() or 0
 
         # Order by score and paginate
-        query = (
+        paginated_query = (
             base_query.order_by(text_score.desc())
             .offset((page - 1) * page_size)
             .limit(page_size)
         )
 
-        result = await self.db.execute(query)
+        result = await self.db.execute(paginated_query)
         rows = result.all()
 
         # Fetch scores for matched papers

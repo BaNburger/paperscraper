@@ -86,6 +86,9 @@ class Settings(BaseSettings):
     AZURE_OPENAI_API_VERSION: str = "2024-02-15-preview"
     AZURE_OPENAI_DEPLOYMENT: str | None = None
 
+    # Google Gemini
+    GOOGLE_API_KEY: SecretStr | None = None
+
     # Ollama (local/self-hosted)
     OLLAMA_BASE_URL: str = "http://localhost:11434"
 
@@ -148,6 +151,13 @@ class Settings(BaseSettings):
     # Frontend
     # ==========================================================================
     FRONTEND_URL: str = "http://localhost:3000"
+
+    # ==========================================================================
+    # Feature Flags (Library V2 / Zotero)
+    # ==========================================================================
+    LIBRARY_V2_ENABLED: bool = False
+    ZOTERO_SYNC_ENABLED: bool = False
+    LIBRARY_INBOUND_SYNC_ENABLED: bool = False
 
     # ==========================================================================
     # CORS

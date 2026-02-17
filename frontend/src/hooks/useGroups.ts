@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { groupsApi } from '@/lib/api'
 import type { CreateGroupRequest, UpdateGroupRequest } from '@/types'
 
@@ -14,6 +14,7 @@ export function useGroups(
   return useQuery({
     queryKey: ['groups', params],
     queryFn: () => groupsApi.list(params),
+    placeholderData: keepPreviousData,
     enabled: options?.enabled ?? true,
     staleTime: options?.staleTime,
   })
@@ -56,7 +57,30 @@ export function useDeleteGroup() {
 
   return useMutation({
     mutationFn: (id: string) => groupsApi.delete(id),
-    onSuccess: () => {
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({ queryKey: ['groups'] })
+      const queries = queryClient.getQueriesData<{ items: { id: string }[]; total: number }>({
+        queryKey: ['groups'],
+      })
+      for (const [key, data] of queries) {
+        if (data?.items) {
+          queryClient.setQueryData(key, {
+            ...data,
+            items: data.items.filter((g) => g.id !== deletedId),
+            total: data.total - 1,
+          })
+        }
+      }
+      return { queries }
+    },
+    onError: (_err, _id, context) => {
+      if (context?.queries) {
+        for (const [key, data] of context.queries) {
+          queryClient.setQueryData(key, data)
+        }
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['groups'] })
     },
   })

@@ -21,6 +21,8 @@ FORMAT_CONFIG = {
     ExportFormat.CSV: ("text/csv", "csv"),
     ExportFormat.BIBTEX: ("application/x-bibtex", "bib"),
     ExportFormat.PDF: ("text/plain", "txt"),  # Would be application/pdf with proper library
+    ExportFormat.RIS: ("application/x-research-info-systems", "ris"),
+    ExportFormat.CSLJSON: ("application/vnd.citationstyles.csl+json", "json"),
 }
 
 
@@ -128,6 +130,46 @@ async def export_pdf(
     return _create_export_response(content, ExportFormat.PDF, count, "papers_report")
 
 
+@router.get(
+    "/ris",
+    summary="Export papers to RIS",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
+)
+async def export_ris(
+    current_user: CurrentUser,
+    export_service: Annotated[ExportService, Depends(get_export_service)],
+    paper_ids: list[UUID] | None = Query(default=None),
+    include_abstract: bool = Query(default=True),
+) -> Response:
+    """Export papers to RIS format for reference managers."""
+    content, count = await export_service.export_ris(
+        organization_id=current_user.organization_id,
+        paper_ids=paper_ids,
+        include_abstract=include_abstract,
+    )
+    return _create_export_response(content, ExportFormat.RIS, count)
+
+
+@router.get(
+    "/csljson",
+    summary="Export papers to CSL JSON",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
+)
+async def export_csljson(
+    current_user: CurrentUser,
+    export_service: Annotated[ExportService, Depends(get_export_service)],
+    paper_ids: list[UUID] | None = Query(default=None),
+    include_abstract: bool = Query(default=True),
+) -> Response:
+    """Export papers to CSL JSON format."""
+    content, count = await export_service.export_csljson(
+        organization_id=current_user.organization_id,
+        paper_ids=paper_ids,
+        include_abstract=include_abstract,
+    )
+    return _create_export_response(content, ExportFormat.CSLJSON, count)
+
+
 @router.post(
     "/batch",
     summary="Batch export papers",
@@ -155,6 +197,20 @@ async def batch_export(
 
     if format == ExportFormat.BIBTEX:
         content, count = await export_service.export_bibtex(
+            organization_id=org_id,
+            paper_ids=paper_ids,
+        )
+        return _create_export_response(content, format, count)
+
+    if format == ExportFormat.RIS:
+        content, count = await export_service.export_ris(
+            organization_id=org_id,
+            paper_ids=paper_ids,
+        )
+        return _create_export_response(content, format, count)
+
+    if format == ExportFormat.CSLJSON:
+        content, count = await export_service.export_csljson(
             organization_id=org_id,
             paper_ids=paper_ids,
         )

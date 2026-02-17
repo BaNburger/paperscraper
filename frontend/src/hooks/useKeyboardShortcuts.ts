@@ -1,33 +1,35 @@
 import { useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import type { TFunction } from 'i18next'
 
-export interface KeyboardShortcut {
-  keys: string
-  label: string
-  description: string
+export interface KeyboardShortcutDef {
+  labelKey: string
   category: 'navigation' | 'actions' | 'general'
-  handler: () => void
 }
 
-export const KEYBOARD_SHORTCUTS = {
+export const KEYBOARD_SHORTCUTS: Record<string, KeyboardShortcutDef> = {
   // Navigation shortcuts (g + letter)
-  'g d': { label: 'Go to Dashboard', category: 'navigation' as const },
-  'g p': { label: 'Go to Papers', category: 'navigation' as const },
-  'g k': { label: 'Go to Projects (KanBan)', category: 'navigation' as const },
-  'g s': { label: 'Go to Search', category: 'navigation' as const },
-  'g a': { label: 'Go to Analytics', category: 'navigation' as const },
-  'g t': { label: 'Go to Transfer', category: 'navigation' as const },
-  'g b': { label: 'Go to Badges', category: 'navigation' as const },
-  'g g': { label: 'Go to Groups', category: 'navigation' as const },
+  'g d': { labelKey: 'shortcuts.goToDashboard', category: 'navigation' },
+  'g p': { labelKey: 'shortcuts.goToPapers', category: 'navigation' },
+  'g k': { labelKey: 'shortcuts.goToProjects', category: 'navigation' },
+  'g s': { labelKey: 'shortcuts.goToSearch', category: 'navigation' },
+  'g a': { labelKey: 'shortcuts.goToAnalytics', category: 'navigation' },
+  'g t': { labelKey: 'shortcuts.goToTransfer', category: 'navigation' },
+  'g b': { labelKey: 'shortcuts.goToBadges', category: 'navigation' },
+  'g g': { labelKey: 'shortcuts.goToGroups', category: 'navigation' },
+  'g r': { labelKey: 'shortcuts.goToTrends', category: 'navigation' },
+  'g n': { labelKey: 'shortcuts.goToNotifications', category: 'navigation' },
 
   // Action shortcuts (n + letter)
-  'n p': { label: 'Import Papers', category: 'actions' as const },
-  'n j': { label: 'New Project', category: 'actions' as const },
+  'n p': { labelKey: 'shortcuts.importPapers', category: 'actions' },
+  'n j': { labelKey: 'shortcuts.newProject', category: 'actions' },
+  'n t': { labelKey: 'shortcuts.newTransfer', category: 'actions' },
+  'n g': { labelKey: 'shortcuts.newGroup', category: 'actions' },
 
   // General shortcuts
-  '/': { label: 'Focus Search', category: 'general' as const },
-  '?': { label: 'Show Keyboard Shortcuts', category: 'general' as const },
-} as const
+  '/': { labelKey: 'shortcuts.focusSearch', category: 'general' },
+  '?': { labelKey: 'shortcuts.showShortcuts', category: 'general' },
+}
 
 type ShortcutKey = keyof typeof KEYBOARD_SHORTCUTS
 
@@ -80,6 +82,12 @@ export function useKeyboardShortcuts(onShowHelp?: () => void) {
         case 'g g':
           navigate('/groups')
           break
+        case 'g r':
+          navigate('/trends')
+          break
+        case 'g n':
+          navigate('/notifications')
+          break
 
         // Actions
         case 'n p':
@@ -88,11 +96,16 @@ export function useKeyboardShortcuts(onShowHelp?: () => void) {
         case 'n j':
           navigate('/projects?new=true')
           break
+        case 'n t':
+          navigate('/transfer?new=true')
+          break
+        case 'n g':
+          navigate('/groups?new=true')
+          break
 
         // General
         case '/':
           navigate('/search')
-          // Focus the search input after navigation
           setTimeout(() => {
             const searchInput = document.querySelector<HTMLInputElement>(
               'input[placeholder*="Search"]'
@@ -192,7 +205,7 @@ export function useKeyboardShortcuts(onShowHelp?: () => void) {
   }, [handleShortcut])
 }
 
-export function getShortcutsByCategory() {
+export function getShortcutsByCategory(t?: TFunction) {
   const byCategory: Record<string, { keys: string; label: string }[]> = {
     navigation: [],
     actions: [],
@@ -200,11 +213,13 @@ export function getShortcutsByCategory() {
   }
 
   for (const [keys, config] of Object.entries(KEYBOARD_SHORTCUTS)) {
-    byCategory[config.category].push({ keys, label: config.label })
+    const label = t ? t(config.labelKey) : config.labelKey
+    byCategory[config.category].push({ keys, label })
   }
 
   // Add the Cmd+K shortcut to general
-  byCategory.general.unshift({ keys: '⌘K', label: 'Open Command Palette' })
+  const cmdKLabel = t ? t('shortcuts.openCommandPalette') : 'Open Command Palette'
+  byCategory.general.unshift({ keys: '⌘K', label: cmdKLabel })
 
   return byCategory
 }

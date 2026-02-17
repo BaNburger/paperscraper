@@ -56,6 +56,8 @@ const FILE_EXTENSIONS: Record<ExportFormat, string> = {
   csv: 'csv',
   bibtex: 'bib',
   pdf: 'txt',
+  ris: 'ris',
+  csljson: 'json',
 }
 
 export function useExportCsv() {

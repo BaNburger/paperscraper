@@ -174,3 +174,4 @@ DevData/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+*.png

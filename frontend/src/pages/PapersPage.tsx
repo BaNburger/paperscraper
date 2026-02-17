@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   usePapers,
+  useProjects,
   useIngestByDoi,
   useIngestFromOpenAlex,
   useIngestFromPubMed,
@@ -17,8 +18,10 @@ import { Badge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { SkeletonCard } from '@/components/ui/Skeleton'
 import { AccessibleModal } from '@/components/ui/AccessibleModal'
+import { useToast } from '@/components/ui/Toast'
 import {
   FileText,
+  FolderKanban,
   Search,
   Plus,
   ChevronLeft,
@@ -28,12 +31,16 @@ import {
   X,
   SearchX,
 } from 'lucide-react'
+import { WorkflowBanner } from '@/components/workflow/WorkflowBanner'
 import { formatDate, truncate } from '@/lib/utils'
+import { exportApi } from '@/lib/api'
+import { getApiErrorMessage } from '@/types'
 
 type ImportMode = 'doi' | 'openalex' | 'pubmed' | 'arxiv' | 'pdf'
 
 export function PapersPage() {
   const { t } = useTranslation()
+  const toast = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
   const page = parseInt(searchParams.get('page') ?? '1')
   const search = searchParams.get('search') ?? ''
@@ -60,8 +67,10 @@ export function PapersPage() {
     type: 'success' | 'error'
     message: string
   } | null>(null)
+  const [exportingFormat, setExportingFormat] = useState<'ris' | 'csljson' | null>(null)
 
   const { data, isLoading, error } = usePapers({ page, page_size: pageSize, search })
+  const { data: projectsData } = useProjects()
   const ingestByDoi = useIngestByDoi()
   const ingestFromOpenAlex = useIngestFromOpenAlex()
   const ingestFromPubMed = useIngestFromPubMed()
@@ -207,6 +216,23 @@ export function PapersPage() {
 
     setSelectedFile(file)
     setImportResult(null)
+  }
+
+  const handleQuickExport = async (format: 'ris' | 'csljson') => {
+    try {
+      setExportingFormat(format)
+      const blob = format === 'ris'
+        ? await exportApi.exportRis()
+        : await exportApi.exportCslJson()
+      const dateSuffix = new Date().toISOString().slice(0, 10)
+      exportApi.downloadFile(blob, `papers_export_${dateSuffix}.${format === 'ris' ? 'ris' : 'json'}`)
+      toast.success(t('papers.exportSuccessTitle'), t('papers.exportSuccessDescription'))
+    } catch (err) {
+      const message = getApiErrorMessage(err, t('papers.exportFailed'))
+      toast.error(t('papers.exportFailedTitle'), message)
+    } finally {
+      setExportingFormat(null)
+    }
   }
 
   const isImporting =
@@ -463,11 +489,40 @@ export function PapersPage() {
             {t('papers.subtitle')}
           </p>
         </div>
-        <Button onClick={() => setShowImportModal(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          {t('papers.importPapers')}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => handleQuickExport('ris')}
+            isLoading={exportingFormat === 'ris'}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            RIS
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handleQuickExport('csljson')}
+            isLoading={exportingFormat === 'csljson'}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            CSL-JSON
+          </Button>
+          <Button onClick={() => setShowImportModal(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            {t('papers.importPapers')}
+          </Button>
+        </div>
       </div>
+
+      {/* Workflow banner: papers -> projects */}
+      <WorkflowBanner
+        bannerId="papers-to-projects"
+        icon={FolderKanban}
+        message={t('workflow.banner.readyToEvaluate', 'You have papers in your library. Create a project to start evaluating them.')}
+        ctaLabel={t('workflow.banner.readyToEvaluateCta', 'Create Project')}
+        ctaPath="/projects"
+        condition={(data?.total ?? 0) > 0 && (projectsData?.total ?? 0) === 0}
+        variant="green"
+      />
 
       {/* Search */}
       <form onSubmit={handleSearch} className="flex gap-2">

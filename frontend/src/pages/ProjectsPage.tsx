@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { useProjects, useCreateProject, useDeleteProject } from '@/hooks'
+import { useProjects, useCreateProject, useDeleteProject, useConversations } from '@/hooks'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -19,7 +19,8 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog'
 import { useToast } from '@/components/ui/Toast'
-import { FolderKanban, Plus, Trash2, AlertTriangle } from 'lucide-react'
+import { FolderKanban, Plus, Trash2, AlertTriangle, ArrowRightLeft } from 'lucide-react'
+import { WorkflowBanner } from '@/components/workflow/WorkflowBanner'
 import { formatDate } from '@/lib/utils'
 
 export function ProjectsPage() {
@@ -30,6 +31,7 @@ export function ProjectsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null)
 
   const { data: projects, isLoading, error } = useProjects()
+  const { data: conversationsData } = useConversations({ page: 1, page_size: 1 })
   const createProject = useCreateProject()
   const deleteProject = useDeleteProject()
   const { success, error: showError } = useToast()
@@ -76,6 +78,17 @@ export function ProjectsPage() {
           {t('projects.newProject')}
         </Button>
       </div>
+
+      {/* Workflow banner: projects -> transfer */}
+      <WorkflowBanner
+        bannerId="projects-to-transfer"
+        icon={ArrowRightLeft}
+        message={t('workflow.banner.readyToTransfer', 'Your projects are set up. Start a transfer conversation to begin outreach.')}
+        ctaLabel={t('workflow.banner.readyToTransferCta', 'Start Transfer')}
+        ctaPath="/transfer"
+        condition={(projects?.total ?? 0) > 0 && (conversationsData?.total ?? 0) === 0}
+        variant="purple"
+      />
 
       {/* Projects Grid */}
       {isLoading ? (

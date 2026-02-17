@@ -1,9 +1,13 @@
 """Background tasks for paper scoring."""
 
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import delete
+
 from paper_scraper.core.database import get_db_session
+from paper_scraper.modules.scoring.models import GlobalScoreCache
 from paper_scraper.modules.scoring.schemas import ScoringWeightsSchema
 from paper_scraper.modules.scoring.service import ScoringService
 
@@ -146,3 +150,26 @@ async def generate_embeddings_batch_task(
         "status": "completed",
         "embeddings_generated": count,
     }
+
+
+async def cleanup_expired_score_cache_task(
+    ctx: dict[str, Any],
+) -> dict[str, Any]:
+    """Remove expired entries from the global_score_cache table.
+
+    Args:
+        ctx: arq context.
+
+    Returns:
+        Result dict with count of deleted entries.
+    """
+    async with get_db_session() as db:
+        result = await db.execute(
+            delete(GlobalScoreCache).where(
+                GlobalScoreCache.expires_at <= datetime.now(timezone.utc)
+            )
+        )
+        await db.commit()
+        deleted = result.rowcount
+
+    return {"status": "completed", "deleted_entries": deleted}

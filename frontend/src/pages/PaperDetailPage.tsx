@@ -1,15 +1,55 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { usePaper, usePaperScore, useScorePaper, useDeletePaper, useSimilarPapers, useGenerateSimplifiedAbstract, useRelatedPatents, useCitationGraph } from '@/hooks'
+import {
+  usePaper, usePaperScore, useScorePaper, useDeletePaper,
+  useSimilarPapers, useGenerateSimplifiedAbstract, useRelatedPatents,
+  useCitationGraph, useGeneratePitch,
+  useProjects, useAddPaperToProject,
+  useCreateConversation,
+  useMobileBreakpoint,
+  useModelConfigurations,
+  usePaperReader,
+  useHydratePaperFullText,
+  usePaperHighlights,
+  useGeneratePaperHighlights,
+  useZoteroStatus,
+  useZoteroOutboundSync,
+} from '@/hooks'
+import { useAuth } from '@/contexts/AuthContext'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
+import { Input } from '@/components/ui/Input'
+import { Label } from '@/components/ui/Label'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/components/ui/Toast'
 import { AuthorBadge } from '@/components/AuthorBadge'
 import { AuthorModal } from '@/components/AuthorModal'
 import { InnovationRadar } from '@/components/InnovationRadar'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from '@/components/ui/DropdownMenu'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/Select'
 import {
   ArrowLeft,
   ExternalLink,
@@ -27,8 +67,22 @@ import {
   Sparkles,
   ChevronRight,
   UserCheck,
+  ThumbsUp,
+  ThumbsDown,
+  FolderPlus,
+  ArrowRightLeft,
+  MoreHorizontal,
+  Check,
+  Bot,
+  ChevronDown,
+  ChevronUp,
+  Library,
+  Link as LinkIcon,
 } from 'lucide-react'
 import { formatDate, getScoreColor, cn } from '@/lib/utils'
+import { getApiErrorMessage } from '@/types'
+import type { TransferType } from '@/types'
+import { exportApi } from '@/lib/api'
 
 const scoreDimensionDefs = [
   { key: 'novelty', labelKey: 'papers.novelty', icon: Lightbulb, color: 'bg-violet-500', textColor: 'text-violet-600' },
@@ -39,26 +93,79 @@ const scoreDimensionDefs = [
   { key: 'team_readiness', labelKey: 'papers.teamReadiness', icon: UserCheck, color: 'bg-cyan-500', textColor: 'text-cyan-600' },
 ]
 
+const TRANSFER_TYPE_KEYS: Record<TransferType, string> = {
+  patent: 'transfer.typePatent',
+  licensing: 'transfer.typeLicensing',
+  startup: 'transfer.typeStartup',
+  partnership: 'transfer.typePartnership',
+  other: 'transfer.typeOther',
+}
+
 export function PaperDetailPage() {
   const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const toast = useToast()
+  const isMobile = useMobileBreakpoint()
+  const { user } = useAuth()
+  const { data: modelConfigs } = useModelConfigurations()
+  const isAiConfigured = modelConfigs?.items?.some(c => c.has_api_key) ?? false
+
+  // UI state
   const [showSimplified, setShowSimplified] = useState(false)
   const [selectedAuthorId, setSelectedAuthorId] = useState<string | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showTransferDialog, setShowTransferDialog] = useState(false)
+  const [transferTitle, setTransferTitle] = useState('')
+  const [transferType, setTransferType] = useState<TransferType>('licensing')
+  const [markedInteresting, setMarkedInteresting] = useState(false)
+  const [showAiSetupDialog, setShowAiSetupDialog] = useState(false)
+  const [mobileTab, setMobileTab] = useState<'reader' | 'insights' | 'transfer' | 'advanced'>('reader')
+  const [activeChunkId, setActiveChunkId] = useState<string | null>(null)
+  const [showSimilarSection, setShowSimilarSection] = useState(false)
+  const [showPatentsSection, setShowPatentsSection] = useState(false)
+  const [showCitationSection, setShowCitationSection] = useState(false)
+  const [showJstorSection, setShowJstorSection] = useState(false)
+  const chunkRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   const scoreDimensions = scoreDimensionDefs.map((d) => ({ ...d, label: t(d.labelKey) }))
 
   // All hooks must be called before any early returns (Rules of Hooks)
   const { data: paper, isLoading, error } = usePaper(id || '')
   const { data: score, isLoading: scoreLoading } = usePaperScore(id || '')
+  const { data: readerData, isLoading: readerLoading } = usePaperReader(id || '')
+  const { data: highlightsData, isLoading: highlightsLoading } = usePaperHighlights(id || '', { includeInactive: false })
+  const { data: zoteroStatus } = useZoteroStatus()
   const { data: similarData, isLoading: similarLoading } = useSimilarPapers(id || '', 5)
   const { data: patentsData, isLoading: patentsLoading } = useRelatedPatents(id || '')
   const { data: citationData, isLoading: citationLoading } = useCitationGraph(id || '')
   const scorePaper = useScorePaper()
+  const hydrateFullText = useHydratePaperFullText()
+  const generateHighlights = useGeneratePaperHighlights()
+  const zoteroOutboundSync = useZoteroOutboundSync()
   const deletePaper = useDeletePaper()
   const generateSimplified = useGenerateSimplifiedAbstract()
+  const generatePitch = useGeneratePitch()
+  const { data: projectsData, isLoading: projectsLoading } = useProjects()
+  const addPaperToProject = useAddPaperToProject()
+  const createConversation = useCreateConversation()
+  const readerChunks = readerData?.chunks ?? []
+  const highlightItems = highlightsData?.items ?? []
+  const showReaderTab = !isMobile || mobileTab === 'reader'
+  const showInsightsTab = !isMobile || mobileTab === 'insights'
+  const showTransferTab = !isMobile || mobileTab === 'transfer'
+  const showAdvancedTab = !isMobile || mobileTab === 'advanced'
+  const chunkByIndex = useMemo(
+    () => new Map(readerChunks.map((chunk) => [chunk.chunk_index, chunk])),
+    [readerChunks]
+  )
+
+  useEffect(() => {
+    if (!activeChunkId) return
+    const node = chunkRefs.current[activeChunkId]
+    if (!node) return
+    node.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [activeChunkId])
 
   if (!id) {
     return (
@@ -75,12 +182,18 @@ export function PaperDetailPage() {
     )
   }
 
+  // --- Handlers ---
+
   const handleScore = async () => {
+    if (!isAiConfigured) {
+      setShowAiSetupDialog(true)
+      return
+    }
     try {
       await scorePaper.mutateAsync(id)
       toast.success(t('papers.scored'), t('papers.scoringCompleted'))
     } catch (err) {
-      const message = err instanceof Error ? err.message : t('papers.scoringFailed')
+      const message = getApiErrorMessage(err, t('papers.scoringFailed'))
       toast.error(t('papers.scoringFailedTitle'), message)
     }
   }
@@ -91,10 +204,138 @@ export function PaperDetailPage() {
       toast.success(t('papers.deleted'), t('papers.deletedDescription'))
       navigate('/papers')
     } catch (err) {
-      const message = err instanceof Error ? err.message : t('papers.deleteFailed')
+      const message = getApiErrorMessage(err, t('papers.deleteFailed'))
       toast.error(t('papers.deleteFailedTitle'), message)
     }
   }
+
+  const handleGeneratePitch = async () => {
+    if (!isAiConfigured) {
+      setShowAiSetupDialog(true)
+      return
+    }
+    try {
+      await generatePitch.mutateAsync(id)
+      toast.success(t('papers.aiSummaryGenerated'))
+    } catch (err) {
+      const message = getApiErrorMessage(err, t('papers.aiSummaryFailed'))
+      toast.error(t('papers.aiSummaryFailedTitle'), message)
+    }
+  }
+
+  const handleAddToProject = async (projectId: string, projectName: string): Promise<boolean> => {
+    try {
+      await addPaperToProject.mutateAsync({ projectId, paperId: id })
+      toast.success(
+        t('papers.addedToProject'),
+        t('papers.addedToProjectDescription', { project: projectName })
+      )
+      return true
+    } catch (err) {
+      const message = getApiErrorMessage(err, t('papers.addToProjectFailed'))
+      toast.error(t('papers.addToProjectFailedTitle'), message)
+      return false
+    }
+  }
+
+  const handleInteresting = async () => {
+    const projects = projectsData?.items
+    if (!projects?.length) {
+      toast.error(t('papers.addToProjectFailedTitle'), t('papers.noProjectsAvailable'))
+      return
+    }
+    if (projects.length === 1) {
+      const success = await handleAddToProject(projects[0].id, projects[0].name)
+      if (success) setMarkedInteresting(true)
+    }
+  }
+
+  const handleSkip = () => {
+    toast.info(t('papers.skipped'), t('papers.skippedDescription'))
+    navigate(-1)
+  }
+
+  const handleStartTransfer = async () => {
+    try {
+      const result = await createConversation.mutateAsync({
+        title: transferTitle,
+        type: transferType,
+        paper_id: id,
+      })
+      setShowTransferDialog(false)
+      toast.success(t('papers.transferCreated'), t('papers.transferCreatedDescription'))
+      navigate(`/transfer/${result.id}`)
+    } catch (err) {
+      const message = getApiErrorMessage(err, t('papers.transferCreateFailed'))
+      toast.error(t('papers.transferCreateFailedTitle'), message)
+    }
+  }
+
+  const handleHydrateReader = async () => {
+    try {
+      const result = await hydrateFullText.mutateAsync(id)
+      if (result.hydrated) {
+        toast.success(t('papers.readerHydratedTitle'), t('papers.readerHydratedDescription'))
+      } else {
+        toast.info(t('papers.readerUnavailableTitle'), result.message)
+      }
+    } catch (err) {
+      const message = getApiErrorMessage(err, t('papers.readerHydrateFailed'))
+      toast.error(t('papers.readerHydrateFailedTitle'), message)
+    }
+  }
+
+  const handleGenerateHighlights = async () => {
+    try {
+      await generateHighlights.mutateAsync({ paperId: id, targetCount: 8 })
+      toast.success(t('papers.highlightsGeneratedTitle'), t('papers.highlightsGeneratedDescription'))
+    } catch (err) {
+      const message = getApiErrorMessage(err, t('papers.highlightsGenerateFailed'))
+      toast.error(t('papers.highlightsGenerateFailedTitle'), message)
+    }
+  }
+
+  const handleFocusHighlight = (chunkId: string | null | undefined, chunkRef: string) => {
+    if (chunkId) {
+      setActiveChunkId(chunkId)
+      return
+    }
+    if (chunkRef.startsWith('chunk:')) {
+      const index = Number.parseInt(chunkRef.replace('chunk:', ''), 10)
+      if (Number.isFinite(index)) {
+        const chunk = chunkByIndex.get(index)
+        if (chunk) {
+          setActiveChunkId(chunk.id)
+        }
+      }
+    }
+  }
+
+  const handleExport = async (format: 'ris' | 'csljson') => {
+    try {
+      const blob = format === 'ris'
+        ? await exportApi.exportRis({ paper_ids: [id] })
+        : await exportApi.exportCslJson({ paper_ids: [id] })
+      const baseTitle = (paper?.title || 'paper').replace(/[^a-z0-9]+/gi, '_').toLowerCase()
+      const filename = `${baseTitle}.${format === 'ris' ? 'ris' : 'json'}`
+      exportApi.downloadFile(blob, filename)
+    } catch (err) {
+      const message = getApiErrorMessage(err, t('papers.exportFailed'))
+      toast.error(t('papers.exportFailedTitle'), message)
+    }
+  }
+
+  const handleSyncZoteroOutbound = async () => {
+    try {
+      await zoteroOutboundSync.mutateAsync([id])
+      toast.success(t('papers.zoteroSyncStartedTitle'), t('papers.zoteroSyncStartedDescription'))
+    } catch (err) {
+      const message = getApiErrorMessage(err, t('papers.zoteroSyncFailed'))
+      toast.error(t('papers.zoteroSyncFailedTitle'), message)
+    }
+  }
+
+  // --- Early returns ---
 
   if (isLoading) {
     return (
@@ -119,67 +360,321 @@ export function PaperDetailPage() {
     )
   }
 
+  const projects = projectsData?.items ?? []
+  const hasMultipleProjects = projects.length > 1
+  const hasBothAiSummaries = !!(paper.one_line_pitch && paper.simplified_abstract)
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Go back">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">{paper.title}</h1>
-            <div className="flex flex-wrap items-center gap-2 mt-2">
-              <Badge variant="outline">{paper.source}</Badge>
-              {paper.journal && (
-                <span className="text-sm text-muted-foreground">{paper.journal}</span>
-              )}
-              {paper.publication_date && (
-                <span className="text-sm text-muted-foreground flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
-                  {formatDate(paper.publication_date)}
-                </span>
-              )}
-            </div>
+      <div className="flex items-start gap-4">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Go back">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold">{paper.title}</h1>
+          <div className="flex flex-wrap items-center gap-2 mt-2">
+            <Badge variant="outline">{paper.source}</Badge>
+            {paper.journal && (
+              <span className="text-sm text-muted-foreground">{paper.journal}</span>
+            )}
+            {paper.publication_date && (
+              <span className="text-sm text-muted-foreground flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                {formatDate(paper.publication_date)}
+              </span>
+            )}
           </div>
         </div>
-        <div className="flex gap-2">
-          {paper.doi && (
-            <a
-              href={`https://doi.org/${paper.doi}`}
-              target="_blank"
-              rel="noopener noreferrer"
+      </div>
+
+      {/* Action Bar */}
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-3">
+        {/* Triage Group */}
+        <div className="flex items-center gap-1">
+          {markedInteresting ? (
+            <Button variant="secondary" size="sm" disabled>
+              <Check className="h-4 w-4 mr-1" />
+              {t('papers.marked')}
+            </Button>
+          ) : hasMultipleProjects ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <ThumbsUp className="h-4 w-4 mr-1" />
+                  {t('papers.interesting')}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuLabel>{t('papers.selectProject')}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {projects.map((project) => (
+                  <DropdownMenuItem
+                    key={project.id}
+                    onClick={async () => {
+                      const success = await handleAddToProject(project.id, project.name)
+                      if (success) setMarkedInteresting(true)
+                    }}
+                  >
+                    {project.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleInteresting}
+              isLoading={addPaperToProject.isPending}
             >
-              <Button variant="outline" size="sm">
-                <ExternalLink className="h-4 w-4 mr-2" />
-                DOI
-              </Button>
-            </a>
+              <ThumbsUp className="h-4 w-4 mr-1" />
+              {t('papers.interesting')}
+            </Button>
           )}
+          <Button variant="ghost" size="sm" onClick={handleSkip}>
+            <ThumbsDown className="h-4 w-4 mr-1" />
+            {t('papers.skip')}
+          </Button>
+        </div>
+
+        <div className="h-6 border-l mx-1 hidden sm:block" />
+
+        {/* Actions Group */}
+        <div className="flex items-center gap-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" disabled={projectsLoading}>
+                <FolderPlus className="h-4 w-4 mr-1" />
+                {t('papers.addToProject')}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuLabel>{t('papers.selectProject')}</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {projectsLoading ? (
+                <div className="flex justify-center py-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                </div>
+              ) : !projects.length ? (
+                <DropdownMenuItem disabled>
+                  {t('papers.noProjectsAvailable')}
+                </DropdownMenuItem>
+              ) : (
+                projects.map((project) => (
+                  <DropdownMenuItem
+                    key={project.id}
+                    onClick={() => handleAddToProject(project.id, project.name)}
+                  >
+                    {project.name}
+                  </DropdownMenuItem>
+                ))
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Button
             variant="outline"
             size="sm"
-            onClick={handleScore}
-            isLoading={scorePaper.isPending}
+            onClick={() => {
+              setTransferTitle(paper.title)
+              setShowTransferDialog(true)
+            }}
           >
-            <TrendingUp className="h-4 w-4 mr-2" />
-            {score ? t('papers.rescore') : t('papers.score')}
-          </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => setShowDeleteConfirm(true)}
-            isLoading={deletePaper.isPending}
-            aria-label="Delete paper"
-          >
-            <Trash2 className="h-4 w-4" />
+            <ArrowRightLeft className="h-4 w-4 mr-1" />
+            {t('papers.startTransfer')}
           </Button>
         </div>
+
+        {isMobile ? (
+          <>
+            <div className="flex-1" />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleScore} disabled={scorePaper.isPending}>
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  {score ? t('papers.rescore') : t('papers.score')}
+                </DropdownMenuItem>
+                {paper.doi && (
+                  <DropdownMenuItem asChild>
+                    <a href={`https://doi.org/${paper.doi}`} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      DOI
+                    </a>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  {t('common.delete')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        ) : (
+          <>
+            <div className="h-6 border-l mx-1" />
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleScore}
+              isLoading={scorePaper.isPending}
+            >
+              <TrendingUp className="h-4 w-4 mr-1" />
+              {score ? t('papers.rescore') : t('papers.score')}
+            </Button>
+
+            <div className="flex-1" />
+
+            <div className="flex items-center gap-1">
+              {paper.doi && (
+                <a href={`https://doi.org/${paper.doi}`} target="_blank" rel="noopener noreferrer">
+                  <Button variant="ghost" size="sm">
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    DOI
+                  </Button>
+                </a>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowDeleteConfirm(true)}
+                isLoading={deletePaper.isPending}
+              >
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </div>
+          </>
+        )}
       </div>
+
+      {isMobile && (
+        <div className="grid grid-cols-4 gap-2 rounded-lg border bg-muted/20 p-1">
+          <Button
+            size="sm"
+            variant={mobileTab === 'reader' ? 'default' : 'ghost'}
+            onClick={() => setMobileTab('reader')}
+          >
+            {t('papers.readerTab')}
+          </Button>
+          <Button
+            size="sm"
+            variant={mobileTab === 'insights' ? 'default' : 'ghost'}
+            onClick={() => setMobileTab('insights')}
+          >
+            {t('papers.insightsTab')}
+          </Button>
+          <Button
+            size="sm"
+            variant={mobileTab === 'transfer' ? 'default' : 'ghost'}
+            onClick={() => setMobileTab('transfer')}
+          >
+            {t('papers.transferTab')}
+          </Button>
+          <Button
+            size="sm"
+            variant={mobileTab === 'advanced' ? 'default' : 'ghost'}
+            onClick={() => setMobileTab('advanced')}
+          >
+            {t('papers.advancedTab')}
+          </Button>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
+          {showReaderTab && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <BookOpen className="h-5 w-5" />
+                      {t('papers.readerTitle')}
+                    </CardTitle>
+                    <CardDescription>{t('papers.readerDescription')}</CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {readerData?.status?.available ? (
+                      <Badge variant="secondary" className="capitalize">
+                        {readerData.status.source || 'full-text'}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline">{t('papers.readerUnavailableShort')}</Badge>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleHydrateReader}
+                      isLoading={hydrateFullText.isPending}
+                    >
+                      <LinkIcon className="h-4 w-4 mr-2" />
+                      {readerData?.status?.available
+                        ? t('papers.readerRehydrate')
+                        : t('papers.readerHydrate')}
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {readerLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  </div>
+                ) : !readerData?.status?.available || !readerChunks.length ? (
+                  <div className="rounded-lg border border-dashed p-6 text-center">
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {t('papers.readerUnavailableDescription')}
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={handleHydrateReader}
+                      isLoading={hydrateFullText.isPending}
+                    >
+                      {t('papers.readerHydrate')}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="max-h-[680px] overflow-y-auto rounded-lg border bg-background">
+                    <div className="space-y-4 p-4">
+                      {readerChunks.map((chunk) => (
+                        <div
+                          key={chunk.id}
+                          ref={(el) => {
+                            chunkRefs.current[chunk.id] = el
+                          }}
+                          className={cn(
+                            'rounded-md border p-3 text-sm leading-relaxed transition-colors',
+                            activeChunkId === chunk.id
+                              ? 'border-primary bg-primary/5'
+                              : 'border-transparent'
+                          )}
+                        >
+                          <div className="mb-2 text-xs text-muted-foreground">
+                            {t('papers.chunkLabel', { index: chunk.chunk_index + 1 })}
+                          </div>
+                          <p className="whitespace-pre-wrap">{chunk.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {showReaderTab && (
+            <>
           {/* Abstract */}
           <Card>
             <CardHeader>
@@ -188,7 +683,7 @@ export function PaperDetailPage() {
                   <BookOpen className="h-5 w-5" />
                   {t('papers.abstract')}
                 </CardTitle>
-                {paper.abstract && (
+                {paper.abstract && !hasBothAiSummaries && (
                   <div className="flex items-center gap-2">
                     {paper.simplified_abstract ? (
                       <div className="flex rounded-lg border p-0.5">
@@ -224,15 +719,51 @@ export function PaperDetailPage() {
                   </div>
                 )}
               </div>
-              {showSimplified && paper.simplified_abstract && (
+              {showSimplified && paper.simplified_abstract && !hasBothAiSummaries && (
                 <CardDescription className="mt-1">
                   {t('papers.simplifiedDescription')}
                 </CardDescription>
               )}
             </CardHeader>
             <CardContent>
+              {/* AI Summary Callout */}
+              {paper.one_line_pitch ? (
+                <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 mb-4">
+                  <div className="flex items-start gap-2">
+                    <Sparkles className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-medium text-primary italic">
+                        &ldquo;{paper.one_line_pitch}&rdquo;
+                      </p>
+                      {paper.simplified_abstract && (
+                        <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                          {paper.simplified_abstract}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-muted/50 border border-dashed rounded-lg p-4 mb-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Sparkles className="h-4 w-4" />
+                    <span className="text-sm">{t('papers.noAiSummary')}</span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGeneratePitch}
+                    isLoading={generatePitch.isPending}
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    {t('papers.generateAiSummary')}
+                  </Button>
+                </div>
+              )}
+
+              {/* Abstract text (always visible) */}
               <p className="text-muted-foreground leading-relaxed">
-                {showSimplified && paper.simplified_abstract
+                {showSimplified && paper.simplified_abstract && !hasBothAiSummaries
                   ? paper.simplified_abstract
                   : paper.abstract || t('papers.noAbstract')}
               </p>
@@ -318,310 +849,510 @@ export function PaperDetailPage() {
               </CardContent>
             </Card>
           )}
+            </>
+          )}
         </div>
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Score Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                {t('papers.scores')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {scoreLoading ? (
-                <div className="flex justify-center py-4">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                </div>
-              ) : score ? (
-                <div className="space-y-4">
-                  {/* Overall Score */}
-                  <div className="text-center pb-4 border-b">
-                    <p className="text-sm text-muted-foreground">{t('papers.overallScore')}</p>
-                    <p className={cn('text-4xl font-bold', getScoreColor(score.overall_score))}>
-                      {score.overall_score.toFixed(1)}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {t('papers.confidence', { value: (score.confidence * 100).toFixed(0) })}
-                    </p>
+          {showInsightsTab && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Sparkles className="h-5 w-5" />
+                      {t('papers.insightsTitle')}
+                    </CardTitle>
+                    <CardDescription>{t('papers.insightsDescription')}</CardDescription>
                   </div>
-
-                  {/* Innovation Radar */}
-                  <InnovationRadar
-                    scores={{
-                      novelty: score.novelty,
-                      ip_potential: score.ip_potential,
-                      marketability: score.marketability,
-                      feasibility: score.feasibility,
-                      commercialization: score.commercialization,
-                      team_readiness: score.team_readiness,
-                    }}
-                    size={220}
-                  />
-
-                  {/* Dimension Bars */}
-                  <div className="space-y-3">
-                    {scoreDimensions.map((dim) => {
-                      const value = score[dim.key as keyof typeof score] as number
-                      return (
-                        <div key={dim.key}>
-                          <div className="flex items-center justify-between text-sm mb-1">
-                            <span className="flex items-center gap-1">
-                              <dim.icon className={cn('h-3 w-3', dim.textColor)} />
-                              {dim.label}
-                            </span>
-                            <span className="font-medium">{value.toFixed(1)}</span>
-                          </div>
-                          <div className="h-2 rounded-full bg-muted">
-                            <div
-                              className={cn('h-full rounded-full transition-all', dim.color)}
-                              style={{ width: `${value * 10}%` }}
-                            />
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-4">
-                  <p className="text-muted-foreground text-sm mb-4">
-                    {t('papers.notScoredYet')}
-                  </p>
                   <Button
-                    onClick={handleScore}
-                    isLoading={scorePaper.isPending}
-                    className="w-full"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateHighlights}
+                    isLoading={generateHighlights.isPending}
+                    disabled={!readerData?.status?.available}
                   >
-                    <TrendingUp className="h-4 w-4 mr-2" />
-                    {t('papers.scoreNow')}
+                    {t('papers.generate')}
                   </Button>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Metadata */}
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('papers.metadata')}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {paper.doi && (
-                <div>
-                  <p className="text-xs text-muted-foreground">DOI</p>
-                  <p className="text-sm font-mono">{paper.doi}</p>
-                </div>
-              )}
-              {paper.volume && (
-                <div>
-                  <p className="text-xs text-muted-foreground">{t('papers.volumeIssue')}</p>
-                  <p className="text-sm">
-                    {paper.volume}
-                    {paper.issue && ` (${paper.issue})`}
-                    {paper.pages && `, pp. ${paper.pages}`}
-                  </p>
-                </div>
-              )}
-              {paper.citations_count !== null && (
-                <div>
-                  <p className="text-xs text-muted-foreground">{t('papers.citations')}</p>
-                  <p className="text-sm">{paper.citations_count}</p>
-                </div>
-              )}
-              {paper.references_count !== null && (
-                <div>
-                  <p className="text-xs text-muted-foreground">{t('papers.references')}</p>
-                  <p className="text-sm">{paper.references_count}</p>
-                </div>
-              )}
-              {paper.keywords.length > 0 && (
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">{t('papers.keywords')}</p>
-                  <div className="flex flex-wrap gap-1">
-                    {paper.keywords.map((kw, idx) => (
-                      <Badge key={idx} variant="secondary" className="text-xs">
-                        {kw}
-                      </Badge>
+              </CardHeader>
+              <CardContent>
+                {highlightsLoading ? (
+                  <div className="flex justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  </div>
+                ) : !readerData?.status?.available ? (
+                  <p className="text-sm text-muted-foreground">{t('papers.insightsNeedReader')}</p>
+                ) : !highlightItems.length ? (
+                  <div className="rounded-lg border border-dashed p-4 text-center">
+                    <p className="text-sm text-muted-foreground mb-3">{t('papers.noHighlights')}</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleGenerateHighlights}
+                      isLoading={generateHighlights.isPending}
+                    >
+                      {t('papers.generateHighlights')}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {highlightItems.map((highlight) => (
+                      <button
+                        key={highlight.id}
+                        onClick={() => handleFocusHighlight(highlight.chunk_id, highlight.chunk_ref)}
+                        className="w-full rounded-lg border p-3 text-left transition-colors hover:bg-muted/30"
+                      >
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
+                          {highlight.source}
+                        </p>
+                        <p className="text-sm font-medium line-clamp-2">{highlight.quote}</p>
+                        <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
+                          {highlight.insight_summary}
+                        </p>
+                      </button>
                     ))}
                   </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
-          {/* Similar Papers */}
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('papers.similarPapers')}</CardTitle>
-              <CardDescription>{t('papers.similarPapersDescription')}</CardDescription>
-            </CardHeader>
+          {showTransferTab && (
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('papers.transferHubTitle')}</CardTitle>
+                <CardDescription>{t('papers.transferHubDescription')}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    setTransferTitle(paper.title)
+                    setShowTransferDialog(true)
+                  }}
+                >
+                  <ArrowRightLeft className="h-4 w-4 mr-2" />
+                  {t('papers.startTransfer')}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleSyncZoteroOutbound}
+                  isLoading={zoteroOutboundSync.isPending}
+                  disabled={!zoteroStatus?.connected}
+                >
+                  {t('papers.syncToZotero')}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  {zoteroStatus?.connected
+                    ? t('papers.zoteroConnected')
+                    : t('papers.zoteroNotConnected')}
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" size="sm" onClick={() => handleExport('ris')}>
+                    RIS
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => handleExport('csljson')}>
+                    CSL-JSON
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {showInsightsTab && (
+            <>
+              {/* Score Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    {t('papers.scores')}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {scoreLoading ? (
+                    <div className="flex justify-center py-4">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    </div>
+                  ) : score ? (
+                    <div className="space-y-4">
+                      <div className="text-center pb-4 border-b">
+                        <p className="text-sm text-muted-foreground">{t('papers.overallScore')}</p>
+                        <p className={cn('text-4xl font-bold', getScoreColor(score.overall_score))}>
+                          {score.overall_score.toFixed(1)}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {t('papers.confidence', { value: (score.confidence * 100).toFixed(0) })}
+                        </p>
+                      </div>
+
+                      <InnovationRadar
+                        scores={{
+                          novelty: score.novelty,
+                          ip_potential: score.ip_potential,
+                          marketability: score.marketability,
+                          feasibility: score.feasibility,
+                          commercialization: score.commercialization,
+                          team_readiness: score.team_readiness,
+                        }}
+                        size={220}
+                      />
+
+                      <div className="space-y-3">
+                        {scoreDimensions.map((dim) => {
+                          const value = score[dim.key as keyof typeof score] as number
+                          return (
+                            <div key={dim.key}>
+                              <div className="flex items-center justify-between text-sm mb-1">
+                                <span className="flex items-center gap-1">
+                                  <dim.icon className={cn('h-3 w-3', dim.textColor)} />
+                                  {dim.label}
+                                </span>
+                                <span className="font-medium">{value.toFixed(1)}</span>
+                              </div>
+                              <div className="h-2 rounded-full bg-muted">
+                                <div
+                                  className={cn('h-full rounded-full transition-all', dim.color)}
+                                  style={{ width: `${value * 10}%` }}
+                                />
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <p className="text-muted-foreground text-sm mb-4">
+                        {t('papers.notScoredYet')}
+                      </p>
+                      <Button
+                        onClick={handleScore}
+                        isLoading={scorePaper.isPending}
+                        className="w-full"
+                      >
+                        <TrendingUp className="h-4 w-4 mr-2" />
+                        {t('papers.scoreNow')}
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Metadata */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t('papers.metadata')}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {paper.doi && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">DOI</p>
+                      <p className="text-sm font-mono">{paper.doi}</p>
+                    </div>
+                  )}
+                  {paper.volume && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">{t('papers.volumeIssue')}</p>
+                      <p className="text-sm">
+                        {paper.volume}
+                        {paper.issue && ` (${paper.issue})`}
+                        {paper.pages && `, pp. ${paper.pages}`}
+                      </p>
+                    </div>
+                  )}
+                  {paper.citations_count !== null && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">{t('papers.citations')}</p>
+                      <p className="text-sm">{paper.citations_count}</p>
+                    </div>
+                  )}
+                  {paper.references_count !== null && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">{t('papers.references')}</p>
+                      <p className="text-sm">{paper.references_count}</p>
+                    </div>
+                  )}
+                  {paper.keywords.length > 0 && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">{t('papers.keywords')}</p>
+                      <div className="flex flex-wrap gap-1">
+                        {paper.keywords.map((kw, idx) => (
+                          <Badge key={idx} variant="secondary" className="text-xs">
+                            {kw}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
+
+          {showAdvancedTab && (
+            <Card>
+              <CardHeader className="pb-3">
+                <button
+                  className="flex w-full items-center justify-between text-left"
+                  onClick={() => setShowSimilarSection((prev) => !prev)}
+                >
+                  <div>
+                    <CardTitle>{t('papers.similarPapers')}</CardTitle>
+                    <CardDescription>{t('papers.similarPapersDescription')}</CardDescription>
+                  </div>
+                  {showSimilarSection ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </button>
+              </CardHeader>
+              {showSimilarSection && (
+                <CardContent>
+                  {similarLoading ? (
+                    <div className="flex justify-center py-4">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    </div>
+                  ) : !similarData?.similar?.results?.length ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      {paper.has_embedding
+                        ? t('papers.noSimilarPapers')
+                        : t('papers.generateEmbedding')}
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {similarData.similar.results.map((result: { paper: { id: string; title: string }; relevance_score: number }) => (
+                        <Link
+                          key={result.paper.id}
+                          to={`/papers/${result.paper.id}`}
+                          className="block rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+                        >
+                          <p className="text-sm font-medium line-clamp-2">
+                            {result.paper.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {t('papers.similarity', { value: (result.relevance_score * 100).toFixed(0) })}
+                          </p>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              )}
+            </Card>
+          )}
+        </div>
+      </div>
+
+      {showAdvancedTab && (
+        <Card>
+          <CardHeader className="pb-3">
+            <button
+              className="flex w-full items-center justify-between text-left"
+              onClick={() => setShowPatentsSection((prev) => !prev)}
+            >
+              <div>
+                <CardTitle>{t('papers.relatedPatents')}</CardTitle>
+                <CardDescription>{t('papers.relatedPatentsDescription')}</CardDescription>
+              </div>
+              {showPatentsSection ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </button>
+          </CardHeader>
+          {showPatentsSection && (
             <CardContent>
-              {similarLoading ? (
+              {patentsLoading ? (
                 <div className="flex justify-center py-4">
                   <Loader2 className="h-5 w-5 animate-spin" />
                 </div>
-              ) : !similarData?.similar.results.length ? (
+              ) : !patentsData?.patents?.length ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  {paper.has_embedding
-                    ? t('papers.noSimilarPapers')
-                    : t('papers.generateEmbedding')}
+                  {t('papers.noRelatedPatents')}
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {similarData.similar.results.map((result) => (
-                    <Link
-                      key={result.paper.id}
-                      to={`/papers/${result.paper.id}`}
+                  {patentsData.patents.map((patent) => (
+                    <a
+                      key={patent.patent_number}
+                      href={patent.espacenet_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="block rounded-lg border p-3 hover:bg-muted/50 transition-colors"
                     >
-                      <p className="text-sm font-medium line-clamp-2">
-                        {result.paper.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {t('papers.similarity', { value: (result.relevance_score * 100).toFixed(0) })}
-                      </p>
-                    </Link>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium line-clamp-2">{patent.title || patent.patent_number}</p>
+                          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                            <span>{patent.patent_number}</span>
+                            {patent.applicant && <span>{patent.applicant}</span>}
+                            {patent.publication_date && <span>{patent.publication_date}</span>}
+                          </div>
+                          {patent.abstract && (
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{patent.abstract}</p>
+                          )}
+                        </div>
+                        <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      </div>
+                    </a>
                   ))}
                 </div>
               )}
             </CardContent>
-          </Card>
-        </div>
-      </div>
+          )}
+        </Card>
+      )}
 
-      {/* Related Patents (EPO OPS) */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('papers.relatedPatents')}</CardTitle>
-          <CardDescription>{t('papers.relatedPatentsDescription')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {patentsLoading ? (
-            <div className="flex justify-center py-4">
-              <Loader2 className="h-5 w-5 animate-spin" />
-            </div>
-          ) : !patentsData?.patents.length ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              {t('papers.noRelatedPatents')}
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {patentsData.patents.map((patent) => (
-                <a
-                  key={patent.patent_number}
-                  href={patent.espacenet_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block rounded-lg border p-3 hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium line-clamp-2">{patent.title || patent.patent_number}</p>
-                      <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                        <span>{patent.patent_number}</span>
-                        {patent.applicant && <span>{patent.applicant}</span>}
-                        {patent.publication_date && <span>{patent.publication_date}</span>}
+      {showAdvancedTab && (
+        <Card>
+          <CardHeader className="pb-3">
+            <button
+              className="flex w-full items-center justify-between text-left"
+              onClick={() => setShowCitationSection((prev) => !prev)}
+            >
+              <div>
+                <CardTitle>{t('papers.citationGraph')}</CardTitle>
+                <CardDescription>{t('papers.citationGraphDescription')}</CardDescription>
+              </div>
+              {showCitationSection ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </button>
+          </CardHeader>
+          {showCitationSection && (
+            <CardContent>
+              {citationLoading ? (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                </div>
+              ) : !citationData || citationData.edges.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  {t('papers.noCitationData')}
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {(() => {
+                    const citingEdges = citationData.edges.filter(
+                      (e) => e.type === 'cites' && e.target === citationData.root_paper_id
+                    )
+                    if (citingEdges.length === 0) return null
+                    return (
+                      <div>
+                        <h4 className="text-sm font-medium mb-2">
+                          {t('papers.citedBy', { count: citingEdges.length })}
+                        </h4>
+                        <div className="space-y-2">
+                          {citingEdges.map((edge) => {
+                            const node = citationData.nodes.find((n) => n.paper_id === edge.source)
+                            if (!node) return null
+                            return (
+                              <div key={node.paper_id} className="rounded-lg border p-2">
+                                <p className="text-sm line-clamp-1">{node.title}</p>
+                                <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+                                  {node.year && <span>{node.year}</span>}
+                                  {node.citation_count != null && (
+                                    <span>{t('papers.citationsCount', { count: node.citation_count })}</span>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
                       </div>
-                      {patent.abstract && (
-                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{patent.abstract}</p>
+                    )
+                  })()}
+
+                  {(() => {
+                    const refEdges = citationData.edges.filter(
+                      (e) => e.type === 'cites' && e.source === citationData.root_paper_id
+                    )
+                    if (refEdges.length === 0) return null
+                    return (
+                      <div>
+                        <h4 className="text-sm font-medium mb-2">
+                          {t('papers.referencesCount', { count: refEdges.length })}
+                        </h4>
+                        <div className="space-y-2">
+                          {refEdges.map((edge) => {
+                            const node = citationData.nodes.find((n) => n.paper_id === edge.target)
+                            if (!node) return null
+                            return (
+                              <div key={node.paper_id} className="rounded-lg border p-2">
+                                <p className="text-sm line-clamp-1">{node.title}</p>
+                                <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+                                  {node.year && <span>{node.year}</span>}
+                                  {node.citation_count != null && (
+                                    <span>{t('papers.citationsCount', { count: node.citation_count })}</span>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
+            </CardContent>
+          )}
+        </Card>
+      )}
+
+      {/* JSTOR Library Context */}
+      {showAdvancedTab && score?.jstor_references && score.jstor_references.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <button
+              className="flex w-full items-center justify-between text-left"
+              onClick={() => setShowJstorSection((prev) => !prev)}
+            >
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Library className="h-5 w-5" />
+                  {t('papers.jstorContext', 'JSTOR Library Context')}
+                </CardTitle>
+                <CardDescription>
+                  {t('papers.jstorContextDescription', {
+                    count: score.jstor_references.length,
+                    defaultValue: 'Assessment informed by {{count}} related JSTOR papers',
+                  })}
+                </CardDescription>
+              </div>
+              {showJstorSection ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </button>
+          </CardHeader>
+          {showJstorSection && (
+            <CardContent>
+              <div className="space-y-3">
+                {score.jstor_references.map((ref, idx) => (
+                  <div key={ref.doi || idx} className="rounded-lg border p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium line-clamp-2">{ref.title}</p>
+                        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground flex-wrap">
+                          {ref.authors && <span>{ref.authors}</span>}
+                          {ref.year && <span>({ref.year})</span>}
+                          {ref.journal && <span className="italic">{ref.journal}</span>}
+                        </div>
+                      </div>
+                      {ref.jstor_url && (
+                        <a
+                          href={ref.jstor_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0"
+                        >
+                          <Button variant="ghost" size="sm">
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            {t('papers.viewOnJstor', 'JSTOR')}
+                          </Button>
+                        </a>
                       )}
                     </div>
-                    <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
                   </div>
-                </a>
-              ))}
-            </div>
+                ))}
+              </div>
+            </CardContent>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Citation Graph (Semantic Scholar) */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('papers.citationGraph')}</CardTitle>
-          <CardDescription>{t('papers.citationGraphDescription')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {citationLoading ? (
-            <div className="flex justify-center py-4">
-              <Loader2 className="h-5 w-5 animate-spin" />
-            </div>
-          ) : !citationData || citationData.edges.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              {t('papers.noCitationData')}
-            </p>
-          ) : (
-            <div className="space-y-4">
-              {/* Citing papers (papers that cite this one) */}
-              {(() => {
-                const citingEdges = citationData.edges.filter(
-                  (e) => e.type === 'cites' && e.target === citationData.root_paper_id
-                )
-                if (citingEdges.length === 0) return null
-                return (
-                  <div>
-                    <h4 className="text-sm font-medium mb-2">
-                      {t('papers.citedBy', { count: citingEdges.length })}
-                    </h4>
-                    <div className="space-y-2">
-                      {citingEdges.map((edge) => {
-                        const node = citationData.nodes.find((n) => n.paper_id === edge.source)
-                        if (!node) return null
-                        return (
-                          <div key={node.paper_id} className="rounded-lg border p-2">
-                            <p className="text-sm line-clamp-1">{node.title}</p>
-                            <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
-                              {node.year && <span>{node.year}</span>}
-                              {node.citation_count != null && (
-                                <span>{t('papers.citationsCount', { count: node.citation_count })}</span>
-                              )}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )
-              })()}
-
-              {/* Referenced papers (papers this one cites) */}
-              {(() => {
-                const refEdges = citationData.edges.filter(
-                  (e) => e.type === 'cites' && e.source === citationData.root_paper_id
-                )
-                if (refEdges.length === 0) return null
-                return (
-                  <div>
-                    <h4 className="text-sm font-medium mb-2">
-                      {t('papers.referencesCount', { count: refEdges.length })}
-                    </h4>
-                    <div className="space-y-2">
-                      {refEdges.map((edge) => {
-                        const node = citationData.nodes.find((n) => n.paper_id === edge.target)
-                        if (!node) return null
-                        return (
-                          <div key={node.paper_id} className="rounded-lg border p-2">
-                            <p className="text-sm line-clamp-1">{node.title}</p>
-                            <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
-                              {node.year && <span>{node.year}</span>}
-                              {node.citation_count != null && (
-                                <span>{t('papers.citationsCount', { count: node.citation_count })}</span>
-                              )}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )
-              })()}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        </Card>
+      )}
 
       {/* Author Modal */}
       {selectedAuthorId && (
@@ -644,6 +1375,77 @@ export function PaperDetailPage() {
         isLoading={deletePaper.isPending}
         icon={<Trash2 className="h-6 w-6 text-destructive" />}
       />
+
+      {/* Start Transfer Dialog */}
+      <Dialog open={showTransferDialog} onOpenChange={setShowTransferDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('papers.startTransferTitle')}</DialogTitle>
+            <DialogDescription>{t('papers.startTransferDescription')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="transferTitle">{t('transfer.conversationTitle')}</Label>
+              <Input
+                id="transferTitle"
+                value={transferTitle}
+                onChange={(e) => setTransferTitle(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="transferType">{t('transfer.transferType')}</Label>
+              <Select value={transferType} onValueChange={(v) => setTransferType(v as TransferType)}>
+                <SelectTrigger id="transferType">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(TRANSFER_TYPE_KEYS).map(([value, key]) => (
+                    <SelectItem key={value} value={value}>
+                      {t(key)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setShowTransferDialog(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button onClick={handleStartTransfer} isLoading={createConversation.isPending}>
+              {t('papers.createTransfer')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Setup Required Dialog */}
+      <Dialog open={showAiSetupDialog} onOpenChange={setShowAiSetupDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+              <Bot className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <DialogTitle className="text-center">{t('papers.aiSetupRequired')}</DialogTitle>
+            <DialogDescription className="text-center">
+              {user?.role === 'admin'
+                ? t('papers.aiSetupDescriptionAdmin')
+                : t('papers.aiSetupDescriptionMember')}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowAiSetupDialog(false)}>
+              {t('common.cancel')}
+            </Button>
+            {user?.role === 'admin' && (
+              <Button onClick={() => { setShowAiSetupDialog(false); navigate('/settings/models') }}>
+                {t('papers.goToAiSettings')}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

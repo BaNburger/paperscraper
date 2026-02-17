@@ -25,6 +25,9 @@ from paper_scraper.modules.compliance.router import router as compliance_router
 from paper_scraper.modules.notifications.router import router as notifications_router
 from paper_scraper.modules.ingestion.router import router as ingestion_router
 from paper_scraper.modules.integrations.router import router as integrations_router
+from paper_scraper.modules.library.router import router as library_router
+from paper_scraper.modules.trends.router import router as trends_router
+from paper_scraper.modules.discovery.router import router as discovery_router
 
 api_router = APIRouter()
 
@@ -52,3 +55,6 @@ api_router.include_router(compliance_router, prefix="/compliance", tags=["Compli
 api_router.include_router(notifications_router, prefix="/notifications", tags=["Notifications"])
 api_router.include_router(ingestion_router, prefix="/ingestion", tags=["Ingestion"])
 api_router.include_router(integrations_router, prefix="/integrations", tags=["Integrations"])
+api_router.include_router(library_router, prefix="/library", tags=["Library"])
+api_router.include_router(trends_router, prefix="/trends", tags=["Trends"])
+api_router.include_router(discovery_router, prefix="/discovery", tags=["Discovery"])

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { projectsApi } from '@/lib/api'
 
 interface QueryControlOptions {
@@ -10,6 +10,7 @@ export function useProjects(options?: QueryControlOptions) {
   return useQuery({
     queryKey: ['projects'],
     queryFn: () => projectsApi.list(),
+    placeholderData: keepPreviousData,
     enabled: options?.enabled ?? true,
     staleTime: options?.staleTime,
   })
@@ -73,7 +74,24 @@ export function useDeleteProject() {
 
   return useMutation({
     mutationFn: (id: string) => projectsApi.delete(id),
-    onSuccess: () => {
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({ queryKey: ['projects'] })
+      const prev = queryClient.getQueryData<{ items: { id: string }[]; total: number }>(['projects'])
+      if (prev?.items) {
+        queryClient.setQueryData(['projects'], {
+          ...prev,
+          items: prev.items.filter((p) => p.id !== deletedId),
+          total: prev.total - 1,
+        })
+      }
+      return { prev }
+    },
+    onError: (_err, _id, context) => {
+      if (context?.prev) {
+        queryClient.setQueryData(['projects'], context.prev)
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
     },
   })

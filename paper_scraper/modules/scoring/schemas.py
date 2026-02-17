@@ -144,6 +144,17 @@ class BatchScoreRequest(BaseModel):
     )
 
 
+class JstorReferenceSchema(BaseModel):
+    """A JSTOR paper used as scoring context."""
+
+    title: str
+    authors: str | None = None
+    year: int | None = None
+    doi: str | None = None
+    journal: str | None = None
+    jstor_url: str | None = None
+
+
 class PaperScoreResponse(BaseModel):
     """Response schema for paper score."""
 
@@ -170,7 +181,35 @@ class PaperScoreResponse(BaseModel):
     errors: list[str]
     created_at: datetime
 
+    # JSTOR context
+    jstor_references: list[JstorReferenceSchema] = Field(
+        default_factory=list,
+        description="JSTOR papers used as scoring context",
+    )
+
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def extract_jstor_references(cls, data: Any) -> Any:
+        """Extract jstor_references from dimension_details._metadata."""
+        if isinstance(data, dict):
+            details = data.get("dimension_details") or {}
+            meta = details.get("_metadata") or {}
+            if "jstor_references" not in data:
+                data["jstor_references"] = meta.get("jstor_references", [])
+        elif hasattr(data, "dimension_details"):
+            details = data.dimension_details or {}
+            meta = details.get("_metadata") or {}
+            if not hasattr(data, "jstor_references"):
+                # Convert ORM object to dict for mutation
+                data_dict = {}
+                for key in cls.model_fields:
+                    if hasattr(data, key):
+                        data_dict[key] = getattr(data, key)
+                data_dict["jstor_references"] = meta.get("jstor_references", [])
+                return data_dict
+        return data
 
 
 class PaperScoreSummary(BaseModel):

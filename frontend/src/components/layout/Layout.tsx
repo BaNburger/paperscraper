@@ -21,7 +21,7 @@ export function Layout() {
       <Navbar />
       <div className="flex flex-1">
         <Sidebar />
-        <main id="main-content" className="flex-1 overflow-y-auto pb-20 md:pb-0" tabIndex={-1}>
+        <main id="main-content" className="flex-1 min-w-0 overflow-y-auto pb-20 md:pb-0" tabIndex={-1}>
           <div className="container mx-auto p-4 md:p-6 page-reveal">
             <Outlet />
           </div>

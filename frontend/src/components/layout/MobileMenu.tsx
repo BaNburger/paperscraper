@@ -4,7 +4,9 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
 import { X, LogOut } from 'lucide-react'
-import { NAVIGATION_ITEMS } from '@/config/routes'
+import { NAVIGATION_ITEMS, SIDEBAR_GROUPS } from '@/config/routes'
+import type { SidebarGroup } from '@/config/routes'
+import { prefetchRoute } from '@/lib/prefetch'
 
 interface MobileMenuProps {
   isOpen: boolean
@@ -18,8 +20,11 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   const visibleItems = NAVIGATION_ITEMS.filter(
     (item) => !item.adminOnly || user?.role === 'admin'
   )
-  const menuItems = visibleItems.filter((item) => item.mobileMenuGroup === 'menu')
-  const settingsItems = visibleItems.filter((item) => item.mobileMenuGroup === 'settings')
+
+  const getGroupItems = (groupKey: SidebarGroup) =>
+    visibleItems.filter((item) => item.sidebarGroup === groupKey)
+
+  const settingsItems = visibleItems.filter((item) => item.sidebarGroup === 'settings')
 
   const handleLogout = () => {
     logout()
@@ -65,53 +70,64 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
             </div>
 
             <div className="py-2 overflow-y-auto flex-1">
-              <div className="px-2">
-                <p className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase">
-                  {t('nav.menu')}
-                </p>
-                {menuItems.map((item) => (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    onClick={onClose}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors',
-                        isActive
-                          ? 'bg-primary text-primary-foreground'
-                          : 'text-foreground hover:bg-accent'
-                      )
-                    }
-                  >
-                    <item.icon aria-hidden="true" className="h-5 w-5" />
-                    <span>{t(item.labelKey)}</span>
-                  </NavLink>
-                ))}
-              </div>
+              {SIDEBAR_GROUPS.map((group) => {
+                const items = getGroupItems(group.key)
+                if (items.length === 0) return null
 
-              <div className="px-2 mt-4">
-                <p className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase">
-                  {t('nav.settings')}
-                </p>
-                {settingsItems.map((item) => (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    onClick={onClose}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors',
-                        isActive
-                          ? 'bg-primary text-primary-foreground'
-                          : 'text-foreground hover:bg-accent'
-                      )
-                    }
-                  >
-                    <item.icon aria-hidden="true" className="h-5 w-5" />
-                    <span>{t(item.labelKey)}</span>
-                  </NavLink>
-                ))}
-              </div>
+                return (
+                  <div key={group.key} className="px-2 mt-2 first:mt-0">
+                    <p className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase">
+                      {t(group.labelKey, { defaultValue: group.key })}
+                    </p>
+                    {items.map((item) => (
+                      <NavLink
+                        key={item.path}
+                        to={item.path}
+                        onClick={onClose}
+                        onFocus={() => prefetchRoute(item.path)}
+                        className={({ isActive }) =>
+                          cn(
+                            'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors',
+                            isActive
+                              ? 'bg-primary text-primary-foreground'
+                              : 'text-foreground hover:bg-accent'
+                          )
+                        }
+                      >
+                        <item.icon aria-hidden="true" className="h-5 w-5" />
+                        <span>{t(item.labelKey)}</span>
+                      </NavLink>
+                    ))}
+                  </div>
+                )
+              })}
+
+              {settingsItems.length > 0 && (
+                <div className="px-2 mt-4">
+                  <p className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase">
+                    {t('nav.settings')}
+                  </p>
+                  {settingsItems.map((item) => (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      onClick={onClose}
+                      onFocus={() => prefetchRoute(item.path)}
+                      className={({ isActive }) =>
+                        cn(
+                          'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors',
+                          isActive
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-foreground hover:bg-accent'
+                        )
+                      }
+                    >
+                      <item.icon aria-hidden="true" className="h-5 w-5" />
+                      <span>{t(item.labelKey)}</span>
+                    </NavLink>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="p-4 border-t bg-background">

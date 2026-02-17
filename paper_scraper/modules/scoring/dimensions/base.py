@@ -84,6 +84,7 @@ class BaseDimension(ABC):
         self,
         paper: PaperContext,
         similar_papers: list[PaperContext] | None = None,
+        dimension_context: str | None = None,
     ) -> DimensionResult:
         """
         Score a paper on this dimension.
@@ -91,6 +92,7 @@ class BaseDimension(ABC):
         Args:
             paper: Paper context to score
             similar_papers: Optional list of similar papers for comparison
+            dimension_context: Optional pre-built context tailored for this dimension
 
         Returns:
             DimensionResult with score, confidence, and details
@@ -104,6 +106,7 @@ class BaseDimension(ABC):
                 self.template_name,
                 paper=paper,
                 similar_papers=similar_papers or [],
+                dimension_context=dimension_context,
             )
 
             # Get LLM response as JSON

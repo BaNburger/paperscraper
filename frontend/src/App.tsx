@@ -22,6 +22,7 @@ import { CelebrationProvider } from '@/components/CelebrationOverlay'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { useAuth } from '@/contexts/AuthContext'
 import { APP_ROUTE_META } from '@/config/routes'
+import { PageSkeleton } from '@/components/ui/PageSkeleton'
 
 type ExtractLazyComponent<T> = T extends ComponentType<infer TProps>
   ? ComponentType<TProps>
@@ -93,12 +94,18 @@ const NotificationsPage = lazyNamedImport(() => import('@/pages/NotificationsPag
 const BadgesPage = lazyNamedImport(() => import('@/pages/BadgesPage'), 'BadgesPage')
 const CompliancePage = lazyNamedImport(() => import('@/pages/CompliancePage'), 'CompliancePage')
 const AnalyticsPage = lazyNamedImport(() => import('@/pages/AnalyticsPage'), 'AnalyticsPage')
+const TrendsPage = lazyNamedImport(() => import('@/pages/TrendsPage'), 'TrendsPage')
+const TrendDetailPage = lazyNamedImport(() => import('@/pages/TrendDetailPage'), 'TrendDetailPage')
+const DiscoveryPage = lazyNamedImport(() => import('@/pages/DiscoveryPage'), 'DiscoveryPage')
+const SavedSearchesPage = lazyNamedImport(() => import('@/pages/SavedSearchesPage'), 'SavedSearchesPage')
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60, // 1 minute
+      staleTime: 1000 * 60,       // 1 minute
+      gcTime: 1000 * 60 * 10,     // 10 minutes (up from default 5min)
       retry: 1,
+      refetchOnWindowFocus: false, // Prevent jarring refetches on tab switch
     },
   },
 })
@@ -140,13 +147,7 @@ function AppContent() {
           />
         </Suspense>
       )}
-      <Suspense
-        fallback={
-          <div className="flex min-h-screen items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-r-transparent" />
-          </div>
-        }
-      >
+      <Suspense fallback={<PageSkeleton />}>
         <Routes>
         {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
@@ -174,12 +175,16 @@ function AppContent() {
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:id" element={<ProjectKanbanPage />} />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/saved-searches" element={<SavedSearchesPage />} />
           <Route path="/groups" element={<GroupsPage />} />
           <Route path="/transfer" element={<TransferPage />} />
           <Route path="/transfer/:id" element={<TransferDetailPage />} />
           <Route path="/submissions" element={<SubmissionsPage />} />
           <Route path="/badges" element={<BadgesPage />} />
           <Route path="/knowledge" element={<KnowledgePage />} />
+          <Route path="/trends" element={<TrendsPage />} />
+          <Route path="/trends/:id" element={<TrendDetailPage />} />
+          <Route path="/discovery" element={<DiscoveryPage />} />
           <Route path="/alerts" element={<AlertsPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/team" element={<TeamMembersPage />} />

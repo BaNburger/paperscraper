@@ -173,12 +173,12 @@ export function SubmissionsPage() {
 
       {/* Filter */}
       <div className="flex gap-3">
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <Select value={statusFilter || 'all'} onValueChange={(v) => setStatusFilter(v === 'all' ? '' : v)}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder={t('submissions.allStatuses')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">{t('submissions.allStatuses')}</SelectItem>
+            <SelectItem value="all">{t('submissions.allStatuses')}</SelectItem>
             {Object.entries(STATUS_KEYS).map(([value, key]) => (
               <SelectItem key={value} value={value}>
                 {t(key)}

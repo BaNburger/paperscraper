@@ -19,7 +19,7 @@ except ImportError:
     pass
 
 try:
-    from paper_scraper.modules.scoring.models import PaperScore, ScoringJob, ScoringPolicy  # noqa: F401
+    from paper_scraper.modules.scoring.models import PaperScore, ScoringJob, ScoringPolicy, GlobalScoreCache  # noqa: F401
 except ImportError:
     pass
 
@@ -116,6 +116,16 @@ except ImportError:
 
 try:
     from paper_scraper.modules.papers.context_models import PaperContextSnapshot  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    from paper_scraper.modules.trends.models import TrendTopic, TrendSnapshot, TrendPaper  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    from paper_scraper.modules.discovery.models import DiscoveryRun  # noqa: F401
 except ImportError:
     pass
 

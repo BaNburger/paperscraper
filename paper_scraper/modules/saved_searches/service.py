@@ -9,7 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from paper_scraper.core.config import settings
-from paper_scraper.core.exceptions import DuplicateError, ForbiddenError, NotFoundError
+from paper_scraper.core.exceptions import DuplicateError, ForbiddenError, NotFoundError, ValidationError
+from paper_scraper.modules.projects.models import Project
 from paper_scraper.modules.saved_searches.models import SavedSearch
 from paper_scraper.modules.saved_searches.schemas import (
     SavedSearchCreate,
@@ -45,6 +46,10 @@ class SavedSearchService:
         Raises:
             DuplicateError: If a saved search with same name exists for user.
         """
+        # Validate target project belongs to same org
+        if data.target_project_id:
+            await self._validate_target_project(data.target_project_id, organization_id)
+
         # Check for duplicate name
         existing = await self.db.execute(
             select(SavedSearch).where(
@@ -67,6 +72,13 @@ class SavedSearchService:
             is_public=data.is_public,
             alert_enabled=data.alert_enabled,
             alert_frequency=data.alert_frequency.value if data.alert_frequency else None,
+            # Discovery fields
+            semantic_description=data.semantic_description,
+            target_project_id=data.target_project_id,
+            auto_import_enabled=data.auto_import_enabled,
+            import_sources=data.import_sources,
+            max_import_per_run=data.max_import_per_run,
+            discovery_frequency=data.discovery_frequency.value if data.discovery_frequency else None,
         )
 
         self.db.add(saved_search)
@@ -238,6 +250,10 @@ class SavedSearchService:
         if saved_search.created_by_id != user_id:
             raise ForbiddenError("Only the owner can update this saved search")
 
+        # Validate target project belongs to same org
+        if data.target_project_id is not None:
+            await self._validate_target_project(data.target_project_id, organization_id)
+
         # Check for name conflict if updating name
         if data.name and data.name != saved_search.name:
             existing = await self.db.execute(
@@ -259,6 +275,8 @@ class SavedSearchService:
             if field == "filters" and value:
                 value = value.model_dump() if hasattr(value, "model_dump") else value
             if field == "alert_frequency" and value:
+                value = value.value if hasattr(value, "value") else value
+            if field == "discovery_frequency" and value:
                 value = value.value if hasattr(value, "value") else value
             setattr(saved_search, field, value)
 
@@ -443,6 +461,23 @@ class SavedSearchService:
 
         return list(result.scalars().all())
 
+    async def _validate_target_project(
+        self,
+        project_id: UUID,
+        organization_id: UUID,
+    ) -> None:
+        """Validate that the target project belongs to the same organization."""
+        result = await self.db.execute(
+            select(Project.id).where(
+                Project.id == project_id,
+                Project.organization_id == organization_id,
+            )
+        )
+        if not result.scalar_one_or_none():
+            raise ValidationError(
+                "Target project not found or belongs to a different organization"
+            )
+
     def to_response(
         self,
         saved_search: SavedSearch,
@@ -469,6 +504,11 @@ class SavedSearchService:
                 full_name=saved_search.created_by.full_name,
             )
 
+        # Get target project name if available
+        target_project_name = None
+        if saved_search.target_project and hasattr(saved_search.target_project, "name"):
+            target_project_name = saved_search.target_project.name
+
         return SavedSearchResponse(
             id=saved_search.id,
             name=saved_search.name,
@@ -482,6 +522,16 @@ class SavedSearchService:
             alert_enabled=saved_search.alert_enabled,
             alert_frequency=saved_search.alert_frequency,
             last_alert_at=saved_search.last_alert_at,
+            # Discovery fields
+            semantic_description=saved_search.semantic_description,
+            target_project_id=saved_search.target_project_id,
+            target_project_name=target_project_name,
+            auto_import_enabled=saved_search.auto_import_enabled,
+            import_sources=saved_search.import_sources,
+            max_import_per_run=saved_search.max_import_per_run,
+            discovery_frequency=saved_search.discovery_frequency,
+            last_discovery_at=saved_search.last_discovery_at,
+            # Usage
             run_count=saved_search.run_count,
             last_run_at=saved_search.last_run_at,
             created_at=saved_search.created_at,

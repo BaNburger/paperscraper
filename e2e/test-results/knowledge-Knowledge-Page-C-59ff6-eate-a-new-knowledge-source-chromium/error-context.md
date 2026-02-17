@@ -1,0 +1,151 @@
+# Page snapshot
+
+```yaml
+- generic:
+  - generic:
+    - generic:
+      - link:
+        - /url: "#main-content"
+        - text: Skip to content
+      - banner:
+        - generic:
+          - link:
+            - /url: /
+            - img
+            - generic: Test Org 1771094744572
+          - button:
+            - img
+            - generic: Search
+            - generic: ⌘K
+          - generic:
+            - button:
+              - img
+            - button:
+              - img
+            - button:
+              - generic:
+                - img
+              - generic: Test User 1771094744572
+              - img
+      - generic:
+        - complementary:
+          - generic:
+            - button:
+              - img
+          - navigation:
+            - link:
+              - /url: /
+              - img
+              - generic: Dashboard
+            - link:
+              - /url: /papers
+              - img
+              - generic: Papers
+            - link:
+              - /url: /projects
+              - img
+              - generic: Projects
+            - link:
+              - /url: /search
+              - img
+              - generic: Search
+            - link:
+              - /url: /groups
+              - img
+              - generic: Groups
+            - link:
+              - /url: /transfer
+              - img
+              - generic: Transfer
+            - link:
+              - /url: /submissions
+              - img
+              - generic: Submissions
+            - link:
+              - /url: /analytics
+              - img
+              - generic: Analytics
+            - link:
+              - /url: /alerts
+              - img
+              - generic: Alerts
+          - navigation:
+            - link:
+              - /url: /badges
+              - img
+              - generic: Badges
+            - link:
+              - /url: /team
+              - img
+              - generic: Team
+            - link:
+              - /url: /knowledge
+              - img
+              - generic: Knowledge
+            - link:
+              - /url: /compliance
+              - img
+              - generic: Compliance
+            - link:
+              - /url: /settings
+              - img
+              - generic: Settings
+            - link:
+              - /url: /settings/models
+              - img
+              - generic: AI Models
+        - main:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - heading [level=1]: Knowledge Base
+                  - paragraph: Manage knowledge sources for AI-powered analysis
+                - button:
+                  - img
+                  - text: Add Source
+              - generic:
+                - button: Personal
+                - button: Organization
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - img
+                    - heading [level=3]: No personal sources yet
+                    - paragraph: Add a knowledge source to enhance AI analysis with domain-specific context.
+                    - generic:
+                      - button: Add Source
+  - dialog "Add Source" [active] [ref=e2]:
+    - generic [ref=e3]:
+      - heading "Add Source" [level=2] [ref=e4]
+      - paragraph [ref=e5]: Add a personal knowledge source visible only to you
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - generic [ref=e8]:
+          - text: Title
+          - textbox "Title" [ref=e10]:
+            - /placeholder: e.g., Our Research Focus Areas
+            - text: Test Knowledge 1771094747738
+        - generic [ref=e11]:
+          - text: Content
+          - textbox "Content" [ref=e12]:
+            - /placeholder: Describe the knowledge...
+            - text: Test content
+        - generic [ref=e13]:
+          - text: Type
+          - combobox "Type" [ref=e14]:
+            - generic: Custom
+            - img [ref=e15]
+          - combobox [ref=e17]
+        - generic [ref=e18]:
+          - text: Tags
+          - textbox "Tags" [ref=e20]:
+            - /placeholder: e.g., AI, biomedicine, patents
+      - generic [ref=e21]:
+        - button "Cancel" [ref=e22]
+        - button "Create" [ref=e23]
+    - button "Close" [ref=e24]:
+      - img [ref=e25]
+      - generic [ref=e28]: Close
+```

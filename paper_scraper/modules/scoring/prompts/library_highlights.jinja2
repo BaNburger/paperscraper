@@ -1,0 +1,25 @@
+Extract {{ target_count }} high-value insight highlights from the provided paper chunks.
+
+Return strict JSON with this structure:
+{
+  "highlights": [
+    {
+      "chunk_index": 0,
+      "quote": "Exact short quote from the chunk",
+      "insight_summary": "Why this matters in one concise sentence",
+      "confidence": 0.0
+    }
+  ]
+}
+
+Rules:
+- Use only the chunk indexes provided.
+- Keep quotes below 320 characters.
+- Keep insight_summary below 220 characters.
+- Confidence must be between 0 and 1.
+- Prefer concrete, decision-relevant insights.
+
+Chunks:
+{% for chunk in chunks %}
+- chunk_index={{ chunk.chunk_index }}: {{ chunk.text }}
+{% endfor %}

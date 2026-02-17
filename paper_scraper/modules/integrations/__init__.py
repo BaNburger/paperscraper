@@ -1,7 +1,7 @@
-"""External integration connectors module."""
+"""Integrations package.
 
-from paper_scraper.modules.integrations.models import IntegrationConnector
-from paper_scraper.modules.integrations.router import router as integrations_router
-from paper_scraper.modules.integrations.service import IntegrationService
+Keep package initialization minimal to avoid circular imports.
+Import concrete modules directly where needed.
+"""
 
-__all__ = ["IntegrationConnector", "IntegrationService", "integrations_router"]
+__all__: list[str] = []

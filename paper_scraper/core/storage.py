@@ -115,6 +115,22 @@ class StorageService:
             ExpiresIn=expires_in,
         )
 
+    def download_file(self, key: str) -> bytes:
+        """Download a file from storage and return raw bytes.
+
+        Args:
+            key: S3 object key.
+
+        Returns:
+            Raw file content.
+        """
+        self._validate_key(key)
+        response = self._client.get_object(Bucket=self.bucket, Key=key)
+        try:
+            return response["Body"].read()
+        finally:
+            response["Body"].close()
+
     def delete_file(self, key: str) -> None:
         """Delete a file from storage.
 

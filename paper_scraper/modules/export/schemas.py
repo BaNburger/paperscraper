@@ -12,6 +12,8 @@ class ExportFormat(str, Enum):
     CSV = "csv"
     PDF = "pdf"
     BIBTEX = "bibtex"
+    RIS = "ris"
+    CSLJSON = "csljson"
 
 
 class ExportRequest(BaseModel):

@@ -112,12 +112,12 @@ export function TransferPage() {
           onChange={(e) => setSearchQuery(e.target.value)}
           className="max-w-sm"
         />
-        <Select value={stageFilter} onValueChange={setStageFilter}>
+        <Select value={stageFilter || 'all'} onValueChange={(v) => setStageFilter(v === 'all' ? '' : v)}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder={t('transfer.allStages')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">{t('transfer.allStages')}</SelectItem>
+            <SelectItem value="all">{t('transfer.allStages')}</SelectItem>
             {Object.entries(STAGE_KEYS).map(([value, key]) => (
               <SelectItem key={value} value={value}>
                 {t(key)}

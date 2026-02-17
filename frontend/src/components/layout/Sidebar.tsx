@@ -5,7 +5,9 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useSidebar } from '@/contexts/SidebarContext'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/contexts/AuthContext'
-import { NAVIGATION_ITEMS } from '@/config/routes'
+import { NAVIGATION_ITEMS, SIDEBAR_GROUPS } from '@/config/routes'
+import type { SidebarGroup } from '@/config/routes'
+import { prefetchRoute } from '@/lib/prefetch'
 
 export function Sidebar() {
   const { isCollapsed, toggleSidebar } = useSidebar()
@@ -15,8 +17,11 @@ export function Sidebar() {
   const visibleItems = NAVIGATION_ITEMS.filter(
     (item) => !item.adminOnly || user?.role === 'admin'
   )
-  const mainNavItems = visibleItems.filter((item) => item.desktopGroup === 'main')
-  const secondaryNavItems = visibleItems.filter((item) => item.desktopGroup === 'secondary')
+
+  const getGroupItems = (groupKey: SidebarGroup) =>
+    visibleItems.filter((item) => item.sidebarGroup === groupKey)
+
+  const settingsItems = visibleItems.filter((item) => item.sidebarGroup === 'settings')
 
   return (
     <aside
@@ -26,7 +31,7 @@ export function Sidebar() {
       )}
     >
       {/* Collapse toggle button */}
-      <div className={cn('flex p-2', isCollapsed ? 'justify-center' : 'justify-end')}>
+      <div className={cn('flex shrink-0 p-2', isCollapsed ? 'justify-center' : 'justify-end')}>
         <Button
           variant="ghost"
           size="sm"
@@ -42,61 +47,85 @@ export function Sidebar() {
         </Button>
       </div>
 
-      {/* Main navigation */}
-      <nav className="flex flex-col gap-1 px-2 flex-1" aria-label={t('nav.mainNavigation')}>
-        {mainNavItems.map((item) => {
-          const label = t(item.labelKey)
+      {/* Scrollable grouped navigation */}
+      <nav className="flex-1 min-h-0 overflow-y-auto flex flex-col px-2 py-1" aria-label={t('nav.mainNavigation')}>
+        {SIDEBAR_GROUPS.map((group, groupIndex) => {
+          const items = getGroupItems(group.key)
+          if (items.length === 0) return null
+
           return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              end={item.path === '/'}
-              title={isCollapsed ? label : undefined}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                  isCollapsed ? 'justify-center' : 'gap-3',
-                  isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                )
-              }
-            >
-              <item.icon aria-hidden="true" className="h-4 w-4 shrink-0" />
-              {!isCollapsed && <span>{label}</span>}
-            </NavLink>
+            <div key={group.key} className={cn(groupIndex > 0 && 'mt-3')}>
+              {isCollapsed ? (
+                groupIndex > 0 && <div className="h-px bg-border mx-2 mb-2" />
+              ) : (
+                <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                  {t(group.labelKey, { defaultValue: group.key })}
+                </p>
+              )}
+              <div className="flex flex-col gap-0.5">
+                {items.map((item) => {
+                  const label = t(item.labelKey)
+                  return (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      end={item.path === '/'}
+                      title={isCollapsed ? label : undefined}
+                      onMouseEnter={() => prefetchRoute(item.path)}
+                      onFocus={() => prefetchRoute(item.path)}
+                      className={({ isActive }) =>
+                        cn(
+                          'flex items-center rounded-lg px-3 py-1.5 text-sm font-medium transition-colors shrink-0',
+                          isCollapsed ? 'justify-center' : 'gap-3',
+                          isActive
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        )
+                      }
+                    >
+                      <item.icon aria-hidden="true" className="h-4 w-4 shrink-0" />
+                      {!isCollapsed && <span>{label}</span>}
+                    </NavLink>
+                  )
+                })}
+              </div>
+            </div>
           )
         })}
       </nav>
 
-      {/* Bottom navigation - Team & Settings always visible */}
-      <nav
-        className="flex flex-col gap-1 px-2 pb-4 border-t pt-2"
-        aria-label={t('nav.secondaryNavigation')}
-      >
-        {secondaryNavItems.map((item) => {
-          const label = t(item.labelKey)
-          return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              title={isCollapsed ? label : undefined}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                  isCollapsed ? 'justify-center' : 'gap-3',
-                  isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                )
-              }
-            >
-              <item.icon aria-hidden="true" className="h-4 w-4 shrink-0" />
-              {!isCollapsed && <span>{label}</span>}
-            </NavLink>
-          )
-        })}
-      </nav>
+      {/* Settings - pinned to bottom */}
+      {settingsItems.length > 0 && (
+        <nav
+          className="shrink-0 flex flex-col gap-0.5 px-2 pb-4 border-t pt-2"
+          aria-label={t('nav.secondaryNavigation')}
+        >
+          {settingsItems.map((item) => {
+            const label = t(item.labelKey)
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                title={isCollapsed ? label : undefined}
+                onMouseEnter={() => prefetchRoute(item.path)}
+                onFocus={() => prefetchRoute(item.path)}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                    isCollapsed ? 'justify-center' : 'gap-3',
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                  )
+                }
+              >
+                <item.icon aria-hidden="true" className="h-4 w-4 shrink-0" />
+                {!isCollapsed && <span>{label}</span>}
+              </NavLink>
+            )
+          })}
+        </nav>
+      )}
     </aside>
   )
 }

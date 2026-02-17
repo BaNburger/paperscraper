@@ -5,20 +5,40 @@ import {
   Bell,
   BookOpen,
   Bot,
+  ClipboardCheck,
   Code2,
+  Compass,
   FileText,
   FolderKanban,
   Home,
   Inbox,
+  LayoutDashboard,
   Search,
   Settings,
   Shield,
+  Telescope,
   Trophy,
   Users,
+  TrendingUp,
   UsersRound,
 } from 'lucide-react'
 
 export type NavGroup = 'main' | 'secondary' | 'mobile-settings'
+
+export type SidebarGroup = 'discover' | 'evaluate' | 'transfer' | 'workspace' | 'settings'
+
+export interface SidebarGroupDefinition {
+  key: SidebarGroup
+  labelKey: string
+  icon: LucideIcon
+}
+
+export const SIDEBAR_GROUPS: SidebarGroupDefinition[] = [
+  { key: 'discover', labelKey: 'nav.sidebarGroups.discover', icon: Telescope },
+  { key: 'evaluate', labelKey: 'nav.sidebarGroups.evaluate', icon: ClipboardCheck },
+  { key: 'transfer', labelKey: 'nav.sidebarGroups.transfer', icon: ArrowRightLeft },
+  { key: 'workspace', labelKey: 'nav.sidebarGroups.workspace', icon: LayoutDashboard },
+]
 
 export interface AppRouteMeta {
   path: string
@@ -35,6 +55,7 @@ export interface NavigationItem {
   labelKey: string
   icon: LucideIcon
   desktopGroup?: 'main' | 'secondary'
+  sidebarGroup?: SidebarGroup
   mobileBottom?: boolean
   mobileMenuGroup?: 'menu' | 'settings'
   adminOnly?: boolean
@@ -94,6 +115,7 @@ export const APP_ROUTE_META: AppRouteMeta[] = [
     keyboardShortcut: 'g s',
     showInCommandPalette: true,
   },
+  { path: '/saved-searches', titleKey: 'savedSearches.title', requiresAuth: true },
   {
     path: '/groups',
     titleKey: 'nav.groups',
@@ -127,6 +149,24 @@ export const APP_ROUTE_META: AppRouteMeta[] = [
     navGroup: 'main',
     navLabelKey: 'nav.analytics',
     keyboardShortcut: 'g a',
+    showInCommandPalette: true,
+  },
+  {
+    path: '/trends',
+    titleKey: 'nav.trends',
+    requiresAuth: true,
+    navGroup: 'main',
+    navLabelKey: 'nav.trends',
+    keyboardShortcut: 'g r',
+    showInCommandPalette: true,
+  },
+  { path: '/trends/:id', titleKey: 'trends.title', requiresAuth: true },
+  {
+    path: '/discovery',
+    titleKey: 'discovery.title',
+    requiresAuth: true,
+    navGroup: 'main',
+    navLabelKey: 'nav.discovery',
     showInCommandPalette: true,
   },
   {
@@ -212,6 +252,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     labelKey: 'nav.dashboard',
     icon: Home,
     desktopGroup: 'main',
+    sidebarGroup: 'workspace',
     mobileBottom: true,
     commandPalette: true,
     shortcut: 'g d',
@@ -221,6 +262,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     labelKey: 'nav.papers',
     icon: FileText,
     desktopGroup: 'main',
+    sidebarGroup: 'evaluate',
     mobileBottom: true,
     commandPalette: true,
     shortcut: 'g p',
@@ -230,6 +272,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     labelKey: 'nav.projects',
     icon: FolderKanban,
     desktopGroup: 'main',
+    sidebarGroup: 'evaluate',
     mobileBottom: true,
     commandPalette: true,
     shortcut: 'g k',
@@ -239,6 +282,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     labelKey: 'nav.search',
     icon: Search,
     desktopGroup: 'main',
+    sidebarGroup: 'discover',
     mobileBottom: true,
     commandPalette: true,
     shortcut: 'g s',
@@ -248,6 +292,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     labelKey: 'nav.groups',
     icon: UsersRound,
     desktopGroup: 'main',
+    sidebarGroup: 'evaluate',
     mobileMenuGroup: 'menu',
     commandPalette: true,
     shortcut: 'g g',
@@ -257,6 +302,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     labelKey: 'nav.transfer',
     icon: ArrowRightLeft,
     desktopGroup: 'main',
+    sidebarGroup: 'transfer',
     mobileMenuGroup: 'menu',
     commandPalette: true,
     shortcut: 'g t',
@@ -266,6 +312,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     labelKey: 'nav.submissions',
     icon: Inbox,
     desktopGroup: 'main',
+    sidebarGroup: 'transfer',
     mobileMenuGroup: 'menu',
     commandPalette: true,
   },
@@ -274,15 +321,36 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     labelKey: 'nav.analytics',
     icon: BarChart3,
     desktopGroup: 'main',
+    sidebarGroup: 'evaluate',
     mobileMenuGroup: 'menu',
     commandPalette: true,
     shortcut: 'g a',
+  },
+  {
+    path: '/trends',
+    labelKey: 'nav.trends',
+    icon: TrendingUp,
+    desktopGroup: 'main',
+    sidebarGroup: 'discover',
+    mobileMenuGroup: 'menu',
+    commandPalette: true,
+    shortcut: 'g r',
+  },
+  {
+    path: '/discovery',
+    labelKey: 'nav.discovery',
+    icon: Compass,
+    desktopGroup: 'main',
+    sidebarGroup: 'discover',
+    mobileMenuGroup: 'menu',
+    commandPalette: true,
   },
   {
     path: '/alerts',
     labelKey: 'nav.alerts',
     icon: Bell,
     desktopGroup: 'main',
+    sidebarGroup: 'discover',
     mobileMenuGroup: 'menu',
   },
   {
@@ -290,6 +358,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     labelKey: 'nav.badges',
     icon: Trophy,
     desktopGroup: 'secondary',
+    sidebarGroup: 'workspace',
     mobileMenuGroup: 'menu',
     commandPalette: true,
     shortcut: 'g b',
@@ -299,6 +368,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     labelKey: 'nav.team',
     icon: Users,
     desktopGroup: 'secondary',
+    sidebarGroup: 'workspace',
     mobileMenuGroup: 'menu',
     commandPalette: true,
   },
@@ -307,6 +377,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     labelKey: 'nav.knowledge',
     icon: BookOpen,
     desktopGroup: 'secondary',
+    sidebarGroup: 'workspace',
     mobileMenuGroup: 'menu',
     commandPalette: true,
   },
@@ -315,6 +386,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     labelKey: 'nav.compliance',
     icon: Shield,
     desktopGroup: 'secondary',
+    sidebarGroup: 'workspace',
     mobileMenuGroup: 'menu',
   },
   {
@@ -322,6 +394,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     labelKey: 'nav.settings',
     icon: Settings,
     desktopGroup: 'secondary',
+    sidebarGroup: 'settings',
     mobileMenuGroup: 'settings',
     commandPalette: true,
   },
@@ -329,6 +402,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     path: '/settings/organization',
     labelKey: 'orgSettings.title',
     icon: Shield,
+    sidebarGroup: 'settings',
     mobileMenuGroup: 'settings',
     adminOnly: true,
     commandPalette: true,
@@ -338,6 +412,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     labelKey: 'nav.aiModels',
     icon: Bot,
     desktopGroup: 'secondary',
+    sidebarGroup: 'settings',
     mobileMenuGroup: 'settings',
     commandPalette: true,
   },
@@ -345,6 +420,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     path: '/settings/developer',
     labelKey: 'devSettings.title',
     icon: Code2,
+    sidebarGroup: 'settings',
     mobileMenuGroup: 'settings',
     commandPalette: true,
   },

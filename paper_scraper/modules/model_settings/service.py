@@ -62,6 +62,7 @@ class ModelSettingsService:
             hosting_info=data.hosting_info,
             max_tokens=data.max_tokens,
             temperature=data.temperature,
+            workflow=data.workflow,
         )
         self.db.add(config)
         await self.db.flush()
@@ -93,6 +94,8 @@ class ModelSettingsService:
             config.max_tokens = data.max_tokens
         if data.temperature is not None:
             config.temperature = data.temperature
+        if data.workflow is not None:
+            config.workflow = data.workflow if data.workflow != "" else None
 
         await self.db.flush()
         await self.db.refresh(config)
@@ -107,6 +110,20 @@ class ModelSettingsService:
         config = await self._get_config(config_id, organization_id)
         await self.db.delete(config)
         await self.db.flush()
+
+    async def get_by_workflow(
+        self,
+        organization_id: UUID,
+        workflow: str,
+    ) -> ModelConfiguration | None:
+        """Get the model configuration assigned to a specific workflow."""
+        result = await self.db.execute(
+            select(ModelConfiguration).where(
+                ModelConfiguration.organization_id == organization_id,
+                ModelConfiguration.workflow == workflow,
+            ).limit(1)
+        )
+        return result.scalar_one_or_none()
 
     async def get_hosting_info(
         self,
@@ -258,6 +275,7 @@ class ModelSettingsService:
             hosting_info=config.hosting_info,
             max_tokens=config.max_tokens,
             temperature=config.temperature,
+            workflow=config.workflow,
             created_at=config.created_at,
             updated_at=config.updated_at,
         )

@@ -31,7 +31,9 @@ You are an expert scientific reviewer assessing the novelty of research papers f
 {% endfor %}
 {% endif %}
 
-{% if paper.knowledge_context %}
+{% if dimension_context %}
+{{ dimension_context }}
+{% elif paper.knowledge_context %}
 {{ paper.knowledge_context }}
 {% endif %}
 

@@ -54,6 +54,8 @@ class TokenUsage:
             "gpt-3.5-turbo": {"input": 0.50, "output": 1.50},
             "claude-sonnet-4-20250514": {"input": 3.00, "output": 15.00},
             "claude-3-haiku": {"input": 0.25, "output": 1.25},
+            "gemini-2.0-flash": {"input": 0.10, "output": 0.40},
+            "gemini-2.0-pro": {"input": 1.25, "output": 5.00},
         }
         model_pricing = pricing.get(self.model, {"input": 1.0, "output": 3.0})
         return (
@@ -837,6 +839,162 @@ class OllamaClient(BaseLLMClient):
 
 
 # =============================================================================
+# Google Gemini Client
+# =============================================================================
+
+
+class GeminiClient(BaseLLMClient):
+    """Google Gemini API client with Langfuse observability and retry logic."""
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model: str | None = None,
+    ):
+        self.api_key = api_key or (
+            settings.GOOGLE_API_KEY.get_secret_value()
+            if settings.GOOGLE_API_KEY
+            else ""
+        )
+        self.model = model or "gemini-2.0-flash"
+        self.base_url = "https://generativelanguage.googleapis.com/v1beta"
+
+    @observe(as_type="generation", name="gemini-completion")
+    async def complete(
+        self,
+        prompt: str,
+        system: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        json_mode: bool = False,
+    ) -> str:
+        """Generate completion using Gemini API, tracked by Langfuse."""
+        response = await self.complete_with_usage(
+            prompt=prompt,
+            system=system,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            json_mode=json_mode,
+        )
+        return response.content
+
+    async def complete_with_usage(
+        self,
+        prompt: str,
+        system: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        json_mode: bool = False,
+    ) -> LLMResponse:
+        """Generate completion with token usage tracking."""
+        payload: dict[str, Any] = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {},
+        }
+
+        if system:
+            payload["systemInstruction"] = {"parts": [{"text": system}]}
+
+        gen_config = payload["generationConfig"]
+        if temperature is not None:
+            gen_config["temperature"] = temperature
+        else:
+            gen_config["temperature"] = settings.LLM_TEMPERATURE
+        if max_tokens:
+            gen_config["maxOutputTokens"] = max_tokens
+        else:
+            gen_config["maxOutputTokens"] = settings.LLM_MAX_TOKENS
+
+        if json_mode:
+            gen_config["responseMimeType"] = "application/json"
+
+        url = f"{self.base_url}/models/{self.model}:generateContent?key={self.api_key}"
+
+        async def make_request():
+            async with HTTPClientManager.get_client(self.base_url) as client:
+                response = await client.post(
+                    url,
+                    json=payload,
+                    headers={"Content-Type": "application/json"},
+                )
+                response.raise_for_status()
+                return response.json()
+
+        try:
+            data = await retry_with_backoff(make_request)
+        except httpx.HTTPStatusError as e:
+            raise ExternalAPIError(
+                service="Google Gemini",
+                message=e.response.text,
+                status_code=e.response.status_code,
+            )
+
+        # Extract content from response
+        candidates = data.get("candidates", [])
+        if not candidates:
+            raise ExternalAPIError(
+                service="Google Gemini",
+                message="No candidates in response",
+                details=data,
+            )
+        content = candidates[0]["content"]["parts"][0]["text"]
+
+        # Extract usage metadata
+        usage = None
+        usage_meta = data.get("usageMetadata", {})
+        if usage_meta:
+            prompt_tokens = usage_meta.get("promptTokenCount", 0)
+            completion_tokens = usage_meta.get("candidatesTokenCount", 0)
+            usage = TokenUsage(
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=prompt_tokens + completion_tokens,
+                model=self.model,
+            )
+            logger.info(
+                f"Gemini request completed: {usage.total_tokens} tokens, "
+                f"~${usage.estimated_cost_usd:.6f}"
+            )
+
+        return LLMResponse(content=content, usage=usage)
+
+    async def complete_json(
+        self,
+        prompt: str,
+        system: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> dict[str, Any]:
+        """Generate JSON completion using Gemini API."""
+        response = await self.complete(
+            prompt=prompt,
+            system=system,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            json_mode=True,
+        )
+
+        # Clean up response if needed
+        response = response.strip()
+        if response.startswith("```json"):
+            response = response[7:]
+        if response.startswith("```"):
+            response = response[3:]
+        if response.endswith("```"):
+            response = response[:-3]
+        response = response.strip()
+
+        try:
+            return json.loads(response)
+        except json.JSONDecodeError as e:
+            raise ExternalAPIError(
+                service="Google Gemini",
+                message=f"Failed to parse JSON response: {e}",
+                details={"response": response},
+            )
+
+
+# =============================================================================
 # Factory Function
 # =============================================================================
 
@@ -846,6 +1004,7 @@ _LLM_PROVIDERS: dict[str, type[BaseLLMClient]] = {
     "anthropic": AnthropicClient,
     "ollama": OllamaClient,
     "azure": AzureOpenAIClient,
+    "google": GeminiClient,
 }
 
 
@@ -885,6 +1044,8 @@ def get_llm_client(
             api_key=api_key,
             deployment=model,
         )
+    if provider == "google":
+        return GeminiClient(api_key=api_key, model=model)
 
     # Defensive fallback for static analyzers.
     raise ValueError(f"Unknown LLM provider: {provider}")

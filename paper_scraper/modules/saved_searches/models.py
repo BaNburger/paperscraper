@@ -4,14 +4,17 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, Text, Uuid, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, Uuid, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from pgvector.sqlalchemy import Vector
 
 from paper_scraper.core.database import Base
 
 if TYPE_CHECKING:
     from paper_scraper.modules.auth.models import Organization, User
+    from paper_scraper.modules.projects.models import Project
 
 
 class SavedSearch(Base):
@@ -57,6 +60,30 @@ class SavedSearch(Base):
         DateTime(timezone=True), nullable=True
     )
 
+    # Discovery / Auto-import configuration
+    semantic_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
+    target_project_id: Mapped[UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("projects.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    auto_import_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
+    import_sources: Mapped[list] = mapped_column(
+        JSONB, nullable=False, default=list
+    )  # e.g. ["openalex", "pubmed", "arxiv"]
+    max_import_per_run: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=20
+    )
+    discovery_frequency: Mapped[str | None] = mapped_column(
+        String(50), nullable=True
+    )  # daily, weekly
+    last_discovery_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     # Usage tracking
     run_count: Mapped[int] = mapped_column(nullable=False, default=0)
     last_run_at: Mapped[datetime | None] = mapped_column(
@@ -77,6 +104,7 @@ class SavedSearch(Base):
     # Relationships
     organization: Mapped["Organization"] = relationship("Organization")
     created_by: Mapped["User"] = relationship("User")
+    target_project: Mapped["Project | None"] = relationship("Project")
 
     __table_args__ = (
         Index("ix_saved_searches_org_name", "organization_id", "name"),

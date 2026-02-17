@@ -166,7 +166,107 @@ export interface PaperListResponse {
   pages: number
 }
 
+// Library V2 types
+export interface LibraryCollection {
+  id: string
+  organization_id: string
+  name: string
+  description?: string | null
+  parent_id?: string | null
+  created_by?: string | null
+  created_at: string
+  updated_at: string
+  item_count: number
+}
+
+export interface LibraryCollectionItem {
+  collection_id: string
+  paper_id: string
+  added: boolean
+}
+
+export interface ReaderChunk {
+  id: string
+  chunk_index: number
+  page_number?: number | null
+  text: string
+  char_start: number
+  char_end: number
+}
+
+export interface FullTextStatus {
+  available: boolean
+  source?: string | null
+  chunk_count: number
+  hydrated_at?: string | null
+}
+
+export interface ReaderPayload {
+  paper_id: string
+  title: string
+  status: FullTextStatus
+  chunks: ReaderChunk[]
+}
+
+export type HighlightSource = 'ai' | 'manual' | 'zotero'
+
+export interface PaperHighlight {
+  id: string
+  organization_id: string
+  paper_id: string
+  chunk_id?: string | null
+  chunk_ref: string
+  quote: string
+  insight_summary: string
+  confidence: number
+  source: HighlightSource
+  generation_id: string
+  is_active: boolean
+  created_by?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface PaperTag {
+  id: string
+  organization_id: string
+  paper_id: string
+  tag: string
+  created_by?: string | null
+  created_at: string
+}
+
+export interface ZoteroConnectionStatus {
+  connected: boolean
+  status: 'connected' | 'disconnected' | 'error'
+  user_id?: string | null
+  base_url?: string | null
+  library_type?: string | null
+  last_error?: string | null
+  last_synced_at?: string | null
+}
+
+export interface ZoteroSyncRun {
+  id: string
+  organization_id: string
+  direction: 'outbound' | 'inbound'
+  status: 'queued' | 'running' | 'succeeded' | 'failed'
+  started_at: string
+  completed_at?: string | null
+  stats_json: Record<string, unknown>
+  error_message?: string | null
+}
+
 // Scoring types
+export interface JstorReference {
+  title: string
+  authors?: string
+  year?: number
+  doi?: string
+  journal?: string
+  jstor_url?: string
+}
+
 export interface PaperScore {
   id: string
   paper_id: string
@@ -187,6 +287,7 @@ export interface PaperScore {
   confidence: number
   model_version: string
   created_at: string
+  jstor_references?: JstorReference[]
 }
 
 export interface ScoreResponse {
@@ -576,10 +677,11 @@ export interface UpdateScheduledReportRequest {
 }
 
 // Export types
-export type ExportFormat = 'csv' | 'pdf' | 'bibtex'
+export type ExportFormat = 'csv' | 'pdf' | 'bibtex' | 'ris' | 'csljson'
 
 // Saved Searches types
 export type AlertFrequency = 'immediately' | 'daily' | 'weekly'
+export type DiscoveryFrequency = 'daily' | 'weekly'
 
 export interface SavedSearchCreator {
   id: string
@@ -600,6 +702,16 @@ export interface SavedSearch {
   alert_enabled: boolean
   alert_frequency: AlertFrequency | null
   last_alert_at: string | null
+  // Discovery fields
+  semantic_description: string | null
+  target_project_id: string | null
+  target_project_name: string | null
+  auto_import_enabled: boolean
+  import_sources: string[]
+  max_import_per_run: number
+  discovery_frequency: DiscoveryFrequency | null
+  last_discovery_at: string | null
+  // Usage
   run_count: number
   last_run_at: string | null
   created_at: string
@@ -624,6 +736,13 @@ export interface CreateSavedSearchRequest {
   is_public?: boolean
   alert_enabled?: boolean
   alert_frequency?: AlertFrequency
+  // Discovery fields
+  semantic_description?: string
+  target_project_id?: string
+  auto_import_enabled?: boolean
+  import_sources?: string[]
+  max_import_per_run?: number
+  discovery_frequency?: DiscoveryFrequency
 }
 
 export interface UpdateSavedSearchRequest {
@@ -635,6 +754,13 @@ export interface UpdateSavedSearchRequest {
   is_public?: boolean
   alert_enabled?: boolean
   alert_frequency?: AlertFrequency
+  // Discovery fields
+  semantic_description?: string
+  target_project_id?: string | null
+  auto_import_enabled?: boolean
+  import_sources?: string[]
+  max_import_per_run?: number
+  discovery_frequency?: DiscoveryFrequency | null
 }
 
 // Alerts types
@@ -1113,6 +1239,7 @@ export interface ModelConfiguration {
   hosting_info: Record<string, unknown>
   max_tokens: number
   temperature: number
+  workflow: string | null
   created_at: string
   updated_at: string
 }
@@ -1130,6 +1257,7 @@ export interface CreateModelConfigurationRequest {
   hosting_info?: Record<string, unknown>
   max_tokens?: number
   temperature?: number
+  workflow?: string | null
 }
 
 export interface UpdateModelConfigurationRequest {
@@ -1140,6 +1268,7 @@ export interface UpdateModelConfigurationRequest {
   hosting_info?: Record<string, unknown>
   max_tokens?: number
   temperature?: number
+  workflow?: string | null
 }
 
 export interface UsageAggregation {
@@ -1581,4 +1710,153 @@ export interface NotificationListResponse {
 
 export interface MarkReadRequest {
   notification_ids: string[]
+}
+
+// =============================================================================
+// Trend Radar types
+// =============================================================================
+
+export interface TrendTopic {
+  id: string
+  organization_id: string
+  created_by_id: string | null
+  name: string
+  description: string
+  color: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+  matched_papers_count: number
+  avg_overall_score: number | null
+  patent_count: number
+  last_analyzed_at: string | null
+}
+
+export interface TrendTopicListResponse {
+  items: TrendTopic[]
+  total: number
+}
+
+export interface PatentResult {
+  patent_number: string
+  title: string
+  abstract: string | null
+  applicant: string | null
+  filing_date: string | null
+  publication_date: string | null
+  espacenet_url: string
+}
+
+export interface KeywordCount {
+  keyword: string
+  count: number
+}
+
+export interface TrendTimelinePoint {
+  date: string
+  count: number
+}
+
+export interface TrendSnapshot {
+  id: string
+  trend_topic_id: string
+  matched_papers_count: number
+  avg_novelty: number | null
+  avg_ip_potential: number | null
+  avg_marketability: number | null
+  avg_feasibility: number | null
+  avg_commercialization: number | null
+  avg_team_readiness: number | null
+  avg_overall_score: number | null
+  patent_count: number
+  patent_results: PatentResult[]
+  summary: string | null
+  key_insights: string[]
+  top_keywords: KeywordCount[]
+  timeline_data: TrendTimelinePoint[]
+  created_at: string
+}
+
+export interface TrendPaper {
+  id: string
+  title: string
+  abstract: string | null
+  doi: string | null
+  journal: string | null
+  publication_date: string | null
+  relevance_score: number
+  overall_score: number | null
+  novelty: number | null
+  ip_potential: number | null
+}
+
+export interface TrendPaperListResponse {
+  items: TrendPaper[]
+  total: number
+  page: number
+  page_size: number
+  pages: number
+}
+
+export interface TrendDashboard {
+  topic: TrendTopic
+  snapshot: TrendSnapshot | null
+  top_papers: TrendPaper[]
+}
+
+// Discovery types
+export type DiscoveryRunStatus = 'running' | 'completed' | 'completed_with_errors' | 'failed'
+
+export interface DiscoveryRun {
+  id: string
+  saved_search_id: string
+  organization_id: string
+  status: DiscoveryRunStatus
+  source: string
+  papers_found: number
+  papers_imported: number
+  papers_skipped: number
+  papers_added_to_project: number
+  error_message: string | null
+  started_at: string
+  completed_at: string | null
+  created_at: string
+}
+
+export interface DiscoveryRunListResponse {
+  items: DiscoveryRun[]
+  total: number
+  page: number
+  page_size: number
+  pages: number
+}
+
+export interface DiscoveryProfileSummary {
+  id: string
+  name: string
+  query: string
+  semantic_description: string | null
+  import_sources: string[]
+  target_project_id: string | null
+  target_project_name: string | null
+  discovery_frequency: DiscoveryFrequency | null
+  max_import_per_run: number
+  last_discovery_at: string | null
+  auto_import_enabled: boolean
+  created_at: string
+  last_run_status: DiscoveryRunStatus | null
+  total_papers_imported: number
+}
+
+export interface DiscoveryProfileListResponse {
+  items: DiscoveryProfileSummary[]
+  total: number
+}
+
+export interface DiscoveryTriggerResponse {
+  saved_search_id: string
+  runs: DiscoveryRun[]
+  total_papers_imported: number
+  total_papers_added_to_project: number
+  message: string
 }

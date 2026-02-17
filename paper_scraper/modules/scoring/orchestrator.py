@@ -170,6 +170,7 @@ class ScoringOrchestrator:
         similar_papers: list[PaperContext] | None = None,
         dimensions: list[str] | None = None,
         track_usage: bool = True,
+        dimension_contexts: dict[str, str] | None = None,
     ) -> AggregatedScore:
         """
         Score a paper across all (or specified) dimensions.
@@ -179,6 +180,7 @@ class ScoringOrchestrator:
             similar_papers: Optional list of similar papers for comparison
             dimensions: Optional list of specific dimensions to score
             track_usage: Whether to track token usage (default: True)
+            dimension_contexts: Optional per-dimension context strings
 
         Returns:
             AggregatedScore with all dimension results
@@ -191,7 +193,16 @@ class ScoringOrchestrator:
 
         # Score all dimensions in parallel with concurrency limiting
         tasks = [
-            self._score_dimension_with_semaphore(name, paper, similar_papers)
+            self._score_dimension_with_semaphore(
+                name,
+                paper,
+                similar_papers,
+                dimension_context=(
+                    dimension_contexts.get(name)
+                    if dimension_contexts
+                    else None
+                ),
+            )
             for name in dims_to_score
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -245,21 +256,27 @@ class ScoringOrchestrator:
         dimension_name: str,
         paper: PaperContext,
         similar_papers: list[PaperContext] | None,
+        dimension_context: str | None = None,
     ) -> DimensionResult:
         """Score a single dimension with concurrency control."""
         async with self._semaphore:
             logger.debug(f"Scoring dimension {dimension_name} for paper {paper.id}")
-            return await self._score_dimension(dimension_name, paper, similar_papers)
+            return await self._score_dimension(
+                dimension_name, paper, similar_papers, dimension_context
+            )
 
     async def _score_dimension(
         self,
         dimension_name: str,
         paper: PaperContext,
         similar_papers: list[PaperContext] | None,
+        dimension_context: str | None = None,
     ) -> DimensionResult:
         """Score a single dimension."""
         dimension = self.dimensions[dimension_name]
-        return await dimension.score(paper, similar_papers)
+        return await dimension.score(
+            paper, similar_papers, dimension_context=dimension_context
+        )
 
     def _calculate_overall(
         self,

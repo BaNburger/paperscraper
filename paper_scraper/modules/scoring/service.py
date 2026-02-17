@@ -1,11 +1,13 @@
 """Service layer for scoring module."""
 
 import logging
+import re
 from base64 import b64decode
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.core.exceptions import NotFoundError
@@ -14,7 +16,7 @@ from paper_scraper.modules.papers.models import Paper
 from paper_scraper.modules.scoring.dimensions.base import PaperContext
 from paper_scraper.modules.scoring.embeddings import generate_paper_embedding
 from paper_scraper.modules.scoring.llm_client import get_llm_client
-from paper_scraper.modules.scoring.models import PaperScore, ScoringJob, ScoringPolicy
+from paper_scraper.modules.scoring.models import GlobalScoreCache, PaperScore, ScoringJob, ScoringPolicy
 from paper_scraper.modules.scoring.orchestrator import (
     AggregatedScore,
     ScoringOrchestrator,
@@ -32,8 +34,11 @@ from paper_scraper.modules.scoring.schemas import (
     ScoringWeightsSchema,
 )
 from paper_scraper.modules.scoring.context_assembler import DefaultScoreContextAssembler
+from paper_scraper.modules.scoring.dimension_context_builder import DimensionContextBuilder
 
 logger = logging.getLogger(__name__)
+
+GLOBAL_CACHE_TTL_DAYS = 90
 
 
 class ScoringService:
@@ -85,6 +90,17 @@ class ScoringService:
             if existing and existing.created_at > datetime.now(timezone.utc) - timedelta(hours=24):
                 return existing
 
+        # Check global DOI cache (cross-tenant, 90-day TTL)
+        if not force_rescore and paper.doi and not dimensions:
+            cached = await self._check_global_cache(paper.doi)
+            if cached:
+                logger.info(
+                    "Global cache hit for paper %s (DOI: %s)", paper_id, paper.doi
+                )
+                return await self._create_score_from_cache(
+                    paper, organization_id, cached, weights
+                )
+
         # Ensure paper has embedding for similar paper lookup
         if not paper.embedding:
             await self.generate_embedding(paper_id, organization_id)
@@ -97,25 +113,35 @@ class ScoringService:
         paper_context = PaperContext.from_paper(paper)
         similar_contexts = [PaperContext.from_paper(p) for p in similar_papers]
 
-        # Fetch knowledge context if enabled
+        # Build dimension-specific context (replaces monolithic context assembler)
         knowledge_context = ""
+        dimension_contexts = None
+        jstor_references: list[dict] = []
         if use_knowledge_context:
-            assembler = DefaultScoreContextAssembler(self.db)
-            score_context = await assembler.build(
-                paper_id=paper_id,
+            builder = DimensionContextBuilder(self.db)
+            dim_result = await builder.build_all(
+                paper=paper,
                 organization_id=organization_id,
                 user_id=user_id,
+                similar_papers=similar_papers,
+                dimensions=dimensions,
             )
-            knowledge_context = score_context.prompt_context
-            if knowledge_context:
-                paper_context.knowledge_context = knowledge_context
+            dimension_contexts = dim_result.contexts
+            jstor_references = dim_result.metadata.get("_jstor_references", [])
+            if dim_result.has_knowledge_context:
+                # Sentinel: org-specific knowledge was used — skip global cache write
+                knowledge_context = "dimension_specific"
+            if dimension_contexts:
                 logger.debug(
-                    f"Injected knowledge context ({len(knowledge_context)} chars) "
-                    f"for paper {paper_id}"
+                    "Built dimension-specific contexts for %d dimensions "
+                    "(paper %s, %d JSTOR refs)",
+                    len(dimension_contexts),
+                    paper_id,
+                    len(jstor_references),
                 )
 
         # Resolve tenant-specific scoring policy (provider/model) if configured.
-        llm_client = await self._resolve_llm_client(organization_id)
+        llm_client = await self._resolve_llm_client(organization_id, workflow="scoring")
         orchestrator = ScoringOrchestrator(llm_client=llm_client)
         if weights:
             scoring_weights = ScoringWeights(
@@ -133,10 +159,22 @@ class ScoringService:
             paper=paper_context,
             similar_papers=similar_contexts,
             dimensions=dimensions,
+            dimension_contexts=dimension_contexts,
         )
 
+        # Write to global DOI cache (before _save_score so commit is atomic).
+        # Skip when org knowledge context was injected — those scores are
+        # org-specific and must not pollute the cross-tenant cache.
+        if paper.doi and not dimensions and not knowledge_context:
+            try:
+                await self._write_global_cache(paper.doi, result)
+            except Exception as exc:
+                logger.warning("Failed to write global score cache for DOI %s: %s", paper.doi, exc)
+
         # Save score to database
-        score = await self._save_score(paper, organization_id, result, knowledge_context)
+        score = await self._save_score(
+            paper, organization_id, result, knowledge_context, jstor_references
+        )
 
         # Log usage if tracked
         if result.usage and result.usage.total_tokens > 0:
@@ -552,8 +590,35 @@ class ScoringService:
         await self.db.commit()
         return count
 
-    async def _resolve_llm_client(self, organization_id: UUID):
-        """Resolve LLM client from scoring policy, then model config, then global defaults."""
+    async def _resolve_llm_client(self, organization_id: UUID, workflow: str | None = None):
+        """Resolve LLM client from workflow config, scoring policy, model config, or global defaults."""
+        # 0) Workflow-specific model configuration
+        if workflow:
+            workflow_query = (
+                select(ModelConfiguration)
+                .where(
+                    ModelConfiguration.organization_id == organization_id,
+                    ModelConfiguration.workflow == workflow,
+                )
+                .limit(1)
+            )
+            wf_config = (await self.db.execute(workflow_query)).scalar_one_or_none()
+            if wf_config:
+                api_key = None
+                if wf_config.api_key_encrypted:
+                    try:
+                        api_key = b64decode(wf_config.api_key_encrypted.encode()).decode()
+                    except Exception:
+                        api_key = None
+                try:
+                    return get_llm_client(
+                        provider=wf_config.provider,
+                        model=wf_config.model_name,
+                        api_key=api_key,
+                    )
+                except Exception as exc:
+                    logger.warning("Failed to resolve workflow LLM client for %s: %s", workflow, exc)
+
         # 1) scoring_policies default (new pipeline primitive)
         policy_query = (
             select(ScoringPolicy)
@@ -659,6 +724,7 @@ class ScoringService:
         organization_id: UUID,
         result: AggregatedScore,
         knowledge_context: str = "",
+        jstor_references: list[dict] | None = None,
     ) -> PaperScore:
         """Save scoring result to database."""
         # Extract dimension details for storage
@@ -671,12 +737,16 @@ class ScoringService:
                 "details": dim_result.details,
             }
 
-        # Add metadata about knowledge context usage
+        # Add metadata about knowledge context usage and JSTOR references
+        metadata: dict = {}
         if knowledge_context:
-            dimension_details["_metadata"] = {
-                "knowledge_context_used": True,
-                "knowledge_context_length": len(knowledge_context),
-            }
+            metadata["knowledge_context_used"] = True
+            metadata["knowledge_context_length"] = len(knowledge_context)
+        if jstor_references:
+            metadata["jstor_references"] = jstor_references
+            metadata["jstor_count"] = len(jstor_references)
+        if metadata:
+            dimension_details["_metadata"] = metadata
 
         score = PaperScore(
             paper_id=paper.id,
@@ -693,6 +763,169 @@ class ScoringService:
             weights=result.weights.to_dict(),
             dimension_details=dimension_details,
             errors=result.errors,
+        )
+        self.db.add(score)
+        await self.db.commit()
+        await self.db.refresh(score)
+        return score
+
+    # =========================================================================
+    # Global Score Cache
+    # =========================================================================
+
+    @staticmethod
+    def _normalize_doi(doi: str) -> str | None:
+        """Normalize and validate a DOI string.
+
+        Returns lowercase DOI if valid (matches 10.xxxx/... pattern),
+        or None if invalid.
+        """
+        doi = doi.strip().lower()
+        if re.match(r"^10\.\d{4,9}/\S+$", doi):
+            return doi
+        return None
+
+    async def _check_global_cache(self, doi: str) -> GlobalScoreCache | None:
+        """Look up a non-expired global score cache entry by DOI."""
+        normalized = self._normalize_doi(doi)
+        if not normalized:
+            return None
+        result = await self.db.execute(
+            select(GlobalScoreCache).where(
+                GlobalScoreCache.doi == normalized,
+                GlobalScoreCache.expires_at > datetime.now(timezone.utc),
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def _write_global_cache(
+        self,
+        doi: str,
+        result: AggregatedScore,
+    ) -> None:
+        """Write or update the global score cache for a DOI (atomic upsert).
+
+        Only numeric score/confidence per dimension are stored — reasoning
+        and details are stripped to prevent cross-tenant data leakage.
+        """
+        normalized = self._normalize_doi(doi)
+        if not normalized:
+            return
+
+        now = datetime.now(timezone.utc)
+        expires_at = now + timedelta(days=GLOBAL_CACHE_TTL_DAYS)
+
+        # Only store numeric data — reasoning may contain org-specific context
+        dimension_details: dict = {}
+        for dim_name, dim_result in result.dimension_results.items():
+            dimension_details[dim_name] = {
+                "score": dim_result.score,
+                "confidence": dim_result.confidence,
+            }
+
+        values = {
+            "doi": normalized,
+            "novelty": result.novelty,
+            "ip_potential": result.ip_potential,
+            "marketability": result.marketability,
+            "feasibility": result.feasibility,
+            "commercialization": result.commercialization,
+            "team_readiness": result.team_readiness,
+            "overall_score": result.overall_score,
+            "overall_confidence": result.overall_confidence,
+            "model_version": result.model_version,
+            "dimension_details": dimension_details,
+            "errors": result.errors,
+            "expires_at": expires_at,
+        }
+
+        update_values = {k: v for k, v in values.items() if k != "doi"}
+        update_values["created_at"] = now
+
+        stmt = pg_insert(GlobalScoreCache).values(**values)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["doi"],
+            set_=update_values,
+        )
+
+        await self.db.execute(stmt)
+        await self.db.flush()
+
+    async def _create_score_from_cache(
+        self,
+        paper: Paper,
+        organization_id: UUID,
+        cache: GlobalScoreCache,
+        weights: ScoringWeightsSchema | None = None,
+    ) -> PaperScore:
+        """Create a PaperScore from a global cache entry.
+
+        If custom weights are provided, recalculates overall_score from
+        the cached dimension scores.
+        """
+        overall_score = cache.overall_score
+
+        if weights:
+            dimension_scores = {
+                "novelty": cache.novelty,
+                "ip_potential": cache.ip_potential,
+                "marketability": cache.marketability,
+                "feasibility": cache.feasibility,
+                "commercialization": cache.commercialization,
+                "team_readiness": cache.team_readiness,
+            }
+            weight_values = {
+                "novelty": weights.novelty,
+                "ip_potential": weights.ip_potential,
+                "marketability": weights.marketability,
+                "feasibility": weights.feasibility,
+                "commercialization": weights.commercialization,
+                "team_readiness": weights.team_readiness,
+            }
+            overall_score = round(
+                sum(dimension_scores[d] * weight_values[d] for d in dimension_scores),
+                2,
+            )
+
+        dimension_details = dict(cache.dimension_details)
+        dimension_details["_metadata"] = {
+            "source": "global_score_cache",
+            "cached_at": cache.created_at.isoformat(),
+            "cache_doi": cache.doi,
+        }
+
+        default_w = 1.0 / 6
+        weights_dict = (
+            {
+                "novelty": weights.novelty,
+                "ip_potential": weights.ip_potential,
+                "marketability": weights.marketability,
+                "feasibility": weights.feasibility,
+                "commercialization": weights.commercialization,
+                "team_readiness": weights.team_readiness,
+            }
+            if weights
+            else {k: default_w for k in [
+                "novelty", "ip_potential", "marketability",
+                "feasibility", "commercialization", "team_readiness",
+            ]}
+        )
+
+        score = PaperScore(
+            paper_id=paper.id,
+            organization_id=organization_id,
+            novelty=cache.novelty,
+            ip_potential=cache.ip_potential,
+            marketability=cache.marketability,
+            feasibility=cache.feasibility,
+            commercialization=cache.commercialization,
+            team_readiness=cache.team_readiness,
+            overall_score=overall_score,
+            overall_confidence=cache.overall_confidence,
+            model_version=cache.model_version,
+            weights=weights_dict,
+            dimension_details=dimension_details,
+            errors=list(cache.errors),
         )
         self.db.add(score)
         await self.db.commit()

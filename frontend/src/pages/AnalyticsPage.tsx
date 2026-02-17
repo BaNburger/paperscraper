@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { ContentSkeleton } from '@/components/ui/PageSkeleton'
 import {
   FileText,
   TrendingUp,
@@ -28,7 +29,6 @@ import {
   BarChart3,
   PieChart,
   Activity,
-  Loader2,
   ArrowUp,
   Filter,
   ArrowRight,
@@ -582,11 +582,7 @@ function FunnelTab() {
   const { data: funnel, isLoading } = useFunnelAnalytics()
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <ContentSkeleton variant="dashboard" />
   }
 
   return (
@@ -701,11 +697,7 @@ function BenchmarksTab() {
   const { data: benchmarks, isLoading } = useBenchmarks()
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <ContentSkeleton variant="dashboard" />
   }
 
   return (
@@ -881,11 +873,7 @@ function ReportsTab() {
   }
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <ContentSkeleton variant="list" />
   }
 
   const reportTypeLabels: Record<ReportType, string> = {
@@ -1111,11 +1099,7 @@ export function AnalyticsPage() {
   const isLoading = summaryLoading || analyticsLoading || teamLoading
 
   if (isLoading && activeTab === 'overview') {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <ContentSkeleton variant="dashboard" />
   }
 
   const tabs: { value: AnalyticsTab; label: string; icon: typeof BarChart3 }[] = [

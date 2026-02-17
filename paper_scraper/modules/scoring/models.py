@@ -170,3 +170,48 @@ class ScoringPolicy(Base):
 
     def __repr__(self) -> str:
         return f"<ScoringPolicy {self.provider}/{self.model} org={self.organization_id}>"
+
+
+class GlobalScoreCache(Base):
+    """Cross-tenant cache for scoring results keyed by DOI.
+
+    Stores LLM-generated scores with a 90-day TTL so that papers
+    with the same DOI do not need to be re-scored across organizations.
+    """
+
+    __tablename__ = "global_score_cache"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    doi: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
+
+    # Individual dimension scores (0-10)
+    novelty: Mapped[float] = mapped_column(Float, nullable=False)
+    ip_potential: Mapped[float] = mapped_column(Float, nullable=False)
+    marketability: Mapped[float] = mapped_column(Float, nullable=False)
+    feasibility: Mapped[float] = mapped_column(Float, nullable=False)
+    commercialization: Mapped[float] = mapped_column(Float, nullable=False)
+    team_readiness: Mapped[float] = mapped_column(Float, nullable=False, server_default="0")
+
+    # Aggregated score (default equal weights)
+    overall_score: Mapped[float] = mapped_column(Float, nullable=False)
+    overall_confidence: Mapped[float] = mapped_column(Float, nullable=False)
+
+    # Scoring metadata
+    model_version: Mapped[str] = mapped_column(String(50), nullable=False)
+    dimension_details: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    errors: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        Index("ix_global_score_cache_expires", "expires_at"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<GlobalScoreCache doi={self.doi} overall={self.overall_score:.1f}>"

@@ -33,6 +33,7 @@ class ModelConfiguration(Base):
     hosting_info: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     max_tokens: Mapped[int] = mapped_column(Integer, nullable=False, server_default="4096")
     temperature: Mapped[float] = mapped_column(Float, nullable=False, server_default="0.3")
+    workflow: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -46,6 +47,7 @@ class ModelConfiguration(Base):
 
     __table_args__ = (
         Index("ix_model_configurations_org_default", "organization_id", "is_default"),
+        Index("ix_model_configurations_org_workflow", "organization_id", "workflow"),
     )
 
     def __repr__(self) -> str:

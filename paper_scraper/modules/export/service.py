@@ -2,6 +2,7 @@
 
 import csv
 import io
+import json
 import re
 from datetime import datetime, timezone
 from uuid import UUID
@@ -186,6 +187,105 @@ class ExportService:
             entries.append(entry)
 
         return "\n\n".join(entries), len(papers)
+
+    async def export_ris(
+        self,
+        organization_id: UUID,
+        paper_ids: list[UUID] | None = None,
+        include_abstract: bool = True,
+    ) -> tuple[str, int]:
+        """Export papers to RIS format."""
+        papers = await self._get_papers(organization_id, paper_ids, include_authors=True)
+        if not papers:
+            return "", 0
+
+        lines: list[str] = []
+        for paper in papers:
+            lines.append("TY  - JOUR")
+            lines.append(f"ID  - {paper.id}")
+            lines.append(f"TI  - {paper.title}")
+            for author in _get_sorted_author_names(paper):
+                lines.append(f"AU  - {author}")
+            if paper.journal:
+                lines.append(f"JO  - {paper.journal}")
+            if paper.publication_date:
+                date_str = paper.publication_date.strftime("%Y/%m/%d")
+                lines.append(f"PY  - {date_str}")
+                lines.append(f"DA  - {date_str}")
+            if paper.volume:
+                lines.append(f"VL  - {paper.volume}")
+            if paper.issue:
+                lines.append(f"IS  - {paper.issue}")
+            if paper.pages:
+                lines.append(f"SP  - {paper.pages}")
+            if paper.doi:
+                lines.append(f"DO  - {paper.doi}")
+            if include_abstract and paper.abstract:
+                lines.append(f"AB  - {paper.abstract}")
+            for keyword in paper.keywords or []:
+                lines.append(f"KW  - {keyword}")
+            lines.append("ER  - ")
+            lines.append("")
+
+        # RIS tools generally accept LF, no need to force CRLF.
+        return "\n".join(lines), len(papers)
+
+    async def export_csljson(
+        self,
+        organization_id: UUID,
+        paper_ids: list[UUID] | None = None,
+        include_abstract: bool = True,
+    ) -> tuple[str, int]:
+        """Export papers as CSL JSON array."""
+        papers = await self._get_papers(organization_id, paper_ids, include_authors=True)
+        if not papers:
+            return "[]", 0
+
+        entries: list[dict] = []
+        for paper in papers:
+            authors = []
+            for author_name in _get_sorted_author_names(paper):
+                parts = author_name.split()
+                if len(parts) > 1:
+                    authors.append({"family": parts[-1], "given": " ".join(parts[:-1])})
+                else:
+                    authors.append({"family": author_name})
+
+            issued = None
+            if paper.publication_date:
+                date_parts = [paper.publication_date.year]
+                if paper.publication_date.month:
+                    date_parts.append(paper.publication_date.month)
+                if paper.publication_date.day:
+                    date_parts.append(paper.publication_date.day)
+                issued = {"date-parts": [date_parts]}
+
+            item = {
+                "id": str(paper.id),
+                "type": "article-journal",
+                "title": paper.title,
+                "author": authors,
+            }
+            if paper.doi:
+                item["DOI"] = paper.doi
+            if paper.journal:
+                item["container-title"] = paper.journal
+            if issued:
+                item["issued"] = issued
+            if paper.volume:
+                item["volume"] = paper.volume
+            if paper.issue:
+                item["issue"] = paper.issue
+            if paper.pages:
+                item["page"] = paper.pages
+            if include_abstract and paper.abstract:
+                item["abstract"] = paper.abstract
+            if paper.keywords:
+                item["keyword"] = ", ".join(paper.keywords)
+
+            entries.append(item)
+
+        return json.dumps(entries, ensure_ascii=False, indent=2), len(entries)
 
     def _generate_bibtex_entry(self, paper: Paper, include_abstract: bool) -> str:
         """Generate a single BibTeX entry."""

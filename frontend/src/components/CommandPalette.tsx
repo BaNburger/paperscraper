@@ -3,18 +3,24 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Command } from 'cmdk'
 import {
+  ArrowRightLeft,
+  Download,
   FileText,
   FolderKanban,
   Keyboard,
+  Moon,
   Plus,
   Search,
+  Sun,
   Upload,
   UsersRound,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTheme } from '@/contexts/ThemeContext'
 import { useCommandPaletteData } from '@/hooks/useCommandPaletteData'
 import { COMMAND_PALETTE_ITEMS } from '@/config/routes'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/Dialog'
+import { truncate } from '@/lib/utils'
 import type { Group, Paper, Project } from '@/types'
 import '@/styles/cmdk.css'
 
@@ -59,6 +65,7 @@ export function CommandPalette({ onShowKeyboardShortcuts }: CommandPaletteProps)
   const [search, setSearch] = useState('')
   const navigate = useNavigate()
   const { user, isAuthenticated } = useAuth()
+  const { theme, setTheme } = useTheme()
   const { t } = useTranslation()
 
   const { papers, projects, groups } = useCommandPaletteData({
@@ -77,7 +84,7 @@ export function CommandPalette({ onShowKeyboardShortcuts }: CommandPaletteProps)
     [user?.role]
   )
 
-  // Toggle the menu when ⌘K/Ctrl+K is pressed
+  // Toggle the menu when Cmd+K/Ctrl+K is pressed
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
@@ -132,6 +139,12 @@ export function CommandPalette({ onShowKeyboardShortcuts }: CommandPaletteProps)
     },
     [navigate, runCommand]
   )
+
+  const handleToggleTheme = useCallback(() => {
+    runCommand(() => {
+      setTheme(theme === 'dark' ? 'light' : 'dark')
+    })
+  }, [theme, setTheme, runCommand])
 
   const navigationItems = visibleNavigationItems.filter((item) => !item.path.startsWith('/settings'))
   const settingsItems = visibleNavigationItems.filter((item) => item.path.startsWith('/settings'))
@@ -200,6 +213,24 @@ export function CommandPalette({ onShowKeyboardShortcuts }: CommandPaletteProps)
                 <kbd className="cmdk-shortcut">n j</kbd>
               </Command.Item>
               <Command.Item
+                value="new-transfer-conversation"
+                onSelect={() => handleNavigate('/transfer?new=true')}
+                className="cmdk-item"
+              >
+                <ArrowRightLeft className="cmdk-icon" />
+                <span className="cmdk-item-text">{t('commandPalette.newTransfer')}</span>
+                <kbd className="cmdk-shortcut">n t</kbd>
+              </Command.Item>
+              <Command.Item
+                value="new-group"
+                onSelect={() => handleNavigate('/groups?new=true')}
+                className="cmdk-item"
+              >
+                <UsersRound className="cmdk-icon" />
+                <span className="cmdk-item-text">{t('commandPalette.newGroup')}</span>
+                <kbd className="cmdk-shortcut">n g</kbd>
+              </Command.Item>
+              <Command.Item
                 value="search-papers"
                 onSelect={() => handleNavigate('/search')}
                 className="cmdk-item"
@@ -207,6 +238,26 @@ export function CommandPalette({ onShowKeyboardShortcuts }: CommandPaletteProps)
                 <Search className="cmdk-icon" />
                 <span className="cmdk-item-text">{t('dashboard.searchLibrary')}</span>
                 <kbd className="cmdk-shortcut">/</kbd>
+              </Command.Item>
+              <Command.Item
+                value="toggle-theme"
+                onSelect={handleToggleTheme}
+                className="cmdk-item"
+              >
+                {theme === 'dark' ? (
+                  <Sun className="cmdk-icon" />
+                ) : (
+                  <Moon className="cmdk-icon" />
+                )}
+                <span className="cmdk-item-text">{t('commandPalette.toggleTheme')}</span>
+              </Command.Item>
+              <Command.Item
+                value="export-papers"
+                onSelect={() => handleNavigate('/papers?export=true')}
+                className="cmdk-item"
+              >
+                <Download className="cmdk-icon" />
+                <span className="cmdk-item-text">{t('commandPalette.exportPapers')}</span>
               </Command.Item>
             </Command.Group>
 
@@ -261,7 +312,14 @@ export function CommandPalette({ onShowKeyboardShortcuts }: CommandPaletteProps)
                     className="cmdk-item"
                   >
                     <FileText className="cmdk-icon" />
-                    <span className="cmdk-item-text">{paper.title}</span>
+                    <div className="flex-1 min-w-0">
+                      <span className="cmdk-item-text block">{paper.title}</span>
+                      {paper.abstract && (
+                        <span className="text-xs text-muted-foreground block truncate">
+                          {truncate(paper.abstract, 80)}
+                        </span>
+                      )}
+                    </div>
                     <span className="cmdk-badge">{paper.source}</span>
                   </Command.Item>
                 ))}
@@ -279,6 +337,9 @@ export function CommandPalette({ onShowKeyboardShortcuts }: CommandPaletteProps)
                   >
                     <FolderKanban className="cmdk-icon" />
                     <span className="cmdk-item-text">{project.name}</span>
+                    <span className="cmdk-badge">
+                      {project.is_active ? t('dashboard.active') : t('dashboard.inactive')}
+                    </span>
                   </Command.Item>
                 ))}
               </Command.Group>

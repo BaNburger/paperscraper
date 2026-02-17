@@ -17,6 +17,13 @@ class AlertFrequency(str, Enum):
     WEEKLY = "weekly"
 
 
+class DiscoveryFrequency(str, Enum):
+    """Discovery run frequency options."""
+
+    DAILY = "daily"
+    WEEKLY = "weekly"
+
+
 # =============================================================================
 # Request Schemas
 # =============================================================================
@@ -35,6 +42,25 @@ class SavedSearchCreate(BaseModel):
     alert_frequency: AlertFrequency | None = Field(
         default=None, description="How often to send alerts"
     )
+    # Discovery fields
+    semantic_description: str | None = Field(
+        default=None, max_length=5000, description="Semantic description for discovery matching"
+    )
+    target_project_id: UUID | None = Field(
+        default=None, description="Project to auto-import papers into"
+    )
+    auto_import_enabled: bool = Field(
+        default=False, description="Enable automated discovery and import"
+    )
+    import_sources: list[str] = Field(
+        default_factory=list, description="Sources to scan: openalex, pubmed, arxiv"
+    )
+    max_import_per_run: int = Field(
+        default=20, ge=1, le=200, description="Max papers to import per source per run"
+    )
+    discovery_frequency: DiscoveryFrequency | None = Field(
+        default=None, description="How often to run discovery"
+    )
 
 
 class SavedSearchUpdate(BaseModel):
@@ -48,6 +74,13 @@ class SavedSearchUpdate(BaseModel):
     is_public: bool | None = Field(default=None)
     alert_enabled: bool | None = Field(default=None)
     alert_frequency: AlertFrequency | None = Field(default=None)
+    # Discovery fields
+    semantic_description: str | None = Field(default=None, max_length=5000)
+    target_project_id: UUID | None = Field(default=None)
+    auto_import_enabled: bool | None = Field(default=None)
+    import_sources: list[str] | None = Field(default=None)
+    max_import_per_run: int | None = Field(default=None, ge=1, le=200)
+    discovery_frequency: DiscoveryFrequency | None = Field(default=None)
 
 
 # =============================================================================
@@ -82,6 +115,16 @@ class SavedSearchResponse(BaseModel):
     alert_enabled: bool
     alert_frequency: str | None
     last_alert_at: datetime | None
+    # Discovery fields
+    semantic_description: str | None = None
+    target_project_id: UUID | None = None
+    target_project_name: str | None = None
+    auto_import_enabled: bool = False
+    import_sources: list[str] = Field(default_factory=list)
+    max_import_per_run: int = 20
+    discovery_frequency: str | None = None
+    last_discovery_at: datetime | None = None
+    # Usage tracking
     run_count: int
     last_run_at: datetime | None
     created_at: datetime
