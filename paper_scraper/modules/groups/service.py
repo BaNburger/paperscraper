@@ -7,12 +7,11 @@ from pathlib import Path
 from uuid import UUID
 
 from jinja2 import Environment, FileSystemLoader
-from paper_scraper.core.csv_utils import sanitize_csv_field
-
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from paper_scraper.core.csv_utils import sanitize_csv_field
 from paper_scraper.core.exceptions import NotFoundError
 from paper_scraper.modules.groups.models import GroupMember, GroupType, ResearcherGroup
 from paper_scraper.modules.groups.schemas import (
@@ -459,7 +458,7 @@ class GroupService:
                     llm_data = llm_candidates[suggestion.name]
                     # Safely extract and normalize relevance score (0-100 -> 0-1)
                     raw_score = llm_data.get("relevance_score")
-                    if isinstance(raw_score, (int, float)) and 0 <= raw_score <= 100:
+                    if isinstance(raw_score, int | float) and 0 <= raw_score <= 100:
                         relevance_score = raw_score / 100
                     else:
                         relevance_score = suggestion.relevance_score

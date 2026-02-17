@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import delete, func, select
@@ -363,7 +363,7 @@ class LibraryService:
         )
 
         chunks = self.text_service.chunk_text(hydrated_text)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         for chunk in chunks:
             self.db.add(
                 PaperTextChunk(

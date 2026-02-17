@@ -8,7 +8,6 @@ import {
   ExternalLink,
   FileText,
   Lightbulb,
-  Loader2,
   RefreshCw,
   Sparkles,
   Trash2,

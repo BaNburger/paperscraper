@@ -455,7 +455,7 @@ def _extract_orcid_affiliations(affiliation_groups: list[dict]) -> list[str]:
         summaries = group.get("summaries", [])
         for summary_wrapper in summaries:
             # Keys vary: "employment-summary", "education-summary", etc.
-            for key, summary in summary_wrapper.items():
+            for _key, summary in summary_wrapper.items():
                 if not isinstance(summary, dict):
                     continue
                 org = summary.get("organization", {})

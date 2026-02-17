@@ -4,41 +4,22 @@ import logging
 from datetime import datetime
 from uuid import UUID
 
-import httpx
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from paper_scraper.core.exceptions import DuplicateError, NotFoundError
 from paper_scraper.core.sql_utils import escape_like
-from paper_scraper.modules.papers.clients.arxiv import ArxivClient
 from paper_scraper.modules.papers.clients.crossref import CrossrefClient
 from paper_scraper.modules.papers.clients.openalex import OpenAlexClient
-from paper_scraper.modules.papers.clients.pubmed import PubMedClient
 from paper_scraper.modules.papers.models import Author, Paper, PaperAuthor, PaperSource
-from paper_scraper.modules.papers.schemas import IngestResult, PaperListResponse
-from paper_scraper.modules.scoring.pitch_generator import PitchGenerator, SimplifiedAbstractGenerator
+from paper_scraper.modules.papers.schemas import PaperListResponse
+from paper_scraper.modules.scoring.pitch_generator import (
+    PitchGenerator,
+    SimplifiedAbstractGenerator,
+)
 
 logger = logging.getLogger(__name__)
-
-
-def _api_error_result(source: str, error: Exception) -> IngestResult:
-    """Create an IngestResult for API errors.
-
-    Args:
-        source: Name of the API source (e.g., "OpenAlex", "PubMed").
-        error: The exception that occurred.
-
-    Returns:
-        IngestResult with appropriate error message.
-    """
-    if isinstance(error, httpx.HTTPStatusError):
-        msg = f"{source} API error: {error.response.status_code}"
-    elif isinstance(error, httpx.RequestError):
-        msg = f"Network error connecting to {source}: {error}"
-    else:
-        msg = f"Error fetching from {source}: {error}"
-    return IngestResult(papers_created=0, papers_updated=0, papers_skipped=0, errors=[msg])
 
 
 class PaperService:
@@ -206,252 +187,13 @@ class PaperService:
                 paper_data = await client.get_by_id(doi)
 
         if not paper_data:
-            raise NotFoundError("Paper", "doi", doi)
+            raise NotFoundError("Paper", doi, {"field": "doi"})
 
         paper = await self._create_paper_from_data(
             paper_data, organization_id, created_by_id=created_by_id
         )
         await self.db.flush()
         return paper
-
-    async def ingest_from_openalex(
-        self,
-        query: str,
-        organization_id: UUID,
-        max_results: int = 100,
-        filters: dict | None = None,
-        created_by_id: UUID | None = None,
-    ) -> IngestResult:
-        """Batch ingest papers from OpenAlex search.
-
-        Args:
-            query: OpenAlex search query.
-            organization_id: Organization UUID.
-            max_results: Maximum papers to import.
-            filters: Optional OpenAlex filters.
-
-        Returns:
-            IngestResult with counts of created/skipped papers.
-        """
-        created = 0
-        skipped = 0
-        errors: list[str] = []
-
-        try:
-            async with OpenAlexClient() as client:
-                papers_data = await client.search(query, max_results, filters)
-        except Exception as e:
-            return _api_error_result("OpenAlex", e)
-
-        for paper_data in papers_data:
-            try:
-                doi = paper_data.get("doi")
-                if doi:
-                    existing = await self.get_paper_by_doi(doi, organization_id)
-                    if existing:
-                        skipped += 1
-                        continue
-
-                await self._create_paper_from_data(
-                    paper_data, organization_id, created_by_id=created_by_id
-                )
-                created += 1
-            except Exception as e:
-                title = paper_data.get("title", "unknown")[:50]
-                errors.append(f"Error importing '{title}': {str(e)}")
-
-        await self.db.flush()
-
-        return IngestResult(
-            papers_created=created,
-            papers_updated=0,
-            papers_skipped=skipped,
-            errors=errors,
-        )
-
-    async def ingest_from_pubmed(
-        self,
-        query: str,
-        organization_id: UUID,
-        max_results: int = 100,
-        created_by_id: UUID | None = None,
-    ) -> IngestResult:
-        """Batch ingest papers from PubMed search.
-
-        Args:
-            query: PubMed search query.
-            organization_id: Organization UUID.
-            max_results: Maximum papers to import.
-
-        Returns:
-            IngestResult with counts of created/skipped papers.
-        """
-        try:
-            async with PubMedClient() as client:
-                papers_data = await client.search(query, max_results)
-        except Exception as e:
-            return _api_error_result("PubMed", e)
-
-        return await self._ingest_papers_batch(
-            papers_data, organization_id, PaperSource.PUBMED, created_by_id=created_by_id
-        )
-
-    async def ingest_from_arxiv(
-        self,
-        query: str,
-        organization_id: UUID,
-        max_results: int = 100,
-        category: str | None = None,
-        created_by_id: UUID | None = None,
-    ) -> IngestResult:
-        """Batch ingest papers from arXiv search.
-
-        Args:
-            query: arXiv search query.
-            organization_id: Organization UUID.
-            max_results: Maximum papers to import.
-            category: Optional arXiv category filter.
-
-        Returns:
-            IngestResult with counts of created/skipped papers.
-        """
-        try:
-            async with ArxivClient() as client:
-                papers_data = await client.search(query, max_results, category)
-        except Exception as e:
-            return _api_error_result("arXiv", e)
-
-        return await self._ingest_papers_batch(
-            papers_data, organization_id, PaperSource.ARXIV, created_by_id=created_by_id
-        )
-
-    async def ingest_from_semantic_scholar(
-        self,
-        query: str,
-        organization_id: UUID,
-        max_results: int = 100,
-        created_by_id: UUID | None = None,
-    ) -> IngestResult:
-        """Batch ingest papers from Semantic Scholar search.
-
-        Args:
-            query: Semantic Scholar search query.
-            organization_id: Organization UUID.
-            max_results: Maximum papers to import.
-
-        Returns:
-            IngestResult with counts of created/skipped papers.
-        """
-        from paper_scraper.modules.papers.clients.semantic_scholar import SemanticScholarClient
-
-        try:
-            async with SemanticScholarClient() as client:
-                papers_data = await client.search(query, max_results)
-        except Exception as e:
-            return _api_error_result("Semantic Scholar", e)
-
-        return await self._ingest_papers_batch(
-            papers_data, organization_id, PaperSource.SEMANTIC_SCHOLAR,
-            created_by_id=created_by_id,
-        )
-
-    async def _ingest_papers_batch(
-        self,
-        papers_data: list[dict],
-        organization_id: UUID,
-        source: PaperSource,
-        created_by_id: UUID | None = None,
-    ) -> IngestResult:
-        """Ingest a batch of papers with duplicate checking.
-
-        Args:
-            papers_data: List of normalized paper data dictionaries.
-            organization_id: Organization UUID.
-            source: Paper source for duplicate checking by source_id.
-
-        Returns:
-            IngestResult with counts of created/skipped papers.
-        """
-        created = 0
-        skipped = 0
-        errors: list[str] = []
-
-        for paper_data in papers_data:
-            try:
-                if await self._paper_exists(paper_data, organization_id, source):
-                    skipped += 1
-                    continue
-
-                await self._create_paper_from_data(
-                    paper_data, organization_id, created_by_id=created_by_id
-                )
-                created += 1
-            except Exception as e:
-                title = paper_data.get("title", "unknown")[:50]
-                errors.append(f"Error importing '{title}': {e}")
-
-        await self.db.flush()
-
-        return IngestResult(
-            papers_created=created,
-            papers_updated=0,
-            papers_skipped=skipped,
-            errors=errors,
-        )
-
-    async def _paper_exists(
-        self,
-        paper_data: dict,
-        organization_id: UUID,
-        source: PaperSource,
-    ) -> bool:
-        """Check if paper already exists by DOI or source_id.
-
-        Args:
-            paper_data: Paper data dictionary.
-            organization_id: Organization UUID.
-            source: Paper source for source_id lookup.
-
-        Returns:
-            True if paper already exists.
-        """
-        doi = paper_data.get("doi")
-        if doi:
-            existing = await self.get_paper_by_doi(doi, organization_id)
-            if existing:
-                return True
-
-        source_id = paper_data.get("source_id")
-        if source_id:
-            existing = await self._get_paper_by_source(source, source_id, organization_id)
-            if existing:
-                return True
-
-        # Fallback dedupe: title + publication year
-        title = (paper_data.get("title") or "").strip()
-        publication_date = paper_data.get("publication_date")
-        publication_year: int | None = None
-        if publication_date:
-            try:
-                publication_year = datetime.fromisoformat(publication_date).year
-            except ValueError:
-                publication_year = None
-
-        if title:
-            query = select(Paper).where(
-                Paper.organization_id == organization_id,
-                func.lower(Paper.title) == title.lower(),
-            )
-            if publication_year is not None:
-                query = query.where(
-                    func.extract("year", Paper.publication_date) == publication_year
-                )
-
-            result = await self.db.execute(query.limit(1))
-            if result.scalar_one_or_none():
-                return True
-
-        return False
 
     async def ingest_from_pdf(
         self,
@@ -503,28 +245,6 @@ class PaperService:
 
         await self.db.flush()
         return paper
-
-    async def _get_paper_by_source(
-        self, source: PaperSource, source_id: str, organization_id: UUID
-    ) -> Paper | None:
-        """Get paper by source and source_id within organization.
-
-        Args:
-            source: Paper source (PUBMED, ARXIV, etc.).
-            source_id: Source-specific identifier.
-            organization_id: Organization UUID for tenant isolation.
-
-        Returns:
-            Paper or None if not found.
-        """
-        result = await self.db.execute(
-            select(Paper).where(
-                Paper.source == source,
-                Paper.source_id == source_id,
-                Paper.organization_id == organization_id,
-            )
-        )
-        return result.scalar_one_or_none()
 
     async def _create_paper_from_data(
         self,
@@ -658,7 +378,7 @@ class PaperService:
         """
         paper = await self.get_paper(paper_id, organization_id)
         if not paper:
-            raise NotFoundError("Paper", "id", str(paper_id))
+            raise NotFoundError("Paper", paper_id)
 
         # Generate pitch using LLM
         pitch_generator = PitchGenerator()
@@ -691,7 +411,7 @@ class PaperService:
         """
         paper = await self.get_paper(paper_id, organization_id)
         if not paper:
-            raise NotFoundError("Paper", "id", str(paper_id))
+            raise NotFoundError("Paper", paper_id)
 
         if not paper.abstract:
             raise ValueError("Paper has no abstract to simplify")

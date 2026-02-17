@@ -8,10 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.api.dependencies import CurrentUser, require_permission
 from paper_scraper.api.middleware import limiter
-from paper_scraper.core.permissions import Permission
 from paper_scraper.core.config import settings
 from paper_scraper.core.database import get_db
 from paper_scraper.core.exceptions import NotFoundError
+from paper_scraper.core.permissions import Permission
 from paper_scraper.jobs.badges import trigger_badge_check
 from paper_scraper.jobs.payloads import BatchScoringJobPayload
 from paper_scraper.jobs.worker import enqueue_job

@@ -8,18 +8,18 @@ Revises: global_score_cache_v1
 Create Date: 2026-02-17 10:00:00.000000
 """
 
-from typing import Union
 
 import sqlalchemy as sa
-from alembic import op
 from pgvector.sqlalchemy import Vector
 from sqlalchemy.dialects import postgresql
 
+from alembic import op
+
 # revision identifiers, used by Alembic.
 revision: str = "research_groups_v1"
-down_revision: Union[str, None] = "global_score_cache_v1"
-branch_labels: Union[str, None] = None
-depends_on: Union[str, None] = None
+down_revision: str | None = "global_score_cache_v1"
+branch_labels: str | None = None
+depends_on: str | None = None
 
 
 def upgrade() -> None:

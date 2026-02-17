@@ -22,7 +22,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from paper_scraper.core.security import create_access_token, get_password_hash
 from paper_scraper.modules.auth.models import Organization, User, UserRole
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -393,7 +392,7 @@ class TestAlertList:
     ) -> None:
         """The active_only query parameter filters out inactive alerts."""
         # Create two alerts
-        active_alert = await _create_alert(
+        await _create_alert(
             authenticated_client, saved_search_id, name="Active Alert"
         )
         inactive_alert = await _create_alert(

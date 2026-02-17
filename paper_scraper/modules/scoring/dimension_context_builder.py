@@ -15,13 +15,13 @@ from paper_scraper.modules.knowledge.models import KnowledgeType
 from paper_scraper.modules.knowledge.service import KnowledgeService
 from paper_scraper.modules.papers.context_service import PaperContextService
 from paper_scraper.modules.papers.models import Paper, PaperSource
-from paper_scraper.modules.scoring.citation_graph import (
-    CitationGraph,
-    fetch_citation_graph,
-)
 from paper_scraper.modules.scoring.author_profile_client import (
     AuthorProfileResult,
     fetch_author_profiles,
+)
+from paper_scraper.modules.scoring.citation_graph import (
+    CitationGraph,
+    fetch_citation_graph,
 )
 from paper_scraper.modules.scoring.jstor_client import (
     JstorSearchResult,

@@ -7,14 +7,14 @@ Covers:
 - Search activity tracking for gamification
 """
 
-from uuid import uuid4
 
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from paper_scraper.modules.auth.models import Organization, User, UserRole
+from paper_scraper.modules.auth.models import Organization, User
+from paper_scraper.modules.authors.models import AuthorContact  # noqa: F401 (table creation)
 from paper_scraper.modules.badges.models import Badge, BadgeCategory, BadgeTier, UserBadge
 from paper_scraper.modules.badges.service import BadgeService
 from paper_scraper.modules.knowledge.models import KnowledgeScope, KnowledgeSource, KnowledgeType
@@ -23,8 +23,6 @@ from paper_scraper.modules.papers.models import Paper
 from paper_scraper.modules.papers.notes import PaperNote  # noqa: F401 (table creation)
 from paper_scraper.modules.scoring.models import PaperScore
 from paper_scraper.modules.search.models import SearchActivity
-from paper_scraper.modules.authors.models import AuthorContact  # noqa: F401 (table creation)
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

@@ -1,13 +1,14 @@
 """Service layer for authentication module."""
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from paper_scraper.core.account_lockout import account_lockout
 from paper_scraper.core.config import settings
 from paper_scraper.core.exceptions import (
     DuplicateError,
@@ -28,6 +29,7 @@ from paper_scraper.core.security import (
     validate_token_type,
     verify_password,
 )
+from paper_scraper.core.token_blacklist import token_blacklist
 from paper_scraper.modules.auth.models import (
     InvitationStatus,
     Organization,
@@ -48,8 +50,6 @@ from paper_scraper.modules.auth.schemas import (
     UserResponse,
     UserUpdate,
 )
-from paper_scraper.core.account_lockout import account_lockout
-from paper_scraper.core.token_blacklist import token_blacklist
 from paper_scraper.modules.email.service import email_service
 
 
@@ -373,8 +373,8 @@ class AuthService:
 
         try:
             user = await self.get_user_by_id(UUID(user_id))
-        except ValueError:
-            raise UnauthorizedError("Invalid user ID in token")
+        except ValueError as err:
+            raise UnauthorizedError("Invalid user ID in token") from err
 
         if not user:
             raise UnauthorizedError("User not found")
@@ -925,7 +925,7 @@ class AuthService:
             The updated User.
         """
         user.onboarding_completed = True
-        user.onboarding_completed_at = datetime.now(timezone.utc)
+        user.onboarding_completed_at = datetime.now(UTC)
         await self.db.flush()
         await self.db.refresh(user)
         return user
@@ -1008,7 +1008,7 @@ class AuthService:
         return GDPRDataExport(
             user=UserResponse.model_validate(user),
             organization=OrganizationResponse.model_validate(user_with_org.organization),
-            export_date=datetime.now(timezone.utc),
+            export_date=datetime.now(UTC),
             papers_count=papers_count,
             projects_count=projects_count,
             saved_searches_count=searches_count,
@@ -1044,7 +1044,7 @@ class AuthService:
             select(func.count(User.id)).where(
                 User.organization_id == user.organization_id,
                 User.role == UserRole.ADMIN,
-                User.is_active == True,
+                User.is_active is True,
             )
         )
         admin_count = admin_count_result.scalar() or 0

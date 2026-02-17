@@ -1,41 +1,35 @@
 """PDF upload and text extraction service."""
 
+from __future__ import annotations
+
 import asyncio
-import io
 import re
-from datetime import timedelta
-from uuid import UUID, uuid4
+from uuid import UUID
 
 import fitz  # PyMuPDF
-from minio import Minio
 
-from paper_scraper.core.config import settings
+from paper_scraper.core.storage import StorageService, get_storage_service
+from paper_scraper.core.uploads import build_storage_key
 
 
 class PDFService:
     """Service for PDF upload and text extraction."""
 
-    def __init__(self):
-        # Parse endpoint URL to get host
-        endpoint = settings.S3_ENDPOINT.replace("http://", "").replace("https://", "")
-        self.minio = Minio(
-            endpoint,
-            access_key=settings.S3_ACCESS_KEY,
-            secret_key=settings.S3_SECRET_KEY.get_secret_value(),
-            secure=settings.S3_ENDPOINT.startswith("https"),
-        )
-        self.bucket = settings.S3_BUCKET_NAME
+    def __init__(self, storage: StorageService | None = None) -> None:
+        self.storage = storage or get_storage_service()
         self._bucket_initialized = False
+        self._bucket_lock = asyncio.Lock()
 
     async def _ensure_bucket(self) -> None:
-        """Ensure the bucket exists (async wrapper)."""
+        """Ensure the storage bucket exists."""
         if self._bucket_initialized:
             return
 
-        exists = await asyncio.to_thread(self.minio.bucket_exists, self.bucket)
-        if not exists:
-            await asyncio.to_thread(self.minio.make_bucket, self.bucket)
-        self._bucket_initialized = True
+        async with self._bucket_lock:
+            if self._bucket_initialized:
+                return
+            await asyncio.to_thread(self.storage.ensure_bucket)
+            self._bucket_initialized = True
 
     async def upload_and_extract(
         self,
@@ -57,18 +51,14 @@ class PDFService:
         # Ensure bucket exists (lazy init)
         await self._ensure_bucket()
 
-        # Generate unique path
-        file_id = uuid4()
-        s3_path = f"papers/{organization_id}/{file_id}/{filename}"
+        s3_path = build_storage_key("papers", str(organization_id), filename)
 
-        # Upload to S3 (run in thread to avoid blocking)
+        # Upload to storage (sync SDK wrapped in worker thread)
         await asyncio.to_thread(
-            self.minio.put_object,
-            self.bucket,
-            s3_path,
-            io.BytesIO(file_content),
-            len(file_content),
-            "application/pdf",
+            self.storage.upload_file,
+            file_content=file_content,
+            key=s3_path,
+            content_type="application/pdf",
         )
 
         # Extract text and metadata (CPU-bound, run in thread)
@@ -174,9 +164,9 @@ class PDFService:
         Returns:
             Presigned URL for download.
         """
+        expires_seconds = max(60, expires_hours * 3600)
         return await asyncio.to_thread(
-            self.minio.presigned_get_object,
-            self.bucket,
+            self.storage.get_download_url,
             s3_path,
-            timedelta(hours=expires_hours),
+            expires_seconds,
         )

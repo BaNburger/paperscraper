@@ -1,6 +1,6 @@
 """Repository source sync background jobs."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -9,9 +9,7 @@ from sqlalchemy import select
 from paper_scraper.core.database import get_db_session
 from paper_scraper.modules.developer import service as dev_service
 from paper_scraper.modules.developer.models import RepositoryProvider, RepositorySource
-from paper_scraper.modules.ingestion.models import IngestRunStatus
-from paper_scraper.modules.ingestion.service import IngestionService
-from paper_scraper.modules.papers.models import PaperSource
+from paper_scraper.modules.ingestion.pipeline import IngestionPipeline
 
 
 async def sync_repository_source_task(
@@ -50,282 +48,135 @@ async def sync_repository_source_task(
 
         config = source.config
         provider = source.provider
-        papers_imported = 0
-        errors = []
-        ingestion_service = IngestionService(db)
-        checkpoint = await ingestion_service.get_checkpoint(provider, str(source.id))
-        run = await ingestion_service.create_run(
-            source=provider,
-            organization_id=UUID(org_id),
-            cursor_before=checkpoint.cursor_json if checkpoint else {},
-            idempotency_key=f"repo:{source.id}:{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}",
-        )
-
-        try:
-            if provider == RepositoryProvider.OPENALEX.value:
-                papers_imported, errors = await _sync_openalex(
-                    db, UUID(org_id), config
-                )
-            elif provider == RepositoryProvider.PUBMED.value:
-                papers_imported, errors = await _sync_pubmed(
-                    db, UUID(org_id), config
-                )
-            elif provider == RepositoryProvider.ARXIV.value:
-                papers_imported, errors = await _sync_arxiv(
-                    db, UUID(org_id), config
-                )
-            elif provider == RepositoryProvider.CROSSREF.value:
-                papers_imported, errors = await _sync_crossref(
-                    db, UUID(org_id), config
-                )
-            elif provider == RepositoryProvider.SEMANTIC_SCHOLAR.value:
-                papers_imported, errors = await _sync_semantic_scholar(
-                    db, UUID(org_id), config
-                )
-            else:
-                raise ValueError(f"Unsupported provider: {provider}")
-
-            completed_status = (
-                IngestRunStatus.COMPLETED_WITH_ERRORS
-                if errors
-                else IngestRunStatus.COMPLETED
-            )
-            cursor_after = {
-                "last_sync_at": datetime.now(timezone.utc).isoformat(),
-                "source_id": source_id,
-                "papers_imported": papers_imported,
-            }
-            await ingestion_service.complete_run(
-                run.id,
-                status=completed_status,
-                cursor_after=cursor_after,
-                stats_json={
-                    "papers_imported": papers_imported,
-                    "error_count": len(errors),
-                },
-            )
-            await ingestion_service.upsert_checkpoint(
-                source=provider,
-                scope_key=str(source.id),
-                cursor_json=cursor_after,
-            )
-
-            # Record result
-            result_data = {
-                "status": "completed",
-                "papers_imported": papers_imported,
-                "errors": errors[:10],  # Limit error log size
-                "completed_at": datetime.now(timezone.utc).isoformat(),
+        query = str(config.get("query", "")).strip() if isinstance(config, dict) else ""
+        if not query:
+            missing_query_result: dict[str, Any] = {
+                "status": "failed",
+                "error": "No query configured",
+                "completed_at": datetime.now(UTC).isoformat(),
             }
             await dev_service.record_sync_result(
-                db, UUID(source_id), result_data, papers_imported
+                db,
+                UUID(source_id),
+                missing_query_result,
+                0,
             )
-            await db.commit()
-
             return {
-                "status": "completed",
+                "status": "failed",
+                "error": "No query configured",
                 "source_id": source_id,
                 "provider": provider,
+            }
+
+        max_results = _as_positive_int(
+            config.get("max_results") if isinstance(config, dict) else None,
+            default=100,
+        )
+        filters = _build_pipeline_filters(provider=provider, config=config, query=query)
+
+        try:
+            if provider not in {item.value for item in RepositoryProvider}:
+                raise ValueError(f"Unsupported provider: {provider}")
+
+            run = await IngestionPipeline(db).run(
+                source=provider,
+                organization_id=UUID(org_id),
+                filters=filters,
+                limit=max_results,
+                idempotency_key=f"repo:{source.id}:{datetime.now(UTC).strftime('%Y%m%d%H%M')}",
+            )
+            papers_imported, errors = _extract_pipeline_stats(run.stats_json)
+
+            # Record result
+            success_result_data: dict[str, Any] = {
+                "status": run.status.value,
+                "papers_imported": papers_imported,
+                "errors": errors[:10],
+                "ingest_run_id": str(run.id),
+                "completed_at": datetime.now(UTC).isoformat(),
+            }
+            await dev_service.record_sync_result(
+                db,
+                UUID(source_id),
+                success_result_data,
+                papers_imported,
+            )
+
+            return {
+                "status": run.status.value,
+                "source_id": source_id,
+                "provider": provider,
+                "ingest_run_id": str(run.id),
                 "papers_imported": papers_imported,
                 "error_count": len(errors),
             }
 
-        except Exception as e:
-            result_data = {
+        except Exception as exc:
+            failure_result_data: dict[str, Any] = {
                 "status": "failed",
-                "error": str(e),
-                "completed_at": datetime.now(timezone.utc).isoformat(),
+                "error": str(exc),
+                "completed_at": datetime.now(UTC).isoformat(),
             }
-            await ingestion_service.complete_run(
-                run.id,
-                status=IngestRunStatus.FAILED,
-                cursor_after={
-                    "last_sync_at": datetime.now(timezone.utc).isoformat(),
-                    "source_id": source_id,
-                },
-                stats_json={"papers_imported": 0, "error_count": 1},
-                error_message=str(e),
+            await dev_service.record_sync_result(
+                db,
+                UUID(source_id),
+                failure_result_data,
+                0,
             )
-            await dev_service.record_sync_result(db, UUID(source_id), result_data, 0)
-            await db.commit()
 
             return {
                 "status": "failed",
-                "error": str(e),
+                "error": str(exc),
                 "source_id": source_id,
             }
 
 
-async def _sync_openalex(
-    db,
-    org_id: UUID,
-    config: dict,
-) -> tuple[int, list[str]]:
-    """Sync from OpenAlex.
-
-    Args:
-        db: Database session.
-        org_id: Organization ID.
-        config: Source configuration.
-
-    Returns:
-        Tuple of (papers_imported, errors).
-    """
-    from paper_scraper.jobs.ingestion import ingest_openalex_task
-
-    query = config.get("query", "")
-    max_results = config.get("max_results", 100)
-    filters = config.get("filters", {})
-
-    if not query:
-        return 0, ["No query configured"]
-
-    # Use the existing ingestion task
-    result = await ingest_openalex_task(
-        {},  # Empty context for direct call
-        organization_id=str(org_id),
-        query=query,
-        max_results=max_results,
-        filters=filters,
-    )
-
-    papers_imported = result.get("papers_created", 0) + result.get("papers_updated", 0)
-    errors = []
-    if result.get("errors"):
-        errors = result["errors"]
-
-    return papers_imported, errors
-
-
-async def _sync_pubmed(
-    db,
-    org_id: UUID,
-    config: dict,
-) -> tuple[int, list[str]]:
-    """Sync from PubMed.
-
-    Args:
-        db: Database session.
-        org_id: Organization ID.
-        config: Source configuration.
-
-    Returns:
-        Tuple of (papers_imported, errors).
-    """
-    from paper_scraper.jobs.worker import ingest_papers_task
-
-    query = config.get("query", "")
-    max_results = config.get("max_results", 100)
-
-    if not query:
-        return 0, ["No query configured"]
-
-    result = await ingest_papers_task(
-        {},
-        source="pubmed",
-        organization_id=str(org_id),
-        query=query,
-        max_results=max_results,
-    )
-    return result.get("papers_created", 0), result.get("errors", [])
-
-
-async def _sync_arxiv(
-    db,
-    org_id: UUID,
-    config: dict,
-) -> tuple[int, list[str]]:
-    """Sync from arXiv.
-
-    Args:
-        db: Database session.
-        org_id: Organization ID.
-        config: Source configuration.
-
-    Returns:
-        Tuple of (papers_imported, errors).
-    """
-    from paper_scraper.jobs.worker import ingest_papers_task
-
-    query = config.get("query", "")
-    max_results = config.get("max_results", 100)
-    category = config.get("filters", {}).get("category")
-
-    if not query:
-        return 0, ["No query configured"]
-
-    result = await ingest_papers_task(
-        {},
-        source="arxiv",
-        organization_id=str(org_id),
-        query=query,
-        max_results=max_results,
-        category=category,
-    )
-    return result.get("papers_created", 0), result.get("errors", [])
-
-
-async def _sync_crossref(
-    db,
-    org_id: UUID,
-    config: dict,
-) -> tuple[int, list[str]]:
-    """Sync from Crossref.
-
-    Args:
-        db: Database session.
-        org_id: Organization ID.
-        config: Source configuration.
-
-    Returns:
-        Tuple of (papers_imported, errors).
-    """
-    from paper_scraper.modules.papers.clients.crossref import CrossrefClient
-    from paper_scraper.modules.papers.service import PaperService
-
-    query = config.get("query", "")
-    max_results = config.get("max_results", 100)
-
-    if not query:
-        return 0, ["No query configured"]
-
+def _as_positive_int(value: Any, *, default: int) -> int:
     try:
-        async with CrossrefClient() as client:
-            papers_data = await client.search(query, max_results=max_results)
-    except Exception as exc:
-        return 0, [str(exc)]
-
-    service = PaperService(db)
-    result = await service._ingest_papers_batch(  # noqa: SLF001 - scoped internal use
-        papers_data=papers_data,
-        organization_id=org_id,
-        source=PaperSource.CROSSREF,
-    )
-    return result.papers_created, result.errors
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed > 0 else default
 
 
-async def _sync_semantic_scholar(
-    db,
-    org_id: UUID,
-    config: dict,
-) -> tuple[int, list[str]]:
-    """Sync from Semantic Scholar."""
-    from paper_scraper.jobs.worker import ingest_papers_task
+def _build_pipeline_filters(
+    *,
+    provider: str,
+    config: dict[str, Any] | Any,
+    query: str,
+) -> dict[str, Any]:
+    filters: dict[str, Any] = {"query": query}
+    source_filters = config.get("filters") if isinstance(config, dict) else None
 
-    query = config.get("query", "")
-    max_results = config.get("max_results", 100)
+    if provider in {RepositoryProvider.OPENALEX.value, RepositoryProvider.CROSSREF.value}:
+        if isinstance(source_filters, dict) and source_filters:
+            filters["filters"] = source_filters
 
-    if not query:
-        return 0, ["No query configured"]
+    if provider == RepositoryProvider.ARXIV.value:
+        category = source_filters.get("category") if isinstance(source_filters, dict) else None
+        if category:
+            filters["category"] = category
 
-    result = await ingest_papers_task(
-        {},
-        source="semantic_scholar",
-        organization_id=str(org_id),
-        query=query,
-        max_results=max_results,
-    )
-    return result.get("papers_created", 0), result.get("errors", [])
+    if provider == RepositoryProvider.SEMANTIC_SCHOLAR.value and isinstance(source_filters, dict):
+        year = source_filters.get("year")
+        if year is not None:
+            filters["year"] = year
+        fields_of_study = source_filters.get("fields_of_study")
+        if fields_of_study is not None:
+            filters["fields_of_study"] = fields_of_study
+
+    return filters
+
+
+def _extract_pipeline_stats(stats_json: Any) -> tuple[int, list[str]]:
+    stats = stats_json if isinstance(stats_json, dict) else {}
+    papers_imported = _as_positive_int(stats.get("papers_created"), default=0)
+    errors_raw = stats.get("errors")
+    if isinstance(errors_raw, list):
+        errors = [str(item) for item in errors_raw if item is not None]
+    else:
+        errors = []
+    return papers_imported, errors
 
 
 def _matches_cron_part(part: str, value: int) -> bool:
@@ -409,7 +260,7 @@ async def run_scheduled_syncs_task(
         )
         sources = list(result.scalars().all())
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         syncs_queued = 0
         syncs_skipped = 0
         for source in sources:

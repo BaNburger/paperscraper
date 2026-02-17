@@ -1,15 +1,20 @@
 """Service layer for saved searches module."""
 
 import secrets
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from paper_scraper.core.config import settings
-from paper_scraper.core.exceptions import DuplicateError, ForbiddenError, NotFoundError, ValidationError
+from paper_scraper.core.exceptions import (
+    DuplicateError,
+    ForbiddenError,
+    NotFoundError,
+    ValidationError,
+)
 from paper_scraper.modules.projects.models import Project
 from paper_scraper.modules.saved_searches.models import SavedSearch
 from paper_scraper.modules.saved_searches.schemas import (
@@ -17,7 +22,7 @@ from paper_scraper.modules.saved_searches.schemas import (
     SavedSearchResponse,
     SavedSearchUpdate,
 )
-from paper_scraper.modules.search.schemas import SearchFilters, SearchMode
+from paper_scraper.modules.search.schemas import SearchMode
 
 
 class SavedSearchService:
@@ -430,7 +435,7 @@ class SavedSearchService:
 
         if saved_search:
             saved_search.run_count += 1
-            saved_search.last_run_at = datetime.now(timezone.utc)
+            saved_search.last_run_at = datetime.now(UTC)
             await self.db.flush()
 
         return saved_search
@@ -448,7 +453,7 @@ class SavedSearchService:
         Returns:
             List of saved searches needing alerts.
         """
-        now = datetime.now(timezone.utc)
+        datetime.now(UTC)
 
         result = await self.db.execute(
             select(SavedSearch)

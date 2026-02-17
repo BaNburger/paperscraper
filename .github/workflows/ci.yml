@@ -47,6 +47,11 @@ jobs:
       - name: Run ruff format check
         run: ruff format --check .
 
+      - name: Verify OpenAPI schema is up to date
+        run: |
+          python scripts/export_openapi.py --output openapi.json
+          git diff --exit-code openapi.json
+
   test-backend:
     name: Backend Tests
     runs-on: ubuntu-latest
@@ -127,6 +132,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Verify generated OpenAPI types
+        run: npm run codegen:check
 
       - name: Run lint
         run: npm run lint

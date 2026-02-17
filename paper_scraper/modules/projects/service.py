@@ -2,7 +2,7 @@
 
 import logging
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import delete, func, select
@@ -188,7 +188,7 @@ class ProjectService:
         if cluster_count is not None:
             project.cluster_count = cluster_count
         if status == SyncStatus.READY:
-            project.last_synced_at = datetime.now(timezone.utc)
+            project.last_synced_at = datetime.now(UTC)
 
         await self.db.flush()
 

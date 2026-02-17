@@ -1,15 +1,17 @@
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+
 import { projectsApi } from '@/lib/api'
-import type { CreateResearchGroup } from '@/types'
+import { queryKeys } from '@/config/queryKeys'
+import type { CreateProject } from '@/types'
 
 interface QueryControlOptions {
   enabled?: boolean
   staleTime?: number
 }
 
-export function useResearchGroups(options?: QueryControlOptions) {
+export function useProjects(options?: QueryControlOptions) {
   return useQuery({
-    queryKey: ['projects'],
+    queryKey: queryKeys.projects.list(),
     queryFn: () => projectsApi.list(),
     placeholderData: keepPreviousData,
     enabled: options?.enabled ?? true,
@@ -17,31 +19,25 @@ export function useResearchGroups(options?: QueryControlOptions) {
   })
 }
 
-// Backward-compatible alias
-export const useProjects = useResearchGroups
-
-export function useResearchGroup(id: string) {
+export function useProject(id: string) {
   return useQuery({
-    queryKey: ['project', id],
+    queryKey: queryKeys.projects.detail(id),
     queryFn: () => projectsApi.get(id),
     enabled: !!id,
   })
 }
 
-// Backward-compatible alias
-export const useProject = useResearchGroup
-
-export function useResearchGroupClusters(id: string) {
+export function useProjectClusters(id: string) {
   return useQuery({
-    queryKey: ['projectClusters', id],
+    queryKey: queryKeys.projects.clusters(id),
     queryFn: () => projectsApi.listClusters(id),
     enabled: !!id,
   })
 }
 
-export function useResearchGroupCluster(projectId: string, clusterId: string) {
+export function useProjectCluster(projectId: string, clusterId: string) {
   return useQuery({
-    queryKey: ['projectCluster', projectId, clusterId],
+    queryKey: queryKeys.projects.cluster(projectId, clusterId),
     queryFn: () => projectsApi.getCluster(projectId, clusterId),
     enabled: !!projectId && !!clusterId,
   })
@@ -49,7 +45,7 @@ export function useResearchGroupCluster(projectId: string, clusterId: string) {
 
 export function useInstitutionSearch(query: string) {
   return useQuery({
-    queryKey: ['institutionSearch', query],
+    queryKey: queryKeys.projects.institutions(query),
     queryFn: () => projectsApi.searchInstitutions(query),
     enabled: query.length >= 2,
     staleTime: 30_000,
@@ -58,68 +54,64 @@ export function useInstitutionSearch(query: string) {
 
 export function useAuthorSearch(query: string) {
   return useQuery({
-    queryKey: ['authorSearch', query],
+    queryKey: queryKeys.projects.authors(query),
     queryFn: () => projectsApi.searchAuthors(query),
     enabled: query.length >= 2,
     staleTime: 30_000,
   })
 }
 
-export function useCreateResearchGroup() {
+export function useCreateProject() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: CreateResearchGroup) => projectsApi.create(data),
+    mutationFn: (data: CreateProject) => projectsApi.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.list() })
     },
   })
 }
 
-// Backward-compatible alias
-export const useCreateProject = useCreateResearchGroup
-
-export function useDeleteResearchGroup() {
+export function useDeleteProject() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (id: string) => projectsApi.delete(id),
     onMutate: async (deletedId) => {
-      await queryClient.cancelQueries({ queryKey: ['projects'] })
-      const prev = queryClient.getQueryData<{ items: { id: string }[]; total: number }>([
-        'projects',
-      ])
+      await queryClient.cancelQueries({ queryKey: queryKeys.projects.list() })
+      const prev = queryClient.getQueryData<{ items: { id: string }[]; total: number }>(
+        queryKeys.projects.list()
+      )
+
       if (prev?.items) {
-        queryClient.setQueryData(['projects'], {
+        queryClient.setQueryData(queryKeys.projects.list(), {
           ...prev,
-          items: prev.items.filter((p) => p.id !== deletedId),
+          items: prev.items.filter((project) => project.id !== deletedId),
           total: prev.total - 1,
         })
       }
+
       return { prev }
     },
     onError: (_err, _id, context) => {
       if (context?.prev) {
-        queryClient.setQueryData(['projects'], context.prev)
+        queryClient.setQueryData(queryKeys.projects.list(), context.prev)
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.list() })
     },
   })
 }
 
-// Backward-compatible alias
-export const useDeleteProject = useDeleteResearchGroup
-
-export function useSyncResearchGroup() {
+export function useSyncProject() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (id: string) => projectsApi.sync(id),
     onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ['project', id] })
-      queryClient.invalidateQueries({ queryKey: ['projectClusters', id] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.detail(id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.clusters(id) })
     },
   })
 }
@@ -138,7 +130,7 @@ export function useUpdateClusterLabel() {
       label: string
     }) => projectsApi.updateCluster(projectId, clusterId, { label }),
     onSuccess: (_, { projectId }) => {
-      queryClient.invalidateQueries({ queryKey: ['projectClusters', projectId] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.clusters(projectId) })
     },
   })
 }

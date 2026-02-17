@@ -8,14 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from paper_scraper.core.exceptions import ForbiddenError
 from paper_scraper.core.permissions import (
     Permission,
-    ROLE_PERMISSIONS,
     check_permission,
     get_permissions_for_role,
 )
-from paper_scraper.core.security import create_access_token
+from paper_scraper.core.security import create_access_token, get_password_hash
 from paper_scraper.modules.auth.models import Organization, User, UserRole
-from paper_scraper.core.security import get_password_hash
-
 
 # =============================================================================
 # Unit tests for core/permissions.py

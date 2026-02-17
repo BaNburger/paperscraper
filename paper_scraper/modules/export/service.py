@@ -4,7 +4,7 @@ import csv
 import io
 import json
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -414,7 +414,7 @@ class ExportService:
         lines = [
             "=" * 80,
             "PAPER EXPORT REPORT",
-            f"Generated: {datetime.now(timezone.utc).isoformat()}",
+            f"Generated: {datetime.now(UTC).isoformat()}",
             f"Total Papers: {len(papers)}",
             "=" * 80,
             "",

@@ -1,32 +1,23 @@
 """Background jobs for scheduled report generation and delivery."""
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from paper_scraper.core.config import settings
+from paper_scraper.core.database import get_db_session
 from paper_scraper.modules.analytics.service import AnalyticsService
 from paper_scraper.modules.email.service import email_service
 from paper_scraper.modules.reports.models import (
-    ReportFormat,
     ReportSchedule,
     ReportType,
     ScheduledReport,
 )
 
 logger = logging.getLogger(__name__)
-
-
-async def get_async_session() -> AsyncSession:
-    """Create a new async session for background jobs."""
-    engine = create_async_engine(settings.DATABASE_URL)
-    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    return async_session()
 
 
 async def generate_report_content(
@@ -48,7 +39,7 @@ async def generate_report_content(
         summary = await analytics_service.get_dashboard_summary(report.organization_id)
         return f"""
         <h2>Dashboard Summary Report</h2>
-        <p>Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}</p>
+        <p>Generated: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}</p>
 
         <h3>Key Metrics</h3>
         <ul>
@@ -70,7 +61,7 @@ async def generate_report_content(
         )
         return f"""
         <h2>Paper Trends Report</h2>
-        <p>Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}</p>
+        <p>Generated: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}</p>
 
         <h3>Import Statistics (Last 30 Days)</h3>
         <ul>
@@ -92,7 +83,7 @@ async def generate_report_content(
         )
         return f"""
         <h2>Team Activity Report</h2>
-        <p>Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}</p>
+        <p>Generated: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}</p>
 
         <h3>Team Overview</h3>
         <ul>
@@ -179,12 +170,11 @@ async def process_scheduled_reports_task(
     except ValueError:
         return {"error": f"Invalid schedule: {schedule}", "processed": 0}
 
-    db = await get_async_session()
-    try:
+    async with get_db_session() as db:
         # Get all active reports for this schedule
         query = select(ScheduledReport).where(
             ScheduledReport.schedule == report_schedule,
-            ScheduledReport.is_active == True,
+            ScheduledReport.is_active.is_(True),
         )
         result = await db.execute(query)
         reports = result.scalars().all()
@@ -198,7 +188,7 @@ async def process_scheduled_reports_task(
                 await send_report_email(report, content)
 
                 # Update last_sent_at
-                report.last_sent_at = datetime.now(timezone.utc)
+                report.last_sent_at = datetime.now(UTC)
                 await db.commit()
 
                 processed += 1
@@ -213,9 +203,6 @@ async def process_scheduled_reports_task(
             "processed": processed,
             "errors": errors,
         }
-
-    finally:
-        await db.close()
 
 
 async def process_daily_reports_task(ctx: dict[str, Any]) -> dict[str, Any]:
@@ -248,8 +235,7 @@ async def run_single_report_task(
     """
     logger.info(f"Running single report: {report_id}")
 
-    db = await get_async_session()
-    try:
+    async with get_db_session() as db:
         query = select(ScheduledReport).where(
             ScheduledReport.id == UUID(report_id)
         )
@@ -263,7 +249,7 @@ async def run_single_report_task(
             content = await generate_report_content(db, report)
             await send_report_email(report, content)
 
-            report.last_sent_at = datetime.now(timezone.utc)
+            report.last_sent_at = datetime.now(UTC)
             await db.commit()
 
             return {
@@ -275,6 +261,3 @@ async def run_single_report_task(
         except Exception as e:
             logger.error(f"Error running report '{report.name}': {e}")
             return {"error": str(e), "success": False, "report_id": report_id}
-
-    finally:
-        await db.close()

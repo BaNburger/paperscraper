@@ -18,9 +18,9 @@ import {
 import { useToast } from '@/components/ui/Toast'
 import { Compass, History, Play, Plus, Loader2 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import type { DiscoveryProfileSummary, DiscoveryRunStatus } from '@/types'
+import type { DiscoveryProfileSummary } from '@/types'
 
-function getRunStatusVariant(status: DiscoveryRunStatus | null): 'default' | 'secondary' | 'destructive' | 'outline' {
+function getRunStatusVariant(status: string | null): 'default' | 'secondary' | 'destructive' | 'outline' {
   switch (status) {
     case 'completed':
       return 'default'
@@ -35,7 +35,10 @@ function getRunStatusVariant(status: DiscoveryRunStatus | null): 'default' | 'se
   }
 }
 
-function getRunStatusLabel(status: DiscoveryRunStatus | null, t: (key: string, fallback: string) => string): string {
+function getRunStatusLabel(
+  status: string | null,
+  t: (key: string, fallback: string) => string
+): string {
   switch (status) {
     case 'running':
       return t('discovery.statusRunning', 'Running')

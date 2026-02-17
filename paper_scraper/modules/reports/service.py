@@ -1,6 +1,6 @@
 """Service for scheduled reports management."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.core.exceptions import NotFoundError
 from paper_scraper.modules.reports.models import (
-    ReportFormat,
     ReportSchedule,
     ScheduledReport,
 )
@@ -240,7 +239,7 @@ class ReportsService:
         # 3. Send it to recipients via email
         # For now, we just update the last_sent_at timestamp
 
-        report.last_sent_at = datetime.now(timezone.utc)
+        report.last_sent_at = datetime.now(UTC)
         await self.db.flush()
 
         return ReportRunResult(
@@ -263,7 +262,7 @@ class ReportsService:
         """
         query = select(ScheduledReport).where(
             ScheduledReport.schedule == schedule,
-            ScheduledReport.is_active == True,
+            ScheduledReport.is_active is True,
         )
         result = await self.db.execute(query)
         return list(result.scalars().all())

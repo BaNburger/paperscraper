@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import html
+import ipaddress
 import logging
 import re
+import socket
 from dataclasses import dataclass
-from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urljoin, urlparse
 
 import httpx
 
@@ -214,9 +216,30 @@ class LibraryTextService:
         if not url:
             return ""
 
+        if not await self._is_safe_url(url):
+            logger.debug("Blocked unsafe OA candidate URL: %s", url)
+            return ""
+
         try:
-            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-                response = await client.get(url)
+            async with httpx.AsyncClient(timeout=15.0, follow_redirects=False) as client:
+                current_url = url
+                response: httpx.Response | None = None
+                for _ in range(5):
+                    response = await client.get(current_url)
+                    if response.status_code not in {301, 302, 303, 307, 308}:
+                        break
+
+                    location = response.headers.get("Location")
+                    if not location:
+                        break
+                    redirected_url = urljoin(current_url, location)
+                    if not await self._is_safe_url(redirected_url):
+                        logger.debug("Blocked unsafe OA redirect URL: %s", redirected_url)
+                        return ""
+                    current_url = redirected_url
+
+                if response is None:
+                    return ""
                 response.raise_for_status()
         except Exception as exc:
             logger.debug("Failed to fetch OA candidate %s: %s", url, exc)
@@ -244,3 +267,60 @@ class LibraryTextService:
         if len(html_text) < 500:
             return ""
         return html_text
+
+    async def _is_safe_url(self, url: str) -> bool:
+        """Validate URL to mitigate SSRF to internal networks."""
+        parsed = urlparse(url)
+        if parsed.scheme not in {"http", "https"}:
+            return False
+        if not parsed.hostname:
+            return False
+
+        hostname = parsed.hostname.strip().lower()
+        if hostname in {"localhost", "localhost.localdomain"} or hostname.endswith(".local"):
+            return False
+
+        try:
+            ip_literal = ipaddress.ip_address(hostname)
+            return not self._is_forbidden_ip(ip_literal)
+        except ValueError:
+            pass
+
+        try:
+            infos = await self._resolve_host_ips(hostname, parsed.port)
+        except Exception:
+            return False
+
+        if not infos:
+            return False
+        return all(not self._is_forbidden_ip(ip) for ip in infos)
+
+    async def _resolve_host_ips(
+        self,
+        hostname: str,
+        port: int | None,
+    ) -> list[ipaddress.IPv4Address | ipaddress.IPv6Address]:
+        """Resolve host to IP addresses."""
+        lookup_port = port or 443
+        addrinfo = await asyncio.to_thread(socket.getaddrinfo, hostname, lookup_port)
+        ips: list[ipaddress.IPv4Address | ipaddress.IPv6Address] = []
+        for info in addrinfo:
+            sockaddr = info[4]
+            ip_str = sockaddr[0]
+            try:
+                ips.append(ipaddress.ip_address(ip_str))
+            except ValueError:
+                continue
+        return ips
+
+    @staticmethod
+    def _is_forbidden_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+        """Reject local/private/link-local/reserved network targets."""
+        return (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_reserved
+            or ip.is_multicast
+            or ip.is_unspecified
+        )

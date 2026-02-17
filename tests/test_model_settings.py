@@ -23,7 +23,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from paper_scraper.core.security import create_access_token, get_password_hash
 from paper_scraper.modules.auth.models import Organization, User, UserRole
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

@@ -2,9 +2,7 @@
 
 import csv
 import io
-import logging
-from datetime import datetime, timedelta, timezone
-from typing import Any
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import delete, func, select, update
@@ -231,7 +229,7 @@ class ComplianceService:
         Returns:
             Result of applying the policy.
         """
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=policy.retention_days)
+        cutoff_date = datetime.now(UTC) - timedelta(days=policy.retention_days)
         records_affected = 0
         status = "completed"
 
@@ -267,7 +265,7 @@ class ComplianceService:
 
             # Update policy tracking
             if not dry_run and records_affected > 0:
-                policy.last_applied_at = datetime.now(timezone.utc)
+                policy.last_applied_at = datetime.now(UTC)
                 policy.records_affected += records_affected
 
             # Log the retention application
@@ -279,7 +277,7 @@ class ComplianceService:
                 records_affected=records_affected,
                 is_dry_run=dry_run,
                 status=status,
-                completed_at=datetime.now(timezone.utc) if not dry_run else None,
+                completed_at=datetime.now(UTC) if not dry_run else None,
             )
             self.db.add(log)
 

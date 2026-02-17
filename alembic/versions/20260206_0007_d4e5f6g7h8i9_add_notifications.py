@@ -5,7 +5,6 @@ Revises: sprint30_search_badges
 Create Date: 2026-02-06
 """
 
-from typing import Union
 
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
@@ -15,9 +14,9 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "sprint36_notifications"
-down_revision: Union[str, None] = "sprint30_search_badges"
-branch_labels: Union[str, None] = None
-depends_on: Union[str, None] = None
+down_revision: str | None = "sprint30_search_badges"
+branch_labels: str | None = None
+depends_on: str | None = None
 
 
 def upgrade() -> None:

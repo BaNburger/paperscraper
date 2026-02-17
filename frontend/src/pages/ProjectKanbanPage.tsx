@@ -2,9 +2,9 @@ import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
-  useResearchGroup,
-  useResearchGroupClusters,
-  useSyncResearchGroup,
+  useProject,
+  useProjectClusters,
+  useSyncProject,
   useUpdateClusterLabel,
 } from '@/hooks'
 import { Card, CardContent } from '@/components/ui/Card'
@@ -32,9 +32,9 @@ import {
   Quote,
 } from 'lucide-react'
 import { formatDate, cn } from '@/lib/utils'
-import type { ResearchCluster, ClusterPaper, ResearchGroup } from '@/types'
+import type { ResearchCluster, ClusterPaper, Project } from '@/types'
 
-function SyncStatusBanner({ group }: { group: ResearchGroup }) {
+function SyncStatusBanner({ group }: { group: Project }) {
   const { t } = useTranslation()
 
   if (group.sync_status === 'ready' || group.sync_status === 'idle') {
@@ -308,9 +308,9 @@ export function ProjectKanbanPage() {
   const navigate = useNavigate()
   const { success, error: showError } = useToast()
 
-  const { data: group, isLoading: isLoadingGroup, error: groupError } = useResearchGroup(id!)
-  const { data: clusters, isLoading: isLoadingClusters } = useResearchGroupClusters(id!)
-  const syncGroup = useSyncResearchGroup()
+  const { data: group, isLoading: isLoadingGroup, error: groupError } = useProject(id!)
+  const { data: clusters, isLoading: isLoadingClusters } = useProjectClusters(id!)
+  const syncGroup = useSyncProject()
 
   const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set())
 

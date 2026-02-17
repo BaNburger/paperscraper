@@ -1,9 +1,9 @@
 """Tests for knowledge sources module."""
 
-import pytest
-import pytest_asyncio
 from uuid import uuid4
 
+import pytest
+import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,7 +21,6 @@ from paper_scraper.modules.knowledge.schemas import (
     KnowledgeSourceUpdate,
 )
 from paper_scraper.modules.knowledge.service import KnowledgeService
-
 
 # =============================================================================
 # Fixtures

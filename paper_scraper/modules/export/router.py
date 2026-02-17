@@ -1,6 +1,6 @@
 """FastAPI router for export endpoints."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -9,8 +9,8 @@ from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.api.dependencies import CurrentUser, require_permission
-from paper_scraper.core.permissions import Permission
 from paper_scraper.core.database import get_db
+from paper_scraper.core.permissions import Permission
 from paper_scraper.modules.export.schemas import ExportFormat
 from paper_scraper.modules.export.service import ExportService
 
@@ -34,7 +34,7 @@ def _create_export_response(
 ) -> Response:
     """Create a standardized export response."""
     media_type, extension = FORMAT_CONFIG[format]
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     filename = f"{filename_prefix}_{timestamp}.{extension}"
 
     return Response(

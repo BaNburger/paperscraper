@@ -2,36 +2,51 @@ import { useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { TFunction } from 'i18next'
 
+import { NAVIGATION_SHORTCUTS } from '@/config/routes'
+
 export interface KeyboardShortcutDef {
   labelKey: string
   category: 'navigation' | 'actions' | 'general'
 }
 
-export const KEYBOARD_SHORTCUTS: Record<string, KeyboardShortcutDef> = {
-  // Navigation shortcuts (g + letter)
-  'g d': { labelKey: 'shortcuts.goToDashboard', category: 'navigation' },
-  'g p': { labelKey: 'shortcuts.goToPapers', category: 'navigation' },
-  'g k': { labelKey: 'shortcuts.goToProjects', category: 'navigation' },
-  'g s': { labelKey: 'shortcuts.goToSearch', category: 'navigation' },
-  'g a': { labelKey: 'shortcuts.goToAnalytics', category: 'navigation' },
-  'g t': { labelKey: 'shortcuts.goToTransfer', category: 'navigation' },
-  'g b': { labelKey: 'shortcuts.goToBadges', category: 'navigation' },
-  'g g': { labelKey: 'shortcuts.goToGroups', category: 'navigation' },
-  'g r': { labelKey: 'shortcuts.goToTrends', category: 'navigation' },
-  'g n': { labelKey: 'shortcuts.goToNotifications', category: 'navigation' },
+const NAVIGATION_SHORTCUT_MAP = NAVIGATION_SHORTCUTS.reduce<
+  Record<string, { path: string; labelKey: string }>
+>((acc, shortcut) => {
+  acc[shortcut.keys] = {
+    path: shortcut.path,
+    labelKey: shortcut.labelKey,
+  }
+  return acc
+}, {})
 
-  // Action shortcuts (n + letter)
+const ACTION_SHORTCUTS: Record<string, KeyboardShortcutDef> = {
   'n p': { labelKey: 'shortcuts.importPapers', category: 'actions' },
   'n j': { labelKey: 'shortcuts.newProject', category: 'actions' },
   'n t': { labelKey: 'shortcuts.newTransfer', category: 'actions' },
   'n g': { labelKey: 'shortcuts.newGroup', category: 'actions' },
+}
 
-  // General shortcuts
+const GENERAL_SHORTCUTS: Record<string, KeyboardShortcutDef> = {
   '/': { labelKey: 'shortcuts.focusSearch', category: 'general' },
   '?': { labelKey: 'shortcuts.showShortcuts', category: 'general' },
 }
 
-type ShortcutKey = keyof typeof KEYBOARD_SHORTCUTS
+export const KEYBOARD_SHORTCUTS: Record<string, KeyboardShortcutDef> = {
+  ...Object.fromEntries(
+    Object.entries(NAVIGATION_SHORTCUT_MAP).map(([keys, shortcut]) => [
+      keys,
+      { labelKey: shortcut.labelKey, category: 'navigation' as const },
+    ])
+  ),
+  ...ACTION_SHORTCUTS,
+  ...GENERAL_SHORTCUTS,
+}
+
+const CHORD_PREFIXES = new Set(
+  Object.keys(KEYBOARD_SHORTCUTS)
+    .filter((shortcut) => shortcut.includes(' '))
+    .map((shortcut) => shortcut.split(' ')[0])
+)
 
 function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
@@ -55,41 +70,14 @@ export function useKeyboardShortcuts(onShowHelp?: () => void) {
   const navigate = useNavigate()
 
   const handleShortcut = useCallback(
-    (shortcut: ShortcutKey) => {
-      switch (shortcut) {
-        // Navigation
-        case 'g d':
-          navigate('/')
-          break
-        case 'g p':
-          navigate('/papers')
-          break
-        case 'g k':
-          navigate('/projects')
-          break
-        case 'g s':
-          navigate('/search')
-          break
-        case 'g a':
-          navigate('/analytics')
-          break
-        case 'g t':
-          navigate('/transfer')
-          break
-        case 'g b':
-          navigate('/badges')
-          break
-        case 'g g':
-          navigate('/groups')
-          break
-        case 'g r':
-          navigate('/trends')
-          break
-        case 'g n':
-          navigate('/notifications')
-          break
+    (shortcut: string) => {
+      const navigationShortcut = NAVIGATION_SHORTCUT_MAP[shortcut]
+      if (navigationShortcut) {
+        navigate(navigationShortcut.path)
+        return
+      }
 
-        // Actions
+      switch (shortcut) {
         case 'n p':
           navigate('/papers?import=true')
           break
@@ -102,8 +90,6 @@ export function useKeyboardShortcuts(onShowHelp?: () => void) {
         case 'n g':
           navigate('/groups?new=true')
           break
-
-        // General
         case '/':
           navigate('/search')
           setTimeout(() => {
@@ -115,6 +101,8 @@ export function useKeyboardShortcuts(onShowHelp?: () => void) {
           break
         case '?':
           onShowHelp?.()
+          break
+        default:
           break
       }
     },
@@ -167,27 +155,24 @@ export function useKeyboardShortcuts(onShowHelp?: () => void) {
         return
       }
 
-      // Handle two-key shortcuts (chord)
+      // Handle multi-key shortcuts (e.g. g + x, n + x)
       const key = e.key.toLowerCase()
 
       if (pendingKey) {
-        // We have a pending first key, try to match chord
-        const chord = `${pendingKey} ${key}` as ShortcutKey
+        const chord = `${pendingKey} ${key}`
         if (chord in KEYBOARD_SHORTCUTS) {
           e.preventDefault()
           handleShortcut(chord)
         }
-        // Reset pending state
+
         pendingKey = null
         if (pendingTimeout) {
           clearTimeout(pendingTimeout)
           pendingTimeout = null
         }
-      } else if (key === 'g' || key === 'n') {
-        // Start chord sequence
+      } else if (CHORD_PREFIXES.has(key)) {
         e.preventDefault()
         pendingKey = key
-        // Reset after 1 second if no second key
         pendingTimeout = setTimeout(() => {
           pendingKey = null
           pendingTimeout = null

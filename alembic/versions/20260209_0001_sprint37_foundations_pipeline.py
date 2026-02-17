@@ -5,7 +5,6 @@ Revises: sprint36_notifications
 Create Date: 2026-02-09
 """
 
-from typing import Union
 
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
@@ -15,9 +14,9 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "sprint37_foundations_pipeline"
-down_revision: Union[str, None] = "sprint36_notifications"
-branch_labels: Union[str, None] = None
-depends_on: Union[str, None] = None
+down_revision: str | None = "sprint36_notifications"
+branch_labels: str | None = None
+depends_on: str | None = None
 
 
 def upgrade() -> None:

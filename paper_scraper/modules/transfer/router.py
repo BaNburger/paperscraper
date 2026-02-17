@@ -2,9 +2,8 @@
 
 import asyncio
 import logging
-import os
 from typing import Annotated
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import RedirectResponse
@@ -15,23 +14,13 @@ from paper_scraper.core.database import get_db
 from paper_scraper.core.exceptions import NotFoundError
 from paper_scraper.core.permissions import Permission
 from paper_scraper.core.storage import get_storage_service
-
-logger = logging.getLogger(__name__)
-
-# Allowed MIME types with magic byte signatures for validation
-_ALLOWED_MIME_TYPES: dict[str, bytes | None] = {
-    "application/pdf": b"%PDF",
-    "application/msword": b"\xd0\xcf\x11\xe0",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": b"PK",
-    "application/vnd.ms-powerpoint": b"\xd0\xcf\x11\xe0",
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation": b"PK",
-    "image/png": b"\x89PNG",
-    "image/jpeg": b"\xff\xd8\xff",
-    "text/plain": None,  # No reliable magic bytes for text
-    "text/csv": None,
-}
-_MAX_FILE_SIZE = 50_000_000  # 50MB
-_CHUNK_SIZE = 64 * 1024  # 64KB
+from paper_scraper.core.uploads import (
+    build_storage_key,
+    read_upload_content,
+    sanitize_filename,
+    validate_content_type,
+    validate_magic_bytes,
+)
 from paper_scraper.modules.audit.models import AuditAction
 from paper_scraper.modules.audit.service import AuditService
 from paper_scraper.modules.transfer.models import TransferStage
@@ -52,6 +41,22 @@ from paper_scraper.modules.transfer.schemas import (
     TemplateUpdate,
 )
 from paper_scraper.modules.transfer.service import TransferService
+
+logger = logging.getLogger(__name__)
+
+# Allowed MIME types with magic byte signatures for validation
+_ALLOWED_MIME_TYPES: dict[str, bytes | None] = {
+    "application/pdf": b"%PDF",
+    "application/msword": b"\xd0\xcf\x11\xe0",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": b"PK",
+    "application/vnd.ms-powerpoint": b"\xd0\xcf\x11\xe0",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": b"PK",
+    "image/png": b"\x89PNG",
+    "image/jpeg": b"\xff\xd8\xff",
+    "text/plain": None,  # No reliable magic bytes for text
+    "text/csv": None,
+}
+_MAX_FILE_SIZE = 50_000_000  # 50MB
 
 router = APIRouter()
 
@@ -422,43 +427,12 @@ async def upload_resource(
             detail="Filename is required",
         )
 
-    content_type = file.content_type or "application/octet-stream"
-    if content_type not in _ALLOWED_MIME_TYPES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported file type: {content_type}",
-        )
+    content_type = validate_content_type(file.content_type, _ALLOWED_MIME_TYPES)
+    content, total_size = await read_upload_content(file, max_size=_MAX_FILE_SIZE)
+    validate_magic_bytes(content, _ALLOWED_MIME_TYPES[content_type])
 
-    # Read file in chunks
-    chunks: list[bytes] = []
-    total_size = 0
-    while True:
-        chunk = await file.read(_CHUNK_SIZE)
-        if not chunk:
-            break
-        total_size += len(chunk)
-        if total_size > _MAX_FILE_SIZE:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="File too large (max 50MB)",
-            )
-        chunks.append(chunk)
-
-    content = b"".join(chunks)
-
-    # Validate magic bytes match declared MIME type
-    expected_magic = _ALLOWED_MIME_TYPES[content_type]
-    if expected_magic is not None and not content.startswith(expected_magic):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File content does not match declared MIME type",
-        )
-
-    # Build storage key
-    safe_filename = os.path.basename(file.filename)
-    unique_prefix = uuid4().hex[:12]
-    storage_filename = f"{unique_prefix}_{safe_filename}"
-    file_path = f"transfer/{conversation_id}/{storage_filename}"
+    safe_filename = sanitize_filename(file.filename)
+    file_path = build_storage_key("transfer", str(conversation_id), safe_filename)
 
     # Upload to MinIO/S3
     storage = get_storage_service()

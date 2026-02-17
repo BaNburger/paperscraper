@@ -4,6 +4,7 @@ import logging
 from functools import lru_cache
 from typing import Any
 
+from arq.connections import RedisSettings
 from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -54,6 +55,16 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # Cookie-based browser auth
+    AUTH_ACCESS_COOKIE_NAME: str = "ps_access_token"
+    AUTH_REFRESH_COOKIE_NAME: str = "ps_refresh_token"
+    AUTH_CSRF_COOKIE_NAME: str = "ps_csrf_token"
+    AUTH_COOKIE_DOMAIN: str | None = None
+    AUTH_COOKIE_PATH: str = "/"
+    AUTH_COOKIE_SAMESITE: str = "lax"  # lax, strict, none
+    AUTH_COOKIE_SECURE: bool = False
+    CSRF_HEADER_NAME: str = "X-CSRF-Token"
+
     # ==========================================================================
     # Object Storage (MinIO / S3-compatible)
     # NOTE: S3_ACCESS_KEY and S3_SECRET_KEY MUST be set via environment
@@ -63,6 +74,9 @@ class Settings(BaseSettings):
     S3_SECRET_KEY: SecretStr = SecretStr("")  # Required - no default
     S3_BUCKET_NAME: str = "paperscraper"
     S3_REGION: str = "us-east-1"
+
+    # Model/API key encryption at rest (Fernet URL-safe base64 32-byte key)
+    MODEL_KEY_ENCRYPTION_KEY: SecretStr | None = None
 
     # ==========================================================================
     # LLM Configuration (Provider-agnostic)
@@ -179,11 +193,14 @@ class Settings(BaseSettings):
             # Handle JSON-like string
             if v.startswith("["):
                 import json
-                return json.loads(v)
+                loaded = json.loads(v)
+                if isinstance(loaded, list):
+                    return [str(origin) for origin in loaded]
+                raise ValueError("CORS_ORIGINS JSON value must be a list")
             # Handle comma-separated string
             return [origin.strip() for origin in v.split(",")]
         if isinstance(v, list):
-            return v
+            return [str(origin) for origin in v]
         return ["http://localhost:3000", "http://localhost:5173"]
 
     @model_validator(mode="after")
@@ -212,6 +229,22 @@ class Settings(BaseSettings):
                 "Add JWT_SECRET_KEY to your .env file. "
                 "Generate with: openssl rand -hex 32"
             )
+
+        # Enforce secure cookies outside development unless explicitly configured.
+        if self.APP_ENV in ("production", "staging") and not self.AUTH_COOKIE_SECURE:
+            logger.warning(
+                "AUTH_COOKIE_SECURE is False in %s; forcing secure cookies.",
+                self.APP_ENV,
+            )
+            object.__setattr__(self, "AUTH_COOKIE_SECURE", True)
+
+        # Normalize SameSite values.
+        same_site = self.AUTH_COOKIE_SAMESITE.lower()
+        if same_site not in ("lax", "strict", "none"):
+            raise ValueError(
+                "AUTH_COOKIE_SAMESITE must be one of: lax, strict, none"
+            )
+        object.__setattr__(self, "AUTH_COOKIE_SAMESITE", same_site)
 
         return self
 
@@ -293,7 +326,7 @@ class Settings(BaseSettings):
 
 
     @property
-    def arq_redis_settings(self) -> "RedisSettings":
+    def arq_redis_settings(self) -> RedisSettings:
         """Get arq Redis settings from REDIS_URL.
 
         Parses the REDIS_URL and returns a RedisSettings object
@@ -303,8 +336,6 @@ class Settings(BaseSettings):
             RedisSettings object for arq connection pool.
         """
         from urllib.parse import urlparse
-
-        from arq.connections import RedisSettings
 
         parsed = urlparse(self.REDIS_URL)
         return RedisSettings(

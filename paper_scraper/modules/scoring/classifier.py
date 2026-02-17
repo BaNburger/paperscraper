@@ -93,7 +93,7 @@ class PaperClassifier:
             paper_type = "OTHER"
 
         confidence = response.get("confidence", 0.5)
-        if not isinstance(confidence, (int, float)) or confidence < 0 or confidence > 1:
+        if not isinstance(confidence, int | float) or confidence < 0 or confidence > 1:
             confidence = 0.5
 
         # Update paper

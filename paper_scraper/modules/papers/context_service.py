@@ -1,6 +1,6 @@
 """Service for paper context snapshot generation and retrieval."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -8,7 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.core.exceptions import NotFoundError
 from paper_scraper.modules.integrations.connectors.market_feed import MarketFeedConnector
-from paper_scraper.modules.integrations.models import ConnectorStatus, ConnectorType, IntegrationConnector
+from paper_scraper.modules.integrations.models import (
+    ConnectorStatus,
+    ConnectorType,
+    IntegrationConnector,
+)
 from paper_scraper.modules.papers.clients.epo_ops import EPOOPSClient
 from paper_scraper.modules.papers.context_models import PaperContextSnapshot
 from paper_scraper.modules.papers.models import Paper
@@ -62,7 +66,7 @@ class PaperContextService:
         context_json = {
             "paper_id": str(paper.id),
             "enrichment_version": enrichment_version,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
             "research": research_fragment,
             "related_research": related_fragment,
             "patents": patent_fragment,
@@ -86,12 +90,12 @@ class PaperContextService:
                 organization_id=organization_id,
                 enrichment_version=enrichment_version,
                 context_json=context_json,
-                freshness_at=datetime.now(timezone.utc),
+                freshness_at=datetime.now(UTC),
             )
             self.db.add(snapshot)
         else:
             snapshot.context_json = context_json
-            snapshot.freshness_at = datetime.now(timezone.utc)
+            snapshot.freshness_at = datetime.now(UTC)
 
         await self.db.flush()
         await self.db.refresh(snapshot)

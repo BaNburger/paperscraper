@@ -202,7 +202,7 @@ class IngestionPipeline:
         inserted_keys = {(row[0], row[1]) for row in result.fetchall()}
 
         inserted_records: list[dict] = []
-        for record, key in zip(records, lookup_order):
+        for record, key in zip(records, lookup_order, strict=False):
             if key in inserted_keys:
                 inserted_records.append(record)
 

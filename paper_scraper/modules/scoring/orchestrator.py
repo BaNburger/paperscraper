@@ -2,8 +2,8 @@
 
 import asyncio
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable
 from uuid import UUID
 
 from paper_scraper.modules.scoring.dimensions import (
@@ -212,7 +212,7 @@ class ScoringOrchestrator:
         errors: list[str] = []
         usage = ScoringUsage() if track_usage else None
 
-        for name, result in zip(dims_to_score, results):
+        for name, result in zip(dims_to_score, results, strict=False):
             if isinstance(result, Exception):
                 errors.append(f"{name}: {str(result)}")
                 logger.error(f"Dimension {name} scoring failed for paper {paper.id}: {result}")

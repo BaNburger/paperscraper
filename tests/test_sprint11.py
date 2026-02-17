@@ -1,21 +1,18 @@
 """Tests for Sprint 11: Search & Discovery Enhancements."""
 
-import pytest
-import pytest_asyncio
-from datetime import datetime
 from uuid import uuid4
 
+import pytest
+import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from paper_scraper.modules.saved_searches.models import SavedSearch
-from paper_scraper.modules.saved_searches.service import SavedSearchService
-from paper_scraper.modules.saved_searches.schemas import SavedSearchCreate, AlertFrequency
-from paper_scraper.modules.alerts.models import Alert, AlertChannel, AlertStatus
+from paper_scraper.modules.alerts.models import Alert, AlertChannel
 from paper_scraper.modules.alerts.service import AlertService
-from paper_scraper.modules.alerts.schemas import AlertCreate
 from paper_scraper.modules.papers.models import Paper, PaperSource, PaperType
-
+from paper_scraper.modules.saved_searches.models import SavedSearch
+from paper_scraper.modules.saved_searches.schemas import SavedSearchCreate
+from paper_scraper.modules.saved_searches.service import SavedSearchService
 
 # =============================================================================
 # Module-level fixtures (shared across test classes)
@@ -237,7 +234,7 @@ class TestAlertService:
         test_user,
     ):
         """Test creating an alert."""
-        from paper_scraper.modules.alerts.schemas import AlertCreate, AlertFrequency, AlertChannel
+        from paper_scraper.modules.alerts.schemas import AlertCreate, AlertFrequency
 
         data = AlertCreate(
             name="New Paper Alert",

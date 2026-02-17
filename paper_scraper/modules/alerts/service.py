@@ -1,7 +1,7 @@
 """Service layer for alerts module."""
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -442,11 +442,11 @@ class AlertService:
 
         # Determine time window based on frequency
         if alert.frequency == "daily":
-            since = datetime.now(timezone.utc) - timedelta(days=1)
+            since = datetime.now(UTC) - timedelta(days=1)
         elif alert.frequency == "weekly":
-            since = datetime.now(timezone.utc) - timedelta(days=7)
+            since = datetime.now(UTC) - timedelta(days=7)
         else:  # immediately - use last trigger time
-            since = alert.last_triggered_at or (datetime.now(timezone.utc) - timedelta(hours=1))
+            since = alert.last_triggered_at or (datetime.now(UTC) - timedelta(hours=1))
 
         # Execute search
         search_service = SearchService(self.db)
@@ -506,8 +506,8 @@ class AlertService:
                 )
 
             alert_result.status = AlertStatus.SENT
-            alert_result.delivered_at = datetime.now(timezone.utc)
-            alert.last_triggered_at = datetime.now(timezone.utc)
+            alert_result.delivered_at = datetime.now(UTC)
+            alert.last_triggered_at = datetime.now(UTC)
             alert.trigger_count += 1
 
             # Create in-app notification

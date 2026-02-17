@@ -8,7 +8,7 @@ Tokens are blacklisted on:
 - User deactivation
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from paper_scraper.core.config import settings
 from paper_scraper.core.logging import get_logger
@@ -39,7 +39,7 @@ class TokenBlacklist(RedisService):
             key = f"{BLACKLIST_PREFIX}{jti}"
 
             # Calculate TTL from expiration time
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             ttl = int((exp - now).total_seconds())
 
             if ttl <= 0:
@@ -96,7 +96,7 @@ class TokenBlacklist(RedisService):
             key = f"{USER_INVALIDATION_PREFIX}{user_id}"
 
             # Store current timestamp - all tokens issued before this are invalid
-            timestamp = int(datetime.now(timezone.utc).timestamp())
+            timestamp = int(datetime.now(UTC).timestamp())
 
             # Keep this key for the maximum token lifetime (refresh token duration)
             ttl = settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60

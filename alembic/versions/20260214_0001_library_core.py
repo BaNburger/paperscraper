@@ -5,7 +5,6 @@ Revises: sprint38_workflow_assignment
 Create Date: 2026-02-14 09:00:00.000000
 """
 
-from typing import Union
 
 import sqlalchemy as sa
 
@@ -13,9 +12,9 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "library_core_v2"
-down_revision: Union[str, None] = "sprint38_workflow_assignment"
-branch_labels: Union[str, None] = None
-depends_on: Union[str, None] = None
+down_revision: str | None = "sprint38_workflow_assignment"
+branch_labels: str | None = None
+depends_on: str | None = None
 
 
 def upgrade() -> None:

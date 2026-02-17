@@ -1,9 +1,6 @@
 """Tests for badges and gamification module."""
 
-import pytest
 import pytest_asyncio
-from uuid import uuid4
-
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,9 +12,8 @@ from paper_scraper.modules.badges.models import (
     BadgeTier,
     UserBadge,
 )
-from paper_scraper.modules.badges.service import BadgeService, DEFAULT_BADGES
+from paper_scraper.modules.badges.service import DEFAULT_BADGES, BadgeService
 from paper_scraper.modules.papers.models import Paper, PaperSource
-
 
 # =============================================================================
 # Fixtures
@@ -290,7 +286,7 @@ class TestBadgeService:
         papers_for_stats: list[Paper],
     ):
         """Test that already-earned badges are not re-awarded."""
-        first_award = await badge_service.check_and_award_badges(
+        await badge_service.check_and_award_badges(
             test_user.id, test_organization.id
         )
         second_award = await badge_service.check_and_award_badges(

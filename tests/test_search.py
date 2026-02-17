@@ -1,7 +1,7 @@
 """Tests for search module."""
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -16,7 +16,6 @@ from paper_scraper.modules.search.schemas import (
     SearchMode,
     SearchRequest,
 )
-
 
 # Mark for tests requiring PostgreSQL (pg_trgm, pgvector)
 requires_postgresql = pytest.mark.skip(

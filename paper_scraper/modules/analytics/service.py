@@ -1,6 +1,6 @@
 """Analytics service for team and paper metrics."""
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import case, func, select
@@ -48,7 +48,7 @@ class AnalyticsService:
 
     async def get_team_overview(self, organization_id: UUID) -> TeamOverviewResponse:
         """Get team overview statistics."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         week_ago = now - timedelta(days=DAYS_IN_WEEK)
         month_ago = now - timedelta(days=DAYS_IN_MONTH)
 
@@ -146,7 +146,7 @@ class AnalyticsService:
         self, organization_id: UUID, days: int = 90
     ) -> PaperAnalyticsResponse:
         """Get paper analytics."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         start_date = now - timedelta(days=days)
 
         # Import trends - daily
@@ -327,7 +327,7 @@ class AnalyticsService:
         self, organization_id: UUID
     ) -> DashboardSummaryResponse:
         """Get dashboard summary with key metrics."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         week_ago = now - timedelta(days=DAYS_IN_WEEK)
         month_ago = now - timedelta(days=DAYS_IN_MONTH)
 
@@ -474,7 +474,7 @@ class AnalyticsService:
         Returns:
             FunnelResponse with stage counts and conversion rates.
         """
-        now = datetime.now(timezone.utc)
+        datetime.now(UTC)
 
         # Base paper query with optional date filter
         paper_filters = [Paper.organization_id == organization_id]
@@ -601,7 +601,7 @@ class AnalyticsService:
         Returns:
             BenchmarkResponse with comparison metrics.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         month_ago = now - timedelta(days=DAYS_IN_MONTH)
 
         # Count all organizations for benchmark data

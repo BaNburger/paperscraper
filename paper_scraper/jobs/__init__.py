@@ -12,6 +12,6 @@ Usage:
     await enqueue_job('score_paper_task', paper_id=paper_id)
 """
 
-from paper_scraper.jobs.worker import WorkerSettings, get_redis_pool, enqueue_job
+from paper_scraper.jobs.worker import WorkerSettings, enqueue_job, get_redis_pool
 
 __all__ = ["WorkerSettings", "get_redis_pool", "enqueue_job"]

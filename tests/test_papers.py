@@ -518,13 +518,13 @@ class TestPaperIngestion:
     ):
         """Test OpenAlex ingestion endpoint structure."""
         response = await client.post(
-            "/api/v1/papers/ingest/openalex",
+            "/api/v1/ingestion/sources/openalex/runs",
             json={"query": "machine learning", "max_results": 1},
             headers=auth_headers,
         )
         # We're testing the endpoint exists and accepts valid input
         # Network issues may cause failures, so we accept various status codes
-        assert response.status_code in (200, 500)
+        assert response.status_code in (202, 500)
 
     @pytest.mark.asyncio
     async def test_ingest_pubmed_endpoint(
@@ -535,12 +535,12 @@ class TestPaperIngestion:
     ):
         """Test PubMed ingestion endpoint structure."""
         response = await client.post(
-            "/api/v1/papers/ingest/pubmed",
+            "/api/v1/ingestion/sources/pubmed/runs",
             json={"query": "cancer", "max_results": 1},
             headers=auth_headers,
         )
         # Endpoint exists and accepts valid input
-        assert response.status_code in (200, 500)
+        assert response.status_code in (202, 500)
 
     @pytest.mark.asyncio
     async def test_ingest_arxiv_endpoint(
@@ -551,12 +551,12 @@ class TestPaperIngestion:
     ):
         """Test arXiv ingestion endpoint structure."""
         response = await client.post(
-            "/api/v1/papers/ingest/arxiv",
+            "/api/v1/ingestion/sources/arxiv/runs",
             json={"query": "quantum computing", "max_results": 1},
             headers=auth_headers,
         )
         # Endpoint exists and accepts valid input
-        assert response.status_code in (200, 500)
+        assert response.status_code in (202, 500)
 
     @pytest.mark.asyncio
     async def test_duplicate_doi_rejection(
@@ -732,12 +732,12 @@ class TestPaperAPIValidation:
     ):
         """Test that max_results has a reasonable limit."""
         response = await client.post(
-            "/api/v1/papers/ingest/openalex",
+            "/api/v1/ingestion/sources/openalex/runs",
             json={"query": "test", "max_results": 10000},
             headers=auth_headers,
         )
         # Should either cap the limit or reject invalid input
-        assert response.status_code in (200, 422, 500)
+        assert response.status_code in (202, 422, 500)
 
     @pytest.mark.asyncio
     async def test_ingest_doi_with_url_format(

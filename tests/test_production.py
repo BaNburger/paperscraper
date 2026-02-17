@@ -4,7 +4,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from paper_scraper.modules.auth.models import Organization, User
+from paper_scraper.modules.auth.models import Organization
 from paper_scraper.modules.papers.models import Paper, PaperSource
 
 

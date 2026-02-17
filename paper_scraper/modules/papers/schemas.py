@@ -7,7 +7,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from paper_scraper.modules.papers.models import PaperSource
 
-
 # =============================================================================
 # Author Schemas
 # =============================================================================

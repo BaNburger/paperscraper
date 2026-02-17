@@ -1,11 +1,11 @@
 """Tests for email service module."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from paper_scraper.modules.email.service import EmailService
-from paper_scraper.core.exceptions import EmailError
+import pytest
 
+from paper_scraper.core.exceptions import EmailError
+from paper_scraper.modules.email.service import EmailService
 
 # =============================================================================
 # Fixtures

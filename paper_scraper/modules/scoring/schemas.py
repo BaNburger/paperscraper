@@ -450,7 +450,7 @@ class BaseLLMScoringResponse(BaseModel):
     @classmethod
     def clamp_score(cls, v: Any) -> float:
         """Ensure score is within valid range."""
-        if isinstance(v, (int, float)):
+        if isinstance(v, int | float):
             return max(0.0, min(10.0, float(v)))
         return 5.0  # Default fallback
 
@@ -458,7 +458,7 @@ class BaseLLMScoringResponse(BaseModel):
     @classmethod
     def clamp_confidence(cls, v: Any) -> float:
         """Ensure confidence is within valid range."""
-        if isinstance(v, (int, float)):
+        if isinstance(v, int | float):
             return max(0.0, min(1.0, float(v)))
         return 0.5  # Default fallback
 
@@ -533,7 +533,7 @@ class FeasibilityLLMResponse(BaseLLMScoringResponse):
     def validate_trl_level(cls, v: Any) -> int | None:
         if v is None:
             return None
-        if isinstance(v, (int, float)):
+        if isinstance(v, int | float):
             return max(1, min(9, int(v)))
         return None
 
@@ -583,7 +583,7 @@ class ClassificationLLMResponse(BaseModel):
     @field_validator("confidence", mode="before")
     @classmethod
     def validate_confidence(cls, v: Any) -> float:
-        if isinstance(v, (int, float)):
+        if isinstance(v, int | float):
             return max(0.0, min(1.0, float(v)))
         return 0.5
 

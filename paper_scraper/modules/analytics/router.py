@@ -8,8 +8,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.api.dependencies import CurrentUser, require_permission
-from paper_scraper.core.permissions import Permission
 from paper_scraper.core.database import get_db
+from paper_scraper.core.permissions import Permission
 from paper_scraper.modules.analytics.schemas import (
     BenchmarkResponse,
     DashboardSummaryResponse,

@@ -15,9 +15,9 @@ from paper_scraper.core.permissions import Permission
 from paper_scraper.modules.library.schemas import (
     CollectionPaperResponse,
     GenerateHighlightsRequest,
-    HydrateFullTextResponse,
     HighlightCreate,
     HighlightUpdate,
+    HydrateFullTextResponse,
     LibraryCollectionCreate,
     LibraryCollectionListResponse,
     LibraryCollectionResponse,
@@ -30,6 +30,7 @@ from paper_scraper.modules.library.schemas import (
     TagCreate,
 )
 from paper_scraper.modules.library.service import LibraryService
+
 
 def require_library_feature_flag() -> None:
     """Gate Library V2 endpoints behind feature flag."""

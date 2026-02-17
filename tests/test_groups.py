@@ -1,9 +1,9 @@
 """Tests for researcher groups module."""
 
-import pytest
-import pytest_asyncio
 from uuid import uuid4
 
+import pytest
+import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,10 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from paper_scraper.core.exceptions import NotFoundError
 from paper_scraper.modules.auth.models import Organization, User
 from paper_scraper.modules.groups.models import GroupMember, GroupType, ResearcherGroup
-from paper_scraper.modules.groups.service import GroupService
 from paper_scraper.modules.groups.schemas import GroupCreate, GroupUpdate
+from paper_scraper.modules.groups.service import GroupService
 from paper_scraper.modules.papers.models import Author
-
 
 # =============================================================================
 # Fixtures

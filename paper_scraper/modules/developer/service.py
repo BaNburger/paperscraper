@@ -3,7 +3,7 @@
 import hashlib
 import hmac
 import secrets
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -14,13 +14,11 @@ from paper_scraper.core.exceptions import DuplicateError, NotFoundError, Validat
 from paper_scraper.modules.developer.models import APIKey, RepositorySource, Webhook
 from paper_scraper.modules.developer.schemas import (
     APIKeyCreate,
-    RepositorySourceConfig,
     RepositorySourceCreate,
     RepositorySourceUpdate,
     WebhookCreate,
     WebhookUpdate,
 )
-
 
 # =============================================================================
 # API Key Service
@@ -144,7 +142,7 @@ async def get_api_key_by_hash(
 
     if api_key:
         # Check expiration
-        if api_key.expires_at and api_key.expires_at < datetime.now(timezone.utc):
+        if api_key.expires_at and api_key.expires_at < datetime.now(UTC):
             return None
 
     return api_key
@@ -400,8 +398,7 @@ async def get_webhooks_for_event(
     # Use text-based check that works for both PostgreSQL JSONB and SQLite TEXT
     # The JSONB array is stored like: ["paper.created", "paper.scored"]
     # We search for the quoted event string within the JSON
-    from sqlalchemy import cast, String, literal_column
-    from sqlalchemy.sql import text
+    from sqlalchemy import String, cast
 
     result = await db.execute(
         select(Webhook).where(

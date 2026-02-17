@@ -7,27 +7,27 @@ from paper_scraper.modules.analytics.router import router as analytics_router
 from paper_scraper.modules.audit.router import router as audit_router
 from paper_scraper.modules.auth.router import router as auth_router
 from paper_scraper.modules.authors.router import router as authors_router
+from paper_scraper.modules.badges.router import router as badges_router
+from paper_scraper.modules.compliance.router import router as compliance_router
+from paper_scraper.modules.developer.router import router as developer_router
+from paper_scraper.modules.discovery.router import router as discovery_router
 from paper_scraper.modules.export.router import router as export_router
 from paper_scraper.modules.groups.router import router as groups_router
-from paper_scraper.modules.transfer.router import router as transfer_router
+from paper_scraper.modules.ingestion.router import router as ingestion_router
+from paper_scraper.modules.integrations.router import router as integrations_router
+from paper_scraper.modules.knowledge.router import router as knowledge_router
+from paper_scraper.modules.library.router import router as library_router
+from paper_scraper.modules.model_settings.router import router as model_settings_router
+from paper_scraper.modules.notifications.router import router as notifications_router
 from paper_scraper.modules.papers.router import router as papers_router
 from paper_scraper.modules.projects.router import router as projects_router
+from paper_scraper.modules.reports.router import router as reports_router
 from paper_scraper.modules.saved_searches.router import router as saved_searches_router
 from paper_scraper.modules.scoring.router import router as scoring_router
 from paper_scraper.modules.search.router import router as search_router
 from paper_scraper.modules.submissions.router import router as submissions_router
-from paper_scraper.modules.badges.router import router as badges_router
-from paper_scraper.modules.knowledge.router import router as knowledge_router
-from paper_scraper.modules.model_settings.router import router as model_settings_router
-from paper_scraper.modules.developer.router import router as developer_router
-from paper_scraper.modules.reports.router import router as reports_router
-from paper_scraper.modules.compliance.router import router as compliance_router
-from paper_scraper.modules.notifications.router import router as notifications_router
-from paper_scraper.modules.ingestion.router import router as ingestion_router
-from paper_scraper.modules.integrations.router import router as integrations_router
-from paper_scraper.modules.library.router import router as library_router
+from paper_scraper.modules.transfer.router import router as transfer_router
 from paper_scraper.modules.trends.router import router as trends_router
-from paper_scraper.modules.discovery.router import router as discovery_router
 
 api_router = APIRouter()
 

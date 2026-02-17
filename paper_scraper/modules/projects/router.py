@@ -12,6 +12,7 @@ from paper_scraper.core.database import get_db
 from paper_scraper.core.exceptions import NotFoundError
 from paper_scraper.core.permissions import Permission
 from paper_scraper.modules.papers.clients.openalex import OpenAlexClient
+from paper_scraper.modules.projects.models import SyncStatus
 from paper_scraper.modules.projects.schemas import (
     AuthorSearchResult,
     ClusterDetailResponse,
@@ -25,7 +26,6 @@ from paper_scraper.modules.projects.schemas import (
     ProjectUpdate,
     SyncResponse,
 )
-from paper_scraper.modules.projects.models import SyncStatus
 from paper_scraper.modules.projects.service import ProjectService
 
 logger = logging.getLogger(__name__)

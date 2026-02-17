@@ -8,7 +8,11 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.modules.audit.models import AuditAction, AuditLog
-from paper_scraper.modules.audit.schemas import AuditLogFilters, AuditLogListResponse, AuditLogResponse
+from paper_scraper.modules.audit.schemas import (
+    AuditLogFilters,
+    AuditLogListResponse,
+    AuditLogResponse,
+)
 
 
 class AuditService:
@@ -183,7 +187,3 @@ def create_audit_service(db: AsyncSession) -> AuditService:
         AuditService instance.
     """
     return AuditService(db)
-
-
-# Alias for backward compatibility
-audit_service = create_audit_service

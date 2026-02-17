@@ -1,6 +1,6 @@
 """FastAPI router for compliance endpoints."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -18,7 +18,6 @@ from paper_scraper.modules.compliance.schemas import (
     AuditLogSummary,
     CreateRetentionPolicyRequest,
     DataProcessingInfo,
-    RetentionEntityTypeEnum,
     RetentionLogListResponse,
     RetentionLogResponse,
     RetentionPolicyListResponse,
@@ -72,7 +71,7 @@ async def search_audit_logs(
 
     Admin only. Provides enhanced filtering beyond the basic /audit endpoint.
     """
-    from paper_scraper.modules.audit.schemas import AuditLogFilters, AuditLogListResponse
+    from paper_scraper.modules.audit.schemas import AuditLogFilters
 
     # Convert action string to enum if provided
     action_enum = None
@@ -142,7 +141,7 @@ async def export_audit_logs(
         request=request,
     )
 
-    filename = f"audit_logs_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
+    filename = f"audit_logs_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.csv"
 
     return StreamingResponse(
         iter([csv_content]),
@@ -475,7 +474,7 @@ async def export_soc2_report(
 
     return {
         "report": status,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "organization_id": str(current_user.organization_id),
     }
 

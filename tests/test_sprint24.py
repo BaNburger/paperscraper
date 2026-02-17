@@ -9,20 +9,16 @@ Tests cover:
 """
 
 import uuid
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
-from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.modules.auth.models import Organization, User
-from paper_scraper.modules.groups.schemas import SuggestMembersRequest, SuggestedMember
-from paper_scraper.modules.knowledge.models import KnowledgeScope, KnowledgeSource, KnowledgeType
+from paper_scraper.modules.groups.schemas import SuggestedMember, SuggestMembersRequest
+from paper_scraper.modules.knowledge.models import KnowledgeScope, KnowledgeType
 from paper_scraper.modules.papers.models import Paper, PaperSource
 from paper_scraper.modules.scoring.dimensions.base import PaperContext
 from paper_scraper.modules.transfer.schemas import NextStep, NextStepsResponse
-
 
 # =============================================================================
 # Test Fixtures
@@ -386,8 +382,9 @@ class TestSprint24Integration:
 
     async def test_scoring_service_accepts_knowledge_params(self):
         """Test scoring service accepts knowledge-related parameters."""
-        from paper_scraper.modules.scoring.service import ScoringService
         import inspect
+
+        from paper_scraper.modules.scoring.service import ScoringService
 
         # Check that score_paper method signature includes new params
         sig = inspect.signature(ScoringService.score_paper)
@@ -398,8 +395,9 @@ class TestSprint24Integration:
 
     async def test_groups_service_accepts_llm_params(self):
         """Test groups service accepts LLM explanation parameters."""
-        from paper_scraper.modules.groups.service import GroupService
         import inspect
+
+        from paper_scraper.modules.groups.service import GroupService
 
         sig = inspect.signature(GroupService.suggest_members)
         params = list(sig.parameters.keys())
@@ -410,8 +408,8 @@ class TestSprint24Integration:
 
     async def test_transfer_service_returns_enhanced_response(self):
         """Test transfer service returns enhanced response schema."""
+
         from paper_scraper.modules.transfer.schemas import NextStepsResponse
-        import inspect
 
         # Check NextStepsResponse has new fields
         fields = NextStepsResponse.model_fields.keys()
@@ -420,8 +418,8 @@ class TestSprint24Integration:
 
     async def test_knowledge_service_has_scoring_method(self):
         """Test knowledge service has scoring-specific retrieval."""
+
         from paper_scraper.modules.knowledge.service import KnowledgeService
-        import inspect
 
         assert hasattr(KnowledgeService, "get_relevant_sources_for_scoring")
         assert hasattr(KnowledgeService, "format_knowledge_for_prompt")

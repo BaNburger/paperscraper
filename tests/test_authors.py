@@ -1,21 +1,19 @@
 """Tests for authors module."""
 
-import pytest
-import pytest_asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+import pytest
+import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from paper_scraper.core.security import create_access_token, get_password_hash
-from paper_scraper.modules.auth.models import Organization, User, UserRole
-from paper_scraper.modules.authors.models import AuthorContact, ContactType, ContactOutcome
-from paper_scraper.modules.authors.service import AuthorService
+from paper_scraper.modules.auth.models import Organization, User
+from paper_scraper.modules.authors.models import AuthorContact, ContactOutcome, ContactType
 from paper_scraper.modules.authors.schemas import ContactCreate, ContactUpdate
+from paper_scraper.modules.authors.service import AuthorService
 from paper_scraper.modules.papers.models import Author, Paper, PaperAuthor
-
 
 # =============================================================================
 # Fixtures
@@ -116,7 +114,7 @@ async def test_contact(
         organization_id=test_organization.id,
         contacted_by_id=test_user.id,
         contact_type=ContactType.EMAIL,
-        contact_date=datetime.now(timezone.utc),
+        contact_date=datetime.now(UTC),
         subject="Introduction and collaboration",
         notes="Reached out regarding potential collaboration on ML research.",
         outcome=ContactOutcome.IN_PROGRESS,
@@ -149,7 +147,7 @@ async def multiple_contacts(
             organization_id=test_organization.id,
             contacted_by_id=test_user.id,
             contact_type=contact_type,
-            contact_date=datetime.now(timezone.utc) + timedelta(days=days_ago),
+            contact_date=datetime.now(UTC) + timedelta(days=days_ago),
             outcome=outcome,
         )
         db_session.add(contact)

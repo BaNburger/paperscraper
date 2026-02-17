@@ -20,12 +20,10 @@ from paper_scraper.modules.scoring.dimensions import (
 from paper_scraper.modules.scoring.dimensions.base import PaperContext
 from paper_scraper.modules.scoring.models import PaperScore, ScoringJob
 from paper_scraper.modules.scoring.orchestrator import (
-    AggregatedScore,
     ScoringOrchestrator,
     ScoringWeights,
 )
 from paper_scraper.modules.scoring.schemas import ScoringWeightsSchema
-
 
 # =============================================================================
 # Mock LLM Responses
@@ -604,7 +602,7 @@ class TestLLMClient:
 
     def test_get_llm_client_openai(self):
         """Test getting OpenAI client."""
-        from paper_scraper.modules.scoring.llm_client import get_llm_client, OpenAIClient
+        from paper_scraper.modules.scoring.llm_client import OpenAIClient, get_llm_client
 
         with patch("paper_scraper.modules.scoring.llm_client.settings") as mock_settings:
             mock_settings.LLM_PROVIDER = "openai"
@@ -618,7 +616,7 @@ class TestLLMClient:
 
     def test_get_llm_client_anthropic(self):
         """Test getting Anthropic client."""
-        from paper_scraper.modules.scoring.llm_client import get_llm_client, AnthropicClient
+        from paper_scraper.modules.scoring.llm_client import AnthropicClient, get_llm_client
 
         with patch("paper_scraper.modules.scoring.llm_client.settings") as mock_settings:
             mock_settings.LLM_PROVIDER = "anthropic"

@@ -2,8 +2,7 @@
 
 import logging
 import re
-from base64 import b64decode
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -12,12 +11,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from paper_scraper.core.exceptions import NotFoundError
+from paper_scraper.core.secrets import decrypt_secret
 from paper_scraper.modules.model_settings.models import ModelConfiguration, ModelUsage
 from paper_scraper.modules.papers.models import Paper, PaperAuthor
+from paper_scraper.modules.scoring.dimension_context_builder import DimensionContextBuilder
 from paper_scraper.modules.scoring.dimensions.base import PaperContext
 from paper_scraper.modules.scoring.embeddings import generate_paper_embedding
 from paper_scraper.modules.scoring.llm_client import get_llm_client
-from paper_scraper.modules.scoring.models import GlobalScoreCache, PaperScore, ScoringJob, ScoringPolicy
+from paper_scraper.modules.scoring.models import (
+    GlobalScoreCache,
+    PaperScore,
+    ScoringJob,
+    ScoringPolicy,
+)
 from paper_scraper.modules.scoring.orchestrator import (
     AggregatedScore,
     ScoringOrchestrator,
@@ -27,15 +33,13 @@ from paper_scraper.modules.scoring.schemas import (
     PaperScoreListResponse,
     PaperScoreSummary,
     ScoringJobListResponse,
+    ScoringJobResponse,
     ScoringPolicyCreate,
     ScoringPolicyListResponse,
     ScoringPolicyResponse,
     ScoringPolicyUpdate,
-    ScoringJobResponse,
     ScoringWeightsSchema,
 )
-from paper_scraper.modules.scoring.context_assembler import DefaultScoreContextAssembler
-from paper_scraper.modules.scoring.dimension_context_builder import DimensionContextBuilder
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +92,7 @@ class ScoringService:
         # Check for existing recent score (within 24 hours)
         if not force_rescore:
             existing = await self.get_latest_score(paper_id, organization_id)
-            if existing and existing.created_at > datetime.now(timezone.utc) - timedelta(hours=24):
+            if existing and existing.created_at > datetime.now(UTC) - timedelta(hours=24):
                 return existing
 
         # Check global DOI cache (cross-tenant, 90-day TTL)
@@ -416,9 +420,9 @@ class ScoringService:
         job.status = status
 
         if status == "running" and not job.started_at:
-            job.started_at = datetime.now(timezone.utc)
+            job.started_at = datetime.now(UTC)
         if status in ("completed", "failed"):
-            job.completed_at = datetime.now(timezone.utc)
+            job.completed_at = datetime.now(UTC)
 
         if completed_papers is not None:
             job.completed_papers = completed_papers
@@ -609,12 +613,7 @@ class ScoringService:
             )
             wf_config = (await self.db.execute(workflow_query)).scalar_one_or_none()
             if wf_config:
-                api_key = None
-                if wf_config.api_key_encrypted:
-                    try:
-                        api_key = b64decode(wf_config.api_key_encrypted.encode()).decode()
-                    except Exception:
-                        api_key = None
+                api_key = self._decrypt_model_key(wf_config.api_key_encrypted)
                 try:
                     return get_llm_client(
                         provider=wf_config.provider,
@@ -652,12 +651,7 @@ class ScoringService:
         )
         config = (await self.db.execute(config_query)).scalar_one_or_none()
         if config:
-            api_key = None
-            if config.api_key_encrypted:
-                try:
-                    api_key = b64decode(config.api_key_encrypted.encode()).decode()
-                except Exception:
-                    api_key = None
+            api_key = self._decrypt_model_key(config.api_key_encrypted)
             try:
                 return get_llm_client(
                     provider=config.provider,
@@ -672,15 +666,33 @@ class ScoringService:
 
     @staticmethod
     def _extract_api_key_from_secret_ref(secret_ref: str | None) -> str | None:
-        """Extract an API key from secret_ref for prototype usage.
+        """Resolve API key from secret reference.
 
-        Supports only `plain:<api_key>` format in this prototype.
+        v2 intentionally disallows inline plain-text secret payloads.
         """
-        if not secret_ref:
-            return None
-        if secret_ref.startswith("plain:"):
-            return secret_ref.replace("plain:", "", 1)
+        if secret_ref:
+            logger.warning(
+                "Ignoring unsupported scoring policy secret_ref in v2: %s",
+                secret_ref.split(":", 1)[0],
+            )
         return None
+
+    @staticmethod
+    def _decrypt_model_key(encrypted_value: str | None) -> str | None:
+        """Decrypt model key supporting v2 and legacy values."""
+        if not encrypted_value:
+            return None
+
+        try:
+            if encrypted_value.startswith("enc:v1:"):
+                return decrypt_secret(encrypted_value.replace("enc:v1:", "", 1))
+
+            # Legacy base64 fallback
+            import base64
+
+            return base64.b64decode(encrypted_value.encode()).decode()
+        except Exception:
+            return None
 
     # =========================================================================
     # Private Methods
@@ -806,7 +818,7 @@ class ScoringService:
         result = await self.db.execute(
             select(GlobalScoreCache).where(
                 GlobalScoreCache.doi == normalized,
-                GlobalScoreCache.expires_at > datetime.now(timezone.utc),
+                GlobalScoreCache.expires_at > datetime.now(UTC),
             )
         )
         return result.scalar_one_or_none()
@@ -825,7 +837,7 @@ class ScoringService:
         if not normalized:
             return
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires_at = now + timedelta(days=GLOBAL_CACHE_TTL_DAYS)
 
         # Only store numeric data — reasoning may contain org-specific context

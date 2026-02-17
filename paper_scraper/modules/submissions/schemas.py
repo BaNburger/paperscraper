@@ -11,7 +11,6 @@ from paper_scraper.modules.submissions.models import (
     SubmissionStatus,
 )
 
-
 # =============================================================================
 # User Info (lightweight)
 # =============================================================================

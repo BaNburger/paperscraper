@@ -1,6 +1,6 @@
 """Background tasks for paper scoring."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -166,7 +166,7 @@ async def cleanup_expired_score_cache_task(
     async with get_db_session() as db:
         result = await db.execute(
             delete(GlobalScoreCache).where(
-                GlobalScoreCache.expires_at <= datetime.now(timezone.utc)
+                GlobalScoreCache.expires_at <= datetime.now(UTC)
             )
         )
         await db.commit()

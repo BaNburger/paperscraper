@@ -1,10 +1,10 @@
 """Service layer for notifications module."""
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import and_, func, select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.modules.notifications.models import Notification, NotificationType
@@ -230,7 +230,7 @@ class NotificationService:
         Returns:
             Count of deleted notifications.
         """
-        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        cutoff = datetime.now(UTC) - timedelta(days=days)
 
         # Find old notifications
         query = select(Notification).where(

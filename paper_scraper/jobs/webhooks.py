@@ -8,20 +8,11 @@ from uuid import UUID
 
 import httpx
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.pool import NullPool
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from paper_scraper.core.config import settings
+from paper_scraper.core.database import get_db_session
 from paper_scraper.modules.developer import service as dev_service
 from paper_scraper.modules.developer.models import Webhook
-
-
-# Create a separate engine for background jobs
-_engine = create_async_engine(
-    settings.DATABASE_URL,
-    poolclass=NullPool,
-)
-_async_session = async_sessionmaker(_engine, expire_on_commit=False)
 
 
 async def dispatch_webhook_task(
@@ -42,7 +33,8 @@ async def dispatch_webhook_task(
     Returns:
         Result dict with success status and details.
     """
-    async with _async_session() as db:
+    async with get_db_session() as db:
+        webhook: Webhook | None = None
         try:
             if organization_id:
                 webhook = await dev_service.get_webhook(
@@ -55,8 +47,8 @@ async def dispatch_webhook_task(
                     select(Webhook).where(Webhook.id == UUID(webhook_id))
                 )
                 webhook = result.scalar_one_or_none()
-                if webhook is None:
-                    raise ValueError("Webhook not found")
+            if webhook is None:
+                raise ValueError("Webhook not found")
         except Exception:
             # Webhook not found or deleted
             return {
@@ -66,6 +58,7 @@ async def dispatch_webhook_task(
             }
 
         # Prepare the payload
+        assert webhook is not None
         full_payload = {
             "event": event,
             "timestamp": time.time(),
@@ -97,7 +90,6 @@ async def dispatch_webhook_task(
 
                 if response.is_success:
                     await dev_service.record_webhook_success(db, webhook.id)
-                    await db.commit()
                     return {
                         "success": True,
                         "status_code": response.status_code,
@@ -117,7 +109,6 @@ async def dispatch_webhook_task(
 
         # All retries failed
         failure_count = await dev_service.record_webhook_failure(db, webhook.id)
-        await db.commit()
 
         return {
             "success": False,

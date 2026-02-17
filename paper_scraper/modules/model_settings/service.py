@@ -1,12 +1,14 @@
 """Service layer for model settings module."""
 
-from datetime import datetime, timedelta, timezone
+import base64
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.core.exceptions import NotFoundError
+from paper_scraper.core.secrets import decrypt_secret, encrypt_secret
 from paper_scraper.modules.model_settings.models import ModelConfiguration, ModelUsage
 from paper_scraper.modules.model_settings.schemas import (
     ModelConfigurationCreate,
@@ -143,7 +145,7 @@ class ModelSettingsService:
         days: int = 30,
     ) -> UsageAggregation:
         """Get aggregated usage statistics."""
-        since = datetime.now(timezone.utc) - timedelta(days=days)
+        since = datetime.now(UTC) - timedelta(days=days)
 
         base_query = select(ModelUsage).where(
             ModelUsage.organization_id == organization_id,
@@ -282,16 +284,17 @@ class ModelSettingsService:
 
     @staticmethod
     def _encrypt_key(key: str) -> str:
-        """Encrypt an API key for storage.
-
-        Note: In production, use a proper encryption library (e.g., Fernet).
-        This is a placeholder that base64-encodes for now.
-        """
-        import base64
-        return base64.b64encode(key.encode()).decode()
+        """Encrypt an API key for storage."""
+        return f"enc:v1:{encrypt_secret(key)}"
 
     @staticmethod
     def _decrypt_key(encrypted: str) -> str:
-        """Decrypt an API key from storage."""
-        import base64
+        """Decrypt an API key from storage.
+
+        Supports v2 encrypted values and legacy base64 payloads.
+        """
+        if encrypted.startswith("enc:v1:"):
+            return decrypt_secret(encrypted.replace("enc:v1:", "", 1))
+
+        # Legacy fallback (base64 values from pre-v2 versions).
         return base64.b64decode(encrypted.encode()).decode()

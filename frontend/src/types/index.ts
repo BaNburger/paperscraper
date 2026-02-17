@@ -1,3 +1,5 @@
+import type { components as OpenApiComponents } from '@/api/generated/openapi'
+
 // Auth types
 export interface OrganizationBranding {
   logo_url?: string
@@ -10,7 +12,7 @@ export interface Organization {
   id: string
   name: string
   type: string
-  subscription_tier: 'free' | 'pro' | 'enterprise'
+  subscription_tier: OpenApiComponents['schemas']['SubscriptionTier']
   settings: Record<string, unknown>
   branding: OrganizationBranding
   created_at: string
@@ -26,7 +28,7 @@ export interface User {
   id: string
   email: string
   full_name: string | null
-  role: 'admin' | 'member' | 'viewer'
+  role: UserRole
   organization_id: string
   preferences: Record<string, unknown>
   is_active: boolean
@@ -57,7 +59,7 @@ export interface RegisterRequest {
 }
 
 // Team Invitation types
-export type UserRole = 'admin' | 'manager' | 'member' | 'viewer'
+export type UserRole = OpenApiComponents['schemas']['UserRole']
 export type InvitationStatus = 'pending' | 'accepted' | 'declined' | 'expired'
 
 export interface InvitationInfo {
@@ -310,8 +312,8 @@ export interface ScoreResponse {
   paper: Paper
 }
 
-// Research Group types (replaces KanBan projects)
-export interface ResearchGroup {
+// Project domain (research groups)
+export interface Project {
   id: string
   organization_id: string
   name: string
@@ -328,11 +330,8 @@ export interface ResearchGroup {
   updated_at: string
 }
 
-// Keep Project as alias for backward compatibility in dependent code
-export type Project = ResearchGroup
-
 export interface ProjectListResponse {
-  items: ResearchGroup[]
+  items: Project[]
   total: number
   page: number
   page_size: number
@@ -383,7 +382,7 @@ export interface AuthorSearchResult {
   last_known_institution?: string
 }
 
-export interface CreateResearchGroup {
+export interface CreateProject {
   name: string
   description?: string
   openalex_institution_id?: string
@@ -1839,8 +1838,10 @@ export interface DiscoveryRun {
   created_at: string
 }
 
+export type DiscoveryRunResponse = OpenApiComponents['schemas']['DiscoveryRunResponse']
+
 export interface DiscoveryRunListResponse {
-  items: DiscoveryRun[]
+  items: DiscoveryRunResponse[]
   total: number
   page: number
   page_size: number
@@ -1871,7 +1872,7 @@ export interface DiscoveryProfileListResponse {
 
 export interface DiscoveryTriggerResponse {
   saved_search_id: string
-  runs: DiscoveryRun[]
+  runs: DiscoveryRunResponse[]
   total_papers_imported: number
   total_papers_added_to_project: number
   message: string

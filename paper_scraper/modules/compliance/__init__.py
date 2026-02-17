@@ -1,6 +1,6 @@
 """Compliance module for enterprise governance, audit, and data retention."""
 
-from paper_scraper.modules.compliance.models import RetentionPolicy, RetentionAction
+from paper_scraper.modules.compliance.models import RetentionAction, RetentionPolicy
 
 __all__ = [
     "RetentionPolicy",

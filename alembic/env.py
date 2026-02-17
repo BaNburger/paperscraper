@@ -1,10 +1,10 @@
 """Alembic migration environment configuration."""
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import create_engine, pool
 from sqlalchemy.engine import Connection
 
+from alembic import context
 from paper_scraper.core.config import settings
 from paper_scraper.core.database import Base
 
@@ -19,12 +19,22 @@ except ImportError:
     pass
 
 try:
-    from paper_scraper.modules.scoring.models import PaperScore, ScoringJob, ScoringPolicy, GlobalScoreCache  # noqa: F401
+    from paper_scraper.modules.scoring.models import (  # noqa: F401
+        GlobalScoreCache,
+        PaperScore,
+        ScoringJob,
+        ScoringPolicy,
+    )
 except ImportError:
     pass
 
 try:
-    from paper_scraper.modules.projects.models import Project, ProjectPaper, ProjectCluster, ProjectClusterPaper  # noqa: F401
+    from paper_scraper.modules.projects.models import (  # noqa: F401
+        Project,
+        ProjectCluster,
+        ProjectClusterPaper,
+        ProjectPaper,
+    )
 except ImportError:
     pass
 
@@ -49,35 +59,43 @@ except ImportError:
     pass
 
 try:
-    from paper_scraper.modules.groups.models import ResearcherGroup, GroupMember  # noqa: F401
+    from paper_scraper.modules.groups.models import GroupMember, ResearcherGroup  # noqa: F401
 except ImportError:
     pass
 
 try:
     from paper_scraper.modules.transfer.models import (  # noqa: F401
-        TransferConversation, ConversationMessage, ConversationResource,
-        StageChange, MessageTemplate,
+        ConversationMessage,
+        ConversationResource,
+        MessageTemplate,
+        StageChange,
+        TransferConversation,
     )
 except ImportError:
     pass
 
 try:
     from paper_scraper.modules.submissions.models import (  # noqa: F401
-        ResearchSubmission, SubmissionAttachment, SubmissionScore,
+        ResearchSubmission,
+        SubmissionAttachment,
+        SubmissionScore,
     )
 except ImportError:
     pass
 
 try:
     from paper_scraper.modules.model_settings.models import (  # noqa: F401
-        ModelConfiguration, ModelUsage,
+        ModelConfiguration,
+        ModelUsage,
     )
 except ImportError:
     pass
 
 try:
     from paper_scraper.modules.developer.models import (  # noqa: F401
-        APIKey, Webhook, RepositorySource,
+        APIKey,
+        RepositorySource,
+        Webhook,
     )
 except ImportError:
     pass
@@ -89,7 +107,8 @@ except ImportError:
 
 try:
     from paper_scraper.modules.compliance.models import (  # noqa: F401
-        RetentionPolicy, RetentionLog,
+        RetentionLog,
+        RetentionPolicy,
     )
 except ImportError:
     pass
@@ -105,7 +124,11 @@ except ImportError:
     pass
 
 try:
-    from paper_scraper.modules.ingestion.models import IngestRun, SourceRecord, IngestCheckpoint  # noqa: F401
+    from paper_scraper.modules.ingestion.models import (  # noqa: F401
+        IngestCheckpoint,
+        IngestRun,
+        SourceRecord,
+    )
 except ImportError:
     pass
 
@@ -120,7 +143,11 @@ except ImportError:
     pass
 
 try:
-    from paper_scraper.modules.trends.models import TrendTopic, TrendSnapshot, TrendPaper  # noqa: F401
+    from paper_scraper.modules.trends.models import (  # noqa: F401
+        TrendPaper,
+        TrendSnapshot,
+        TrendTopic,
+    )
 except ImportError:
     pass
 

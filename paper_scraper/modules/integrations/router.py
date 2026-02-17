@@ -15,8 +15,8 @@ from paper_scraper.modules.integrations.schemas import (
     IntegrationConnectorListResponse,
     IntegrationConnectorResponse,
     IntegrationConnectorUpdate,
-    ZoteroConnectRequest,
     ZoteroConnectionStatusResponse,
+    ZoteroConnectRequest,
     ZoteroSyncRequest,
     ZoteroSyncRunResponse,
 )

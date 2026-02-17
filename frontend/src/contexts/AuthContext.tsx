@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { authApi, getStoredToken, setStoredTokens, removeStoredToken } from '@/lib/api'
+import { authApi } from '@/lib/api'
 import type { User, LoginRequest, RegisterRequest } from '@/types'
 
 interface AuthContextType {
@@ -23,14 +23,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Check for existing token on mount
   useEffect(() => {
     const checkAuth = async () => {
-      const token = getStoredToken()
-      if (token) {
-        try {
-          const userData = await authApi.getMe()
-          setUser(userData)
-        } catch {
-          removeStoredToken()
-        }
+      try {
+        const userData = await authApi.getMe()
+        setUser(userData)
+      } catch {
+        setUser(null)
       }
       setIsLoading(false)
     }
@@ -38,32 +35,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = async (data: LoginRequest) => {
-    const tokens = await authApi.login(data)
-    setStoredTokens(tokens)
+    await authApi.login(data)
     const userData = await authApi.getMe()
     setUser(userData)
   }
 
   const register = async (data: RegisterRequest) => {
-    // Register returns tokens directly - no need for separate login
-    const tokens = await authApi.register(data)
-    setStoredTokens(tokens)
+    await authApi.register(data)
     const userData = await authApi.getMe()
     setUser(userData)
   }
 
   const logout = () => {
-    removeStoredToken()
+    authApi.logout().catch(() => {
+      // Ignore logout API failures and clear client state anyway.
+    })
     setUser(null)
     queryClient.clear()
   }
 
   const refreshUser = async () => {
-    const token = getStoredToken()
-    if (token) {
-      const userData = await authApi.getMe()
-      setUser(userData)
-    }
+    const userData = await authApi.getMe()
+    setUser(userData)
   }
 
   return (

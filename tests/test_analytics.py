@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.modules.auth.models import Organization, User
 from paper_scraper.modules.papers.models import Paper, PaperSource
-from paper_scraper.modules.projects.models import Project
 from paper_scraper.modules.scoring.models import PaperScore
 
 

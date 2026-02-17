@@ -7,7 +7,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from paper_scraper.modules.authors.models import ContactOutcome, ContactType
 
-
 # =============================================================================
 # Contact Schemas
 # =============================================================================

@@ -23,7 +23,6 @@ from paper_scraper.modules.transfer.models import (
     TransferType,
 )
 
-
 # =============================================================================
 # StorageService Unit Tests
 # =============================================================================

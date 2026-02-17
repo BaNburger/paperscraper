@@ -12,7 +12,6 @@ from paper_scraper.modules.auth.models import (
     UserRole,
 )
 
-
 # =============================================================================
 # Password Validation
 # =============================================================================
@@ -220,7 +219,7 @@ class TokenResponse(BaseModel):
 class RefreshTokenRequest(BaseModel):
     """Schema for refreshing access token."""
 
-    refresh_token: str
+    refresh_token: str | None = None
 
 
 class ChangePasswordRequest(BaseModel):

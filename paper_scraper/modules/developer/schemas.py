@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field, HttpUrl, field_validator
 
 from paper_scraper.modules.developer.models import RepositoryProvider, WebhookEvent
 
-
 # =============================================================================
 # API Key Schemas
 # =============================================================================

@@ -1,22 +1,19 @@
 """Tests for technology transfer module."""
 
-import pytest
-import pytest_asyncio
-from datetime import datetime, timezone
 from uuid import uuid4
 
+import pytest
+import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from paper_scraper.core.security import create_access_token, get_password_hash
-from paper_scraper.modules.auth.models import Organization, User, UserRole
+from paper_scraper.modules.auth.models import Organization, User
 from paper_scraper.modules.papers.models import Author, Paper
 from paper_scraper.modules.transfer.models import (
     ConversationMessage,
     ConversationResource,
     MessageTemplate,
-    StageChange,
     TransferConversation,
     TransferStage,
     TransferType,
@@ -30,7 +27,6 @@ from paper_scraper.modules.transfer.schemas import (
     TemplateUpdate,
 )
 from paper_scraper.modules.transfer.service import TransferService
-
 
 # =============================================================================
 # Fixtures
@@ -405,7 +401,7 @@ class TestTransferServiceMessages:
         """Test adding a message with mentions."""
         mention_id = uuid4()
         data = MessageCreate(
-            content=f"@colleague Please review this.",
+            content="@colleague Please review this.",
             mentions=[mention_id],
         )
         message = await transfer_service.add_message(

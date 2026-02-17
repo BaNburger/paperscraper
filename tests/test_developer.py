@@ -1,31 +1,28 @@
 """Tests for developer module: API keys, webhooks, and repository sources."""
 
-import pytest
-import pytest_asyncio
 from uuid import uuid4
 
+import pytest_asyncio
 from httpx import AsyncClient
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.modules.auth.models import Organization, User, UserRole
+from paper_scraper.modules.developer import service
 from paper_scraper.modules.developer.models import (
     APIKey,
-    Webhook,
-    RepositorySource,
-    WebhookEvent,
     RepositoryProvider,
+    RepositorySource,
+    Webhook,
+    WebhookEvent,
 )
-from paper_scraper.modules.developer import service
 from paper_scraper.modules.developer.schemas import (
     APIKeyCreate,
-    WebhookCreate,
-    WebhookUpdate,
+    RepositorySourceConfig,
     RepositorySourceCreate,
     RepositorySourceUpdate,
-    RepositorySourceConfig,
+    WebhookCreate,
+    WebhookUpdate,
 )
-
 
 # =============================================================================
 # Fixtures

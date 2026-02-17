@@ -1,6 +1,6 @@
 """Service layer for ingestion pipeline control."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -39,7 +39,7 @@ class IngestionService:
             status=status,
             cursor_before=cursor_before or {},
             idempotency_key=idempotency_key,
-            started_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
         )
         self.db.add(run)
         await self.db.flush()
@@ -63,7 +63,7 @@ class IngestionService:
         run.cursor_after = cursor_after or {}
         run.stats_json = stats_json or {}
         run.error_message = error_message
-        run.completed_at = datetime.now(timezone.utc)
+        run.completed_at = datetime.now(UTC)
 
         await self.db.flush()
         await self.db.refresh(run)

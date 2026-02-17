@@ -6,67 +6,16 @@ and fakeredis for in-memory Redis mocking.
 
 import asyncio
 from collections.abc import AsyncGenerator, Generator
-from typing import Any
 
 import fakeredis.aioredis
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from testcontainers.postgres import PostgresContainer
 
 from paper_scraper.api.main import app
-from paper_scraper.core.database import Base, get_db
-from paper_scraper.core.security import create_access_token
-from paper_scraper.modules.auth.models import Organization, User, UserRole
-from paper_scraper.modules.papers.models import Author, Paper, PaperAuthor  # noqa: F401
-from paper_scraper.modules.projects.models import (  # noqa: F401
-    Project,
-    ProjectCluster,
-    ProjectClusterPaper,
-    ProjectPaper,
-)
-from paper_scraper.modules.scoring.models import PaperScore, ScoringJob, ScoringPolicy, GlobalScoreCache  # noqa: F401
-from paper_scraper.modules.groups.models import ResearcherGroup, GroupMember  # noqa: F401
-from paper_scraper.modules.transfer.models import (  # noqa: F401
-    TransferConversation, ConversationMessage, ConversationResource,
-    StageChange, MessageTemplate,
-)
-from paper_scraper.modules.submissions.models import (  # noqa: F401
-    ResearchSubmission, SubmissionAttachment, SubmissionScore,
-)
-from paper_scraper.modules.badges.models import Badge, UserBadge  # noqa: F401
-from paper_scraper.modules.knowledge.models import KnowledgeSource  # noqa: F401
-from paper_scraper.modules.model_settings.models import ModelConfiguration, ModelUsage  # noqa: F401
-from paper_scraper.modules.developer.models import APIKey, Webhook, RepositorySource  # noqa: F401
-from paper_scraper.modules.reports.models import ScheduledReport  # noqa: F401
-from paper_scraper.modules.compliance.models import RetentionPolicy, RetentionLog  # noqa: F401
-from paper_scraper.modules.search.models import SearchActivity  # noqa: F401
-from paper_scraper.modules.saved_searches.models import SavedSearch  # noqa: F401
-from paper_scraper.modules.alerts.models import Alert, AlertResult  # noqa: F401
-from paper_scraper.modules.audit.models import AuditLog  # noqa: F401
-from paper_scraper.modules.notifications.models import Notification  # noqa: F401
-from paper_scraper.modules.papers.notes import PaperNote  # noqa: F401
-from paper_scraper.modules.papers.context_models import PaperContextSnapshot  # noqa: F401
-from paper_scraper.modules.ingestion.models import IngestCheckpoint, IngestRun, SourceRecord  # noqa: F401
-from paper_scraper.modules.integrations.models import (  # noqa: F401
-    IntegrationConnector,
-    ZoteroConnection,
-    ZoteroItemLink,
-    ZoteroSyncRun,
-)
-from paper_scraper.modules.library.models import (  # noqa: F401
-    LibraryCollection,
-    LibraryCollectionItem,
-    PaperTag,
-    PaperTextChunk,
-    PaperHighlight,
-)
-from paper_scraper.modules.trends.models import TrendTopic, TrendSnapshot, TrendPaper  # noqa: F401
-from paper_scraper.modules.discovery.models import DiscoveryRun  # noqa: F401
-from paper_scraper.core.security import get_password_hash
-
 
 # ---------------------------------------------------------------------------
 # fakeredis: Replace real Redis with an in-memory implementation
@@ -74,6 +23,68 @@ from paper_scraper.core.security import get_password_hash
 # Patch the TokenBlacklist (and any other RedisService subclass) to use
 # fakeredis instead of connecting to a real Redis instance.
 from paper_scraper.core import token_blacklist as tb_module
+from paper_scraper.core.database import Base, get_db
+from paper_scraper.core.security import create_access_token, get_password_hash
+from paper_scraper.modules.alerts.models import Alert, AlertResult  # noqa: F401
+from paper_scraper.modules.audit.models import AuditLog  # noqa: F401
+from paper_scraper.modules.auth.models import Organization, User, UserRole
+from paper_scraper.modules.badges.models import Badge, UserBadge  # noqa: F401
+from paper_scraper.modules.compliance.models import RetentionLog, RetentionPolicy  # noqa: F401
+from paper_scraper.modules.developer.models import APIKey, RepositorySource, Webhook  # noqa: F401
+from paper_scraper.modules.discovery.models import DiscoveryRun  # noqa: F401
+from paper_scraper.modules.groups.models import GroupMember, ResearcherGroup  # noqa: F401
+from paper_scraper.modules.ingestion.models import (  # noqa: F401
+    IngestCheckpoint,
+    IngestRun,
+    SourceRecord,
+)
+from paper_scraper.modules.integrations.models import (  # noqa: F401
+    IntegrationConnector,
+    ZoteroConnection,
+    ZoteroItemLink,
+    ZoteroSyncRun,
+)
+from paper_scraper.modules.knowledge.models import KnowledgeSource  # noqa: F401
+from paper_scraper.modules.library.models import (  # noqa: F401
+    LibraryCollection,
+    LibraryCollectionItem,
+    PaperHighlight,
+    PaperTag,
+    PaperTextChunk,
+)
+from paper_scraper.modules.model_settings.models import ModelConfiguration, ModelUsage  # noqa: F401
+from paper_scraper.modules.notifications.models import Notification  # noqa: F401
+from paper_scraper.modules.papers.context_models import PaperContextSnapshot  # noqa: F401
+from paper_scraper.modules.papers.models import Author, Paper, PaperAuthor  # noqa: F401
+from paper_scraper.modules.papers.notes import PaperNote  # noqa: F401
+from paper_scraper.modules.projects.models import (  # noqa: F401
+    Project,
+    ProjectCluster,
+    ProjectClusterPaper,
+    ProjectPaper,
+)
+from paper_scraper.modules.reports.models import ScheduledReport  # noqa: F401
+from paper_scraper.modules.saved_searches.models import SavedSearch  # noqa: F401
+from paper_scraper.modules.scoring.models import (  # noqa: F401
+    GlobalScoreCache,
+    PaperScore,
+    ScoringJob,
+    ScoringPolicy,
+)
+from paper_scraper.modules.search.models import SearchActivity  # noqa: F401
+from paper_scraper.modules.submissions.models import (  # noqa: F401
+    ResearchSubmission,
+    SubmissionAttachment,
+    SubmissionScore,
+)
+from paper_scraper.modules.transfer.models import (  # noqa: F401
+    ConversationMessage,
+    ConversationResource,
+    MessageTemplate,
+    StageChange,
+    TransferConversation,
+)
+from paper_scraper.modules.trends.models import TrendPaper, TrendSnapshot, TrendTopic  # noqa: F401
 
 _fake_redis: fakeredis.aioredis.FakeRedis | None = None
 

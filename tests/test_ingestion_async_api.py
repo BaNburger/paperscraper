@@ -100,15 +100,15 @@ async def other_org_member(db_session: AsyncSession) -> User:
 @pytest.mark.parametrize(
     ("path", "payload", "source"),
     [
-        ("/api/v1/papers/ingest/openalex/async", {"query": "ml", "max_results": 5, "filters": {}}, "openalex"),
-        ("/api/v1/papers/ingest/pubmed/async", {"query": "oncology", "max_results": 5}, "pubmed"),
+        ("/api/v1/ingestion/sources/openalex/runs", {"query": "ml", "max_results": 5, "filters": {}}, "openalex"),
+        ("/api/v1/ingestion/sources/pubmed/runs", {"query": "oncology", "max_results": 5}, "pubmed"),
         (
-            "/api/v1/papers/ingest/arxiv/async",
+            "/api/v1/ingestion/sources/arxiv/runs",
             {"query": "transformer", "max_results": 5, "category": "cs.AI"},
             "arxiv",
         ),
         (
-            "/api/v1/papers/ingest/semantic-scholar/async",
+            "/api/v1/ingestion/sources/semantic-scholar/runs",
             {"query": "graph neural network", "max_results": 5},
             "semantic_scholar",
         ),
@@ -128,7 +128,7 @@ async def test_async_ingest_endpoints_return_job_and_run_ids(
         assert job_id is not None
         return _FakeJob(job_id)
 
-    monkeypatch.setattr("paper_scraper.modules.papers.router.enqueue_job", fake_enqueue_job)
+    monkeypatch.setattr("paper_scraper.jobs.worker.enqueue_job", fake_enqueue_job)
 
     response = await client.post(path, json=payload, headers=auth_headers)
     assert response.status_code == 202
@@ -157,10 +157,10 @@ async def test_async_ingest_enqueue_failure_marks_run_failed(
     async def failing_enqueue_job(*args, **kwargs):
         raise RuntimeError("redis unavailable")
 
-    monkeypatch.setattr("paper_scraper.modules.papers.router.enqueue_job", failing_enqueue_job)
+    monkeypatch.setattr("paper_scraper.jobs.worker.enqueue_job", failing_enqueue_job)
 
     response = await client.post(
-        "/api/v1/papers/ingest/openalex/async",
+        "/api/v1/ingestion/sources/openalex/runs",
         json={"query": "ml", "max_results": 5, "filters": {}},
         headers=auth_headers,
     )

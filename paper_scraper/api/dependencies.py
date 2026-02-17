@@ -1,14 +1,15 @@
 """FastAPI dependencies for dependency injection."""
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Depends, Header
+from fastapi import Depends, Header, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from paper_scraper.core.config import settings
 from paper_scraper.core.database import get_db
 from paper_scraper.core.exceptions import ForbiddenError, UnauthorizedError
 from paper_scraper.core.permissions import Permission, check_permission
@@ -27,6 +28,7 @@ class APIKeyAuth:
 
 
 async def get_current_user(
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     authorization: Annotated[str | None, Header()] = None,
 ) -> User:
@@ -42,15 +44,17 @@ async def get_current_user(
     Raises:
         UnauthorizedError: If token is missing, invalid, or user not found.
     """
-    if not authorization:
-        raise UnauthorizedError("Missing authorization header")
+    token: str | None = None
+    if authorization:
+        parts = authorization.split()
+        if len(parts) != 2 or parts[0].lower() != "bearer":
+            raise UnauthorizedError("Invalid authorization header format")
+        token = parts[1]
+    else:
+        token = request.cookies.get(settings.AUTH_ACCESS_COOKIE_NAME)
 
-    # Extract token from "Bearer <token>" format
-    parts = authorization.split()
-    if len(parts) != 2 or parts[0].lower() != "bearer":
-        raise UnauthorizedError("Invalid authorization header format")
-
-    token = parts[1]
+    if not token:
+        raise UnauthorizedError("Missing authentication token")
 
     # Decode and validate token
     payload = decode_token(token)
@@ -80,8 +84,8 @@ async def get_current_user(
     try:
         result = await db.execute(select(User).where(User.id == UUID(user_id)))
         user = result.scalar_one_or_none()
-    except ValueError:
-        raise UnauthorizedError("Invalid user ID in token")
+    except ValueError as exc:
+        raise UnauthorizedError("Invalid user ID in token") from exc
 
     if not user:
         raise UnauthorizedError("User not found")
@@ -89,6 +93,8 @@ async def get_current_user(
     if not user.is_active:
         raise UnauthorizedError("User account is deactivated")
 
+    # Expose user id for middleware that may use request.state.
+    request.state.user_id = str(user.id)
     return user
 
 
@@ -154,7 +160,9 @@ async def require_manager_or_admin(
     return current_user
 
 
-def require_permission(*permissions: Permission):
+def require_permission(
+    *permissions: Permission,
+) -> Callable[[CurrentUser], Awaitable[User]]:
     """FastAPI dependency factory that checks the current user has **all**
     of the specified permissions.
 
@@ -210,7 +218,6 @@ async def get_api_key_auth(
 
     # Import here to avoid circular import
     from paper_scraper.modules.developer import service as dev_service
-    from paper_scraper.modules.developer.models import APIKey
 
     # Hash the key and look it up
     key_hash = dev_service.hash_api_key(x_api_key)
@@ -230,6 +237,7 @@ async def get_api_key_auth(
 
 
 async def get_current_user_or_api_key(
+    request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     authorization: Annotated[str | None, Header()] = None,
     x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
@@ -251,7 +259,11 @@ async def get_current_user_or_api_key(
     """
     # Try JWT first if provided
     if authorization:
-        return await get_current_user(db, authorization)
+        return await get_current_user(request, db, authorization)
+
+    # Try cookie-based user auth for browser clients
+    if request.cookies.get(settings.AUTH_ACCESS_COOKIE_NAME):
+        return await get_current_user(request, db, authorization)
 
     # Try API key
     if x_api_key:
@@ -284,7 +296,9 @@ async def get_organization_id_from_auth(
         return auth.organization_id
 
 
-def require_api_permission(*permissions: str):
+def require_api_permission(
+    *permissions: str,
+) -> Callable[[User | APIKeyAuth], Awaitable[User | APIKeyAuth]]:
     """Dependency factory that checks API key has required permissions.
 
     Args:

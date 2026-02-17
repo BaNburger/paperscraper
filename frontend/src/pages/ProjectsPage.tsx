@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import {
-  useResearchGroups,
-  useCreateResearchGroup,
-  useDeleteResearchGroup,
+  useProjects,
+  useCreateProject,
+  useDeleteProject,
   useInstitutionSearch,
   useAuthorSearch,
 } from '@/hooks'
@@ -38,19 +38,19 @@ import {
 } from 'lucide-react'
 import { formatDate, cn } from '@/lib/utils'
 import type {
-  ResearchGroup,
+  Project,
   InstitutionSearchResult,
   AuthorSearchResult,
-  CreateResearchGroup,
+  CreateProject,
 } from '@/types'
 
 type SearchTab = 'institution' | 'author'
 
-function SyncStatusBadge({ status }: { status: ResearchGroup['sync_status'] }) {
+function SyncStatusBadge({ status }: { status: Project['sync_status'] }) {
   const { t } = useTranslation()
 
   const config: Record<
-    ResearchGroup['sync_status'],
+    Project['sync_status'],
     { label: string; className: string }
   > = {
     idle: {
@@ -84,7 +84,7 @@ function ResearchGroupCard({
   group,
   onDelete,
 }: {
-  group: ResearchGroup
+  group: Project
   onDelete: (group: { id: string; name: string }) => void
 }) {
   const { t } = useTranslation()
@@ -168,7 +168,7 @@ function CreateResearchGroupDialog({
 }) {
   const { t } = useTranslation()
   const { success, error: showError } = useToast()
-  const createGroup = useCreateResearchGroup()
+  const createGroup = useCreateProject()
 
   const [activeTab, setActiveTab] = useState<SearchTab>('institution')
   const [searchQuery, setSearchQuery] = useState('')
@@ -242,7 +242,7 @@ function CreateResearchGroupDialog({
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    const data: CreateResearchGroup = {
+    const data: CreateProject = {
       name,
       description: description || undefined,
       max_papers: maxPapers,
@@ -368,7 +368,7 @@ function CreateResearchGroupDialog({
                           {inst.type && <span>{inst.type}</span>}
                           <span>
                             {t('projects.worksCount', '{{count}} works', {
-                              count: inst.works_count.toLocaleString(),
+                              count: inst.works_count,
                             })}
                           </span>
                         </div>
@@ -398,7 +398,7 @@ function CreateResearchGroupDialog({
                         )}
                         <span>
                           {t('projects.worksCount', '{{count}} works', {
-                            count: author.works_count.toLocaleString(),
+                            count: author.works_count,
                           })}
                         </span>
                       </div>
@@ -532,8 +532,8 @@ export function ProjectsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null)
 
-  const { data: groups, isLoading, error } = useResearchGroups()
-  const deleteGroup = useDeleteResearchGroup()
+  const { data: groups, isLoading, error } = useProjects()
+  const deleteGroup = useDeleteProject()
   const { success, error: showError } = useToast()
 
   const handleDelete = async () => {

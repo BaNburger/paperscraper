@@ -2,7 +2,7 @@
 
 import base64
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from xml.etree import ElementTree
 
 import httpx
@@ -51,7 +51,7 @@ class EPOOPSClient:
         Returns:
             Access token string.
         """
-        if self._access_token and self._token_expires and datetime.now(timezone.utc) < self._token_expires:
+        if self._access_token and self._token_expires and datetime.now(UTC) < self._token_expires:
             return self._access_token
 
         if not self.key or not self.secret:
@@ -72,7 +72,7 @@ class EPOOPSClient:
         data = response.json()
         self._access_token = data["access_token"]
         expires_in = int(data.get("expires_in", 1200))
-        self._token_expires = datetime.now(timezone.utc) + timedelta(seconds=expires_in - 60)
+        self._token_expires = datetime.now(UTC) + timedelta(seconds=expires_in - 60)
         return self._access_token
 
     async def search_patents(

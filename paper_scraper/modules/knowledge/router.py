@@ -9,14 +9,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from paper_scraper.api.dependencies import AdminUser, CurrentUser, require_permission
 from paper_scraper.core.database import get_db
 from paper_scraper.core.permissions import Permission
+from paper_scraper.modules.audit.models import AuditAction
+from paper_scraper.modules.audit.service import AuditService
 from paper_scraper.modules.knowledge.schemas import (
     KnowledgeSourceCreate,
     KnowledgeSourceListResponse,
     KnowledgeSourceResponse,
     KnowledgeSourceUpdate,
 )
-from paper_scraper.modules.audit.models import AuditAction
-from paper_scraper.modules.audit.service import AuditService
 from paper_scraper.modules.knowledge.service import KnowledgeService
 
 router = APIRouter()

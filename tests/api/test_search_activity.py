@@ -9,26 +9,23 @@ Covers:
 - Tenant isolation for search activities and knowledge sources
 """
 
-from datetime import datetime, timedelta, timezone
-from uuid import uuid4
+from datetime import UTC, datetime, timedelta
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from paper_scraper.core.security import get_password_hash
 from paper_scraper.modules.auth.models import Organization, User, UserRole
+from paper_scraper.modules.authors.models import AuthorContact  # noqa: F401 - table creation
 from paper_scraper.modules.badges.service import BadgeService
 from paper_scraper.modules.compliance.models import RetentionEntityType, RetentionPolicy
 from paper_scraper.modules.compliance.service import ComplianceService
 from paper_scraper.modules.knowledge.models import KnowledgeScope, KnowledgeSource, KnowledgeType
 from paper_scraper.modules.knowledge.service import KnowledgeService
-from paper_scraper.modules.papers.models import Paper
 from paper_scraper.modules.papers.notes import PaperNote  # noqa: F401 - table creation
 from paper_scraper.modules.search.models import SearchActivity
-from paper_scraper.modules.authors.models import AuthorContact  # noqa: F401 - table creation
-from paper_scraper.core.security import get_password_hash
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -650,7 +647,7 @@ class TestRetentionPolicySearchActivities:
     ) -> None:
         """Dry run should count affected records but not delete them."""
         # Create activities with old timestamps
-        cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+        cutoff = datetime.now(UTC) - timedelta(days=30)
         old_time = cutoff - timedelta(days=10)
 
         for i in range(3):
@@ -701,7 +698,7 @@ class TestRetentionPolicySearchActivities:
         org_alpha: Organization,
     ) -> None:
         """Non-dry-run should actually delete records older than cutoff."""
-        cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+        cutoff = datetime.now(UTC) - timedelta(days=30)
         old_time = cutoff - timedelta(days=10)
         recent_time = cutoff + timedelta(days=5)
 
@@ -764,7 +761,7 @@ class TestRetentionPolicySearchActivities:
         org_alpha: Organization,
     ) -> None:
         """When no records match the cutoff, count should be 0."""
-        cutoff = datetime.now(timezone.utc) - timedelta(days=365)
+        cutoff = datetime.now(UTC) - timedelta(days=365)
 
         service = ComplianceService(db_session)
         count = await service._apply_to_search_activities(
@@ -786,7 +783,7 @@ class TestRetentionPolicySearchActivities:
         org_beta: Organization,
     ) -> None:
         """Retention should only delete records from the specified organization."""
-        cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+        cutoff = datetime.now(UTC) - timedelta(days=30)
         old_time = cutoff - timedelta(days=10)
 
         # Create old activities in both orgs
@@ -842,7 +839,7 @@ class TestRetentionPolicySearchActivities:
     ) -> None:
         """Integration test: apply_retention_policies should handle search_activities type."""
         cutoff_days = 30
-        old_time = datetime.now(timezone.utc) - timedelta(days=cutoff_days + 10)
+        old_time = datetime.now(UTC) - timedelta(days=cutoff_days + 10)
 
         # Create retention policy for search_activities
         policy = RetentionPolicy(
@@ -898,7 +895,7 @@ class TestRetentionPolicySearchActivities:
         org_alpha: Organization,
     ) -> None:
         """Inactive retention policies should not be applied."""
-        old_time = datetime.now(timezone.utc) - timedelta(days=100)
+        old_time = datetime.now(UTC) - timedelta(days=100)
 
         # Create inactive policy
         policy = RetentionPolicy(
@@ -960,7 +957,7 @@ class TestRetentionPolicySearchActivities:
         """Applying retention should create a RetentionLog entry."""
         from paper_scraper.modules.compliance.models import RetentionLog
 
-        old_time = datetime.now(timezone.utc) - timedelta(days=100)
+        old_time = datetime.now(UTC) - timedelta(days=100)
 
         policy = RetentionPolicy(
             organization_id=org_alpha.id,

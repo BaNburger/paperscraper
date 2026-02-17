@@ -1,7 +1,7 @@
 """Service layer for discovery module."""
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import desc, func, select
@@ -18,10 +18,10 @@ from paper_scraper.modules.discovery.schemas import (
     DiscoveryRunResponse,
     DiscoveryTriggerResponse,
 )
+from paper_scraper.modules.ingestion.pipeline import IngestionPipeline
 from paper_scraper.modules.notifications.models import NotificationType
 from paper_scraper.modules.notifications.service import NotificationService
 from paper_scraper.modules.papers.models import Paper
-from paper_scraper.modules.papers.service import PaperService
 from paper_scraper.modules.projects.service import ProjectService
 from paper_scraper.modules.saved_searches.models import SavedSearch
 
@@ -127,7 +127,6 @@ class DiscoveryService:
         if invalid:
             raise ValidationError(f"Invalid sources: {', '.join(invalid)}")
 
-        paper_service = PaperService(self.db)
         runs: list[DiscoveryRun] = []
         total_imported = 0
         total_added = 0
@@ -138,14 +137,13 @@ class DiscoveryService:
                 source=source,
                 organization_id=organization_id,
                 user_id=user_id,
-                paper_service=paper_service,
             )
             runs.append(run)
             total_imported += run.papers_imported
             total_added += run.papers_added_to_project
 
         # Update last_discovery_at
-        saved_search.last_discovery_at = datetime.now(timezone.utc)
+        saved_search.last_discovery_at = datetime.now(UTC)
         await self.db.flush()
 
         # Send notification
@@ -183,7 +181,6 @@ class DiscoveryService:
         source: str,
         organization_id: UUID,
         user_id: UUID,
-        paper_service: PaperService,
     ) -> DiscoveryRun:
         """Run discovery for a single external source."""
         run = DiscoveryRun(
@@ -199,39 +196,34 @@ class DiscoveryService:
             # Build query — use the saved search query text
             query = saved_search.query
             max_results = saved_search.max_import_per_run
-
-            # Call appropriate ingestion method
+            source_filters: dict[str, str | dict[str, str]] = {"query": query}
             if source == "openalex":
-                ingest_result = await paper_service.ingest_from_openalex(
-                    query=query,
-                    organization_id=organization_id,
-                    max_results=max_results,
-                    created_by_id=user_id,
-                )
-            elif source == "pubmed":
-                ingest_result = await paper_service.ingest_from_pubmed(
-                    query=query,
-                    organization_id=organization_id,
-                    max_results=max_results,
-                    created_by_id=user_id,
-                )
-            elif source == "arxiv":
-                ingest_result = await paper_service.ingest_from_arxiv(
-                    query=query,
-                    organization_id=organization_id,
-                    max_results=max_results,
-                    created_by_id=user_id,
-                )
-            else:
+                source_filters["filters"] = {}
+            elif source not in {"pubmed", "arxiv"}:
                 raise ValidationError(f"Unknown source: {source}")
 
-            run.papers_found = ingest_result.papers_created + ingest_result.papers_skipped
-            run.papers_imported = ingest_result.papers_created
-            run.papers_skipped = ingest_result.papers_skipped
+            ingest_run = await IngestionPipeline(self.db).run(
+                source=source,
+                organization_id=organization_id,
+                initiated_by_id=user_id,
+                filters=source_filters,
+                limit=max_results,
+            )
+            stats = ingest_run.stats_json if isinstance(ingest_run.stats_json, dict) else {}
+            papers_created = int(stats.get("papers_created", 0))
+            papers_skipped = int(stats.get("source_records_duplicates", 0))
+            raw_errors = stats.get("errors")
+            errors: list[str] = []
+            if isinstance(raw_errors, list):
+                errors = [str(item) for item in raw_errors if item is not None]
+
+            run.papers_found = papers_created + papers_skipped
+            run.papers_imported = papers_created
+            run.papers_skipped = papers_skipped
 
             # Add new papers to target project if configured
             added_to_project = 0
-            if saved_search.target_project_id and ingest_result.papers_created > 0:
+            if saved_search.target_project_id and papers_created > 0:
                 # Identify newly created papers by querying those added after our snapshot
                 new_papers_result = await self.db.execute(
                     select(Paper.id)
@@ -240,7 +232,7 @@ class DiscoveryService:
                         Paper.created_by_id == user_id,
                     )
                     .order_by(desc(Paper.created_at))
-                    .limit(ingest_result.papers_created)
+                    .limit(papers_created)
                 )
                 new_paper_ids = [row[0] for row in new_papers_result.all()]
 
@@ -253,19 +245,19 @@ class DiscoveryService:
 
             run.papers_added_to_project = added_to_project
 
-            if ingest_result.errors:
+            if errors:
                 run.status = DiscoveryRunStatus.COMPLETED_WITH_ERRORS
-                run.error_message = "; ".join(ingest_result.errors[:3])
+                run.error_message = "; ".join(errors[:3])
             else:
                 run.status = DiscoveryRunStatus.COMPLETED
 
-            run.completed_at = datetime.now(timezone.utc)
+            run.completed_at = datetime.now(UTC)
 
         except Exception as exc:
             logger.exception("Discovery run failed for source %s: %s", source, exc)
             run.status = DiscoveryRunStatus.FAILED
             run.error_message = str(exc)[:500]
-            run.completed_at = datetime.now(timezone.utc)
+            run.completed_at = datetime.now(UTC)
 
         await self.db.flush()
         await self.db.refresh(run)

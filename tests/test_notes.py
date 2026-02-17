@@ -1,21 +1,20 @@
 """Tests for paper notes module."""
 
-import pytest
-import pytest_asyncio
 from datetime import datetime
 from uuid import uuid4
 
+import pytest
+import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from paper_scraper.core.exceptions import ForbiddenError, NotFoundError
 from paper_scraper.core.security import create_access_token, get_password_hash
-from paper_scraper.core.exceptions import NotFoundError, ForbiddenError
 from paper_scraper.modules.auth.models import Organization, User, UserRole
 from paper_scraper.modules.papers.models import Paper
-from paper_scraper.modules.papers.notes import PaperNote
 from paper_scraper.modules.papers.note_service import NoteService, extract_mentions
-
+from paper_scraper.modules.papers.notes import PaperNote
 
 # =============================================================================
 # Fixtures

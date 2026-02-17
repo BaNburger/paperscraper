@@ -79,7 +79,7 @@ export function ScorePaperStep({
       const result = await scoringApi.scorePaper(selectedPaper)
       setScore(result.scores)
       onScored(selectedPaper)
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to score paper. Please try again.')
     } finally {
       setIsLoading(false)

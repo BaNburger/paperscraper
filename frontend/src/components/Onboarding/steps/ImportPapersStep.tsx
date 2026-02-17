@@ -39,7 +39,7 @@ export function ImportPapersStep({
       onImport([paper.id])
       setSuccessMessage(`Imported: "${paper.title}"`)
       setDoi('')
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to import paper. Please check the DOI and try again.')
     } finally {
       setIsLoading(false)
@@ -60,7 +60,7 @@ export function ImportPapersStep({
         setError('No new papers found. They may already exist in your library.')
       }
       setQuery('')
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to search OpenAlex. Please try again.')
     } finally {
       setIsLoading(false)
@@ -79,7 +79,7 @@ export function ImportPapersStep({
       const paper = await papersApi.uploadPdf(file)
       onImport([paper.id])
       setSuccessMessage(`Uploaded: "${paper.title}"`)
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to upload PDF. Please try again.')
     } finally {
       setIsLoading(false)

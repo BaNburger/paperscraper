@@ -146,7 +146,7 @@ export function PaperDetailPage() {
   const generatePitch = useGeneratePitch()
   // Research groups auto-import papers; manual add-to-project removed
   const createConversation = useCreateConversation()
-  const readerChunks = readerData?.chunks ?? []
+  const readerChunks = useMemo(() => readerData?.chunks ?? [], [readerData?.chunks])
   const highlightItems = highlightsData?.items ?? []
   const showReaderTab = !isMobile || mobileTab === 'reader'
   const showInsightsTab = !isMobile || mobileTab === 'insights'

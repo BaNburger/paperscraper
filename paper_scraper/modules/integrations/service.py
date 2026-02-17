@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import re
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -29,8 +29,8 @@ from paper_scraper.modules.integrations.schemas import (
     IntegrationConnectorListResponse,
     IntegrationConnectorResponse,
     IntegrationConnectorUpdate,
-    ZoteroConnectRequest,
     ZoteroConnectionStatusResponse,
+    ZoteroConnectRequest,
 )
 from paper_scraper.modules.library.models import (
     LibraryCollection,
@@ -149,7 +149,7 @@ class IntegrationService:
             existing.library_type = creds.library_type
             existing.status = ZoteroConnectionStatus.CONNECTED
             existing.last_error = None
-            existing.updated_at = datetime.now(timezone.utc)
+            existing.updated_at = datetime.now(UTC)
             await self.db.flush()
             await self.db.refresh(existing)
             return existing
@@ -292,7 +292,7 @@ class IntegrationService:
                     if local_link:
                         local_link.zotero_item_key = item_key
                         local_link.is_active = True
-                        local_link.last_seen_at = datetime.now(timezone.utc)
+                        local_link.last_seen_at = datetime.now(UTC)
                     else:
                         self.db.add(
                             ZoteroItemLink(
@@ -307,7 +307,7 @@ class IntegrationService:
                     stats["failed"] += 1
                     stats["errors"].append({"paper_id": str(paper.id), "error": str(exc)[:300]})
 
-            connection.last_synced_at = datetime.now(timezone.utc)
+            connection.last_synced_at = datetime.now(UTC)
             connection.status = ZoteroConnectionStatus.CONNECTED
             connection.last_error = None
             run.status = (
@@ -315,7 +315,7 @@ class IntegrationService:
                 if stats["failed"] == 0 or stats["synced"] > 0
                 else ZoteroSyncRunStatus.FAILED
             )
-            run.completed_at = datetime.now(timezone.utc)
+            run.completed_at = datetime.now(UTC)
             run.stats_json = stats
             if stats["failed"] > 0 and stats["synced"] == 0:
                 run.error_message = "Outbound sync failed for all selected papers"
@@ -325,7 +325,7 @@ class IntegrationService:
             return run
         except Exception as exc:
             run.status = ZoteroSyncRunStatus.FAILED
-            run.completed_at = datetime.now(timezone.utc)
+            run.completed_at = datetime.now(UTC)
             run.error_message = str(exc)[:2000]
             run.stats_json = {"total": 0, "synced": 0, "failed": 0, "errors": [str(exc)[:300]]}
             connection.status = ZoteroConnectionStatus.ERROR
@@ -450,7 +450,7 @@ class IntegrationService:
                     if link:
                         link.paper_id = paper.id
                         link.is_active = True
-                        link.last_seen_at = datetime.now(timezone.utc)
+                        link.last_seen_at = datetime.now(UTC)
                     else:
                         link = ZoteroItemLink(
                             organization_id=organization_id,
@@ -469,19 +469,19 @@ class IntegrationService:
                     link.is_active = False
                     stats["links_deactivated"] += 1
 
-            connection.last_synced_at = datetime.now(timezone.utc)
+            connection.last_synced_at = datetime.now(UTC)
             connection.status = ZoteroConnectionStatus.CONNECTED
             connection.last_error = None
 
             run.status = ZoteroSyncRunStatus.SUCCEEDED
-            run.completed_at = datetime.now(timezone.utc)
+            run.completed_at = datetime.now(UTC)
             run.stats_json = stats
             await self.db.flush()
             await self.db.refresh(run)
             return run
         except Exception as exc:
             run.status = ZoteroSyncRunStatus.FAILED
-            run.completed_at = datetime.now(timezone.utc)
+            run.completed_at = datetime.now(UTC)
             run.error_message = str(exc)[:2000]
             run.stats_json = {"errors": [str(exc)[:300]]}
             connection.status = ZoteroConnectionStatus.ERROR
@@ -506,7 +506,7 @@ class IntegrationService:
             direction=direction,
             status=ZoteroSyncRunStatus.RUNNING,
             triggered_by=triggered_by,
-            started_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
             stats_json={},
         )
         self.db.add(run)

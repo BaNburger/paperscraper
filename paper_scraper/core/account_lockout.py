@@ -5,7 +5,7 @@ multiple failures. This approach is database-agnostic and works
 across distributed systems.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from paper_scraper.core.logging import get_logger
 from paper_scraper.core.redis_base import RedisService
@@ -112,7 +112,7 @@ class AccountLockout(RedisService):
                 await redis.setex(
                     lockout_key,
                     LOCKOUT_DURATION_MINUTES * 60,
-                    datetime.now(timezone.utc).isoformat(),
+                    datetime.now(UTC).isoformat(),
                 )
                 logger.warning(
                     f"Account locked due to {attempts} failed login attempts: "

@@ -71,17 +71,17 @@ class LibraryCollection(Base):
         nullable=False,
     )
 
-    parent: Mapped["LibraryCollection | None"] = relationship(
+    parent: Mapped[LibraryCollection | None] = relationship(
         "LibraryCollection",
         remote_side=[id],
         back_populates="children",
     )
-    children: Mapped[list["LibraryCollection"]] = relationship(
+    children: Mapped[list[LibraryCollection]] = relationship(
         "LibraryCollection",
         back_populates="parent",
         cascade="all, delete-orphan",
     )
-    items: Mapped[list["LibraryCollectionItem"]] = relationship(
+    items: Mapped[list[LibraryCollectionItem]] = relationship(
         "LibraryCollectionItem",
         back_populates="collection",
         cascade="all, delete-orphan",
@@ -125,10 +125,10 @@ class LibraryCollectionItem(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
-    collection: Mapped["LibraryCollection"] = relationship(
+    collection: Mapped[LibraryCollection] = relationship(
         "LibraryCollection", back_populates="items"
     )
-    paper: Mapped["Paper"] = relationship("Paper")
+    paper: Mapped[Paper] = relationship("Paper")
 
     __table_args__ = (
         Index(
@@ -173,7 +173,7 @@ class PaperTag(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
-    paper: Mapped["Paper"] = relationship("Paper")
+    paper: Mapped[Paper] = relationship("Paper")
 
     __table_args__ = (
         Index("ix_paper_tags_org_tag", "organization_id", "tag"),
@@ -209,8 +209,8 @@ class PaperTextChunk(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
-    paper: Mapped["Paper"] = relationship("Paper")
-    highlights: Mapped[list["PaperHighlight"]] = relationship(
+    paper: Mapped[Paper] = relationship("Paper")
+    highlights: Mapped[list[PaperHighlight]] = relationship(
         "PaperHighlight",
         back_populates="chunk",
     )
@@ -270,8 +270,8 @@ class PaperHighlight(Base):
         nullable=False,
     )
 
-    paper: Mapped["Paper"] = relationship("Paper")
-    chunk: Mapped["PaperTextChunk | None"] = relationship(
+    paper: Mapped[Paper] = relationship("Paper")
+    chunk: Mapped[PaperTextChunk | None] = relationship(
         "PaperTextChunk", back_populates="highlights"
     )
 

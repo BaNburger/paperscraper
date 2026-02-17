@@ -2,7 +2,7 @@
 
 import secrets
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from jose import JWTError, jwt
@@ -56,7 +56,7 @@ def _create_jwt_token(
     Returns:
         The encoded JWT token string.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     to_encode: dict[str, Any] = {
         "sub": str(subject),
         "exp": now + expires_delta,
@@ -171,7 +171,7 @@ def _generate_token_with_expiry(expires_delta: timedelta) -> tuple[str, datetime
         A tuple of (token, expires_at datetime).
     """
     token = generate_secure_token()
-    expires_at = datetime.now(timezone.utc) + expires_delta
+    expires_at = datetime.now(UTC) + expires_delta
     return token, expires_at
 
 
@@ -219,4 +219,4 @@ def is_token_expired(expires_at: datetime | None) -> bool:
     """
     if expires_at is None:
         return True
-    return datetime.now(timezone.utc) > expires_at
+    return datetime.now(UTC) > expires_at

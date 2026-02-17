@@ -1,15 +1,14 @@
 """Tests for compliance API endpoints."""
 
-import pytest
-from datetime import datetime, timedelta
 from uuid import uuid4
 
+import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from paper_scraper.modules.auth.models import Organization, User, UserRole
-from paper_scraper.modules.compliance.models import RetentionPolicy, RetentionLog
 from paper_scraper.modules.audit.models import AuditLog
+from paper_scraper.modules.auth.models import Organization, User, UserRole
+from paper_scraper.modules.compliance.models import RetentionPolicy
 
 
 @pytest.fixture
@@ -42,7 +41,7 @@ async def sample_audit_logs(
     logs = []
     actions = ["login", "paper_create", "paper_score", "logout", "password_change"]
 
-    for i, action in enumerate(actions):
+    for _i, action in enumerate(actions):
         log = AuditLog(
             user_id=test_user.id,
             organization_id=test_organization.id,

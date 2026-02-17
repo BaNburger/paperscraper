@@ -1,7 +1,7 @@
 """FastAPI application entry point with Sentry integration and lifecycle management."""
 
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 import redis.asyncio as aioredis
 import sentry_sdk
@@ -11,7 +11,12 @@ from fastapi.responses import JSONResponse
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
-from paper_scraper.api.middleware import SecurityHeadersMiddleware, SlowAPIMiddleware, limiter
+from paper_scraper.api.middleware import (
+    CSRFMiddleware,
+    SecurityHeadersMiddleware,
+    SlowAPIMiddleware,
+    limiter,
+)
 from paper_scraper.api.v1.router import api_router
 from paper_scraper.core.config import settings
 from paper_scraper.core.database import engine as db_engine
@@ -119,6 +124,9 @@ app.add_middleware(
 app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
 
+# CSRF protection for cookie-authenticated mutating browser requests
+app.add_middleware(CSRFMiddleware)
+
 # Security Headers
 app.add_middleware(SecurityHeadersMiddleware)
 
@@ -218,6 +226,7 @@ async def readiness_check(request: Request) -> JSONResponse:
     # Check database
     try:
         from sqlalchemy import text
+
         from paper_scraper.core.database import async_session_factory
 
         async with async_session_factory() as session:

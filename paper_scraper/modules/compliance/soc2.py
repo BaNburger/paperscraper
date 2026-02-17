@@ -1,6 +1,6 @@
 """SOC2 Type II control definitions and status tracking."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 # SOC2 Trust Services Criteria (TSC) Controls
 # Based on 2017 Trust Services Criteria for Security, Availability, Processing Integrity,
@@ -336,7 +336,7 @@ def get_soc2_status() -> dict:
         "compliance_percentage": round(
             (status_counts["implemented"] / total_controls) * 100, 1
         ) if total_controls > 0 else 0,
-        "last_updated": datetime.now(timezone.utc).isoformat(),
+        "last_updated": datetime.now(UTC).isoformat(),
     }
 
     return {

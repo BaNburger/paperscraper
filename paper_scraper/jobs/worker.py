@@ -16,7 +16,28 @@ from paper_scraper.jobs.badges import (
     batch_check_badges_task,
     check_and_award_badges_task,
 )
-from paper_scraper.jobs.ingestion import ingest_openalex_task, ingest_source_task
+from paper_scraper.jobs.discovery import (
+    process_discovery_daily_task,
+    process_discovery_weekly_task,
+    run_discovery_task,
+)
+from paper_scraper.jobs.ingestion import ingest_source_task
+from paper_scraper.jobs.reports import (
+    process_daily_reports_task,
+    process_monthly_reports_task,
+    process_weekly_reports_task,
+    run_single_report_task,
+)
+from paper_scraper.jobs.repository_sync import (
+    run_scheduled_syncs_task,
+    sync_repository_source_task,
+)
+from paper_scraper.jobs.research_groups import sync_research_group_task
+from paper_scraper.jobs.retention import (
+    apply_retention_policies_task,
+    preview_retention_impact_task,
+    run_nightly_retention_task,
+)
 from paper_scraper.jobs.scoring import (
     cleanup_expired_score_cache_task,
     generate_embeddings_batch_task,
@@ -25,27 +46,6 @@ from paper_scraper.jobs.scoring import (
 )
 from paper_scraper.jobs.search import backfill_embeddings_task
 from paper_scraper.jobs.webhooks import dispatch_webhook_task
-from paper_scraper.jobs.repository_sync import (
-    sync_repository_source_task,
-    run_scheduled_syncs_task,
-)
-from paper_scraper.jobs.reports import (
-    process_daily_reports_task,
-    process_weekly_reports_task,
-    process_monthly_reports_task,
-    run_single_report_task,
-)
-from paper_scraper.jobs.retention import (
-    apply_retention_policies_task,
-    run_nightly_retention_task,
-    preview_retention_impact_task,
-)
-from paper_scraper.jobs.discovery import (
-    process_discovery_daily_task,
-    process_discovery_weekly_task,
-    run_discovery_task,
-)
-from paper_scraper.jobs.research_groups import sync_research_group_task
 
 
 async def startup(ctx: dict[str, Any]) -> None:
@@ -54,76 +54,6 @@ async def startup(ctx: dict[str, Any]) -> None:
 
 async def shutdown(ctx: dict[str, Any]) -> None:
     """Cleanup shared resources when worker shuts down."""
-
-
-async def ingest_papers_task(
-    ctx: dict[str, Any],
-    source: str,
-    organization_id: str,
-    query: str,
-    max_results: int = 100,
-    created_by_id: str | None = None,
-    category: str | None = None,
-) -> dict[str, Any]:
-    """Ingest papers from an external source.
-
-    Routes to the appropriate PaperService method based on the source.
-    For OpenAlex, use the dedicated ingest_openalex_task instead.
-
-    Args:
-        ctx: Worker context.
-        source: Source to ingest from ('pubmed', 'arxiv', 'semantic_scholar').
-        organization_id: UUID string of organization.
-        query: Search query for the source.
-        max_results: Maximum number of papers to ingest.
-        created_by_id: Optional UUID string of user who triggered ingestion.
-        category: Optional category filter (arXiv only).
-
-    Returns:
-        Dict with ingestion results.
-    """
-    from uuid import UUID
-
-    from paper_scraper.core.database import get_db_session
-    from paper_scraper.modules.papers.service import PaperService
-
-    org_uuid = UUID(organization_id)
-    user_uuid = UUID(created_by_id) if created_by_id else None
-
-    async with get_db_session() as db:
-        service = PaperService(db)
-
-        if source == "pubmed":
-            result = await service.ingest_from_pubmed(
-                query=query,
-                organization_id=org_uuid,
-                max_results=max_results,
-                created_by_id=user_uuid,
-            )
-        elif source == "arxiv":
-            result = await service.ingest_from_arxiv(
-                query=query,
-                organization_id=org_uuid,
-                max_results=max_results,
-                category=category,
-                created_by_id=user_uuid,
-            )
-        elif source == "semantic_scholar":
-            result = await service.ingest_from_semantic_scholar(
-                query=query,
-                organization_id=org_uuid,
-                max_results=max_results,
-                created_by_id=user_uuid,
-            )
-        else:
-            return {
-                "status": "error",
-                "source": source,
-                "papers_ingested": 0,
-                "message": f"Unknown source: {source}. Supported: pubmed, arxiv, semantic_scholar",
-            }
-
-        return result.model_dump()
 
 
 def get_redis_settings() -> RedisSettings:
@@ -154,8 +84,6 @@ class WorkerSettings:
         score_paper_task,
         score_papers_batch_task,
         ingest_source_task,
-        ingest_papers_task,
-        ingest_openalex_task,
         generate_embeddings_batch_task,
         backfill_embeddings_task,
         process_daily_alerts_task,
@@ -249,6 +177,11 @@ async def enqueue_job(
     try:
         if job_id:
             kwargs["_job_id"] = job_id
-        return await pool.enqueue_job(job_name, *args, **kwargs)
+        enqueued = await pool.enqueue_job(job_name, *args, **kwargs)
+        if enqueued is None:
+            raise RuntimeError(
+                f"Job '{job_name}' was not enqueued (duplicate id or queue unavailable)"
+            )
+        return enqueued
     finally:
         await pool.close()

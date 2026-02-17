@@ -4,8 +4,9 @@ from datetime import datetime
 from enum import Enum
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, Index, String, Text
-from sqlalchemy.dialects.postgresql import JSON, UUID as PgUUID
+from sqlalchemy import DateTime, Index, String
+from sqlalchemy.dialects.postgresql import JSON
+from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 

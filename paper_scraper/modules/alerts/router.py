@@ -1,5 +1,6 @@
 """API router for alerts module."""
 
+from datetime import UTC
 from typing import Annotated
 from uuid import UUID
 
@@ -7,8 +8,8 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.api.dependencies import CurrentUser, OrganizationId, require_permission
-from paper_scraper.core.permissions import Permission
 from paper_scraper.core.database import get_db
+from paper_scraper.core.permissions import Permission
 from paper_scraper.modules.alerts.schemas import (
     AlertCreate,
     AlertListResponse,
@@ -260,8 +261,8 @@ async def trigger_alert(
         )
 
     # Should not happen, but return empty result if no result found
+    from datetime import datetime
     from uuid import uuid4
-    from datetime import datetime, timezone
     return AlertResultResponse(
         id=uuid4(),
         alert_id=alert_id,
@@ -271,5 +272,5 @@ async def trigger_alert(
         paper_ids=[],
         delivered_at=None,
         error_message=None,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )

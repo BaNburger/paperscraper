@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -213,7 +213,7 @@ class SubmissionService:
             raise ValidationError("Abstract is required for submission")
 
         submission.status = SubmissionStatus.SUBMITTED
-        submission.submitted_at = datetime.now(timezone.utc)
+        submission.submitted_at = datetime.now(UTC)
 
         await self.db.flush()
         return await self._get_submission_with_relations(submission_id, organization_id)
@@ -372,7 +372,7 @@ class SubmissionService:
         submission.reviewed_by_id = reviewer_id
         submission.review_notes = notes
         submission.review_decision = decision
-        submission.reviewed_at = datetime.now(timezone.utc)
+        submission.reviewed_at = datetime.now(UTC)
 
         await self.db.flush()
         return await self._get_submission_with_relations(submission_id, organization_id)
@@ -410,7 +410,6 @@ class SubmissionService:
 
         # Import lazily to avoid circular imports
         from paper_scraper.modules.scoring.dimensions.base import PaperContext
-        from paper_scraper.modules.scoring.embeddings import generate_paper_embedding
         from paper_scraper.modules.scoring.orchestrator import ScoringOrchestrator
 
         # Find similar papers using embedding similarity

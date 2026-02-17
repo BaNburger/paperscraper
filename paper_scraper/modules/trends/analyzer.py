@@ -8,7 +8,7 @@ import logging
 from collections import Counter
 from uuid import UUID
 
-from sqlalchemy import and_, delete, desc, func, select
+from sqlalchemy import and_, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.modules.papers.clients.epo_ops import EPOOPSClient

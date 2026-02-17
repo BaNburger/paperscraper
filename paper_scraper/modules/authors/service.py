@@ -1,7 +1,7 @@
 """Service layer for authors module."""
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -190,7 +190,7 @@ class AuthorService:
             .label("paper_count")
         )
 
-        thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+        thirty_days_ago = datetime.now(UTC) - timedelta(days=30)
         recent_contacts_sq = (
             select(func.count())
             .where(
@@ -269,7 +269,7 @@ class AuthorService:
             organization_id=organization_id,
             contacted_by_id=user_id,
             contact_type=data.contact_type,
-            contact_date=data.contact_date or datetime.now(timezone.utc),
+            contact_date=data.contact_date or datetime.now(UTC),
             subject=data.subject,
             notes=data.notes,
             outcome=data.outcome,
@@ -568,7 +568,7 @@ class AuthorService:
     ) -> dict:
         """Get basic contact stats for author profile."""
         # Recent contacts (last 30 days)
-        thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+        thirty_days_ago = datetime.now(UTC) - timedelta(days=30)
         recent_result = await self.db.execute(
             select(func.count()).where(
                 AuthorContact.author_id == author_id,

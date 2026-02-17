@@ -1,7 +1,7 @@
 """Service layer for technology transfer conversations."""
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
@@ -568,9 +568,9 @@ class TransferService:
             days_in_stage = 0
             if detail.stage_history:
                 latest_change = detail.stage_history[0]  # Most recent
-                days_in_stage = (datetime.now(timezone.utc) - latest_change.changed_at).days
+                days_in_stage = (datetime.now(UTC) - latest_change.changed_at).days
             else:
-                days_in_stage = (datetime.now(timezone.utc) - detail.created_at).days
+                days_in_stage = (datetime.now(UTC) - detail.created_at).days
 
             # Build message data for prompt (sanitize all user-controllable fields)
             messages_data = [

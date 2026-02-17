@@ -146,7 +146,7 @@ export function DashboardPage() {
       id: p.id,
       label: p.name,
       href: `/projects/${p.id}`,
-      badge: p.is_active ? t('dashboard.active') : t('dashboard.inactive'),
+      badge: p.sync_status === 'failed' ? t('dashboard.inactive') : t('dashboard.active'),
     })) ?? []
 
   const scoredCount = papersData?.items?.filter((p) => p.has_embedding).length ?? 0

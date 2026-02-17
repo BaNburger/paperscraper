@@ -7,7 +7,6 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.core.exceptions import ForbiddenError, NotFoundError
-from paper_scraper.modules.scoring.llm_client import sanitize_text_for_prompt
 from paper_scraper.modules.knowledge.models import (
     KnowledgeScope,
     KnowledgeSource,
@@ -19,6 +18,7 @@ from paper_scraper.modules.knowledge.schemas import (
     KnowledgeSourceResponse,
     KnowledgeSourceUpdate,
 )
+from paper_scraper.modules.scoring.llm_client import sanitize_text_for_prompt
 
 logger = logging.getLogger(__name__)
 

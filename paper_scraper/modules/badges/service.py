@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 
 logger = logging.getLogger(__name__)
 
+from paper_scraper.modules.authors.models import AuthorContact
 from paper_scraper.modules.badges.models import Badge, BadgeCategory, BadgeTier, UserBadge
 from paper_scraper.modules.badges.schemas import (
     BadgeListResponse,
@@ -22,7 +23,6 @@ from paper_scraper.modules.papers.models import Paper
 from paper_scraper.modules.papers.notes import PaperNote
 from paper_scraper.modules.projects.models import Project
 from paper_scraper.modules.scoring.models import PaperScore
-from paper_scraper.modules.authors.models import AuthorContact
 from paper_scraper.modules.search.models import SearchActivity
 
 # Points required per level (cumulative). Level N requires LEVEL_THRESHOLDS[N-1] total points.

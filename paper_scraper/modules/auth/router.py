@@ -1,17 +1,31 @@
 """FastAPI router for authentication endpoints."""
 
-from datetime import datetime, timezone
-from typing import Annotated
+from datetime import UTC, datetime
+from typing import Annotated, Literal, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Header,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.api.dependencies import CurrentUser, require_admin
 from paper_scraper.api.middleware import limiter
+from paper_scraper.core.account_lockout import account_lockout
+from paper_scraper.core.config import settings
 from paper_scraper.core.database import get_db
-from fastapi import File, UploadFile
-
+from paper_scraper.core.security import decode_token, generate_secure_token
+from paper_scraper.core.token_blacklist import token_blacklist
+from paper_scraper.modules.audit.models import AuditAction
+from paper_scraper.modules.audit.service import AuditService
 from paper_scraper.modules.auth.schemas import (
     AcceptInviteRequest,
     ChangePasswordRequest,
@@ -22,7 +36,6 @@ from paper_scraper.modules.auth.schemas import (
     InviteUserRequest,
     LoginRequest,
     MessageResponse,
-    OrganizationBranding,
     OrganizationResponse,
     OrganizationUsersResponse,
     RefreshTokenRequest,
@@ -40,13 +53,80 @@ from paper_scraper.modules.auth.schemas import (
     VerifyEmailRequest,
 )
 from paper_scraper.modules.auth.service import AuthService
-from paper_scraper.modules.audit.models import AuditAction
-from paper_scraper.modules.audit.service import AuditService
-from paper_scraper.core.account_lockout import account_lockout
-from paper_scraper.core.token_blacklist import token_blacklist
-from paper_scraper.core.security import decode_token
 
 router = APIRouter()
+
+
+def _set_cookie(
+    response: Response,
+    *,
+    key: str,
+    value: str,
+    max_age: int,
+    httponly: bool,
+) -> None:
+    same_site = cast(
+        Literal["lax", "strict", "none"],
+        settings.AUTH_COOKIE_SAMESITE,
+    )
+    response.set_cookie(
+        key=key,
+        value=value,
+        max_age=max_age,
+        httponly=httponly,
+        secure=settings.AUTH_COOKIE_SECURE,
+        samesite=same_site,
+        domain=settings.AUTH_COOKIE_DOMAIN,
+        path=settings.AUTH_COOKIE_PATH,
+    )
+
+
+def _delete_cookie(response: Response, key: str) -> None:
+    same_site = cast(
+        Literal["lax", "strict", "none"],
+        settings.AUTH_COOKIE_SAMESITE,
+    )
+    response.delete_cookie(
+        key=key,
+        secure=settings.AUTH_COOKIE_SECURE,
+        samesite=same_site,
+        domain=settings.AUTH_COOKIE_DOMAIN,
+        path=settings.AUTH_COOKIE_PATH,
+    )
+
+
+def _set_auth_cookies(response: Response, tokens: TokenResponse) -> None:
+    """Write auth and CSRF cookies for browser sessions."""
+    csrf_token = generate_secure_token(24)
+
+    _set_cookie(
+        response,
+        key=settings.AUTH_ACCESS_COOKIE_NAME,
+        value=tokens.access_token,
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        httponly=True,
+    )
+    _set_cookie(
+        response,
+        key=settings.AUTH_REFRESH_COOKIE_NAME,
+        value=tokens.refresh_token,
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        httponly=True,
+    )
+    _set_cookie(
+        response,
+        key=settings.AUTH_CSRF_COOKIE_NAME,
+        value=csrf_token,
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        httponly=False,
+    )
+
+
+def _clear_auth_cookies(response: Response) -> None:
+    """Clear browser auth cookies."""
+    _delete_cookie(response, settings.AUTH_ACCESS_COOKIE_NAME)
+    _delete_cookie(response, settings.AUTH_REFRESH_COOKIE_NAME)
+    _delete_cookie(response, settings.AUTH_CSRF_COOKIE_NAME)
 
 
 def get_auth_service(db: Annotated[AsyncSession, Depends(get_db)]) -> AuthService:
@@ -68,6 +148,7 @@ def get_audit_service(db: Annotated[AsyncSession, Depends(get_db)]) -> AuditServ
 @limiter.limit("5/minute")
 async def register(
     request: Request,
+    response: Response,
     register_data: RegisterRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
     audit_service: Annotated[AuditService, Depends(get_audit_service)],
@@ -93,7 +174,9 @@ async def register(
         request=request,
     )
 
-    return auth_service.create_tokens(user)
+    tokens = auth_service.create_tokens(user)
+    _set_auth_cookies(response, tokens)
+    return tokens
 
 
 @router.post(
@@ -104,6 +187,7 @@ async def register(
 @limiter.limit("10/minute")
 async def login(
     request: Request,
+    response: Response,
     login_data: LoginRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
     audit_service: Annotated[AuditService, Depends(get_audit_service)],
@@ -129,7 +213,9 @@ async def login(
             request=request,
         )
 
-        return auth_service.create_tokens(user)
+        tokens = auth_service.create_tokens(user)
+        _set_auth_cookies(response, tokens)
+        return tokens
 
     except Exception as e:
         # Audit log: failed login attempt (without exposing if user exists)
@@ -152,6 +238,7 @@ async def login(
 @limiter.limit("10/minute")
 async def refresh_token(
     request: Request,
+    response: Response,
     refresh_data: RefreshTokenRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> TokenResponse:
@@ -159,7 +246,18 @@ async def refresh_token(
 
     The old refresh token should be discarded after calling this endpoint.
     """
-    return await auth_service.refresh_tokens(refresh_data.refresh_token)
+    refresh_token_value = (
+        refresh_data.refresh_token
+        or request.cookies.get(settings.AUTH_REFRESH_COOKIE_NAME)
+    )
+    if not refresh_token_value:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing refresh token",
+        )
+    tokens = await auth_service.refresh_tokens(refresh_token_value)
+    _set_auth_cookies(response, tokens)
+    return tokens
 
 
 @router.post(
@@ -169,6 +267,7 @@ async def refresh_token(
 )
 async def logout(
     request: Request,
+    response: Response,
     current_user: CurrentUser,
     audit_service: Annotated[AuditService, Depends(get_audit_service)],
     authorization: Annotated[str | None, Header()] = None,
@@ -180,15 +279,22 @@ async def logout(
     """
     # Extract token from Authorization header
     # Note: current_user already validated the token, so we just need to extract it
+    token = None
     if authorization and authorization.startswith("Bearer "):
         token = authorization[7:]
+    elif request.cookies.get(settings.AUTH_ACCESS_COOKIE_NAME):
+        token = request.cookies.get(settings.AUTH_ACCESS_COOKIE_NAME)
+
+    if token:
         payload = decode_token(token)
         if payload:
             jti = payload.get("jti")
             exp_timestamp = payload.get("exp")
             if jti and exp_timestamp:
-                exp = datetime.fromtimestamp(exp_timestamp, tz=timezone.utc)
+                exp = datetime.fromtimestamp(exp_timestamp, tz=UTC)
                 await token_blacklist.blacklist_token(jti, exp)
+
+    _clear_auth_cookies(response)
 
     # Audit log: logout
     await audit_service.log(

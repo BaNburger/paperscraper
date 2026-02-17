@@ -2,13 +2,17 @@
 
 import enum
 from datetime import datetime
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, JSON, String, Uuid, func
+from sqlalchemy import JSON, Boolean, DateTime, Enum, ForeignKey, String, Uuid, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from paper_scraper.core.database import Base
+
+if TYPE_CHECKING:
+    from paper_scraper.modules.compliance.models import RetentionPolicy
 
 
 class OrganizationType(str, enum.Enum):
@@ -269,8 +273,8 @@ class TeamInvitation(Base):
 # Forward references for developer module models
 from paper_scraper.modules.developer.models import (  # noqa: E402, F401
     APIKey,
-    Webhook,
     RepositorySource,
+    Webhook,
 )
 
 # Forward reference for compliance module - do not import here to avoid circular imports

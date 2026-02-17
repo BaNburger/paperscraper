@@ -9,25 +9,22 @@ Covers:
 - Level/progress calculation edge cases
 """
 
-from datetime import datetime, timezone
-from uuid import uuid4
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from paper_scraper.core.security import get_password_hash
 from paper_scraper.modules.auth.models import Organization, User, UserRole
+from paper_scraper.modules.authors.models import AuthorContact  # noqa: F401 - table creation
 from paper_scraper.modules.badges.models import Badge, BadgeCategory, BadgeTier, UserBadge
-from paper_scraper.modules.badges.service import BadgeService, DEFAULT_BADGES, POINTS_PER_LEVEL
+from paper_scraper.modules.badges.service import DEFAULT_BADGES, POINTS_PER_LEVEL, BadgeService
 from paper_scraper.modules.papers.models import Paper
 from paper_scraper.modules.papers.notes import PaperNote  # noqa: F401 - table creation
 from paper_scraper.modules.projects.models import Project
 from paper_scraper.modules.scoring.models import PaperScore
 from paper_scraper.modules.search.models import SearchActivity
-from paper_scraper.modules.authors.models import AuthorContact  # noqa: F401 - table creation
-from paper_scraper.core.security import get_password_hash
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

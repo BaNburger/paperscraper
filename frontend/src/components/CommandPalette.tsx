@@ -337,7 +337,7 @@ export function CommandPalette({ onShowKeyboardShortcuts }: CommandPaletteProps)
                     <UsersRound className="cmdk-icon" />
                     <span className="cmdk-item-text">{project.name}</span>
                     <span className="cmdk-badge">
-                      {project.is_active ? t('dashboard.active') : t('dashboard.inactive')}
+                      {project.sync_status === 'failed' ? t('dashboard.inactive') : t('dashboard.active')}
                     </span>
                   </Command.Item>
                 ))}

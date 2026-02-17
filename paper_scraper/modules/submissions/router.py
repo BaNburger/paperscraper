@@ -2,9 +2,8 @@
 
 import asyncio
 import logging
-import os
 from typing import Annotated
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import RedirectResponse
@@ -14,6 +13,15 @@ from paper_scraper.api.dependencies import CurrentUser, ManagerOrAdminUser, requ
 from paper_scraper.core.database import get_db
 from paper_scraper.core.permissions import Permission
 from paper_scraper.core.storage import get_storage_service
+from paper_scraper.core.uploads import (
+    build_storage_key,
+    read_upload_content,
+    sanitize_filename,
+    validate_content_type,
+    validate_magic_bytes,
+)
+from paper_scraper.modules.audit.models import AuditAction
+from paper_scraper.modules.audit.service import AuditService
 from paper_scraper.modules.papers.schemas import PaperResponse
 from paper_scraper.modules.submissions.models import AttachmentType, SubmissionStatus
 from paper_scraper.modules.submissions.schemas import (
@@ -26,8 +34,6 @@ from paper_scraper.modules.submissions.schemas import (
     SubmissionScoreResponse,
     SubmissionUpdate,
 )
-from paper_scraper.modules.audit.models import AuditAction
-from paper_scraper.modules.audit.service import AuditService
 from paper_scraper.modules.submissions.service import SubmissionService
 
 logger = logging.getLogger(__name__)
@@ -45,7 +51,6 @@ _ALLOWED_MIME_TYPES: dict[str, bytes] = {
     "image/jpeg": b"\xff\xd8\xff",
 }
 _MAX_ATTACHMENT_SIZE = 50_000_000  # 50MB
-_CHUNK_SIZE = 64 * 1024  # 64KB read chunks
 
 
 def get_submission_service(
@@ -202,44 +207,12 @@ async def upload_attachment(
             detail="Filename is required",
         )
 
-    # Validate MIME type from Content-Type header
-    content_type = file.content_type or "application/octet-stream"
-    if content_type not in _ALLOWED_MIME_TYPES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported file type: {content_type}. Allowed: PDF, DOC, DOCX, PPT, PPTX, PNG, JPEG",
-        )
+    content_type = validate_content_type(file.content_type, _ALLOWED_MIME_TYPES)
+    content, total_size = await read_upload_content(file, max_size=_MAX_ATTACHMENT_SIZE)
+    validate_magic_bytes(content, _ALLOWED_MIME_TYPES[content_type])
 
-    # Read file in chunks to prevent memory DoS
-    chunks: list[bytes] = []
-    total_size = 0
-    while True:
-        chunk = await file.read(_CHUNK_SIZE)
-        if not chunk:
-            break
-        total_size += len(chunk)
-        if total_size > _MAX_ATTACHMENT_SIZE:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="File too large (max 50MB)",
-            )
-        chunks.append(chunk)
-
-    content = b"".join(chunks)
-
-    # Validate magic bytes match declared MIME type
-    expected_magic = _ALLOWED_MIME_TYPES[content_type]
-    if not content.startswith(expected_magic):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File content does not match declared MIME type",
-        )
-
-    # Sanitize filename: strip path components and prefix with UUID
-    safe_filename = os.path.basename(file.filename)
-    unique_prefix = uuid4().hex[:12]
-    storage_filename = f"{unique_prefix}_{safe_filename}"
-    file_path = f"submissions/{submission_id}/{storage_filename}"
+    safe_filename = sanitize_filename(file.filename)
+    file_path = build_storage_key("submissions", str(submission_id), safe_filename)
 
     # Persist to MinIO/S3 storage
     storage = get_storage_service()

@@ -20,13 +20,10 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from unittest.mock import AsyncMock, patch
 
 from paper_scraper.core.security import create_access_token, get_password_hash
 from paper_scraper.modules.auth.models import Organization, User, UserRole
 from paper_scraper.modules.papers.models import Paper
-from paper_scraper.modules.saved_searches.models import SavedSearch
-
 
 # =============================================================================
 # Constants

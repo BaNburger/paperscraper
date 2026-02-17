@@ -5,7 +5,6 @@ Revises: trend_radar_v1
 Create Date: 2026-02-16 10:00:00.000000
 """
 
-from typing import Union
 
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
@@ -14,9 +13,9 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "discovery_profiles_v1"
-down_revision: Union[str, None] = "trend_radar_v1"
-branch_labels: Union[str, None] = None
-depends_on: Union[str, None] = None
+down_revision: str | None = "trend_radar_v1"
+branch_labels: str | None = None
+depends_on: str | None = None
 
 
 # Enum for discovery run status

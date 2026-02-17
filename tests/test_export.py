@@ -434,6 +434,7 @@ class TestExportService:
     ):
         """Test BibTeX citation key generation from author and year."""
         from datetime import datetime
+
         from paper_scraper.modules.export.service import ExportService
 
         # Create author
