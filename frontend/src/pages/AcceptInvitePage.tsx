@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { authApi, setStoredTokens } from '@/lib/api'
+import { authApi } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -76,12 +76,11 @@ export function AcceptInvitePage() {
     setIsLoading(true)
 
     try {
-      const tokens = await authApi.acceptInvitation({
+      await authApi.acceptInvitation({
         token,
         password,
         full_name: fullName || undefined,
       })
-      setStoredTokens(tokens)
       await refreshUser()
       navigate('/dashboard')
     } catch (err) {

@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { integrationsApi, libraryApi, papersApi, scoringApi } from '@/lib/api'
+import { queryKeys } from '@/config/queryKeys'
+import { invalidateMany, optimisticDeleteById, rollbackOptimisticSnapshots } from '@/lib/query'
 
 interface QueryControlOptions {
   enabled?: boolean
@@ -11,7 +13,7 @@ export function usePapers(
   options?: QueryControlOptions
 ) {
   return useQuery({
-    queryKey: ['papers', params],
+    queryKey: queryKeys.papers.list(params),
     queryFn: () => papersApi.list(params),
     placeholderData: keepPreviousData,
     enabled: options?.enabled ?? true,
@@ -21,7 +23,7 @@ export function usePapers(
 
 export function usePaper(id: string) {
   return useQuery({
-    queryKey: ['paper', id],
+    queryKey: queryKeys.papers.detail(id),
     queryFn: () => papersApi.get(id),
     enabled: !!id,
   })
@@ -29,7 +31,7 @@ export function usePaper(id: string) {
 
 export function usePaperScore(paperId: string) {
   return useQuery({
-    queryKey: ['paperScore', paperId],
+    queryKey: queryKeys.papers.score(paperId),
     queryFn: () => scoringApi.getLatestScore(paperId),
     enabled: !!paperId,
   })
@@ -37,34 +39,23 @@ export function usePaperScore(paperId: string) {
 
 export function useDeletePaper() {
   const queryClient = useQueryClient()
+  const papersListKey = ['papers', 'list'] as const
 
   return useMutation({
     mutationFn: (id: string) => papersApi.delete(id),
     onMutate: async (deletedId) => {
-      await queryClient.cancelQueries({ queryKey: ['papers'] })
-      const queries = queryClient.getQueriesData<{ items: { id: string }[]; total: number }>({
-        queryKey: ['papers'],
-      })
-      for (const [key, data] of queries) {
-        if (data?.items) {
-          queryClient.setQueryData(key, {
-            ...data,
-            items: data.items.filter((p) => p.id !== deletedId),
-            total: data.total - 1,
-          })
-        }
-      }
-      return { queries }
+      const snapshots = await optimisticDeleteById<{ id: string }>(
+        queryClient,
+        papersListKey,
+        deletedId,
+      )
+      return { snapshots }
     },
     onError: (_err, _id, context) => {
-      if (context?.queries) {
-        for (const [key, data] of context.queries) {
-          queryClient.setQueryData(key, data)
-        }
-      }
+      rollbackOptimisticSnapshots(queryClient, context?.snapshots)
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['papers'] })
+      queryClient.invalidateQueries({ queryKey: papersListKey })
     },
   })
 }
@@ -75,7 +66,7 @@ export function useIngestByDoi() {
   return useMutation({
     mutationFn: (doi: string) => papersApi.ingestByDoi(doi),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['papers'] })
+      queryClient.invalidateQueries({ queryKey: ['papers', 'list'] })
     },
   })
 }
@@ -87,7 +78,7 @@ export function useIngestFromOpenAlex() {
     mutationFn: (params: { query: string; max_results?: number }) =>
       papersApi.ingestFromOpenAlex(params),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['papers'] })
+      queryClient.invalidateQueries({ queryKey: ['papers', 'list'] })
     },
   })
 }
@@ -99,7 +90,7 @@ export function useIngestFromPubMed() {
     mutationFn: (params: { query: string; max_results?: number }) =>
       papersApi.ingestFromPubMed(params),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['papers'] })
+      queryClient.invalidateQueries({ queryKey: ['papers', 'list'] })
     },
   })
 }
@@ -111,7 +102,7 @@ export function useIngestFromArxiv() {
     mutationFn: (params: { query: string; max_results?: number; category?: string }) =>
       papersApi.ingestFromArxiv(params),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['papers'] })
+      queryClient.invalidateQueries({ queryKey: ['papers', 'list'] })
     },
   })
 }
@@ -122,7 +113,7 @@ export function useUploadPdf() {
   return useMutation({
     mutationFn: (file: File) => papersApi.uploadPdf(file),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['papers'] })
+      queryClient.invalidateQueries({ queryKey: ['papers', 'list'] })
     },
   })
 }
@@ -133,8 +124,10 @@ export function useScorePaper() {
   return useMutation({
     mutationFn: (paperId: string) => scoringApi.scorePaper(paperId),
     onSuccess: (_, paperId) => {
-      queryClient.invalidateQueries({ queryKey: ['paperScore', paperId] })
-      queryClient.invalidateQueries({ queryKey: ['paper', paperId] })
+      invalidateMany(queryClient, [
+        queryKeys.papers.score(paperId),
+        queryKeys.papers.detail(paperId),
+      ])
     },
   })
 }
@@ -145,8 +138,10 @@ export function useGeneratePitch() {
   return useMutation({
     mutationFn: (paperId: string) => papersApi.generatePitch(paperId),
     onSuccess: (_, paperId) => {
-      queryClient.invalidateQueries({ queryKey: ['paper', paperId] })
-      queryClient.invalidateQueries({ queryKey: ['papers'] })
+      invalidateMany(queryClient, [
+        queryKeys.papers.detail(paperId),
+        ['papers', 'list'],
+      ])
     },
   })
 }
@@ -157,14 +152,14 @@ export function useGenerateSimplifiedAbstract() {
   return useMutation({
     mutationFn: (paperId: string) => papersApi.generateSimplifiedAbstract(paperId),
     onSuccess: (_, paperId) => {
-      queryClient.invalidateQueries({ queryKey: ['paper', paperId] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.papers.detail(paperId) })
     },
   })
 }
 
 export function useRelatedPatents(paperId: string) {
   return useQuery({
-    queryKey: ['relatedPatents', paperId],
+    queryKey: queryKeys.papers.relatedPatents(paperId),
     queryFn: () => papersApi.getRelatedPatents(paperId),
     enabled: !!paperId,
     staleTime: 5 * 60 * 1000, // 5 minutes - patent data doesn't change often
@@ -174,7 +169,7 @@ export function useRelatedPatents(paperId: string) {
 
 export function useCitationGraph(paperId: string) {
   return useQuery({
-    queryKey: ['citationGraph', paperId],
+    queryKey: queryKeys.papers.citationGraph(paperId),
     queryFn: () => papersApi.getCitationGraph(paperId),
     enabled: !!paperId,
     staleTime: 5 * 60 * 1000,
@@ -189,7 +184,7 @@ export function useIngestFromSemanticScholar() {
     mutationFn: (params: { query: string; max_results?: number }) =>
       papersApi.ingestFromSemanticScholar(params),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['papers'] })
+      queryClient.invalidateQueries({ queryKey: ['papers', 'list'] })
     },
   })
 }
@@ -197,7 +192,7 @@ export function useIngestFromSemanticScholar() {
 // Library V2 hooks
 export function useLibraryCollections(enabled = true) {
   return useQuery({
-    queryKey: ['libraryCollections'],
+    queryKey: queryKeys.papers.libraryCollections(),
     queryFn: () => libraryApi.listCollections(),
     enabled,
     retry: false,
@@ -210,14 +205,14 @@ export function useCreateLibraryCollection() {
     mutationFn: (data: { name: string; description?: string; parent_id?: string }) =>
       libraryApi.createCollection(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['libraryCollections'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.papers.libraryCollections() })
     },
   })
 }
 
 export function usePaperReader(paperId: string, enabled = true) {
   return useQuery({
-    queryKey: ['paperReader', paperId],
+    queryKey: queryKeys.papers.reader(paperId),
     queryFn: async () => {
       try {
         return await libraryApi.getReader(paperId)
@@ -240,9 +235,11 @@ export function useHydratePaperFullText() {
   return useMutation({
     mutationFn: (paperId: string) => libraryApi.hydrateFullText(paperId),
     onSuccess: (_, paperId) => {
-      queryClient.invalidateQueries({ queryKey: ['paperReader', paperId] })
-      queryClient.invalidateQueries({ queryKey: ['paperHighlights', paperId] })
-      queryClient.invalidateQueries({ queryKey: ['paper', paperId] })
+      invalidateMany(queryClient, [
+        queryKeys.papers.reader(paperId),
+        queryKeys.papers.highlights(paperId),
+        queryKeys.papers.detail(paperId),
+      ])
     },
   })
 }
@@ -252,7 +249,7 @@ export function usePaperHighlights(
   options?: { includeInactive?: boolean; enabled?: boolean }
 ) {
   return useQuery({
-    queryKey: ['paperHighlights', paperId, options?.includeInactive ?? false],
+    queryKey: queryKeys.papers.highlights(paperId, options?.includeInactive ?? false),
     queryFn: async () => {
       try {
         return await libraryApi.listHighlights(paperId, options?.includeInactive ?? false)
@@ -275,7 +272,7 @@ export function useGeneratePaperHighlights() {
     mutationFn: ({ paperId, targetCount }: { paperId: string; targetCount?: number }) =>
       libraryApi.generateHighlights(paperId, targetCount ?? 8),
     onSuccess: (_, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['paperHighlights', vars.paperId] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.papers.highlights(vars.paperId) })
     },
   })
 }
@@ -292,7 +289,7 @@ export function useCreatePaperHighlight() {
       confidence?: number
     }) => libraryApi.createHighlight(params.paperId, params),
     onSuccess: (_, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['paperHighlights', vars.paperId] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.papers.highlights(vars.paperId) })
     },
   })
 }
@@ -303,14 +300,14 @@ export function useDeletePaperHighlight() {
     mutationFn: ({ paperId, highlightId }: { paperId: string; highlightId: string }) =>
       libraryApi.deleteHighlight(paperId, highlightId),
     onSuccess: (_, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['paperHighlights', vars.paperId] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.papers.highlights(vars.paperId) })
     },
   })
 }
 
 export function useLibraryTags(enabled = true) {
   return useQuery({
-    queryKey: ['libraryTags'],
+    queryKey: queryKeys.papers.libraryTags(),
     queryFn: () => libraryApi.listTags(),
     enabled,
     retry: false,
@@ -323,8 +320,10 @@ export function useAddPaperTag() {
     mutationFn: ({ paperId, tag }: { paperId: string; tag: string }) =>
       libraryApi.addPaperTag(paperId, tag),
     onSuccess: (_, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['libraryTags'] })
-      queryClient.invalidateQueries({ queryKey: ['paper', vars.paperId] })
+      invalidateMany(queryClient, [
+        queryKeys.papers.libraryTags(),
+        queryKeys.papers.detail(vars.paperId),
+      ])
     },
   })
 }
@@ -335,8 +334,10 @@ export function useRemovePaperTag() {
     mutationFn: ({ paperId, tag }: { paperId: string; tag: string }) =>
       libraryApi.removePaperTag(paperId, tag),
     onSuccess: (_, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['libraryTags'] })
-      queryClient.invalidateQueries({ queryKey: ['paper', vars.paperId] })
+      invalidateMany(queryClient, [
+        queryKeys.papers.libraryTags(),
+        queryKeys.papers.detail(vars.paperId),
+      ])
     },
   })
 }
@@ -344,7 +345,7 @@ export function useRemovePaperTag() {
 // Zotero hooks
 export function useZoteroStatus(enabled = true) {
   return useQuery({
-    queryKey: ['zoteroStatus'],
+    queryKey: queryKeys.papers.zoteroStatus(),
     queryFn: async () => {
       try {
         return await integrationsApi.getZoteroStatus()
@@ -371,7 +372,7 @@ export function useConnectZotero() {
       library_type?: 'users' | 'groups'
     }) => integrationsApi.connectZotero(params),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['zoteroStatus'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.papers.zoteroStatus() })
     },
   })
 }
@@ -381,7 +382,7 @@ export function useZoteroOutboundSync() {
   return useMutation({
     mutationFn: (paperIds?: string[]) => integrationsApi.syncZoteroOutbound(paperIds),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['zoteroStatus'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.papers.zoteroStatus() })
     },
   })
 }
@@ -391,15 +392,17 @@ export function useZoteroInboundSync() {
   return useMutation({
     mutationFn: () => integrationsApi.syncZoteroInbound(),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['zoteroStatus'] })
-      queryClient.invalidateQueries({ queryKey: ['papers'] })
+      invalidateMany(queryClient, [
+        queryKeys.papers.zoteroStatus(),
+        ['papers', 'list'],
+      ])
     },
   })
 }
 
 export function useZoteroSyncRun(runId: string, enabled = true) {
   return useQuery({
-    queryKey: ['zoteroSyncRun', runId],
+    queryKey: queryKeys.papers.zoteroSyncRun(runId),
     queryFn: () => integrationsApi.getZoteroSyncRun(runId),
     enabled: enabled && !!runId,
     retry: false,

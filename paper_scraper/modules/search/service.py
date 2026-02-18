@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from paper_scraper.core.exceptions import NotFoundError
+from paper_scraper.modules.embeddings.service import EmbeddingService
 from paper_scraper.modules.papers.models import Paper
 from paper_scraper.modules.scoring.embeddings import EmbeddingClient
 from paper_scraper.modules.scoring.models import PaperScore
@@ -36,6 +37,7 @@ class SearchService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.embedding_client = EmbeddingClient()
+        self.embedding_service = EmbeddingService(db)
 
     # =========================================================================
     # Main Search Methods
@@ -244,46 +246,16 @@ class SearchService:
         organization_id: UUID,
     ) -> int:
         """Count papers that need embeddings generated."""
-        result = await self.db.execute(
-            select(func.count())
-            .select_from(Paper)
-            .where(
-                Paper.organization_id == organization_id,
-                Paper.embedding.is_(None),
-            )
-        )
-        return result.scalar() or 0
+        return await self.embedding_service.count_without_embeddings(organization_id)
 
     async def get_embedding_stats(self, organization_id: UUID) -> EmbeddingStats:
         """Get embedding statistics for an organization."""
-        with_embedding_result = await self.db.execute(
-            select(func.count())
-            .select_from(Paper)
-            .where(
-                Paper.organization_id == organization_id,
-                Paper.embedding.is_not(None),
-            )
-        )
-        without_embedding_result = await self.db.execute(
-            select(func.count())
-            .select_from(Paper)
-            .where(
-                Paper.organization_id == organization_id,
-                Paper.embedding.is_(None),
-            )
-        )
-
-        with_count = with_embedding_result.scalar() or 0
-        without_count = without_embedding_result.scalar() or 0
-        total = with_count + without_count
-
-        coverage = round(with_count / total * 100, 2) if total > 0 else 0.0
-
+        stats = await self.embedding_service.get_stats(organization_id)
         return EmbeddingStats(
-            total_papers=total,
-            with_embedding=with_count,
-            without_embedding=without_count,
-            embedding_coverage=coverage,
+            total_papers=stats.total_papers,
+            with_embedding=stats.with_embedding,
+            without_embedding=stats.without_embedding,
+            embedding_coverage=stats.embedding_coverage,
         )
 
     async def backfill_embeddings(
@@ -303,57 +275,16 @@ class SearchService:
         Returns:
             EmbeddingBackfillResult with statistics
         """
-        from paper_scraper.modules.scoring.embeddings import generate_paper_embedding
-
-        # Find papers without embeddings
-        query = (
-            select(Paper)
-            .where(
-                Paper.organization_id == organization_id,
-                Paper.embedding.is_(None),
-            )
-            .order_by(Paper.created_at.desc())
+        summary = await self.embedding_service.backfill_for_organization(
+            organization_id=organization_id,
+            batch_size=batch_size,
+            max_papers=max_papers,
         )
-
-        if max_papers:
-            query = query.limit(max_papers)
-
-        result = await self.db.execute(query)
-        papers = list(result.scalars().all())
-
-        succeeded = 0
-        failed = 0
-        errors: list[str] = []
-
-        for paper in papers:
-            try:
-                embedding = await generate_paper_embedding(
-                    title=paper.title,
-                    abstract=paper.abstract,
-                    keywords=paper.keywords,
-                )
-                paper.embedding = embedding
-                succeeded += 1
-
-                # Commit in batches
-                if succeeded % batch_size == 0:
-                    await self.db.commit()
-
-            except Exception as e:
-                failed += 1
-                errors.append(f"Paper {paper.id}: {str(e)[:100]}")
-                # No rollback needed: if generate_paper_embedding raises,
-                # paper.embedding was never assigned so session has no dirty state.
-
-        # Final commit for remaining papers
-        if succeeded % batch_size != 0:
-            await self.db.commit()
-
         return EmbeddingBackfillResult(
-            papers_processed=len(papers),
-            papers_succeeded=succeeded,
-            papers_failed=failed,
-            errors=errors[:10],  # Limit errors in response
+            papers_processed=summary.papers_processed,
+            papers_succeeded=summary.papers_succeeded,
+            papers_failed=summary.papers_failed,
+            errors=summary.errors[:10],
         )
 
     # =========================================================================

@@ -8,8 +8,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-logger = logging.getLogger(__name__)
-
 from paper_scraper.modules.authors.models import AuthorContact
 from paper_scraper.modules.badges.models import Badge, BadgeCategory, BadgeTier, UserBadge
 from paper_scraper.modules.badges.schemas import (
@@ -24,6 +22,8 @@ from paper_scraper.modules.papers.notes import PaperNote
 from paper_scraper.modules.projects.models import Project
 from paper_scraper.modules.scoring.models import PaperScore
 from paper_scraper.modules.search.models import SearchActivity
+
+logger = logging.getLogger(__name__)
 
 # Points required per level (cumulative). Level N requires LEVEL_THRESHOLDS[N-1] total points.
 POINTS_PER_LEVEL = 100

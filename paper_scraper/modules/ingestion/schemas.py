@@ -3,28 +3,132 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from paper_scraper.modules.ingestion.models import IngestRunStatus
+
+
+class IngestOpenAlexRequest(BaseModel):
+    """Request to ingest from OpenAlex."""
+
+    query: str = Field(..., min_length=1, description="Search query for OpenAlex")
+    max_results: int = Field(default=100, ge=1, le=1000)
+    filters: dict = Field(default_factory=dict)
+
+
+class IngestPubMedRequest(BaseModel):
+    """Request to ingest from PubMed."""
+
+    query: str = Field(..., min_length=1, description="PubMed search query")
+    max_results: int = Field(default=100, ge=1, le=1000)
+
+
+class IngestArxivRequest(BaseModel):
+    """Request to ingest from arXiv."""
+
+    query: str = Field(..., min_length=1, description="arXiv search query")
+    max_results: int = Field(default=100, ge=1, le=1000)
+    category: str | None = Field(default=None, description="Optional arXiv category")
+
+
+class IngestSemanticScholarRequest(BaseModel):
+    """Request to ingest from Semantic Scholar."""
+
+    query: str = Field(..., min_length=1, description="Semantic Scholar search query")
+    max_results: int = Field(default=100, ge=1, le=1000)
+
+
+class IngestJobResponse(BaseModel):
+    """Response for async source ingestion job creation."""
+
+    job_id: str
+    ingest_run_id: UUID
+    source: str
+    status: str = "queued"
+    message: str
+
+
+class IngestRunStats(BaseModel):
+    """Typed ingestion run stats."""
+
+    fetched_records: int = 0
+    source_records_inserted: int = 0
+    source_records_duplicates: int = 0
+    papers_created: int = 0
+    papers_matched: int = 0
+    papers_failed: int = 0
+    dedupe_report: dict[str, int] = Field(default_factory=dict)
+    errors: list[str] = Field(default_factory=list)
+
+    @classmethod
+    def from_raw(cls, raw: dict | None) -> "IngestRunStats":
+        payload = raw if isinstance(raw, dict) else {}
+        return cls(
+            fetched_records=int(payload.get("fetched_records", 0) or 0),
+            source_records_inserted=int(payload.get("source_records_inserted", 0) or 0),
+            source_records_duplicates=int(payload.get("source_records_duplicates", 0) or 0),
+            papers_created=int(payload.get("papers_created", 0) or 0),
+            papers_matched=int(payload.get("papers_matched", 0) or 0),
+            papers_failed=int(payload.get("papers_failed", 0) or 0),
+            dedupe_report=(
+                payload.get("dedupe_report")
+                if isinstance(payload.get("dedupe_report"), dict)
+                else {}
+            ),
+            errors=[
+                str(item)
+                for item in payload.get("errors", [])
+                if item is not None
+            ]
+            if isinstance(payload.get("errors"), list)
+            else [],
+        )
 
 
 class IngestRunResponse(BaseModel):
     """Ingestion run response."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     source: str
     organization_id: UUID | None
     status: IngestRunStatus
-    cursor_before: dict
-    cursor_after: dict
-    stats_json: dict
-    idempotency_key: str | None
-    error_message: str | None
+    cursor_before: dict = Field(default_factory=dict)
+    cursor_after: dict = Field(default_factory=dict)
+    stats: IngestRunStats = Field(default_factory=IngestRunStats)
+    idempotency_key: str | None = None
+    error_message: str | None = None
     started_at: datetime
-    completed_at: datetime | None
+    completed_at: datetime | None = None
     created_at: datetime
 
-    model_config = {"from_attributes": True}
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_stats(cls, data: object) -> object:
+        if isinstance(data, dict):
+            raw_stats = data.pop("stats_json", None)
+            data["stats"] = IngestRunStats.from_raw(raw_stats)
+            return data
+
+        raw_stats = getattr(data, "stats_json", None)
+        if hasattr(data, "__dict__"):
+            # Pydantic will read attributes directly; expose typed stats via a dict.
+            return {
+                "id": getattr(data, "id"),
+                "source": getattr(data, "source"),
+                "organization_id": getattr(data, "organization_id"),
+                "status": getattr(data, "status"),
+                "cursor_before": getattr(data, "cursor_before"),
+                "cursor_after": getattr(data, "cursor_after"),
+                "stats": IngestRunStats.from_raw(raw_stats),
+                "idempotency_key": getattr(data, "idempotency_key"),
+                "error_message": getattr(data, "error_message"),
+                "started_at": getattr(data, "started_at"),
+                "completed_at": getattr(data, "completed_at"),
+                "created_at": getattr(data, "created_at"),
+            }
+        return data
 
 
 class IngestRunListResponse(BaseModel):
@@ -37,17 +141,50 @@ class IngestRunListResponse(BaseModel):
     pages: int
 
 
-class IngestRunListFilters(BaseModel):
-    """Filter params for ingestion runs."""
+class IngestRunRecordResponse(BaseModel):
+    """Per-record resolution details for an ingestion run."""
 
-    source: str | None = None
-    status: IngestRunStatus | None = None
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    source: str
+    source_record_id: str
+    content_hash: str
+    paper_id: UUID | None = None
+    resolution_status: str | None = None
+    matched_on: str | None = None
+    error: str | None = None
+    resolved_at: datetime | None = None
+    fetched_at: datetime
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_error(cls, data: object) -> object:
+        if isinstance(data, dict):
+            if "error" not in data and "resolution_error" in data:
+                data["error"] = data.get("resolution_error")
+            return data
+        if hasattr(data, "__dict__"):
+            return {
+                "id": getattr(data, "id"),
+                "source": getattr(data, "source"),
+                "source_record_id": getattr(data, "source_record_id"),
+                "content_hash": getattr(data, "content_hash"),
+                "paper_id": getattr(data, "paper_id"),
+                "resolution_status": getattr(data, "resolution_status"),
+                "matched_on": getattr(data, "matched_on"),
+                "error": getattr(data, "resolution_error"),
+                "resolved_at": getattr(data, "resolved_at"),
+                "fetched_at": getattr(data, "fetched_at"),
+            }
+        return data
 
 
-class IngestRunUpdateRequest(BaseModel):
-    """Internal schema for updating run status."""
+class IngestRunRecordListResponse(BaseModel):
+    """Paginated source-record list for a run."""
 
-    status: IngestRunStatus
-    cursor_after: dict = Field(default_factory=dict)
-    stats_json: dict = Field(default_factory=dict)
-    error_message: str | None = None
+    items: list[IngestRunRecordResponse]
+    total: int
+    page: int
+    page_size: int
+    pages: int

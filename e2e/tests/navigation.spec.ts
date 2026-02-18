@@ -1,4 +1,79 @@
-import { test, expect, registerUser, generateTestUser } from "./fixtures";
+import { test, expect, registerUser, generateTestUser, Page } from "./fixtures";
+import type { Locator } from "@playwright/test";
+
+const MOBILE_BOTTOM_PATHS = new Set(["/", "/papers", "/projects", "/search"]);
+
+function isDesktopLayout(page: Page): boolean {
+  return (page.viewportSize()?.width ?? 1024) >= 768;
+}
+
+async function openMobileMenu(page: Page): Promise<void> {
+  const dialog = page.getByRole("dialog");
+  if (await dialog.isVisible().catch(() => false)) {
+    return;
+  }
+
+  const mobileNav = page.getByRole("navigation", { name: /primary mobile navigation/i });
+  const moreButton = mobileNav.getByRole("button", { name: /more/i }).first();
+  await expect(moreButton).toBeVisible({ timeout: 10000 });
+  await moreButton.click();
+  await expect(dialog).toBeVisible({ timeout: 10000 });
+}
+
+async function expectNavLinkVisible(page: Page, path: string): Promise<void> {
+  const desktopLink = page.locator(`aside a[href="${path}"]`).first();
+  if (isDesktopLayout(page)) {
+    await expect(desktopLink).toBeVisible({ timeout: 10000 });
+    return;
+  }
+
+  const mobileNav = page.getByRole("navigation", { name: /primary mobile navigation/i });
+  const mobileBottomLink = mobileNav.locator(`a[href="${path}"]`).first();
+  if (MOBILE_BOTTOM_PATHS.has(path)) {
+    await expect(mobileBottomLink).toBeVisible();
+    return;
+  }
+
+  await openMobileMenu(page);
+  await expect(page.getByRole("dialog").locator(`a[href="${path}"]`).first()).toBeVisible({
+    timeout: 10000,
+  });
+}
+
+async function clickNavLink(page: Page, path: string): Promise<void> {
+  if (isDesktopLayout(page)) {
+    const desktopLink = page.locator(`aside a[href="${path}"]`).first();
+    await expect(desktopLink).toBeVisible({ timeout: 10000 });
+    await desktopLink.click();
+    return;
+  }
+
+  const mobileNav = page.getByRole("navigation", { name: /primary mobile navigation/i });
+  const mobileBottomLink = mobileNav.locator(`a[href="${path}"]`).first();
+  if (MOBILE_BOTTOM_PATHS.has(path)) {
+    await mobileBottomLink.click();
+    return;
+  }
+
+  await openMobileMenu(page);
+  const menuLink = page.getByRole("dialog").locator(`a[href="${path}"]`).first();
+  await expect(menuLink).toBeVisible({ timeout: 10000 });
+  await menuLink.click();
+  await page.getByRole("dialog").waitFor({ state: "hidden", timeout: 10000 }).catch(() => {});
+}
+
+async function expectLinkActive(link: Locator): Promise<void> {
+  await expect
+    .poll(async () => {
+      const className = await link.getAttribute("class");
+      const ariaCurrent = await link.getAttribute("aria-current");
+      return Boolean(
+        ariaCurrent === "page" ||
+        (className && (className.includes("bg-primary") || className.includes("text-primary")))
+      );
+    })
+    .toBe(true);
+}
 
 test.describe("Navigation & Layout", () => {
   test.beforeEach(async ({ page }) => {
@@ -8,72 +83,69 @@ test.describe("Navigation & Layout", () => {
 
   test.describe("Sidebar Navigation", () => {
     test("displays all main navigation links", async ({ page }) => {
-      // Scope to aside to avoid matching dashboard quick action links
-      const sidebar = page.locator("aside");
-      await expect(sidebar).toBeVisible();
-      await expect(sidebar.getByRole("link", { name: /dashboard/i })).toBeVisible();
-      await expect(sidebar.getByRole("link", { name: /papers/i })).toBeVisible();
-      await expect(sidebar.getByRole("link", { name: /projects/i })).toBeVisible();
-      await expect(sidebar.getByRole("link", { name: /search/i })).toBeVisible();
-      await expect(sidebar.getByRole("link", { name: /analytics/i })).toBeVisible();
+      await expectNavLinkVisible(page, "/");
+      await expectNavLinkVisible(page, "/papers");
+      await expectNavLinkVisible(page, "/projects");
+      await expectNavLinkVisible(page, "/search");
+      await expectNavLinkVisible(page, "/analytics");
     });
 
     test("displays bottom navigation links", async ({ page }) => {
-      const sidebar = page.locator("aside");
-      await expect(sidebar.getByRole("link", { name: /team/i })).toBeVisible();
-      await expect(sidebar.getByRole("link", { name: /settings/i })).toBeVisible();
+      await expectNavLinkVisible(page, "/team");
+      await expectNavLinkVisible(page, "/settings");
     });
 
     test("navigates to Papers page", async ({ page }) => {
-      const sidebar = page.locator("aside");
-      await sidebar.getByRole("link", { name: /papers/i }).click();
+      await clickNavLink(page, "/papers");
       await expect(page).toHaveURL(/\/papers/);
       await expect(page.getByRole("heading", { level: 1, name: /papers/i })).toBeVisible();
     });
 
     test("navigates to Projects page", async ({ page }) => {
-      const sidebar = page.locator("aside");
-      await sidebar.getByRole("link", { name: /projects/i }).click();
+      await clickNavLink(page, "/projects");
       await expect(page).toHaveURL(/\/projects/);
-      await expect(page.getByRole("heading", { level: 1, name: /projects/i })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: /research groups/i })).toBeVisible();
     });
 
     test("navigates to Search page", async ({ page }) => {
-      const sidebar = page.locator("aside");
-      await sidebar.getByRole("link", { name: /search/i }).click();
+      await clickNavLink(page, "/search");
       await expect(page).toHaveURL(/\/search/);
       await expect(page.getByRole("heading", { level: 1, name: /search/i })).toBeVisible();
     });
 
     test("navigates to Analytics page", async ({ page }) => {
-      const sidebar = page.locator("aside");
-      await sidebar.getByRole("link", { name: /analytics/i }).click();
+      await clickNavLink(page, "/analytics");
       await expect(page).toHaveURL(/\/analytics/);
     });
 
     test("navigates to Team page", async ({ page }) => {
-      const sidebar = page.locator("aside");
-      await sidebar.getByRole("link", { name: /team/i }).click();
+      await clickNavLink(page, "/team");
       await expect(page).toHaveURL(/\/team/);
     });
 
     test("navigates to Settings page", async ({ page }) => {
-      const sidebar = page.locator("aside");
-      await sidebar.getByRole("link", { name: /settings/i }).click();
-      await expect(page).toHaveURL(/\/settings/);
+      await clickNavLink(page, "/settings");
+      await expect(page).toHaveURL(/\/settings\/?$/);
       await expect(page.getByRole("heading", { level: 1, name: /settings/i })).toBeVisible();
     });
 
     test("highlights active navigation item", async ({ page }) => {
-      await page.goto("/");
-      await page.waitForLoadState("networkidle");
+      await page.goto("/", { waitUntil: "domcontentloaded", timeout: 60000 });
 
-      const sidebar = page.locator("aside");
-      await expect(sidebar.getByRole("link", { name: /dashboard/i })).toHaveClass(/bg-primary/);
+      if (isDesktopLayout(page)) {
+        const sidebar = page.locator("aside");
+        await expectLinkActive(sidebar.locator('a[href="/"]'));
+        await sidebar.locator('a[href="/papers"]').click();
+        await expect(page).toHaveURL(/\/papers/);
+        await expectLinkActive(sidebar.locator('a[href="/papers"]'));
+        return;
+      }
 
-      await sidebar.getByRole("link", { name: /papers/i }).click();
+      const mobileNav = page.getByRole("navigation", { name: /primary mobile navigation/i });
+      await expectLinkActive(mobileNav.locator('a[href="/"]'));
+      await mobileNav.locator('a[href="/papers"]').click();
       await expect(page).toHaveURL(/\/papers/);
-      await expect(sidebar.getByRole("link", { name: /papers/i })).toHaveClass(/bg-primary/);
+      await expectLinkActive(mobileNav.locator('a[href="/papers"]'));
     });
 
     test("can collapse and expand sidebar", async ({ page }) => {
@@ -129,35 +201,35 @@ test.describe("Navigation & Layout", () => {
     });
   });
 
-  test.describe("Quick Actions", () => {
-    test("Dashboard has quick action links", async ({ page }) => {
+  test.describe("Dashboard Workflow CTAs", () => {
+    test("Dashboard has workflow action links", async ({ page }) => {
       await page.goto("/");
-      await page.waitForLoadState("networkidle");
+      await expect(page.getByRole("heading", { level: 1, name: /welcome back/i })).toBeVisible();
 
-      await expect(page.getByRole("button", { name: /import papers/i })).toBeVisible();
-      await expect(page.getByRole("button", { name: /search library/i })).toBeVisible();
-      await expect(page.getByRole("button", { name: /manage projects/i })).toBeVisible();
+      await expect(page.getByRole("button", { name: /search papers/i })).toBeVisible();
+      await expect(page.getByRole("button", { name: /view papers/i })).toBeVisible();
+      await expect(page.getByRole("button", { name: /start transfer/i })).toBeVisible();
     });
 
-    test("Quick action navigates to Papers page", async ({ page }) => {
+    test("Workflow CTA navigates to Search page", async ({ page }) => {
       await page.goto("/");
-      await page.waitForLoadState("networkidle");
-      await page.getByRole("button", { name: /import papers/i }).click();
-      await expect(page).toHaveURL(/\/papers/);
-    });
-
-    test("Quick action navigates to Search page", async ({ page }) => {
-      await page.goto("/");
-      await page.waitForLoadState("networkidle");
-      await page.getByRole("button", { name: /search library/i }).click();
+      await expect(page.getByRole("heading", { level: 1, name: /welcome back/i })).toBeVisible();
+      await page.getByRole("button", { name: /search papers/i }).click();
       await expect(page).toHaveURL(/\/search/);
     });
 
-    test("Quick action navigates to Projects page", async ({ page }) => {
+    test("Workflow CTA navigates to Papers page", async ({ page }) => {
       await page.goto("/");
-      await page.waitForLoadState("networkidle");
-      await page.getByRole("button", { name: /manage projects/i }).click();
-      await expect(page).toHaveURL(/\/projects/);
+      await expect(page.getByRole("heading", { level: 1, name: /welcome back/i })).toBeVisible();
+      await page.getByRole("button", { name: /view papers/i }).click();
+      await expect(page).toHaveURL(/\/papers/);
+    });
+
+    test("Workflow CTA navigates to Transfer page", async ({ page }) => {
+      await page.goto("/");
+      await expect(page.getByRole("heading", { level: 1, name: /welcome back/i })).toBeVisible();
+      await page.getByRole("button", { name: /start transfer/i }).click();
+      await expect(page).toHaveURL(/\/transfer/);
     });
   });
 });

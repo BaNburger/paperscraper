@@ -14,7 +14,9 @@ test.describe("Analytics Page", () => {
     });
 
     test("displays page description", async ({ page }) => {
-      await expect(page.getByText(/insights into your research pipeline/i)).toBeVisible();
+      await expect(
+        page.getByText(/insights (and metrics|into) for your research pipeline/i)
+      ).toBeVisible();
     });
 
     test("displays export buttons", async ({ page }) => {
@@ -50,12 +52,16 @@ test.describe("Analytics Page", () => {
   test.describe("Charts Section", () => {
     test("displays Import Trend chart", async ({ page }) => {
       await expect(page.getByText(/import trend/i)).toBeVisible();
-      await expect(page.getByText(/papers added over time/i)).toBeVisible();
+      await expect(
+        page.getByText(/(papers imported over the last 30 days|papers added over time)/i)
+      ).toBeVisible();
     });
 
     test("displays Papers by Source chart", async ({ page }) => {
       await expect(page.getByText(/papers by source/i)).toBeVisible();
-      await expect(page.getByText(/where your papers come from/i)).toBeVisible();
+      await expect(
+        page.getByText(/(distribution of papers by import source|where your papers come from)/i)
+      ).toBeVisible();
     });
 
     test("displays Score Distribution chart", async ({ page }) => {
@@ -91,12 +97,16 @@ test.describe("Analytics Page", () => {
     });
 
     test("displays coverage description", async ({ page }) => {
-      await expect(page.getByText(/papers with vector embeddings/i)).toBeVisible();
+      await expect(
+        page.getByText(/(percentage of papers with generated embeddings|papers with vector embeddings)/i)
+      ).toBeVisible();
     });
 
     test("shows progress bar", async ({ page }) => {
-      const progressBar = page.locator(".bg-primary.rounded-full");
-      await expect(progressBar).toBeVisible();
+      const progressTrack = page.locator(".h-4.bg-muted.rounded-full.overflow-hidden");
+      await expect(progressTrack).toBeVisible();
+      const progressFill = progressTrack.locator("> div").first();
+      await expect(progressFill).toHaveAttribute("style", /width:\s*\d+(\.\d+)?%/);
     });
   });
 

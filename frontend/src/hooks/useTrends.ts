@@ -1,16 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { trendsApi } from '@/lib/api'
+import { queryKeys } from '@/config/queryKeys'
 
 export function useTrendTopics(includeInactive = false) {
   return useQuery({
-    queryKey: ['trends', includeInactive],
+    queryKey: queryKeys.trends.list(includeInactive),
     queryFn: () => trendsApi.list({ include_inactive: includeInactive }),
   })
 }
 
 export function useTrendDashboard(id: string) {
   return useQuery({
-    queryKey: ['trends', id, 'dashboard'],
+    queryKey: queryKeys.trends.dashboard(id),
     queryFn: () => trendsApi.getDashboard(id),
     enabled: !!id,
     staleTime: 60000,
@@ -19,7 +20,7 @@ export function useTrendDashboard(id: string) {
 
 export function useTrendPapers(id: string, page = 1, pageSize = 20) {
   return useQuery({
-    queryKey: ['trends', id, 'papers', page, pageSize],
+    queryKey: queryKeys.trends.papers(id, page, pageSize),
     queryFn: () => trendsApi.getPapers(id, { page, page_size: pageSize }),
     enabled: !!id,
   })
@@ -43,7 +44,7 @@ export function useUpdateTrendTopic() {
       trendsApi.update(id, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['trends'] })
-      queryClient.invalidateQueries({ queryKey: ['trends', variables.id] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.trends.dashboard(variables.id) })
     },
   })
 }
@@ -65,7 +66,7 @@ export function useAnalyzeTrend() {
       trendsApi.analyze(id, params),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['trends'] })
-      queryClient.invalidateQueries({ queryKey: ['trends', variables.id] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.trends.dashboard(variables.id) })
     },
   })
 }

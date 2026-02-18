@@ -78,6 +78,60 @@ paper_scraper/
 
 ## Essential Coding Patterns
 
+## Linter-Enforced Architecture Rules
+
+The repository enforces architecture/design guarantees through custom linters. These are hard policy checks, not optional style suggestions.
+
+### Mandatory Commands
+
+```bash
+# Run strict agent lint rules
+npm run lint:agents
+
+# Run full lint suite
+npm run lint:all
+```
+
+### Rule Summary (Hard-Fail)
+
+| Rule ID | Intent |
+|---|---|
+| `PSA001` | No source ingestion endpoints in `paper_scraper/modules/papers/router.py` |
+| `PSA002` | Source run endpoints only in `paper_scraper/modules/ingestion/router.py` |
+| `PSA003` | No direct storage SDK usage outside `paper_scraper/core/storage.py` |
+| `PSA004` | Routers must not call private service methods |
+| `PSA005` | Forbid legacy secret formats (`plain:`); enforce encrypted secret path |
+| `PSF001` | No direct `/api/v1/...` literals in frontend app code |
+| `PSF002` | No direct `fetch`/`axios` usage outside `frontend/src/api/http/` |
+| `PSF003` | API domain modules must not import DTOs from `frontend/src/types/index.ts` |
+| `PSF004` | Infra navigation code must use `frontend/src/config/routes.ts` (no hardcoded route literals) |
+| `PSF005` | Hook query declarations must use `frontend/src/config/queryKeys.ts` |
+| `PSF006` | No browser auth token persistence in local/session storage |
+| `PSF007` | No new legacy `ResearchGroup` naming in app code |
+| `PSD001` | `CLAUDE.md` must include this linter policy section |
+| `PSD002` | `AGENTS.md` must exist with required Codex sections |
+| `PSD003` | `CLAUDE.md` + `AGENTS.md` must document lint command and exception workflow |
+
+### Required Pre-Completion Checklist
+- Run `npm run lint:agents`.
+- Run touched-area quality checks (backend/frontend lint/type/test).
+- Update canonical architecture docs when architecture-impacting files change:
+  - `01_TECHNISCHE_ARCHITEKTUR.md`
+  - `04_ARCHITECTURE_DECISIONS.md`
+  - `05_IMPLEMENTATION_PLAN.md`
+
+### Exception Workflow (Only Allowed Path)
+- Inline lint suppressions are forbidden.
+- The only escape hatch is `/Users/bastianburger/Repos/PaperScraper/.agent-lint-allowlist.yaml`.
+- Every exception entry must include:
+  - `rule_id`
+  - `path`
+  - `match`
+  - `reason`
+  - `owner`
+  - `expires_on` (ISO date, mandatory)
+- Expired or incomplete allowlist entries fail CI.
+
 ### Python Backend
 
 ```python

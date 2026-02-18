@@ -73,8 +73,8 @@ export function Navbar() {
     navigate(path)
   }
 
-  function handleLogout(): void {
-    logout()
+  async function handleLogout(): Promise<void> {
+    await logout()
   }
 
   function openCommandPalette(): void {
@@ -185,7 +185,9 @@ export function Navbar() {
                 )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onSelect={handleLogout}
+                  onSelect={() => {
+                    void handleLogout()
+                  }}
                   className="text-red-600 dark:text-red-400 focus:text-red-700"
                 >
                   <LogOut className="h-4 w-4 mr-2" />

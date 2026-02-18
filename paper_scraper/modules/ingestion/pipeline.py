@@ -5,13 +5,15 @@ from __future__ import annotations
 import hashlib
 import json
 from collections import Counter
+from datetime import UTC, datetime
 from uuid import UUID
 
+from sqlalchemy import update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.modules.ingestion.connectors import get_source_connector
-from paper_scraper.modules.ingestion.interfaces import SourceConnector
+from paper_scraper.modules.ingestion.interfaces import NormalizedPaperBundle, SourceConnector
 from paper_scraper.modules.ingestion.models import IngestRun, IngestRunStatus, SourceRecord
 from paper_scraper.modules.ingestion.normalizer import DefaultPaperNormalizer
 from paper_scraper.modules.ingestion.resolver import PaperEntityResolver
@@ -111,21 +113,84 @@ class IngestionPipeline:
             papers_created = 0
             papers_matched = 0
             errors: list[str] = []
+            resolution_updates: list[dict[str, object]] = []
+            normalized_entries: list[tuple[UUID, NormalizedPaperBundle]] = []
 
-            for record in inserted_records:
+            for source_record_id, record in inserted_records:
                 try:
                     bundle = self.normalizer.normalize(record)
-                    result = await resolver.resolve(bundle)
-                    if result.created:
-                        papers_created += 1
-                    else:
-                        papers_matched += 1
-                    dedupe_matches[result.matched_on] += 1
+                    normalized_entries.append((source_record_id, bundle))
                 except Exception as exc:
                     papers_failed = int(stats["papers_failed"]) + 1
                     stats["papers_failed"] = papers_failed
                     record_id = self._source_record_id(record)
                     errors.append(f"{record_id}: {exc}")
+                    resolution_updates.append({
+                        "id": source_record_id,
+                        "paper_id": None,
+                        "resolution_status": "failed",
+                        "matched_on": None,
+                        "resolution_error": str(exc)[:2000],
+                        "resolved_at": datetime.now(UTC),
+                    })
+
+            if normalized_entries:
+                try:
+                    resolved = await resolver.resolve_many([entry[1] for entry in normalized_entries])
+                    for (source_record_id, _bundle), result in zip(
+                        normalized_entries,
+                        resolved,
+                        strict=False,
+                    ):
+                        if result.created:
+                            papers_created += 1
+                            resolution_status = "created"
+                        else:
+                            papers_matched += 1
+                            resolution_status = "matched"
+                        dedupe_matches[result.matched_on] += 1
+                        resolution_updates.append({
+                            "id": source_record_id,
+                            "paper_id": result.paper_id,
+                            "resolution_status": resolution_status,
+                            "matched_on": result.matched_on,
+                            "resolution_error": None,
+                            "resolved_at": datetime.now(UTC),
+                        })
+                except Exception:
+                    # Fallback to single-record resolution to preserve per-record outcomes.
+                    for source_record_id, bundle in normalized_entries:
+                        try:
+                            result = await resolver.resolve(bundle)
+                            if result.created:
+                                papers_created += 1
+                                resolution_status = "created"
+                            else:
+                                papers_matched += 1
+                                resolution_status = "matched"
+                            dedupe_matches[result.matched_on] += 1
+                            resolution_updates.append({
+                                "id": source_record_id,
+                                "paper_id": result.paper_id,
+                                "resolution_status": resolution_status,
+                                "matched_on": result.matched_on,
+                                "resolution_error": None,
+                                "resolved_at": datetime.now(UTC),
+                            })
+                        except Exception as exc:
+                            papers_failed = int(stats["papers_failed"]) + 1
+                            stats["papers_failed"] = papers_failed
+                            errors.append(f"{source_record_id}: {exc}")
+                            resolution_updates.append({
+                                "id": source_record_id,
+                                "paper_id": None,
+                                "resolution_status": "failed",
+                                "matched_on": None,
+                                "resolution_error": str(exc)[:2000],
+                                "resolved_at": datetime.now(UTC),
+                            })
+
+            await self._apply_resolution_updates(resolution_updates)
 
             stats["papers_created"] = papers_created
             stats["papers_matched"] = papers_matched
@@ -168,7 +233,7 @@ class IngestionPipeline:
         run_id: UUID,
         organization_id: UUID,
         records: list[dict],
-    ) -> tuple[list[dict], int]:
+    ) -> tuple[list[tuple[UUID, dict]], int]:
         if not records:
             return [], 0
 
@@ -194,20 +259,32 @@ class IngestionPipeline:
             pg_insert(SourceRecord)
             .values(payload_rows)
             .on_conflict_do_nothing(
-                index_elements=["source", "source_record_id", "content_hash"]
+                index_elements=[
+                    "organization_id",
+                    "source",
+                    "source_record_id",
+                    "content_hash",
+                ]
             )
-            .returning(SourceRecord.source_record_id, SourceRecord.content_hash)
+            .returning(SourceRecord.id, SourceRecord.source_record_id, SourceRecord.content_hash)
         )
         result = await self.db.execute(stmt)
-        inserted_keys = {(row[0], row[1]) for row in result.fetchall()}
+        inserted_rows = result.fetchall()
+        inserted_keys = {(row[1], row[2]): row[0] for row in inserted_rows}
 
-        inserted_records: list[dict] = []
+        inserted_records: list[tuple[UUID, dict]] = []
         for record, key in zip(records, lookup_order, strict=False):
-            if key in inserted_keys:
-                inserted_records.append(record)
+            source_record_row_id = inserted_keys.get(key)
+            if source_record_row_id is not None:
+                inserted_records.append((source_record_row_id, record))
 
         duplicate_count = len(records) - len(inserted_records)
         return inserted_records, duplicate_count
+
+    async def _apply_resolution_updates(self, updates: list[dict[str, object]]) -> None:
+        if not updates:
+            return
+        await self.db.execute(update(SourceRecord), updates)
 
     def _content_hash(self, payload: dict) -> str:
         serialized = json.dumps(payload, sort_keys=True, default=str, separators=(",", ":"))

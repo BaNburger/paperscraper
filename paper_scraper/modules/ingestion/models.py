@@ -13,6 +13,7 @@ from paper_scraper.core.database import Base
 
 if TYPE_CHECKING:
     from paper_scraper.modules.auth.models import Organization, User
+    from paper_scraper.modules.papers.models import Paper
 
 
 class IngestRunStatus(str, enum.Enum):
@@ -92,10 +93,10 @@ class SourceRecord(Base):
     source: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     source_record_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     content_hash: Mapped[str] = mapped_column(String(128), nullable=False)
-    organization_id: Mapped[UUID | None] = mapped_column(
+    organization_id: Mapped[UUID] = mapped_column(
         Uuid,
         ForeignKey("organizations.id", ondelete="CASCADE"),
-        nullable=True,
+        nullable=False,
         index=True,
     )
     ingest_run_id: Mapped[UUID] = mapped_column(
@@ -104,7 +105,17 @@ class SourceRecord(Base):
         nullable=False,
         index=True,
     )
+    paper_id: Mapped[UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("papers.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    resolution_status: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    matched_on: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    resolution_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     raw_payload_json: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     fetched_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -118,14 +129,17 @@ class SourceRecord(Base):
 
     ingest_run: Mapped["IngestRun"] = relationship("IngestRun", back_populates="source_records")
     organization: Mapped["Organization | None"] = relationship("Organization")
+    paper: Mapped["Paper | None"] = relationship("Paper")
 
     __table_args__ = (
         UniqueConstraint(
+            "organization_id",
             "source",
             "source_record_id",
             "content_hash",
-            name="uq_source_records_source_id_hash",
+            name="uq_source_records_org_source_id_hash",
         ),
+        Index("ix_source_records_run_resolution", "ingest_run_id", "resolution_status"),
     )
 
     def __repr__(self) -> str:

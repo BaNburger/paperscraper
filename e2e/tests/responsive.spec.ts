@@ -40,13 +40,19 @@ test.describe("Responsive Design - Dashboard", () => {
 
   test("stats cards stack on mobile", async ({ page }) => {
     await page.setViewportSize(viewports.mobile);
-    await expect(page.getByText(/total papers/i)).toBeVisible();
-    await expect(page.getByText(/active projects/i)).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 3, name: /total papers/i })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 3, name: /active projects/i })
+    ).toBeVisible();
   });
 
   test("stats cards are horizontal on desktop", async ({ page }) => {
     await page.setViewportSize(viewports.desktop);
-    await expect(page.getByText(/total papers/i)).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 3, name: /total papers/i })
+    ).toBeVisible();
   });
 });
 
@@ -111,13 +117,17 @@ test.describe("Responsive Design - Projects Page", () => {
 
   test("mobile: header and button visible", async ({ page }) => {
     await page.setViewportSize(viewports.mobile);
-    await expect(page.getByRole("heading", { level: 1, name: /projects/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /new project/i })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 1, name: /research groups/i })
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: /new research group/i })).toBeVisible();
   });
 
   test("tablet: grid layout works", async ({ page }) => {
     await page.setViewportSize(viewports.tablet);
-    await expect(page.getByRole("heading", { level: 1, name: /projects/i })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 1, name: /research groups/i })
+    ).toBeVisible();
   });
 });
 
@@ -137,7 +147,9 @@ test.describe("Responsive Design - Analytics Page", () => {
 
   test("tablet: export buttons visible", async ({ page }) => {
     await page.setViewportSize(viewports.tablet);
-    await expect(page.getByRole("button", { name: /export csv/i })).toBeVisible();
+    // Analytics renders a loading skeleton first; wait for the real page header.
+    await expect(page.getByRole("heading", { level: 1, name: /analytics/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /csv|export/i }).first()).toBeVisible();
   });
 
   test("large desktop: side-by-side charts", async ({ page }) => {
@@ -178,7 +190,7 @@ test.describe("Responsive Design - Groups Page", () => {
 
   test("mobile: master-detail switches to list only", async ({ page }) => {
     await page.setViewportSize(viewports.mobile);
-    await expect(page.getByRole("heading", { level: 1, name: /researcher groups/i })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: /groups/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /new group/i })).toBeVisible();
   });
 
@@ -204,7 +216,9 @@ test.describe("Responsive Design - Badges Page", () => {
 
   test("tablet: badge grid adapts", async ({ page }) => {
     await page.setViewportSize(viewports.tablet);
-    await expect(page.getByRole("button", { name: /check for new badges/i })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /check for new( badges)?/i })
+    ).toBeVisible();
   });
 
   test("large desktop: 4-column stats grid", async ({ page }) => {
@@ -261,13 +275,13 @@ test.describe("Responsive Design - Navigation", () => {
     await page.setViewportSize(viewports.desktop);
 
     const sidebar = page.locator("aside");
-    await sidebar.getByRole("link", { name: /papers/i }).click();
+    await sidebar.getByRole("link", { name: /^papers$/i }).click();
     await expect(page).toHaveURL(/\/papers/);
 
-    await sidebar.getByRole("link", { name: /search/i }).click();
+    await sidebar.getByRole("link", { name: /^search$/i }).click();
     await expect(page).toHaveURL(/\/search/);
 
-    await sidebar.getByRole("link", { name: /analytics/i }).click();
+    await sidebar.getByRole("link", { name: /^analytics$/i }).click();
     await expect(page).toHaveURL(/\/analytics/);
   });
 });
@@ -283,7 +297,7 @@ test.describe("Responsive Design - Dialogs", () => {
     await page.goto("/projects");
     await page.waitForLoadState("networkidle");
 
-    await page.getByRole("button", { name: /new project/i }).click();
+    await page.getByRole("button", { name: /new research group/i }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
 
     // Dialog should be properly sized
@@ -300,7 +314,7 @@ test.describe("Responsive Design - Dialogs", () => {
     await page.goto("/projects");
     await page.waitForLoadState("networkidle");
 
-    await page.getByRole("button", { name: /new project/i }).click();
+    await page.getByRole("button", { name: /new research group/i }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
   });
 });

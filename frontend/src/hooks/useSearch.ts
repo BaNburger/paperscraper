@@ -1,10 +1,11 @@
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { searchApi } from '@/lib/api'
+import { queryKeys } from '@/config/queryKeys'
 import type { SearchRequest } from '@/types'
 
 export function useSearch(params: SearchRequest, enabled = true) {
   return useQuery({
-    queryKey: ['search', params],
+    queryKey: queryKeys.search.query(params),
     queryFn: () => searchApi.search(params),
     enabled: enabled && !!params.query,
   })
@@ -18,7 +19,7 @@ export function useSearchMutation() {
 
 export function useSimilarPapers(paperId: string, limit = 5) {
   return useQuery({
-    queryKey: ['similarPapers', paperId, limit],
+    queryKey: queryKeys.papers.similar(paperId, limit),
     queryFn: () => searchApi.findSimilar(paperId, { limit }),
     enabled: !!paperId,
   })
@@ -26,7 +27,7 @@ export function useSimilarPapers(paperId: string, limit = 5) {
 
 export function useEmbeddingStats() {
   return useQuery({
-    queryKey: ['embeddingStats'],
+    queryKey: queryKeys.search.embeddingStats(),
     queryFn: () => searchApi.getEmbeddingStats(),
   })
 }

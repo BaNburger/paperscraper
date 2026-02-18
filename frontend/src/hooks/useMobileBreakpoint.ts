@@ -9,25 +9,14 @@ export function useMobileBreakpoint() {
   })
 
   useEffect(() => {
-    // Use matchMedia for more efficient listening
     const mediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
 
-    // Named handler to ensure proper cleanup
     const handleChange = (e: MediaQueryListEvent) => setIsMobile(e.matches)
-    const handleResize = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
 
-    // Set initial value
     setIsMobile(mediaQuery.matches)
 
-    // Modern browsers
-    if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener('change', handleChange)
-      return () => mediaQuery.removeEventListener('change', handleChange)
-    } else {
-      // Fallback for older browsers
-      window.addEventListener('resize', handleResize)
-      return () => window.removeEventListener('resize', handleResize)
-    }
+    mediaQuery.addEventListener('change', handleChange)
+    return () => mediaQuery.removeEventListener('change', handleChange)
   }, [])
 
   return isMobile

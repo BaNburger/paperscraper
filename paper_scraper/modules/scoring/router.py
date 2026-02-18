@@ -17,7 +17,6 @@ from paper_scraper.jobs.payloads import BatchScoringJobPayload
 from paper_scraper.jobs.worker import enqueue_job
 from paper_scraper.modules.scoring.classifier import PaperClassifier
 from paper_scraper.modules.scoring.schemas import (
-    BatchScoreRequest,
     ClassificationResponse,
     EmbeddingResponse,
     GenerateEmbeddingRequest,
@@ -27,10 +26,6 @@ from paper_scraper.modules.scoring.schemas import (
     ScoringJobCreateRequest,
     ScoringJobListResponse,
     ScoringJobResponse,
-    ScoringPolicyCreate,
-    ScoringPolicyListResponse,
-    ScoringPolicyResponse,
-    ScoringPolicyUpdate,
 )
 from paper_scraper.modules.scoring.service import ScoringService
 
@@ -215,53 +210,6 @@ async def create_scoring_job(
     return ScoringJobResponse.model_validate(job)
 
 
-@router.post(
-    "/batch",
-    response_model=ScoringJobResponse,
-    status_code=status.HTTP_202_ACCEPTED,
-    summary="Start batch scoring job",
-    dependencies=[Depends(require_permission(Permission.SCORING_TRIGGER))],
-)
-async def batch_score(
-    request: BatchScoreRequest,
-    current_user: CurrentUser,
-    scoring_service: Annotated[ScoringService, Depends(get_scoring_service)],
-) -> ScoringJobResponse:
-    """
-    Start a batch scoring job for multiple papers.
-
-    Papers are scored asynchronously via background job queue.
-    """
-    # Create job record
-    job = await scoring_service.create_batch_job(
-        paper_ids=request.paper_ids,
-        organization_id=current_user.organization_id,
-        job_type="batch",
-    )
-
-    payload = BatchScoringJobPayload(
-        job_id=job.id,
-        organization_id=current_user.organization_id,
-        paper_ids=request.paper_ids,
-        weights=request.weights,
-    )
-
-    # Enqueue arq job
-    arq_job = await enqueue_job(
-        "score_papers_batch_task",
-        str(payload.job_id),
-        str(payload.organization_id),
-        [str(pid) for pid in payload.paper_ids],
-        payload.weights.model_dump() if payload.weights else None,
-    )
-
-    # Update job with arq reference
-    job.arq_job_id = arq_job.job_id if arq_job else None
-    await scoring_service.db.commit()
-
-    return ScoringJobResponse.model_validate(job)
-
-
 @router.get(
     "/jobs",
     response_model=ScoringJobListResponse,
@@ -304,66 +252,6 @@ async def get_job(
 
 
 # =============================================================================
-# Scoring Policy Endpoints
-# =============================================================================
-
-
-@router.get(
-    "/policies",
-    response_model=ScoringPolicyListResponse,
-    summary="List scoring policies",
-    dependencies=[Depends(require_permission(Permission.SETTINGS_ADMIN))],
-)
-async def list_scoring_policies(
-    current_user: CurrentUser,
-    scoring_service: Annotated[ScoringService, Depends(get_scoring_service)],
-) -> ScoringPolicyListResponse:
-    """List scoring policies for the current organization."""
-    return await scoring_service.list_policies(current_user.organization_id)
-
-
-@router.post(
-    "/policies",
-    response_model=ScoringPolicyResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Create scoring policy",
-    dependencies=[Depends(require_permission(Permission.SETTINGS_ADMIN))],
-)
-async def create_scoring_policy(
-    data: ScoringPolicyCreate,
-    current_user: CurrentUser,
-    scoring_service: Annotated[ScoringService, Depends(get_scoring_service)],
-) -> ScoringPolicyResponse:
-    """Create a scoring policy for model/provider selection."""
-    policy = await scoring_service.create_policy(
-        organization_id=current_user.organization_id,
-        data=data,
-    )
-    return ScoringPolicyResponse.model_validate(policy)
-
-
-@router.patch(
-    "/policies/{policy_id}",
-    response_model=ScoringPolicyResponse,
-    summary="Update scoring policy",
-    dependencies=[Depends(require_permission(Permission.SETTINGS_ADMIN))],
-)
-async def update_scoring_policy(
-    policy_id: UUID,
-    data: ScoringPolicyUpdate,
-    current_user: CurrentUser,
-    scoring_service: Annotated[ScoringService, Depends(get_scoring_service)],
-) -> ScoringPolicyResponse:
-    """Update an existing scoring policy."""
-    policy = await scoring_service.update_policy(
-        policy_id=policy_id,
-        organization_id=current_user.organization_id,
-        data=data,
-    )
-    return ScoringPolicyResponse.model_validate(policy)
-
-
-# =============================================================================
 # Embedding Endpoints
 # =============================================================================
 
@@ -399,31 +287,6 @@ async def generate_embedding(
         embedding_dimensions=1536,
         message="Embedding generated" if generated else "Embedding already exists",
     )
-
-
-@router.post(
-    "/embeddings/backfill",
-    response_model=dict,
-    summary="Backfill embeddings for papers",
-)
-async def backfill_embeddings(
-    current_user: CurrentUser,
-    scoring_service: Annotated[ScoringService, Depends(get_scoring_service)],
-    limit: int = Query(default=100, ge=1, le=1000),
-) -> dict:
-    """
-    Generate embeddings for papers that don't have them.
-
-    Useful for backfilling after bulk imports.
-    """
-    count = await scoring_service.batch_generate_embeddings(
-        organization_id=current_user.organization_id,
-        limit=limit,
-    )
-    return {
-        "embeddings_generated": count,
-        "message": f"Generated {count} embeddings",
-    }
 
 
 # =============================================================================

@@ -9,7 +9,7 @@ interface AuthContextType {
   isAuthenticated: boolean
   login: (data: LoginRequest) => Promise<void>
   register: (data: RegisterRequest) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
   refreshUser: () => Promise<void>
 }
 
@@ -46,10 +46,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(userData)
   }
 
-  const logout = () => {
-    authApi.logout().catch(() => {
+  const logout = async () => {
+    try {
+      await authApi.logout()
+    } catch {
       // Ignore logout API failures and clear client state anyway.
-    })
+    }
     setUser(null)
     queryClient.clear()
   }

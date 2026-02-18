@@ -1,10 +1,27 @@
 import { test, expect, registerUser, generateTestUser } from "./fixtures";
+import type { Page } from "@playwright/test";
+
+async function runSearchAndWaitForCompletion(
+  page: Page,
+  query: string
+) {
+  const searchInput = page.getByPlaceholder(/search for papers/i);
+  const searchButton = page.getByRole("button", { name: /^search$/i }).first();
+  await searchInput.fill(query);
+  await searchButton.click();
+  await expect(searchButton).toBeEnabled({ timeout: 20000 });
+}
 
 test.describe("Search Page", () => {
+  test.describe.configure({ timeout: 90000 });
+
   test.beforeEach(async ({ page }) => {
     const user = generateTestUser();
     await registerUser(page, user);
-    await page.goto("/search");
+    await page.goto("/search", { waitUntil: "domcontentloaded", timeout: 60000 });
+    await expect(page.getByRole("heading", { level: 1, name: /search/i })).toBeVisible({
+      timeout: 20000,
+    });
   });
 
   test.describe("Page Structure", () => {
@@ -103,22 +120,18 @@ test.describe("Search Page", () => {
     });
 
     test("can submit search with button click", async ({ page }) => {
-      await page.getByPlaceholder(/search for papers/i).fill("test query");
-      await page.getByRole("button", { name: /^search$/i }).first().click();
-      await page.waitForLoadState("networkidle");
-
-      // Search API may fail - accept results, no results, or initial state
-      const hasResults = await page.getByText(/found \d+ results/i).isVisible().catch(() => false);
-      const hasNoResults = await page.getByText(/no results found/i).isVisible().catch(() => false);
-      const hasInitialState = await page.getByText(/start searching/i).isVisible().catch(() => false);
-      expect(hasResults || hasNoResults || hasInitialState).toBeTruthy();
+      await runSearchAndWaitForCompletion(page, "test query");
+      await expect(
+        page.getByText(/found \d+ results|no results found|start searching/i).first()
+      ).toBeVisible();
     });
 
     test("can submit search with Enter key", async ({ page }) => {
       const searchInput = page.getByPlaceholder(/search for papers/i);
+      const searchButton = page.getByRole("button", { name: /^search$/i }).first();
       await searchInput.fill("test query");
       await searchInput.press("Enter");
-      await page.waitForLoadState("networkidle");
+      await expect(searchButton).toBeEnabled({ timeout: 20000 });
     });
 
     test("does not search with empty query", async ({ page }) => {
@@ -129,58 +142,57 @@ test.describe("Search Page", () => {
 
   test.describe("Search Results", () => {
     test("shows results count after search", async ({ page }) => {
-      await page.getByPlaceholder(/search for papers/i).fill("test");
-      await page.getByRole("button", { name: /^search$/i }).first().click();
-      await page.waitForLoadState("networkidle");
-
-      // Search API may fail - accept results or initial state
-      const hasResults = await page
-        .getByText(/found \d+ results|no results found/i)
-        .first()
-        .isVisible({ timeout: 15000 })
-        .catch(() => false);
-      const hasInitialState = await page.getByText(/start searching/i).isVisible().catch(() => false);
-      expect(hasResults || hasInitialState).toBeTruthy();
+      await runSearchAndWaitForCompletion(page, "test");
+      await expect(
+        page.getByText(/found \d+ results|no results found|start searching/i).first()
+      ).toBeVisible();
     });
 
     test("shows search mode in results", async ({ page }) => {
-      await page.getByPlaceholder(/search for papers/i).fill("test");
-      await page.getByRole("button", { name: /^search$/i }).first().click();
-      await page.waitForLoadState("networkidle");
+      await runSearchAndWaitForCompletion(page, "test");
 
       const hasModeText = await page
         .getByText(/using (hybrid|fulltext|semantic) search/i)
         .isVisible({ timeout: 15000 })
         .catch(() => false);
+      const hasNoResults = await page.getByText(/no results found/i).isVisible().catch(() => false);
       const hasInitialState = await page.getByText(/start searching/i).isVisible().catch(() => false);
-      expect(hasModeText || hasInitialState).toBeTruthy();
+      expect(hasModeText || hasNoResults || hasInitialState).toBeTruthy();
     });
 
     test('shows "Try Semantic Search" suggestion when no results', async ({ page }) => {
-      await page.getByPlaceholder(/search for papers/i).fill("xyznonexistentquery123");
-      await page.getByRole("button", { name: /^search$/i }).first().click();
-      await page.waitForLoadState("networkidle");
+      await runSearchAndWaitForCompletion(page, "xyznonexistentquery123");
 
       const noResultsState = page.getByText(/no results found/i);
       if (await noResultsState.isVisible().catch(() => false)) {
         await expect(
           page.getByRole("button", { name: /try semantic search/i })
         ).toBeVisible();
+      } else {
+        const hasInitialState = await page.getByText(/start searching/i).isVisible().catch(() => false);
+        const hasResults = await page
+          .getByText(/found \d+ results/i)
+          .isVisible()
+          .catch(() => false);
+        expect(hasInitialState || hasResults).toBeTruthy();
       }
     });
   });
 
   test.describe("Loading States", () => {
     test("shows loading indicator during search", async ({ page }) => {
-      await page.getByPlaceholder(/search for papers/i).fill("machine learning");
+      const searchInput = page.getByPlaceholder(/search for papers/i);
+      const searchButton = page.getByRole("button", { name: /^search$/i }).first();
+      await searchInput.fill("machine learning");
 
       await page.route("**/api/v1/search*", async (route) => {
         await new Promise((resolve) => setTimeout(resolve, 1000));
         route.continue();
       });
 
-      await page.getByRole("button", { name: /^search$/i }).first().click();
-      await page.waitForLoadState("networkidle");
+      await searchButton.click();
+      await expect(searchButton).toBeDisabled();
+      await expect(searchButton).toBeEnabled({ timeout: 10000 });
     });
   });
 

@@ -1,12 +1,40 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
-// Helper regex that accepts "/" (home), "/dashboard", or "/onboarding" as valid post-auth destinations
-const AUTHENTICATED_URL_PATTERN = /localhost:3000\/?$|\/dashboard|\/onboarding/;
+// Accept any host, with "/", "/dashboard", or "/onboarding" as valid post-auth destinations.
+const AUTHENTICATED_URL_PATTERN =
+  /^https?:\/\/[^/]+(?:\/?$|\/dashboard(?:[/?#]|$)|\/onboarding(?:[/?#]|$))/;
+const AUTH_REDIRECT_TIMEOUT_MS = 30000;
+
+test.describe.configure({ mode: "serial" });
+
+function uniqueSeed(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+async function logoutViaUserMenu(page: Page, userName: RegExp) {
+  const namedUserButton = page.getByRole("button", { name: userName }).first();
+  if (await namedUserButton.isVisible().catch(() => false)) {
+    await namedUserButton.click();
+  } else {
+    const compactUserButton = page
+      .locator("header button")
+      .filter({ has: page.locator("svg.lucide-user") })
+      .first();
+    await expect(compactUserButton).toBeVisible({ timeout: 10000 });
+    await compactUserButton.click();
+  }
+
+  const logoutButton = page.getByRole("menuitem", {
+    name: /log ?out|logout|sign out|abmelden/i,
+  });
+  await expect(logoutButton).toBeVisible({ timeout: 10000 });
+  await logoutButton.click();
+}
 
 test.describe("Authentication", () => {
   test.describe("Registration", () => {
     test("user can register with valid credentials", async ({ page }) => {
-      const uniqueEmail = `test-${Date.now()}@example.com`;
+      const uniqueEmail = `test-${uniqueSeed()}@example.com`;
 
       await page.goto("/register");
 
@@ -20,7 +48,9 @@ test.describe("Authentication", () => {
       await page.click('button[type="submit"]');
 
       // Should redirect to dashboard after successful registration
-      await expect(page).toHaveURL(AUTHENTICATED_URL_PATTERN, { timeout: 15000 });
+      await expect(page).toHaveURL(AUTHENTICATED_URL_PATTERN, {
+        timeout: AUTH_REDIRECT_TIMEOUT_MS,
+      });
 
       // User should see dashboard content (heading or welcome message)
       await expect(
@@ -50,7 +80,7 @@ test.describe("Authentication", () => {
       await page.goto("/register");
 
       await page.fill('[name="full_name"]', "Test User");
-      await page.fill('[name="email"]', `weak-pwd-${Date.now()}@example.com`);
+      await page.fill('[name="email"]', `weak-pwd-${uniqueSeed()}@example.com`);
       await page.fill('[name="organization_name"]', "Test Org");
       await page.fill('[name="password"]', "weak");
 
@@ -69,29 +99,23 @@ test.describe("Authentication", () => {
   test.describe("Login", () => {
     test("user can login with valid credentials", async ({ page }) => {
       // First register a user
-      const uniqueEmail = `login-test-${Date.now()}@example.com`;
+      const uniqueEmail = `login-test-${uniqueSeed()}@example.com`;
+      const fullName = "Login Test User";
 
       await page.goto("/register");
-      await page.fill('[name="full_name"]', "Login Test User");
+      await page.fill('[name="full_name"]', fullName);
       await page.fill('[name="email"]', uniqueEmail);
       await page.fill('[name="organization_name"]', "Login Test Org");
       await page.fill('[name="password"]', "SecurePass123!");
       await page.click('button[type="submit"]');
 
-      await expect(page).toHaveURL(AUTHENTICATED_URL_PATTERN, { timeout: 15000 });
+      await expect(page).toHaveURL(AUTHENTICATED_URL_PATTERN, {
+        timeout: AUTH_REDIRECT_TIMEOUT_MS,
+      });
 
-      // Logout - find the user menu (could be a button or dropdown)
-      const userMenuButton = page.locator('[data-testid="user-menu"]').or(
-        page.getByRole('button', { name: /user|account|profile|menu/i })
-      );
-      await userMenuButton.click();
+      await logoutViaUserMenu(page, /login test user/i);
 
-      const logoutButton = page.locator('[data-testid="logout"]').or(
-        page.getByRole('menuitem', { name: /logout|sign out/i })
-      ).or(page.getByText('Log out'));
-      await logoutButton.click();
-
-      await expect(page).toHaveURL(/\/login/);
+      await expect(page).toHaveURL(/\/login/, { timeout: 20000 });
 
       // Login with the same credentials
       await page.fill('[name="email"]', uniqueEmail);
@@ -99,7 +123,9 @@ test.describe("Authentication", () => {
       await page.click('button[type="submit"]');
 
       // Should redirect to dashboard
-      await expect(page).toHaveURL(AUTHENTICATED_URL_PATTERN, { timeout: 15000 });
+      await expect(page).toHaveURL(AUTHENTICATED_URL_PATTERN, {
+        timeout: AUTH_REDIRECT_TIMEOUT_MS,
+      });
     });
 
     test("shows error for invalid credentials", async ({ page }) => {
@@ -124,7 +150,7 @@ test.describe("Authentication", () => {
       await page.goto("/dashboard");
 
       // Should redirect to login
-      await expect(page).toHaveURL(/\/login/);
+      await expect(page).toHaveURL(/\/login/, { timeout: 20000 });
     });
   });
 
@@ -155,7 +181,7 @@ test.describe("Authentication", () => {
 
   test.describe("Session Management", () => {
     test("maintains session after page reload", async ({ page }) => {
-      const uniqueEmail = `session-test-${Date.now()}@example.com`;
+      const uniqueEmail = `session-test-${uniqueSeed()}@example.com`;
 
       // Register and login
       await page.goto("/register");
@@ -165,39 +191,37 @@ test.describe("Authentication", () => {
       await page.fill('[name="password"]', "SecurePass123!");
       await page.click('button[type="submit"]');
 
-      await expect(page).toHaveURL(AUTHENTICATED_URL_PATTERN, { timeout: 15000 });
+      await expect(page).toHaveURL(AUTHENTICATED_URL_PATTERN, {
+        timeout: AUTH_REDIRECT_TIMEOUT_MS,
+      });
 
       // Reload page
       await page.reload();
 
       // Should still be authenticated (not redirected to login)
       await expect(page).not.toHaveURL(/\/login/);
-      await expect(page).toHaveURL(AUTHENTICATED_URL_PATTERN, { timeout: 5000 });
+      await expect(page).toHaveURL(AUTHENTICATED_URL_PATTERN, {
+        timeout: AUTH_REDIRECT_TIMEOUT_MS,
+      });
     });
 
     test("logout clears session", async ({ page }) => {
-      const uniqueEmail = `logout-test-${Date.now()}@example.com`;
+      const uniqueEmail = `logout-test-${uniqueSeed()}@example.com`;
+      const fullName = "Logout Test User";
 
       // Register
       await page.goto("/register");
-      await page.fill('[name="full_name"]', "Logout Test User");
+      await page.fill('[name="full_name"]', fullName);
       await page.fill('[name="email"]', uniqueEmail);
       await page.fill('[name="organization_name"]', "Logout Test Org");
       await page.fill('[name="password"]', "SecurePass123!");
       await page.click('button[type="submit"]');
 
-      await expect(page).toHaveURL(AUTHENTICATED_URL_PATTERN, { timeout: 15000 });
+      await expect(page).toHaveURL(AUTHENTICATED_URL_PATTERN, {
+        timeout: AUTH_REDIRECT_TIMEOUT_MS,
+      });
 
-      // Logout - find the user menu
-      const userMenuButton = page.locator('[data-testid="user-menu"]').or(
-        page.getByRole('button', { name: /user|account|profile|menu/i })
-      );
-      await userMenuButton.click();
-
-      const logoutButton = page.locator('[data-testid="logout"]').or(
-        page.getByRole('menuitem', { name: /logout|sign out/i })
-      ).or(page.getByText('Log out'));
-      await logoutButton.click();
+      await logoutViaUserMenu(page, /logout test user/i);
 
       await expect(page).toHaveURL(/\/login/);
 
@@ -205,14 +229,14 @@ test.describe("Authentication", () => {
       await page.goto("/dashboard");
 
       // Should redirect to login
-      await expect(page).toHaveURL(/\/login/);
+      await expect(page).toHaveURL(/\/login/, { timeout: 20000 });
     });
   });
 });
 
 test.describe("Team Invitations", () => {
   test("admin can access team management page", async ({ page }) => {
-    const uniqueEmail = `admin-${Date.now()}@example.com`;
+    const uniqueEmail = `admin-${uniqueSeed()}@example.com`;
 
     // Register as admin
     await page.goto("/register");
@@ -222,16 +246,18 @@ test.describe("Team Invitations", () => {
     await page.fill('[name="password"]', "SecurePass123!");
     await page.click('button[type="submit"]');
 
-    await expect(page).toHaveURL(AUTHENTICATED_URL_PATTERN, { timeout: 15000 });
+    await expect(page).toHaveURL(AUTHENTICATED_URL_PATTERN, {
+      timeout: AUTH_REDIRECT_TIMEOUT_MS,
+    });
 
-    // Navigate to team settings via sidebar
-    const teamLink = page.getByRole('link', { name: /team/i }).or(
-      page.locator('a[href="/team"]')
-    );
-    await teamLink.click();
+    // Navigate directly to team page to support collapsed mobile navigation layouts
+    await page.goto("/team");
 
     // Should see team management page content
     await expect(page).toHaveURL(/\/team/);
-    await expect(page.getByText(/team|members|invite/i).first()).toBeVisible();
+    await expect(
+      page.locator("main").getByRole("heading", { level: 1, name: /team members/i })
+    ).toBeVisible();
+    await expect(page.locator("main").getByRole("button", { name: /invite member/i })).toBeVisible();
   });
 });

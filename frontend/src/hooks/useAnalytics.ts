@@ -1,12 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { analyticsApi, exportApi } from '@/lib/api'
+import { queryKeys } from '@/config/queryKeys'
 import type { ExportFormat } from '@/types'
 
 const ANALYTICS_STALE_TIME = 60000 // 1 minute
 
 export function useDashboardSummary() {
   return useQuery({
-    queryKey: ['analytics', 'dashboard'],
+    queryKey: queryKeys.analytics.dashboard(),
     queryFn: () => analyticsApi.getDashboardSummary(),
     staleTime: ANALYTICS_STALE_TIME,
   })
@@ -14,7 +15,7 @@ export function useDashboardSummary() {
 
 export function useTeamOverview() {
   return useQuery({
-    queryKey: ['analytics', 'team'],
+    queryKey: queryKeys.analytics.team(),
     queryFn: () => analyticsApi.getTeamOverview(),
     staleTime: ANALYTICS_STALE_TIME,
   })
@@ -22,7 +23,7 @@ export function useTeamOverview() {
 
 export function usePaperAnalytics(days = 90) {
   return useQuery({
-    queryKey: ['analytics', 'papers', days],
+    queryKey: queryKeys.analytics.papers(days),
     queryFn: () => analyticsApi.getPaperAnalytics({ days }),
     staleTime: ANALYTICS_STALE_TIME,
   })
@@ -34,7 +35,7 @@ export function useFunnelAnalytics(params?: {
   end_date?: string
 }) {
   return useQuery({
-    queryKey: ['analytics', 'funnel', params],
+    queryKey: queryKeys.analytics.funnel(params),
     queryFn: () => analyticsApi.getFunnelAnalytics(params),
     staleTime: ANALYTICS_STALE_TIME,
   })
@@ -42,7 +43,7 @@ export function useFunnelAnalytics(params?: {
 
 export function useBenchmarks() {
   return useQuery({
-    queryKey: ['analytics', 'benchmarks'],
+    queryKey: queryKeys.analytics.benchmarks(),
     queryFn: () => analyticsApi.getBenchmarks(),
     staleTime: ANALYTICS_STALE_TIME,
   })

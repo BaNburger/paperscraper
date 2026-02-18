@@ -1,113 +1,88 @@
 import { test, expect, registerUser, generateTestUser, Page } from "./fixtures";
 
-/** Create a project via the dialog UI. Returns the project name. */
+/** Create a research group via the projects dialog. */
 async function createProject(page: Page, name?: string): Promise<string> {
-  const projectName = name ?? `Project ${Date.now()}`;
-  await page.getByRole("button", { name: /new project/i }).click();
-  await page.getByLabel(/project name/i).fill(projectName);
-  await page.getByRole("dialog").getByRole("button", { name: /create project/i }).click();
+  const projectName = name ?? `Research Group ${Date.now()}`;
+  await page.getByRole("button", { name: /new research group|new group/i }).click();
+  await page.getByLabel(/group name/i).fill(projectName);
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: /create research group|create group/i })
+    .click();
   await expect(page.getByRole("dialog")).toBeHidden({ timeout: 10000 });
-  await expect(page.locator('a[href*="/projects/"]').first()).toBeVisible({ timeout: 5000 });
+  await expect(
+    page.getByRole("link", { name: new RegExp(projectName, "i") }).first()
+  ).toBeVisible({ timeout: 10000 });
   return projectName;
 }
 
-/** Navigate to a project's kanban board */
-async function goToProjectKanban(page: Page): Promise<void> {
-  // Click the first project card
-  await page.locator('a[href*="/projects/"]').first().click();
+/** Navigate from projects list to the created project's detail page. */
+async function goToProjectDetail(page: Page, projectName: string): Promise<void> {
+  await page.getByRole("link", { name: new RegExp(projectName, "i") }).first().click();
   await expect(page).toHaveURL(/\/projects\/[^/]+$/);
 }
 
 test.describe("Project KanBan Page", () => {
+  let projectName: string;
+
   test.beforeEach(async ({ page }) => {
     const user = generateTestUser();
     await registerUser(page, user);
-    // First create a project
     await page.goto("/projects");
-    await page.waitForLoadState("networkidle");
-    await createProject(page);
-    await goToProjectKanban(page);
+    projectName = await createProject(page);
+    await goToProjectDetail(page, projectName);
   });
 
   test.describe("Page Structure", () => {
     test("displays project name in header", async ({ page }) => {
-      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await expect(
+        page.getByRole("heading", { level: 1, name: new RegExp(projectName, "i") })
+      ).toBeVisible();
     });
 
     test("displays back button", async ({ page }) => {
-      await expect(page.locator('svg[class*="ArrowLeft"]').first()).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: /back to research groups/i })
+      ).toBeVisible();
     });
 
     test("can navigate back to projects list", async ({ page }) => {
-      await page.locator("button").filter({ has: page.locator('svg[class*="ArrowLeft"]') }).first().click();
+      await page.getByRole("button", { name: /back to research groups/i }).click();
       await expect(page).toHaveURL(/\/projects/);
     });
   });
 
-  test.describe("KanBan Board", () => {
-    test("displays kanban columns", async ({ page }) => {
-      // Should have multiple stage columns
-      const columns = page.locator(".w-80.shrink-0");
-      await expect(columns.first()).toBeVisible();
+  test.describe("Cluster State", () => {
+    test("shows empty cluster state for a new research group", async ({ page }) => {
+      await expect(page.getByText(/no clusters yet/i)).toBeVisible();
+      await expect(page.getByText(/import papers|sync this research group/i)).toBeVisible();
     });
 
-    test("displays default stages", async ({ page }) => {
-      // Default stages: inbox, screening, evaluation, outreach, archived
-      await expect(page.getByText("Inbox", { exact: true })).toBeVisible();
-      await expect(page.getByText("Screening", { exact: true })).toBeVisible();
-      await expect(page.getByText("Evaluation", { exact: true })).toBeVisible();
+    test("shows Sync button", async ({ page }) => {
+      await expect(page.getByRole("button", { name: /^sync$/i }).first()).toBeVisible();
     });
 
-    test("shows paper count badges on columns", async ({ page }) => {
-      // Each column should have a count badge
-      const badges = page.locator(".w-80 .rounded-t-lg").locator(".bg-secondary");
-      await expect(badges.first()).toBeVisible();
-    });
-
-    test("shows empty message when no papers in stage", async ({ page }) => {
-      await expect(page.getByText(/no papers in this stage/i).first()).toBeVisible();
-    });
-  });
-
-  test.describe("Empty State", () => {
-    test("shows empty state when all columns are empty", async ({ page }) => {
-      // For a new project, all columns should be empty
-      await expect(page.getByText(/no papers in this project/i)).toBeVisible();
-    });
-
-    test("shows Browse Papers button in empty state", async ({ page }) => {
-      await expect(page.getByRole("button", { name: /browse papers/i })).toBeVisible();
-    });
-
-    test("Browse Papers button navigates to papers page", async ({ page }) => {
-      await page.getByRole("button", { name: /browse papers/i }).click();
-      await expect(page).toHaveURL(/\/papers/);
+    test("sync action button is enabled", async ({ page }) => {
+      await expect(page.getByRole("button", { name: /^sync$/i }).first()).toBeEnabled();
     });
   });
 
   test.describe("Project Statistics", () => {
     test("displays paper count", async ({ page }) => {
-      await expect(page.getByText(/\d+ papers/i)).toBeVisible();
-    });
-  });
-
-  test.describe("Drag and Drop", () => {
-    test("columns have sortable context", async ({ page }) => {
-      // Verify sortable columns exist (they have min-height)
-      const dropZones = page.locator(".min-h-\\[200px\\]");
-      await expect(dropZones.first()).toBeVisible();
+      await expect(page.getByText(/\d+\s+papers/i).first()).toBeVisible();
     });
   });
 
   test.describe("Responsive Design", () => {
-    test("kanban board is horizontally scrollable on tablet", async ({ page }) => {
+    test("project detail view is usable on tablet", async ({ page }) => {
       await page.setViewportSize({ width: 768, height: 1024 });
-      await expect(page.locator(".overflow-x-auto")).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await expect(page.getByRole("button", { name: /^sync$/i }).first()).toBeVisible();
     });
 
-    test("kanban board is horizontally scrollable on mobile", async ({ page }) => {
+    test("project detail view is usable on mobile", async ({ page }) => {
       await page.setViewportSize({ width: 375, height: 667 });
-      await expect(page.locator(".overflow-x-auto")).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     });
 
     test("project header visible on mobile", async ({ page }) => {
@@ -119,17 +94,13 @@ test.describe("Project KanBan Page", () => {
   test.describe("Error Handling", () => {
     test("shows error for non-existent project", async ({ page }) => {
       await page.goto("/projects/non-existent-id");
-      await page.waitForLoadState("networkidle");
-
-      await expect(page.getByText(/project not found|error/i)).toBeVisible();
+      await expect(page.getByText(/research group not found/i)).toBeVisible();
     });
 
     test("provides link back to projects on error", async ({ page }) => {
       await page.goto("/projects/non-existent-id");
-      await page.waitForLoadState("networkidle");
-
-      const backLink = page.getByRole("link", { name: /back to projects/i }).or(
-        page.getByRole("button", { name: /back to projects/i })
+      const backLink = page.getByRole("link", { name: /back to research groups/i }).or(
+        page.getByRole("button", { name: /back to research groups/i })
       );
       if (await backLink.isVisible()) {
         await backLink.click();

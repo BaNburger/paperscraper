@@ -3,10 +3,11 @@ import { test, expect, registerUser, generateTestUser, Page } from "./fixtures";
 /** Create a submission via the dialog UI. */
 async function createSubmission(page: Page, title?: string): Promise<string> {
   const subTitle = title ?? `Submission ${Date.now()}`;
-  await page.getByRole("button", { name: /new submission/i }).click();
+  await page.getByRole("button", { name: /new submission/i }).first().click();
   await page.getByLabel(/title/i).fill(subTitle);
   await page.getByRole("dialog").getByRole("button", { name: /create draft/i }).click();
   await expect(page.getByRole("dialog")).toBeHidden({ timeout: 10000 });
+  await expect(page.getByText(subTitle).first()).toBeVisible({ timeout: 5000 });
   return subTitle;
 }
 
@@ -28,7 +29,7 @@ test.describe("Submissions Page", () => {
     });
 
     test("displays New Submission button", async ({ page }) => {
-      await expect(page.getByRole("button", { name: /new submission/i })).toBeVisible();
+      await expect(page.getByRole("button", { name: /new submission/i }).first()).toBeVisible();
     });
   });
 
@@ -52,7 +53,9 @@ test.describe("Submissions Page", () => {
     });
 
     test("shows helpful description in empty state", async ({ page }) => {
-      await expect(page.getByText(/create a submission to start/i)).toBeVisible();
+      await expect(
+        page.getByText(/submit your first research to get started|create a submission to start/i)
+      ).toBeVisible();
     });
 
     test("shows New Submission button in empty state", async ({ page }) => {

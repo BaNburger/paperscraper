@@ -12,6 +12,7 @@ from paper_scraper.core.database import Base
 
 if TYPE_CHECKING:
     from paper_scraper.modules.auth.models import Organization
+    from paper_scraper.modules.ingestion.models import IngestRun
     from paper_scraper.modules.saved_searches.models import SavedSearch
 
 
@@ -48,6 +49,12 @@ class DiscoveryRun(Base):
         default=DiscoveryRunStatus.RUNNING,
     )
     source: Mapped[str] = mapped_column(String(100), nullable=False)
+    ingest_run_id: Mapped[UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("ingest_runs.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     # Stats
     papers_found: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -74,6 +81,7 @@ class DiscoveryRun(Base):
     # Relationships
     saved_search: Mapped["SavedSearch"] = relationship("SavedSearch")
     organization: Mapped["Organization"] = relationship("Organization")
+    ingest_run: Mapped["IngestRun | None"] = relationship("IngestRun")
 
     __table_args__ = (
         Index("ix_discovery_runs_search_created", "saved_search_id", "created_at"),

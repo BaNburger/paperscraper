@@ -1,17 +1,21 @@
 import { test, expect, registerUser, generateTestUser, Page } from "./fixtures";
 
-/** Create a project via the dialog UI. Returns the project name. */
+const firstProjectLink = (page: Page) =>
+  page.locator('main a[href^="/projects/"]:not([href="/projects"])').first();
+
+/** Create a research group via the dialog UI. Returns the group name. */
 async function createProject(page: Page, name?: string): Promise<string> {
-  const projectName = name ?? `Project ${Date.now()}`;
-  await page.getByRole("button", { name: /new project/i }).click();
-  await page.getByLabel(/project name/i).fill(projectName);
+  const projectName = name ?? `Research Group ${Date.now()}`;
+  await page.getByRole("button", { name: /new research group/i }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByLabel(/group name/i).fill(projectName);
+  await page.getByLabel(/description/i).fill("Test description");
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: /create project/i })
+    .getByRole("button", { name: /create research group/i })
     .click();
   await expect(page.getByRole("dialog")).toBeHidden({ timeout: 10000 });
-  // Wait for project card to appear instead of hardcoded timeout
-  await expect(page.locator('a[href*="/projects/"]').first()).toBeVisible({ timeout: 5000 });
+  await expect(firstProjectLink(page)).toBeVisible({ timeout: 7000 });
   return projectName;
 }
 
@@ -25,152 +29,150 @@ test.describe("Projects Page", () => {
 
   test.describe("Page Structure", () => {
     test("displays page header", async ({ page }) => {
-      await expect(page.getByRole("heading", { level: 1, name: /projects/i })).toBeVisible();
+      await expect(
+        page.getByRole("heading", { level: 1, name: /research groups/i })
+      ).toBeVisible();
     });
 
     test("displays page description", async ({ page }) => {
       await expect(
-        page.getByText(/organize papers into research pipelines/i)
+        page.getByText(/discover and track research groups.*publications/i)
       ).toBeVisible();
     });
 
-    test("displays New Project button", async ({ page }) => {
+    test("displays New Research Group button", async ({ page }) => {
       await expect(
-        page.getByRole("button", { name: /new project/i })
+        page.getByRole("button", { name: /new research group/i })
       ).toBeVisible();
     });
   });
 
   test.describe("Empty State", () => {
-    test("shows empty state when no projects", async ({ page }) => {
-      await expect(page.getByText(/no projects yet/i)).toBeVisible();
+    test("shows empty state when no groups", async ({ page }) => {
+      await expect(page.getByText(/no research groups yet/i)).toBeVisible();
     });
 
     test("shows helpful description in empty state", async ({ page }) => {
       await expect(
-        page.getByText(/create a project to organize your papers/i)
+        page.getByText(/search for an institution|start tracking/i)
       ).toBeVisible();
     });
 
-    test("shows Create Project button in empty state", async ({ page }) => {
+    test("shows Create Research Group button in empty state", async ({ page }) => {
       await expect(
-        page.getByRole("button", { name: /create project/i })
+        page.getByRole("button", { name: /create research group/i })
       ).toBeVisible();
     });
   });
 
-  test.describe("Create Project Dialog", () => {
-    test("opens create dialog when clicking New Project", async ({ page }) => {
-      await page.getByRole("button", { name: /new project/i }).click();
+  test.describe("Create Group Dialog", () => {
+    test("opens create dialog when clicking New Research Group", async ({ page }) => {
+      await page.getByRole("button", { name: /new research group/i }).click();
       await expect(page.getByRole("dialog")).toBeVisible();
-      await expect(page.getByText(/create project/i).first()).toBeVisible();
+      await expect(page.getByText(/create research group/i).first()).toBeVisible();
     });
 
-    test("dialog has project name field", async ({ page }) => {
-      await page.getByRole("button", { name: /new project/i }).click();
-      await expect(page.getByLabel(/project name/i)).toBeVisible();
+    test("dialog has group name field", async ({ page }) => {
+      await page.getByRole("button", { name: /new research group/i }).click();
+      await expect(page.getByLabel(/group name/i)).toBeVisible();
     });
 
     test("dialog has description field", async ({ page }) => {
-      await page.getByRole("button", { name: /new project/i }).click();
+      await page.getByRole("button", { name: /new research group/i }).click();
       await expect(page.getByLabel(/description/i)).toBeVisible();
     });
 
+    test("dialog shows institution and author tabs", async ({ page }) => {
+      await page.getByRole("button", { name: /new research group/i }).click();
+      await expect(page.getByRole("button", { name: /institution/i })).toBeVisible();
+      await expect(page.getByRole("button", { name: /author/i })).toBeVisible();
+    });
+
     test("can close dialog with Cancel button", async ({ page }) => {
-      await page.getByRole("button", { name: /new project/i }).click();
+      await page.getByRole("button", { name: /new research group/i }).click();
       await expect(page.getByRole("dialog")).toBeVisible();
       await page.getByRole("button", { name: /cancel/i }).click();
       await expect(page.getByRole("dialog")).toBeHidden();
     });
 
-    test("can create a new project", async ({ page }) => {
-      const projectName = `Test Project ${Date.now()}`;
-      await page.getByRole("button", { name: /new project/i }).click();
-      await page.getByLabel(/project name/i).fill(projectName);
-      await page.getByLabel(/description/i).fill("Test description");
-
-      await page
-        .getByRole("dialog")
-        .getByRole("button", { name: /create project/i })
-        .click();
-
-      await expect(page.getByRole("dialog")).toBeHidden({ timeout: 10000 });
-      // Use .first() to avoid matching toast text
-      await expect(page.getByText(projectName).first()).toBeVisible({ timeout: 5000 });
+    test("can create a new research group", async ({ page }) => {
+      const projectName = `Test Group ${Date.now()}`;
+      await createProject(page, projectName);
+      await expect(page.getByText(projectName).first()).toBeVisible({ timeout: 7000 });
     });
 
-    test("validates required project name", async ({ page }) => {
-      await page.getByRole("button", { name: /new project/i }).click();
-      await expect(page.getByLabel(/project name/i)).toHaveAttribute("required");
+    test("validates required group name", async ({ page }) => {
+      await page.getByRole("button", { name: /new research group/i }).click();
+      await expect(page.getByLabel(/group name/i)).toHaveAttribute("required");
     });
   });
 
-  test.describe("Project Cards", () => {
+  test.describe("Group Cards", () => {
     test.beforeEach(async ({ page }) => {
       await createProject(page);
     });
 
-    test("displays project cards after creation", async ({ page }) => {
-      await expect(page.locator('a[href*="/projects/"]').first()).toBeVisible();
+    test("displays group cards after creation", async ({ page }) => {
+      await expect(firstProjectLink(page)).toBeVisible();
     });
 
-    test("shows project status badge", async ({ page }) => {
-      await expect(page.getByText(/active|inactive/i).first()).toBeVisible();
+    test("shows sync status badge", async ({ page }) => {
+      await expect(page.getByText(/idle|ready|importing|failed|clustering/i).first()).toBeVisible();
     });
 
-    test("shows stage count", async ({ page }) => {
-      await expect(page.getByText(/\d+ stages/i)).toBeVisible();
+    test("shows paper count", async ({ page }) => {
+      await expect(page.getByText(/\d+\s+papers/i).first()).toBeVisible();
     });
 
-    test("shows creation date", async ({ page }) => {
-      await expect(page.locator("main").getByText(/created/i).first()).toBeVisible();
+    test("shows cluster count", async ({ page }) => {
+      await expect(page.getByText(/\d+\s+clusters/i).first()).toBeVisible();
     });
 
-    test("can click project to view details", async ({ page }) => {
-      await page.locator('a[href*="/projects/"]').first().click();
+    test("can click group to view details", async ({ page }) => {
+      await firstProjectLink(page).click();
       await expect(page).toHaveURL(/\/projects\/.+/);
     });
   });
 
-  test.describe("Delete Project", () => {
+  test.describe("Delete Group", () => {
     test.beforeEach(async ({ page }) => {
-      await createProject(page, `Delete Test ${Date.now()}`);
+      await createProject(page, `Delete Group ${Date.now()}`);
     });
 
     test("shows delete button on hover", async ({ page }) => {
-      const projectCard = page.locator(".group.relative").first();
-      await projectCard.hover();
-      await expect(page.getByRole("button", { name: /delete project/i })).toBeVisible();
+      const groupCard = page.locator(".group.relative").first();
+      await groupCard.hover();
+      await expect(page.getByRole("button", { name: /delete research group/i })).toBeVisible();
     });
 
     test("opens confirmation dialog when clicking delete", async ({ page }) => {
-      const projectCard = page.locator(".group.relative").first();
-      await projectCard.hover();
-      await page.getByRole("button", { name: /delete project/i }).click();
+      const groupCard = page.locator(".group.relative").first();
+      await groupCard.hover();
+      await page.getByRole("button", { name: /delete research group/i }).click();
 
       await expect(page.getByText(/are you sure/i)).toBeVisible();
-      await expect(page.getByText(/cannot be undone/i)).toBeVisible();
+      await expect(page.getByText(/all.*removed|all cluster data will be removed/i)).toBeVisible();
     });
 
     test("can cancel delete", async ({ page }) => {
-      const projectCard = page.locator(".group.relative").first();
-      await projectCard.hover();
-      await page.getByRole("button", { name: /delete project/i }).click();
+      const groupCard = page.locator(".group.relative").first();
+      await groupCard.hover();
+      await page.getByRole("button", { name: /delete research group/i }).click();
       await page.getByRole("button", { name: /cancel/i }).click();
       await expect(page.getByText(/are you sure/i)).toBeHidden();
     });
 
     test("can confirm delete", async ({ page }) => {
-      const projectCard = page.locator(".group.relative").first();
-      await projectCard.hover();
-      await page.getByRole("button", { name: /delete project/i }).click();
+      const groupCard = page.locator(".group.relative").first();
+      await groupCard.hover();
+      await page.getByRole("button", { name: /delete research group/i }).click();
 
       await page
         .getByRole("dialog")
-        .getByRole("button", { name: /delete/i })
+        .getByRole("button", { name: /^delete$/i })
         .click();
 
-      await expect(page.getByText(/no projects yet/i)).toBeVisible({
+      await expect(page.getByText(/no research groups yet/i)).toBeVisible({
         timeout: 10000,
       });
     });
@@ -188,13 +190,12 @@ test.describe("Projects Page", () => {
       await page.reload();
       await page.waitForLoadState("networkidle");
 
-      // React Query may show error state or cached empty state on refetch failure
       const hasError = await page
-        .getByText(/failed to load projects/i)
+        .getByText(/failed to load research groups/i)
         .isVisible()
         .catch(() => false);
       const hasEmptyState = await page
-        .getByText(/no projects yet/i)
+        .getByText(/no research groups yet/i)
         .isVisible()
         .catch(() => false);
 

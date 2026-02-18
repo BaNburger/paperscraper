@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { savedSearchesApi } from '@/lib/api'
+import { queryKeys } from '@/config/queryKeys'
 import type { CreateSavedSearchRequest, UpdateSavedSearchRequest } from '@/types'
 
 export function useSavedSearches(params?: {
@@ -8,14 +9,14 @@ export function useSavedSearches(params?: {
   include_public?: boolean
 }) {
   return useQuery({
-    queryKey: ['saved-searches', params],
+    queryKey: queryKeys.savedSearches.list(params),
     queryFn: () => savedSearchesApi.list(params),
   })
 }
 
 export function useSavedSearch(id: string | undefined) {
   return useQuery({
-    queryKey: ['saved-search', id],
+    queryKey: queryKeys.savedSearches.detail(id ?? ''),
     queryFn: () => savedSearchesApi.get(id!),
     enabled: !!id,
   })
@@ -23,7 +24,7 @@ export function useSavedSearch(id: string | undefined) {
 
 export function useSharedSearch(shareToken: string | undefined) {
   return useQuery({
-    queryKey: ['shared-search', shareToken],
+    queryKey: queryKeys.savedSearches.shared(shareToken ?? ''),
     queryFn: () => savedSearchesApi.getByShareToken(shareToken!),
     enabled: !!shareToken,
   })
@@ -35,7 +36,7 @@ export function useCreateSavedSearch() {
   return useMutation({
     mutationFn: (data: CreateSavedSearchRequest) => savedSearchesApi.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['saved-searches'] })
+      queryClient.invalidateQueries({ queryKey: ['saved-searches', 'list'] })
     },
   })
 }
@@ -47,8 +48,8 @@ export function useUpdateSavedSearch() {
     mutationFn: ({ id, data }: { id: string; data: UpdateSavedSearchRequest }) =>
       savedSearchesApi.update(id, data),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['saved-searches'] })
-      queryClient.invalidateQueries({ queryKey: ['saved-search', variables.id] })
+      queryClient.invalidateQueries({ queryKey: ['saved-searches', 'list'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.savedSearches.detail(variables.id) })
     },
   })
 }
@@ -59,7 +60,7 @@ export function useDeleteSavedSearch() {
   return useMutation({
     mutationFn: (id: string) => savedSearchesApi.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['saved-searches'] })
+      queryClient.invalidateQueries({ queryKey: ['saved-searches', 'list'] })
     },
   })
 }
@@ -70,8 +71,8 @@ export function useGenerateShareLink() {
   return useMutation({
     mutationFn: (id: string) => savedSearchesApi.generateShareLink(id),
     onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ['saved-search', id] })
-      queryClient.invalidateQueries({ queryKey: ['saved-searches'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.savedSearches.detail(id) })
+      queryClient.invalidateQueries({ queryKey: ['saved-searches', 'list'] })
     },
   })
 }
@@ -82,8 +83,8 @@ export function useRevokeShareLink() {
   return useMutation({
     mutationFn: (id: string) => savedSearchesApi.revokeShareLink(id),
     onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ['saved-search', id] })
-      queryClient.invalidateQueries({ queryKey: ['saved-searches'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.savedSearches.detail(id) })
+      queryClient.invalidateQueries({ queryKey: ['saved-searches', 'list'] })
     },
   })
 }
@@ -95,7 +96,7 @@ export function useRunSavedSearch() {
     mutationFn: ({ id, params }: { id: string; params?: { page?: number; page_size?: number } }) =>
       savedSearchesApi.run(id, params),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['saved-search', variables.id] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.savedSearches.detail(variables.id) })
     },
   })
 }

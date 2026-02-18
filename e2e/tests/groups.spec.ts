@@ -5,17 +5,37 @@ async function createGroup(page: Page, name?: string): Promise<string> {
   const groupName = name ?? `Group ${Date.now()}`;
   await page.getByRole("button", { name: /new group/i }).click();
   await page.getByLabel(/group name/i).fill(groupName);
+
+  const createResponsePromise = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      /\/api\/v1\/groups\/?$/.test(response.url()),
+    { timeout: 20000 }
+  );
+
   await page.getByRole("dialog").getByRole("button", { name: /create group/i }).click();
-  await expect(page.getByRole("dialog")).toBeHidden({ timeout: 10000 });
+
+  const createResponse = await createResponsePromise;
+  expect(createResponse.status()).toBeGreaterThanOrEqual(200);
+  expect(createResponse.status()).toBeLessThan(400);
+
+  await expect(page.getByRole("dialog")).toBeHidden({ timeout: 15000 });
+  await expect(page.getByRole("heading", { level: 3, name: groupName })).toBeVisible({
+    timeout: 20000,
+  });
   return groupName;
 }
 
 test.describe("Groups Page", () => {
+  test.describe.configure({ timeout: 90000 });
+
   test.beforeEach(async ({ page }) => {
     const user = generateTestUser();
     await registerUser(page, user);
-    await page.goto("/groups");
-    await page.waitForLoadState("networkidle");
+    await page.goto("/groups", { waitUntil: "domcontentloaded", timeout: 60000 });
+    await expect(page.getByRole("heading", { level: 1, name: /researcher groups/i })).toBeVisible({
+      timeout: 20000,
+    });
   });
 
   test.describe("Page Structure", () => {
@@ -24,7 +44,9 @@ test.describe("Groups Page", () => {
     });
 
     test("displays page description", async ({ page }) => {
-      await expect(page.getByText(/organize researchers into groups/i)).toBeVisible();
+      await expect(
+        page.getByText(/organize researchers into groups|collaboration/i)
+      ).toBeVisible({ timeout: 15000 });
     });
 
     test("displays New Group button", async ({ page }) => {
@@ -38,7 +60,9 @@ test.describe("Groups Page", () => {
     });
 
     test("shows helpful description in empty state", async ({ page }) => {
-      await expect(page.getByText(/create a group to organize researchers/i)).toBeVisible();
+      await expect(
+        page.getByText(/start organizing researchers|create your first group/i)
+      ).toBeVisible({ timeout: 15000 });
     });
 
     test("shows Create Group button in empty state", async ({ page }) => {
@@ -82,14 +106,8 @@ test.describe("Groups Page", () => {
 
     test("can create a new group", async ({ page }) => {
       const groupName = `Test Group ${Date.now()}`;
-      await page.getByRole("button", { name: /new group/i }).click();
-      await page.getByLabel(/group name/i).fill(groupName);
-      await page.getByLabel(/description/i).fill("Test description");
-
-      await page.getByRole("dialog").getByRole("button", { name: /create group/i }).click();
-
-      await expect(page.getByRole("dialog")).toBeHidden({ timeout: 10000 });
-      await expect(page.getByText(groupName).first()).toBeVisible({ timeout: 5000 });
+      await createGroup(page, groupName);
+      await expect(page.getByRole("heading", { level: 3, name: groupName })).toBeVisible();
     });
 
     test("can select different group types", async ({ page }) => {
@@ -108,7 +126,6 @@ test.describe("Groups Page", () => {
   test.describe("Group Cards", () => {
     test.beforeEach(async ({ page }) => {
       await createGroup(page);
-      await page.waitForTimeout(500);
     });
 
     test("displays group cards after creation", async ({ page }) => {
@@ -137,7 +154,6 @@ test.describe("Groups Page", () => {
 
     test("shows group details when selected", async ({ page }) => {
       await createGroup(page, `Detail Test ${Date.now()}`);
-      await page.waitForTimeout(500);
 
       // Click the group card
       await page.locator(".cursor-pointer").first().click();
@@ -148,7 +164,6 @@ test.describe("Groups Page", () => {
 
     test("shows Export CSV button when group is selected", async ({ page }) => {
       await createGroup(page);
-      await page.waitForTimeout(500);
       await page.locator(".cursor-pointer").first().click();
 
       await expect(page.getByRole("button", { name: /export csv/i })).toBeVisible();
@@ -158,13 +173,18 @@ test.describe("Groups Page", () => {
   test.describe("Delete Group", () => {
     test("shows delete confirmation dialog", async ({ page }) => {
       await createGroup(page, `Delete Test ${Date.now()}`);
-      await page.waitForTimeout(500);
 
       // Click the group card to select it
       await page.locator(".cursor-pointer").first().click();
 
       // Find and click delete button
-      await page.getByRole("button").filter({ has: page.locator('svg[class*="Trash"]') }).click();
+      await page
+        .getByRole("button")
+        .filter({
+          has: page.locator('svg.lucide-trash2, svg[data-lucide="trash2"], svg[class*="trash"]'),
+        })
+        .first()
+        .click();
 
       // Check confirmation dialog
       await expect(page.getByText(/are you sure/i)).toBeVisible();

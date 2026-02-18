@@ -3,7 +3,7 @@ import { test, expect, registerUser, generateTestUser, Page } from "./fixtures";
 /** Create a transfer conversation via the dialog UI. */
 async function createConversation(page: Page, title?: string): Promise<string> {
   const convTitle = title ?? `Conversation ${Date.now()}`;
-  await page.getByRole("button", { name: /new conversation/i }).click();
+  await page.getByRole("button", { name: /new conversation/i }).first().click();
   await page.getByLabel(/title/i).fill(convTitle);
   await page.getByRole("dialog").getByRole("button", { name: /create/i }).click();
   await expect(page.getByRole("dialog")).toBeHidden({ timeout: 10000 });
@@ -14,8 +14,8 @@ test.describe("Transfer Page", () => {
   test.beforeEach(async ({ page }) => {
     const user = generateTestUser();
     await registerUser(page, user);
-    await page.goto("/transfer");
-    await page.waitForLoadState("networkidle");
+    await page.goto("/transfer", { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\/transfer(?:\?.*)?$/);
   });
 
   test.describe("Page Structure", () => {
@@ -24,11 +24,11 @@ test.describe("Transfer Page", () => {
     });
 
     test("displays page description", async ({ page }) => {
-      await expect(page.getByText(/manage transfer conversations/i)).toBeVisible();
+      await expect(page.getByText(/technology transfer conversations/i)).toBeVisible();
     });
 
     test("displays New Conversation button", async ({ page }) => {
-      await expect(page.getByRole("button", { name: /new conversation/i })).toBeVisible();
+      await expect(page.getByRole("button", { name: /new conversation/i }).first()).toBeVisible();
     });
   });
 
@@ -55,7 +55,7 @@ test.describe("Transfer Page", () => {
     });
 
     test("shows helpful description in empty state", async ({ page }) => {
-      await expect(page.getByText(/start a technology transfer conversation/i)).toBeVisible();
+      await expect(page.getByText(/start .*technology transfer conversation/i)).toBeVisible();
     });
 
     test("shows New Conversation button in empty state", async ({ page }) => {
@@ -122,16 +122,26 @@ test.describe("Transfer Page", () => {
     });
 
     test("shows stage badge on card", async ({ page }) => {
-      await expect(page.getByText(/initial contact|discovery|evaluation/i).first()).toBeVisible();
+      const firstCard = page.locator('a[href*="/transfer/"]').first();
+      await expect(firstCard).toBeVisible();
+      await expect(
+        firstCard.getByText(
+          /initial contact|discovery|evaluation|negotiation|closed won|closed lost/i
+        )
+      ).toBeVisible();
     });
 
     test("shows type badge on card", async ({ page }) => {
-      await expect(page.getByText(/patent|licensing|startup|partnership|other/i).first()).toBeVisible();
+      const firstCard = page.locator('a[href*="/transfer/"]').first();
+      await expect(firstCard).toBeVisible();
+      await expect(
+        firstCard.getByText(/patent|licensing|startup|partnership|other/i)
+      ).toBeVisible();
     });
 
     test("shows message count", async ({ page }) => {
       // Look for the message icon count
-      await expect(page.locator('svg[class*="MessageSquare"]').first()).toBeVisible();
+      await expect(page.locator("svg.lucide-message-square").first()).toBeVisible();
     });
 
     test("can click conversation to view details", async ({ page }) => {

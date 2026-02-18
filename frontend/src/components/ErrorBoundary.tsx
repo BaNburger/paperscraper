@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
 import { Button } from './ui/Button'
+import { navigateTo } from '@/lib/navigation'
 
 interface Props {
   children: ReactNode
@@ -34,7 +35,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   handleGoHome = () => {
-    window.location.href = '/'
+    navigateTo('/')
   }
 
   render() {

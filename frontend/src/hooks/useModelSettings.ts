@@ -1,17 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { modelSettingsApi } from '@/lib/api'
+import { queryKeys } from '@/config/queryKeys'
 import type { CreateModelConfigurationRequest, UpdateModelConfigurationRequest } from '@/types'
 
 export function useModelConfigurations() {
   return useQuery({
-    queryKey: ['model-configurations'],
+    queryKey: queryKeys.models.configurations(),
     queryFn: () => modelSettingsApi.listModels(),
   })
 }
 
 export function useModelUsage(days?: number) {
   return useQuery({
-    queryKey: ['model-usage', days],
+    queryKey: queryKeys.models.usage(days ?? 90),
     queryFn: () => modelSettingsApi.getUsage(days),
   })
 }
@@ -21,7 +22,7 @@ export function useCreateModelConfiguration() {
   return useMutation({
     mutationFn: (data: CreateModelConfigurationRequest) => modelSettingsApi.createModel(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['model-configurations'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.models.configurations() })
     },
   })
 }
@@ -32,7 +33,7 @@ export function useUpdateModelConfiguration() {
     mutationFn: ({ id, data }: { id: string; data: UpdateModelConfigurationRequest }) =>
       modelSettingsApi.updateModel(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['model-configurations'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.models.configurations() })
     },
   })
 }
@@ -42,7 +43,7 @@ export function useDeleteModelConfiguration() {
   return useMutation({
     mutationFn: (id: string) => modelSettingsApi.deleteModel(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['model-configurations'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.models.configurations() })
     },
   })
 }

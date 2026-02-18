@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { notificationsApi } from '@/lib/api'
+import { queryKeys } from '@/config/queryKeys'
 import type { NotificationItem } from '@/types'
 
 export interface Notification {
@@ -39,7 +40,7 @@ export function useNotifications(limit = 20, options?: NotificationQueryOptions)
 
   // Fetch full notifications payload only when needed (e.g., panel open)
   const notificationsQuery = useQuery({
-    queryKey: ['notifications', 'list', limit],
+    queryKey: queryKeys.notifications.list(limit),
     queryFn: () => notificationsApi.list({ page: 1, page_size: limit }),
     enabled: options?.enabled ?? true,
     staleTime: 1000 * 30, // 30 seconds
@@ -49,7 +50,7 @@ export function useNotifications(limit = 20, options?: NotificationQueryOptions)
 
   // Lightweight unread count query for badge display (polls more frequently)
   const unreadCountQuery = useQuery({
-    queryKey: ['notifications', 'unread-count'],
+    queryKey: queryKeys.notifications.unreadCount(),
     queryFn: () => notificationsApi.getUnreadCount(),
     staleTime: 1000 * 15, // 15 seconds
     refetchInterval: () =>
@@ -67,7 +68,7 @@ export function useNotifications(limit = 20, options?: NotificationQueryOptions)
     mutationFn: (notificationIds: string[]) =>
       notificationsApi.markAsRead(notificationIds),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all() })
     },
   })
 
@@ -75,7 +76,7 @@ export function useNotifications(limit = 20, options?: NotificationQueryOptions)
   const markAllAsReadMutation = useMutation({
     mutationFn: () => notificationsApi.markAllAsRead(),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all() })
     },
   })
 

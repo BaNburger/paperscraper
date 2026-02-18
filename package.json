@@ -4,6 +4,10 @@
   "description": "AI-powered SaaS platform for automated analysis of scientific publications.",
   "main": "index.js",
   "scripts": {
+    "lint:agents": "python scripts/paperscraper_linters/run.py --repo . --mode local --format text",
+    "lint:backend": "ruff check . && ruff format --check . && mypy paper_scraper",
+    "lint:frontend": "npm --prefix frontend run lint && npm --prefix frontend run codegen:check",
+    "lint:all": "npm run lint:agents && npm run lint:backend && npm run lint:frontend",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:debug": "playwright test --debug",

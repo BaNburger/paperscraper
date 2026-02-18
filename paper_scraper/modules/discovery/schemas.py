@@ -16,6 +16,7 @@ class DiscoveryRunResponse(BaseModel):
     organization_id: UUID
     status: str
     source: str
+    ingest_run_id: UUID | None = None
     papers_found: int
     papers_imported: int
     papers_skipped: int

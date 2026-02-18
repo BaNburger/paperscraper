@@ -8,6 +8,17 @@ These root files are the source of truth for architecture and rollout decisions:
 - [../04_ARCHITECTURE_DECISIONS.md](../04_ARCHITECTURE_DECISIONS.md)
 - [../05_IMPLEMENTATION_PLAN.md](../05_IMPLEMENTATION_PLAN.md)
 
+## Strict Lint Commands
+Run these before finalizing architecture-impacting work:
+
+```bash
+npm run lint:agents
+npm run lint:all
+```
+
+Exceptions are only allowed via:
+- [../.agent-lint-allowlist.yaml](../.agent-lint-allowlist.yaml)
+
 ## Quick Navigation
 
 ### Architecture and Platform

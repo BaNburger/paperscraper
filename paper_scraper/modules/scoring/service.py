@@ -12,17 +12,16 @@ from sqlalchemy.orm import selectinload
 
 from paper_scraper.core.exceptions import NotFoundError
 from paper_scraper.core.secrets import decrypt_secret
+from paper_scraper.modules.embeddings.service import EmbeddingService
 from paper_scraper.modules.model_settings.models import ModelConfiguration, ModelUsage
 from paper_scraper.modules.papers.models import Paper, PaperAuthor
 from paper_scraper.modules.scoring.dimension_context_builder import DimensionContextBuilder
 from paper_scraper.modules.scoring.dimensions.base import PaperContext
-from paper_scraper.modules.scoring.embeddings import generate_paper_embedding
 from paper_scraper.modules.scoring.llm_client import get_llm_client
 from paper_scraper.modules.scoring.models import (
     GlobalScoreCache,
     PaperScore,
     ScoringJob,
-    ScoringPolicy,
 )
 from paper_scraper.modules.scoring.orchestrator import (
     AggregatedScore,
@@ -34,10 +33,6 @@ from paper_scraper.modules.scoring.schemas import (
     PaperScoreSummary,
     ScoringJobListResponse,
     ScoringJobResponse,
-    ScoringPolicyCreate,
-    ScoringPolicyListResponse,
-    ScoringPolicyResponse,
-    ScoringPolicyUpdate,
     ScoringWeightsSchema,
 )
 
@@ -51,6 +46,7 @@ class ScoringService:
 
     def __init__(self, db: AsyncSession):
         self.db = db
+        self.embedding_service = EmbeddingService(db)
 
     # =========================================================================
     # Paper Scoring
@@ -434,90 +430,6 @@ class ScoringService:
         await self.db.commit()
 
     # =========================================================================
-    # Scoring Policies
-    # =========================================================================
-
-    async def list_policies(self, organization_id: UUID) -> ScoringPolicyListResponse:
-        """List scoring policies for a tenant."""
-        result = await self.db.execute(
-            select(ScoringPolicy)
-            .where(ScoringPolicy.organization_id == organization_id)
-            .order_by(ScoringPolicy.is_default.desc(), ScoringPolicy.created_at.desc())
-        )
-        policies = list(result.scalars().all())
-        return ScoringPolicyListResponse(
-            items=[ScoringPolicyResponse.model_validate(policy) for policy in policies],
-            total=len(policies),
-        )
-
-    async def create_policy(
-        self,
-        organization_id: UUID,
-        data: ScoringPolicyCreate,
-    ) -> ScoringPolicy:
-        """Create a scoring policy."""
-        if data.is_default:
-            await self._unset_default_policies(organization_id)
-
-        policy = ScoringPolicy(
-            organization_id=organization_id,
-            provider=data.provider,
-            model=data.model,
-            temperature=data.temperature,
-            max_tokens=data.max_tokens,
-            secret_ref=data.secret_ref,
-            is_default=data.is_default,
-        )
-        self.db.add(policy)
-        await self.db.flush()
-        await self.db.refresh(policy)
-        return policy
-
-    async def update_policy(
-        self,
-        policy_id: UUID,
-        organization_id: UUID,
-        data: ScoringPolicyUpdate,
-    ) -> ScoringPolicy:
-        """Update an existing scoring policy."""
-        policy = await self._get_policy(policy_id, organization_id)
-        update_data = data.model_dump(exclude_unset=True)
-
-        if update_data.get("is_default"):
-            await self._unset_default_policies(organization_id)
-
-        for key, value in update_data.items():
-            setattr(policy, key, value)
-
-        await self.db.flush()
-        await self.db.refresh(policy)
-        return policy
-
-    async def _unset_default_policies(self, organization_id: UUID) -> None:
-        """Unset default flag on all policies in an org."""
-        result = await self.db.execute(
-            select(ScoringPolicy).where(
-                ScoringPolicy.organization_id == organization_id,
-                ScoringPolicy.is_default == True,  # noqa: E712
-            )
-        )
-        for policy in result.scalars().all():
-            policy.is_default = False
-
-    async def _get_policy(self, policy_id: UUID, organization_id: UUID) -> ScoringPolicy:
-        """Get a policy with tenant isolation."""
-        result = await self.db.execute(
-            select(ScoringPolicy).where(
-                ScoringPolicy.id == policy_id,
-                ScoringPolicy.organization_id == organization_id,
-            )
-        )
-        policy = result.scalar_one_or_none()
-        if policy is None:
-            raise NotFoundError("ScoringPolicy", str(policy_id))
-        return policy
-
-    # =========================================================================
     # Embeddings
     # =========================================================================
 
@@ -538,23 +450,13 @@ class ScoringService:
         Returns:
             True if embedding was generated
         """
-        paper = await self._get_paper(paper_id, organization_id)
-        if not paper:
-            raise NotFoundError("Paper", paper_id)
-
-        if paper.embedding and not force_regenerate:
-            return False
-
-        # Generate embedding
-        embedding = await generate_paper_embedding(
-            title=paper.title,
-            abstract=paper.abstract,
-            keywords=paper.keywords,
+        generated = await self.embedding_service.generate_for_paper(
+            paper_id=paper_id,
+            organization_id=organization_id,
+            force_regenerate=force_regenerate,
         )
-
-        paper.embedding = embedding
         await self.db.commit()
-        return True
+        return generated
 
     async def batch_generate_embeddings(
         self,
@@ -571,36 +473,16 @@ class ScoringService:
         Returns:
             Number of embeddings generated
         """
-        # Find papers without embeddings
-        result = await self.db.execute(
-            select(Paper)
-            .where(
-                Paper.organization_id == organization_id,
-                Paper.embedding.is_(None),
-            )
-            .limit(limit)
+        summary = await self.embedding_service.backfill_for_organization(
+            organization_id=organization_id,
+            batch_size=min(max(limit, 1), 500),
+            max_papers=limit,
         )
-        papers = list(result.scalars().all())
-
-        count = 0
-        for paper in papers:
-            try:
-                embedding = await generate_paper_embedding(
-                    title=paper.title,
-                    abstract=paper.abstract,
-                    keywords=paper.keywords,
-                )
-                paper.embedding = embedding
-                count += 1
-            except Exception:
-                # Skip papers that fail
-                continue
-
         await self.db.commit()
-        return count
+        return summary.papers_succeeded
 
     async def _resolve_llm_client(self, organization_id: UUID, workflow: str | None = None):
-        """Resolve LLM client from workflow config, scoring policy, model config, or global defaults."""
+        """Resolve LLM client from workflow config, model config, or global defaults."""
         # 0) Workflow-specific model configuration
         if workflow:
             workflow_query = (
@@ -623,26 +505,7 @@ class ScoringService:
                 except Exception as exc:
                     logger.warning("Failed to resolve workflow LLM client for %s: %s", workflow, exc)
 
-        # 1) scoring_policies default (new pipeline primitive)
-        policy_query = (
-            select(ScoringPolicy)
-            .where(ScoringPolicy.organization_id == organization_id)
-            .order_by(ScoringPolicy.is_default.desc(), ScoringPolicy.created_at.desc())
-            .limit(1)
-        )
-        policy = (await self.db.execute(policy_query)).scalar_one_or_none()
-        if policy:
-            api_key = self._extract_api_key_from_secret_ref(policy.secret_ref)
-            try:
-                return get_llm_client(
-                    provider=policy.provider,
-                    model=policy.model,
-                    api_key=api_key,
-                )
-            except Exception as exc:
-                logger.warning("Failed to resolve scoring policy LLM client: %s", exc)
-
-        # 2) legacy model_configurations default
+        # 1) model_configurations default
         config_query = (
             select(ModelConfiguration)
             .where(ModelConfiguration.organization_id == organization_id)
@@ -661,38 +524,21 @@ class ScoringService:
             except Exception as exc:
                 logger.warning("Failed to resolve model configuration LLM client: %s", exc)
 
-        # 3) fallback to global settings
+        # 2) fallback to global settings
         return get_llm_client()
 
     @staticmethod
-    def _extract_api_key_from_secret_ref(secret_ref: str | None) -> str | None:
-        """Resolve API key from secret reference.
-
-        v2 intentionally disallows inline plain-text secret payloads.
-        """
-        if secret_ref:
-            logger.warning(
-                "Ignoring unsupported scoring policy secret_ref in v2: %s",
-                secret_ref.split(":", 1)[0],
-            )
-        return None
-
-    @staticmethod
     def _decrypt_model_key(encrypted_value: str | None) -> str | None:
-        """Decrypt model key supporting v2 and legacy values."""
+        """Decrypt model key in v2 encrypted format."""
         if not encrypted_value:
             return None
 
         try:
             if encrypted_value.startswith("enc:v1:"):
                 return decrypt_secret(encrypted_value.replace("enc:v1:", "", 1))
-
-            # Legacy base64 fallback
-            import base64
-
-            return base64.b64decode(encrypted_value.encode()).decode()
         except Exception:
             return None
+        return None
 
     # =========================================================================
     # Private Methods

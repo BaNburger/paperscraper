@@ -48,6 +48,17 @@ class AttachmentType(str, enum.Enum):
     OTHER = "other"
 
 
+SUBMISSION_STATUS_ENUM = Enum(
+    SubmissionStatus,
+    values_callable=lambda enum_cls: [member.value for member in enum_cls],
+)
+
+ATTACHMENT_TYPE_ENUM = Enum(
+    AttachmentType,
+    values_callable=lambda enum_cls: [member.value for member in enum_cls],
+)
+
+
 class ResearchSubmission(Base):
     """Model representing a researcher's submission for TTO review."""
 
@@ -73,7 +84,7 @@ class ResearchSubmission(Base):
 
     # Submission details
     status: Mapped[SubmissionStatus] = mapped_column(
-        Enum(SubmissionStatus), nullable=False, default=SubmissionStatus.DRAFT
+        SUBMISSION_STATUS_ENUM, nullable=False, default=SubmissionStatus.DRAFT
     )
     doi: Mapped[str | None] = mapped_column(String(255), nullable=True)
     publication_venue: Mapped[str | None] = mapped_column(String(500), nullable=True)
@@ -167,7 +178,7 @@ class SubmissionAttachment(Base):
     file_size: Mapped[int] = mapped_column(Integer, nullable=False)
     mime_type: Mapped[str] = mapped_column(String(100), nullable=False)
     attachment_type: Mapped[AttachmentType] = mapped_column(
-        Enum(AttachmentType), nullable=False, default=AttachmentType.PDF
+        ATTACHMENT_TYPE_ENUM, nullable=False, default=AttachmentType.PDF
     )
 
     # Timestamps

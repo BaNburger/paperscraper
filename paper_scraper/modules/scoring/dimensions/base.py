@@ -125,7 +125,7 @@ class BaseDimension(ABC):
                 dimension=self.dimension_name,
                 reason=str(e),
                 details={"error_type": type(e).__name__},
-            )
+            ) from e
 
     @abstractmethod
     def _parse_response(self, response: dict[str, Any]) -> DimensionResult:

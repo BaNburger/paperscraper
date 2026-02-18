@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { developerApi } from '@/lib/api'
+import { queryKeys } from '@/config/queryKeys'
 import type {
   CreateAPIKeyRequest,
   CreateWebhookRequest,
@@ -14,7 +15,7 @@ import type {
 
 export function useApiKeys() {
   return useQuery({
-    queryKey: ['api-keys'],
+    queryKey: queryKeys.developer.apiKeys(),
     queryFn: () => developerApi.listApiKeys(),
   })
 }
@@ -24,7 +25,7 @@ export function useCreateApiKey() {
   return useMutation({
     mutationFn: (data: CreateAPIKeyRequest) => developerApi.createApiKey(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['api-keys'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.developer.apiKeys() })
     },
   })
 }
@@ -34,7 +35,7 @@ export function useRevokeApiKey() {
   return useMutation({
     mutationFn: (id: string) => developerApi.revokeApiKey(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['api-keys'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.developer.apiKeys() })
     },
   })
 }
@@ -45,7 +46,7 @@ export function useRevokeApiKey() {
 
 export function useWebhooks() {
   return useQuery({
-    queryKey: ['webhooks'],
+    queryKey: queryKeys.developer.webhooks(),
     queryFn: () => developerApi.listWebhooks(),
   })
 }
@@ -55,7 +56,7 @@ export function useCreateWebhook() {
   return useMutation({
     mutationFn: (data: CreateWebhookRequest) => developerApi.createWebhook(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['webhooks'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.developer.webhooks() })
     },
   })
 }
@@ -66,7 +67,7 @@ export function useUpdateWebhook() {
     mutationFn: ({ id, data }: { id: string; data: UpdateWebhookRequest }) =>
       developerApi.updateWebhook(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['webhooks'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.developer.webhooks() })
     },
   })
 }
@@ -82,7 +83,7 @@ export function useDeleteWebhook() {
   return useMutation({
     mutationFn: (id: string) => developerApi.deleteWebhook(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['webhooks'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.developer.webhooks() })
     },
   })
 }
@@ -93,14 +94,14 @@ export function useDeleteWebhook() {
 
 export function useRepositories() {
   return useQuery({
-    queryKey: ['repositories'],
+    queryKey: queryKeys.developer.repositories(),
     queryFn: () => developerApi.listRepositories(),
   })
 }
 
 export function useRepository(id: string | undefined) {
   return useQuery({
-    queryKey: ['repositories', id],
+    queryKey: queryKeys.developer.repository(id ?? ''),
     queryFn: () => developerApi.getRepository(id!),
     enabled: !!id,
   })
@@ -111,7 +112,7 @@ export function useCreateRepository() {
   return useMutation({
     mutationFn: (data: CreateRepositorySourceRequest) => developerApi.createRepository(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['repositories'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.developer.repositories() })
     },
   })
 }
@@ -122,7 +123,7 @@ export function useUpdateRepository() {
     mutationFn: ({ id, data }: { id: string; data: UpdateRepositorySourceRequest }) =>
       developerApi.updateRepository(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['repositories'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.developer.repositories() })
     },
   })
 }
@@ -132,7 +133,7 @@ export function useSyncRepository() {
   return useMutation({
     mutationFn: (id: string) => developerApi.syncRepository(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['repositories'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.developer.repositories() })
     },
   })
 }
@@ -142,7 +143,7 @@ export function useDeleteRepository() {
   return useMutation({
     mutationFn: (id: string) => developerApi.deleteRepository(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['repositories'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.developer.repositories() })
     },
   })
 }

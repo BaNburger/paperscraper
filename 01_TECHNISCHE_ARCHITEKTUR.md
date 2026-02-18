@@ -145,7 +145,7 @@ flowchart LR
   - command palette route items
   - keyboard navigation shortcuts
   - prefetch route loading
-- Query key normalization has started via `frontend/src/lib/queryKeys.ts` (typed key tuples).
+- Query key normalization has started via `frontend/src/config/queryKeys.ts` (typed key tuples).
 - Auth context no longer persists bearer tokens in localStorage; cookie session is canonical.
 
 ## 9. Betriebsmodell

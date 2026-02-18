@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { groupsApi } from '@/lib/api'
+import { queryKeys } from '@/config/queryKeys'
+import { optimisticDeleteById, rollbackOptimisticSnapshots } from '@/lib/query'
 import type { CreateGroupRequest, UpdateGroupRequest } from '@/types'
 
 interface QueryControlOptions {
@@ -12,7 +14,7 @@ export function useGroups(
   options?: QueryControlOptions
 ) {
   return useQuery({
-    queryKey: ['groups', params],
+    queryKey: queryKeys.groups.list(params),
     queryFn: () => groupsApi.list(params),
     placeholderData: keepPreviousData,
     enabled: options?.enabled ?? true,
@@ -22,7 +24,7 @@ export function useGroups(
 
 export function useGroup(id: string) {
   return useQuery({
-    queryKey: ['group', id],
+    queryKey: queryKeys.groups.detail(id),
     queryFn: () => groupsApi.get(id),
     enabled: !!id,
   })
@@ -34,7 +36,7 @@ export function useCreateGroup() {
   return useMutation({
     mutationFn: (data: CreateGroupRequest) => groupsApi.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['groups'] })
+      queryClient.invalidateQueries({ queryKey: ['groups', 'list'] })
     },
   })
 }
@@ -46,42 +48,31 @@ export function useUpdateGroup() {
     mutationFn: ({ id, data }: { id: string; data: UpdateGroupRequest }) =>
       groupsApi.update(id, data),
     onSuccess: (_, { id }) => {
-      queryClient.invalidateQueries({ queryKey: ['group', id] })
-      queryClient.invalidateQueries({ queryKey: ['groups'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups.detail(id) })
+      queryClient.invalidateQueries({ queryKey: ['groups', 'list'] })
     },
   })
 }
 
 export function useDeleteGroup() {
   const queryClient = useQueryClient()
+  const groupsListKey = ['groups', 'list'] as const
 
   return useMutation({
     mutationFn: (id: string) => groupsApi.delete(id),
     onMutate: async (deletedId) => {
-      await queryClient.cancelQueries({ queryKey: ['groups'] })
-      const queries = queryClient.getQueriesData<{ items: { id: string }[]; total: number }>({
-        queryKey: ['groups'],
-      })
-      for (const [key, data] of queries) {
-        if (data?.items) {
-          queryClient.setQueryData(key, {
-            ...data,
-            items: data.items.filter((g) => g.id !== deletedId),
-            total: data.total - 1,
-          })
-        }
-      }
-      return { queries }
+      const snapshots = await optimisticDeleteById<{ id: string }>(
+        queryClient,
+        groupsListKey,
+        deletedId,
+      )
+      return { snapshots }
     },
     onError: (_err, _id, context) => {
-      if (context?.queries) {
-        for (const [key, data] of context.queries) {
-          queryClient.setQueryData(key, data)
-        }
-      }
+      rollbackOptimisticSnapshots(queryClient, context?.snapshots)
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['groups'] })
+      queryClient.invalidateQueries({ queryKey: groupsListKey })
     },
   })
 }
@@ -93,8 +84,8 @@ export function useAddMembers() {
     mutationFn: ({ groupId, researcherIds }: { groupId: string; researcherIds: string[] }) =>
       groupsApi.addMembers(groupId, researcherIds),
     onSuccess: (_, { groupId }) => {
-      queryClient.invalidateQueries({ queryKey: ['group', groupId] })
-      queryClient.invalidateQueries({ queryKey: ['groups'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups.detail(groupId) })
+      queryClient.invalidateQueries({ queryKey: ['groups', 'list'] })
     },
   })
 }
@@ -106,8 +97,8 @@ export function useRemoveMember() {
     mutationFn: ({ groupId, researcherId }: { groupId: string; researcherId: string }) =>
       groupsApi.removeMember(groupId, researcherId),
     onSuccess: (_, { groupId }) => {
-      queryClient.invalidateQueries({ queryKey: ['group', groupId] })
-      queryClient.invalidateQueries({ queryKey: ['groups'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups.detail(groupId) })
+      queryClient.invalidateQueries({ queryKey: ['groups', 'list'] })
     },
   })
 }

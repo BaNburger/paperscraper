@@ -15,6 +15,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.api.dependencies import CurrentUser, require_admin
@@ -122,6 +123,17 @@ def _set_auth_cookies(response: Response, tokens: TokenResponse) -> None:
     )
 
 
+def _token_response_with_cookies(
+    tokens: TokenResponse,
+    *,
+    status_code: int = status.HTTP_200_OK,
+) -> JSONResponse:
+    """Build JSON token response while attaching browser auth cookies."""
+    response = JSONResponse(status_code=status_code, content=tokens.model_dump(mode="json"))
+    _set_auth_cookies(response, tokens)
+    return response
+
+
 def _clear_auth_cookies(response: Response) -> None:
     """Clear browser auth cookies."""
     _delete_cookie(response, settings.AUTH_ACCESS_COOKIE_NAME)
@@ -148,11 +160,10 @@ def get_audit_service(db: Annotated[AsyncSession, Depends(get_db)]) -> AuditServ
 @limiter.limit("5/minute")
 async def register(
     request: Request,
-    response: Response,
     register_data: RegisterRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
     audit_service: Annotated[AuditService, Depends(get_audit_service)],
-) -> TokenResponse:
+) -> JSONResponse:
     """Register a new user and create their organization.
 
     This endpoint creates:
@@ -175,8 +186,7 @@ async def register(
     )
 
     tokens = auth_service.create_tokens(user)
-    _set_auth_cookies(response, tokens)
-    return tokens
+    return _token_response_with_cookies(tokens, status_code=status.HTTP_201_CREATED)
 
 
 @router.post(
@@ -187,11 +197,10 @@ async def register(
 @limiter.limit("10/minute")
 async def login(
     request: Request,
-    response: Response,
     login_data: LoginRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
     audit_service: Annotated[AuditService, Depends(get_audit_service)],
-) -> TokenResponse:
+) -> JSONResponse:
     """Authenticate a user with email and password.
 
     Returns JWT access and refresh tokens on successful authentication.
@@ -214,8 +223,7 @@ async def login(
         )
 
         tokens = auth_service.create_tokens(user)
-        _set_auth_cookies(response, tokens)
-        return tokens
+        return _token_response_with_cookies(tokens)
 
     except Exception as e:
         # Audit log: failed login attempt (without exposing if user exists)
@@ -238,10 +246,9 @@ async def login(
 @limiter.limit("10/minute")
 async def refresh_token(
     request: Request,
-    response: Response,
     refresh_data: RefreshTokenRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> TokenResponse:
+) -> JSONResponse:
     """Get new access and refresh tokens using a valid refresh token.
 
     The old refresh token should be discarded after calling this endpoint.
@@ -256,8 +263,7 @@ async def refresh_token(
             detail="Missing refresh token",
         )
     tokens = await auth_service.refresh_tokens(refresh_token_value)
-    _set_auth_cookies(response, tokens)
-    return tokens
+    return _token_response_with_cookies(tokens)
 
 
 @router.post(
@@ -267,11 +273,10 @@ async def refresh_token(
 )
 async def logout(
     request: Request,
-    response: Response,
     current_user: CurrentUser,
     audit_service: Annotated[AuditService, Depends(get_audit_service)],
     authorization: Annotated[str | None, Header()] = None,
-) -> None:
+) -> Response:
     """Logout the current user and invalidate their access token.
 
     The access token will be added to the blacklist and cannot be reused.
@@ -294,6 +299,7 @@ async def logout(
                 exp = datetime.fromtimestamp(exp_timestamp, tz=UTC)
                 await token_blacklist.blacklist_token(jti, exp)
 
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
     _clear_auth_cookies(response)
 
     # Audit log: logout
@@ -305,6 +311,8 @@ async def logout(
         resource_id=current_user.id,
         request=request,
     )
+
+    return response
 
 
 @router.get(

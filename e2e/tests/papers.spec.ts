@@ -1,4 +1,14 @@
 import { test, expect, registerUser, generateTestUser } from "./fixtures";
+import type { Page } from "@playwright/test";
+
+const firstPaperLink = (page: Page) =>
+  page.locator('main a[href^="/papers/"]:not([href="/papers"])').first();
+
+async function openImportPapersModal(page: Page) {
+  await page.goto("/papers");
+  await page.getByRole("button", { name: /import papers/i }).first().click();
+  await expect(page.getByRole("dialog", { name: /import papers/i })).toBeVisible();
+}
 
 test.describe("Papers", () => {
   test.beforeEach(async ({ page }) => {
@@ -23,20 +33,20 @@ test.describe("Papers", () => {
 
   test.describe("Paper Import", () => {
     test("can access DOI import form", async ({ page }) => {
-      await page.goto("/papers");
-      await page.getByRole("button", { name: /import papers/i }).first().click();
-      await expect(page.getByRole("button", { name: "DOI" })).toBeVisible();
+      await openImportPapersModal(page);
+      await expect(page.getByRole("tab", { name: /^doi$/i })).toBeVisible();
+      await expect(page.getByRole("tabpanel", { name: /^doi$/i })).toBeVisible();
     });
 
     test("can import paper by DOI", async ({ page }) => {
-      await page.goto("/papers");
-      await page.getByRole("button", { name: /import papers/i }).first().click();
-      await page.fill("#doi", "10.1038/nature12373");
+      await openImportPapersModal(page);
+      await page.getByRole("textbox", { name: /^doi$/i }).fill("10.1038/nature12373");
       await page.getByRole("button", { name: "Import", exact: true }).click();
 
-      await expect(
-        page.getByText(/importing|success|imported|failed|error/i)
-      ).toBeVisible({ timeout: 15000 });
+      const importResult = page.locator('[role="status"], [role="alert"]').filter({
+        hasText: /success|imported|failed|error/i,
+      });
+      await expect(importResult.first()).toBeVisible({ timeout: 15000 });
     });
   });
 
@@ -45,14 +55,15 @@ test.describe("Papers", () => {
       // Increase timeout for this test as it depends on external API
       test.setTimeout(60000);
 
-      await page.goto("/papers");
-      await page.getByRole("button", { name: /import papers/i }).first().click();
-      await page.fill("#doi", "10.1038/nature12373");
+      await openImportPapersModal(page);
+      await page.getByRole("textbox", { name: /^doi$/i }).fill("10.1038/nature12373");
       await page.getByRole("button", { name: "Import", exact: true }).click();
 
       // Wait for import API response rather than hardcoded timeout
       await page.waitForResponse(
-        (response) => response.url().includes("/api/v1/papers/ingest") && response.status() < 500,
+        (response) =>
+          response.url().includes("/api/v1/papers/ingest/doi") &&
+          response.status() < 500,
         { timeout: 20000 }
       ).catch(() => {});
 
@@ -63,7 +74,7 @@ test.describe("Papers", () => {
       await page.waitForLoadState("networkidle");
 
       // Wait for paper link with proper expect assertion (waits and retries)
-      const paperLink = page.locator('a[href*="/papers/"]').first();
+      const paperLink = firstPaperLink(page);
       const paperExists = await paperLink.isVisible({ timeout: 5000 }).catch(() => false);
 
       if (paperExists) {
@@ -76,17 +87,17 @@ test.describe("Papers", () => {
   });
 
   test.describe("Paper Actions", () => {
-    test("can add paper to project", async ({ page }) => {
+    test("can open transfer dialog from paper details", async ({ page }) => {
       await page.goto("/papers");
 
-      const paperLink = page.locator('a[href*="/papers/"]').first();
+      const paperLink = firstPaperLink(page);
       if (await paperLink.isVisible()) {
         await paperLink.click();
 
-        const addButton = page.getByRole("button", { name: /add to project/i });
-        if (await addButton.isVisible()) {
-          await addButton.click();
-          await expect(page.getByText(/select.*project/i)).toBeVisible();
+        const transferButton = page.getByRole("button", { name: /start transfer/i }).first();
+        if (await transferButton.isVisible()) {
+          await transferButton.click();
+          await expect(page.getByRole("dialog")).toBeVisible();
         }
       }
     });
@@ -94,11 +105,11 @@ test.describe("Papers", () => {
     test("can trigger AI scoring", async ({ page }) => {
       await page.goto("/papers");
 
-      const paperLink = page.locator('a[href*="/papers/"]').first();
+      const paperLink = firstPaperLink(page);
       if (await paperLink.isVisible()) {
         await paperLink.click();
 
-        const scoreButton = page.getByRole("button", { name: /score/i });
+        const scoreButton = page.getByRole("button", { name: /score/i }).first();
         if (await scoreButton.isVisible()) {
           await scoreButton.click();
           await expect(

@@ -118,58 +118,6 @@ class IngestDOIRequest(BaseModel):
     doi: str = Field(..., min_length=1, description="DOI of the paper to import")
 
 
-class IngestOpenAlexRequest(BaseModel):
-    """Request to batch ingest from OpenAlex."""
-
-    query: str = Field(..., description="Search query for OpenAlex")
-    max_results: int = Field(default=100, ge=1, le=1000)
-    filters: dict = Field(default_factory=dict)
-
-
-class IngestPubMedRequest(BaseModel):
-    """Request to batch ingest from PubMed."""
-
-    query: str = Field(..., description="PubMed search query")
-    max_results: int = Field(default=100, ge=1, le=1000)
-
-
-class IngestArxivRequest(BaseModel):
-    """Request to batch ingest from arXiv."""
-
-    query: str = Field(..., description="arXiv search query")
-    max_results: int = Field(default=100, ge=1, le=1000)
-    category: str | None = Field(
-        default=None,
-        description="Optional arXiv category filter (e.g., 'cs.AI', 'physics.med-ph')",
-    )
-
-
-class IngestSemanticScholarRequest(BaseModel):
-    """Request to batch ingest from Semantic Scholar."""
-
-    query: str = Field(..., description="Semantic Scholar search query")
-    max_results: int = Field(default=100, ge=1, le=1000)
-
-
-class IngestJobResponse(BaseModel):
-    """Response for async ingestion job."""
-
-    job_id: str
-    ingest_run_id: UUID
-    source: str
-    status: str = "queued"
-    message: str
-
-
-class IngestResult(BaseModel):
-    """Result of ingestion operation."""
-
-    papers_created: int
-    papers_updated: int
-    papers_skipped: int
-    errors: list[str] = Field(default_factory=list)
-
-
 # =============================================================================
 # Context Snapshot Schemas
 # =============================================================================

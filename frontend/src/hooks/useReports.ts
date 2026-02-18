@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { reportsApi } from '@/lib/api'
+import { queryKeys } from '@/config/queryKeys'
 import type { CreateScheduledReportRequest, UpdateScheduledReportRequest } from '@/types'
 
 export function useScheduledReports(params?: {
@@ -8,14 +9,14 @@ export function useScheduledReports(params?: {
   is_active?: boolean
 }) {
   return useQuery({
-    queryKey: ['reports', 'scheduled', params],
+    queryKey: queryKeys.reports.scheduled(params),
     queryFn: () => reportsApi.listScheduledReports(params),
   })
 }
 
 export function useScheduledReport(reportId: string) {
   return useQuery({
-    queryKey: ['reports', 'scheduled', reportId],
+    queryKey: queryKeys.reports.scheduledDetail(reportId),
     queryFn: () => reportsApi.getScheduledReport(reportId),
     enabled: !!reportId,
   })

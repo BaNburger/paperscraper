@@ -82,7 +82,7 @@ class PaperClassifier:
                 paper_id=paper_id,
                 dimension="classification",
                 reason=str(e),
-            )
+            ) from e
 
         # Validate response
         paper_type = response.get("paper_type", "OTHER")

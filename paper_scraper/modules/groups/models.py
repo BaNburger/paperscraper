@@ -19,6 +19,13 @@ class GroupType(str, enum.Enum):
     SPEAKER_POOL = "speaker_pool"
 
 
+GROUP_TYPE_ENUM = Enum(
+    GroupType,
+    name="grouptype",
+    values_callable=lambda enum_cls: [member.value for member in enum_cls],
+)
+
+
 class ResearcherGroup(Base):
     """Group of researchers for organization and outreach."""
 
@@ -34,7 +41,7 @@ class ResearcherGroup(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     type: Mapped[GroupType] = mapped_column(
-        Enum(GroupType), default=GroupType.CUSTOM, nullable=False
+        GROUP_TYPE_ENUM, default=GroupType.CUSTOM, nullable=False
     )
     keywords: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
     created_by: Mapped[UUID | None] = mapped_column(

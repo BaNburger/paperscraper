@@ -11,15 +11,17 @@ from paper_scraper.core.database import get_db
 from paper_scraper.core.permissions import Permission
 from paper_scraper.jobs.payloads import SourceIngestionJobPayload
 from paper_scraper.modules.ingestion.models import IngestRunStatus
-from paper_scraper.modules.ingestion.schemas import IngestRunListResponse, IngestRunResponse
-from paper_scraper.modules.ingestion.service import IngestionService
-from paper_scraper.modules.papers.schemas import (
+from paper_scraper.modules.ingestion.schemas import (
     IngestArxivRequest,
     IngestJobResponse,
     IngestOpenAlexRequest,
     IngestPubMedRequest,
+    IngestRunListResponse,
+    IngestRunRecordListResponse,
+    IngestRunResponse,
     IngestSemanticScholarRequest,
 )
+from paper_scraper.modules.ingestion.service import IngestionService
 
 router = APIRouter()
 
@@ -235,3 +237,27 @@ async def get_ingestion_run(
         organization_id=current_user.organization_id,
     )
     return IngestRunResponse.model_validate(run)
+
+
+@router.get(
+    "/runs/{run_id}/records",
+    response_model=IngestRunRecordListResponse,
+    summary="List ingestion run records",
+    dependencies=[Depends(require_permission(Permission.PAPERS_READ))],
+)
+async def list_ingestion_run_records(
+    run_id: UUID,
+    current_user: CurrentUser,
+    ingestion_service: Annotated[IngestionService, Depends(get_ingestion_service)],
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
+    resolution_status: str | None = Query(default=None),
+) -> IngestRunRecordListResponse:
+    """List per-record ingestion outcomes for a run."""
+    return await ingestion_service.list_run_records(
+        run_id=run_id,
+        organization_id=current_user.organization_id,
+        page=page,
+        page_size=page_size,
+        resolution_status=resolution_status,
+    )

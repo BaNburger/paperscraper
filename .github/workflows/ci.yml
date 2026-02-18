@@ -41,6 +41,9 @@ jobs:
       - name: Install linting tools
         run: pip install ruff mypy
 
+      - name: Run strict agent architecture linters
+        run: python scripts/paperscraper_linters/run.py --repo . --mode ci --format text
+
       - name: Run ruff check
         run: ruff check .
 
@@ -168,6 +171,7 @@ jobs:
         run: docker-compose up -d
         env:
           COMPOSE_PROJECT_NAME: paper-scraper-ci
+          RATE_LIMIT_ENABLED: "false"
 
       - name: Wait for services
         run: |

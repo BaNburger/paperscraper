@@ -26,8 +26,8 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
   const settingsItems = visibleItems.filter((item) => item.sidebarGroup === 'settings')
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await logout()
     onClose()
   }
 
@@ -133,7 +133,9 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
             <div className="p-4 border-t bg-background">
               <button
                 type="button"
-                onClick={handleLogout}
+                onClick={() => {
+                  void handleLogout()
+                }}
                 aria-label={t('auth.logout')}
                 className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >

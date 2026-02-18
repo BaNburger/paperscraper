@@ -37,6 +37,17 @@ class TransferStage(str, enum.Enum):
     CLOSED_LOST = "closed_lost"
 
 
+TRANSFER_TYPE_ENUM = Enum(
+    TransferType,
+    values_callable=lambda enum_cls: [member.value for member in enum_cls],
+)
+
+TRANSFER_STAGE_ENUM = Enum(
+    TransferStage,
+    values_callable=lambda enum_cls: [member.value for member in enum_cls],
+)
+
+
 class TransferConversation(Base):
     """Technology transfer conversation."""
 
@@ -56,9 +67,9 @@ class TransferConversation(Base):
         Uuid, ForeignKey("authors.id", ondelete="SET NULL"), nullable=True
     )
 
-    type: Mapped[TransferType] = mapped_column(Enum(TransferType), nullable=False)
+    type: Mapped[TransferType] = mapped_column(TRANSFER_TYPE_ENUM, nullable=False)
     stage: Mapped[TransferStage] = mapped_column(
-        Enum(TransferStage), default=TransferStage.INITIAL_CONTACT
+        TRANSFER_STAGE_ENUM, default=TransferStage.INITIAL_CONTACT
     )
     title: Mapped[str] = mapped_column(String(500), nullable=False)
 
@@ -176,8 +187,8 @@ class StageChange(Base):
         nullable=False,
         index=True,
     )
-    from_stage: Mapped[TransferStage] = mapped_column(Enum(TransferStage))
-    to_stage: Mapped[TransferStage] = mapped_column(Enum(TransferStage))
+    from_stage: Mapped[TransferStage] = mapped_column(TRANSFER_STAGE_ENUM)
+    to_stage: Mapped[TransferStage] = mapped_column(TRANSFER_STAGE_ENUM)
     changed_by: Mapped[UUID | None] = mapped_column(
         Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
@@ -212,7 +223,7 @@ class MessageTemplate(Base):
     subject: Mapped[str | None] = mapped_column(String(500), nullable=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     stage: Mapped[TransferStage | None] = mapped_column(
-        Enum(TransferStage), nullable=True
+        TRANSFER_STAGE_ENUM, nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

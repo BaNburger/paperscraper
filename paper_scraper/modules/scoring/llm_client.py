@@ -398,7 +398,7 @@ class OpenAIClient(BaseLLMClient):
                 service="OpenAI",
                 message=e.response.text,
                 status_code=e.response.status_code,
-            )
+            ) from e
 
         # Extract content and usage
         content = data["choices"][0]["message"]["content"]
@@ -440,7 +440,7 @@ class OpenAIClient(BaseLLMClient):
                 service="OpenAI",
                 message=f"Failed to parse JSON response: {e}",
                 details={"response": response},
-            )
+            ) from e
 
 
 # =============================================================================
@@ -530,7 +530,7 @@ class AnthropicClient(BaseLLMClient):
                 service="Anthropic",
                 message=e.response.text,
                 status_code=e.response.status_code,
-            )
+            ) from e
 
         content = data["content"][0]["text"]
         usage = None
@@ -581,7 +581,7 @@ class AnthropicClient(BaseLLMClient):
                 service="Anthropic",
                 message=f"Failed to parse JSON response: {e}",
                 details={"response": response},
-            )
+            ) from e
 
 
 # =============================================================================
@@ -673,7 +673,7 @@ class AzureOpenAIClient(BaseLLMClient):
                 service="Azure OpenAI",
                 message=e.response.text,
                 status_code=e.response.status_code,
-            )
+            ) from e
 
         content = data["choices"][0]["message"]["content"]
         usage = None
@@ -714,7 +714,7 @@ class AzureOpenAIClient(BaseLLMClient):
                 service="Azure OpenAI",
                 message=f"Failed to parse JSON response: {e}",
                 details={"response": response},
-            )
+            ) from e
 
 
 # =============================================================================
@@ -794,7 +794,7 @@ class OllamaClient(BaseLLMClient):
                 service="Ollama",
                 message=e.response.text,
                 status_code=e.response.status_code,
-            )
+            ) from e
 
         content = data["response"]
         usage = None
@@ -835,7 +835,7 @@ class OllamaClient(BaseLLMClient):
                 service="Ollama",
                 message=f"Failed to parse JSON response: {e}",
                 details={"response": response},
-            )
+            ) from e
 
 
 # =============================================================================
@@ -927,7 +927,7 @@ class GeminiClient(BaseLLMClient):
                 service="Google Gemini",
                 message=e.response.text,
                 status_code=e.response.status_code,
-            )
+            ) from e
 
         # Extract content from response
         candidates = data.get("candidates", [])
@@ -991,7 +991,7 @@ class GeminiClient(BaseLLMClient):
                 service="Google Gemini",
                 message=f"Failed to parse JSON response: {e}",
                 details={"response": response},
-            )
+            ) from e
 
 
 # =============================================================================

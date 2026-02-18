@@ -1,0 +1,2 @@
+"""Shared embedding domain services."""
+

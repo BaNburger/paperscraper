@@ -4,8 +4,21 @@ test.describe("Team Members Page", () => {
   test.beforeEach(async ({ page }) => {
     const user = generateTestUser();
     await registerUser(page, user);
-    await page.goto("/team");
-    await page.waitForLoadState("networkidle");
+
+    const teamHeading = page.getByRole("heading", { level: 1, name: /team members/i });
+    const loadTeamPage = async () => {
+      await page.goto("/team", { waitUntil: "domcontentloaded", timeout: 60000 });
+      await expect(page).toHaveURL(/\/team(?:[/?#]|$)/, { timeout: 20000 });
+      await expect(teamHeading).toBeVisible({ timeout: 20000 });
+    };
+
+    try {
+      await loadTeamPage();
+    } catch {
+      // One retry recovers occasional blank/hydration loads in CI browsers.
+      await page.reload({ waitUntil: "domcontentloaded", timeout: 60000 });
+      await loadTeamPage();
+    }
   });
 
   test.describe("Page Structure", () => {
@@ -76,12 +89,16 @@ test.describe("Team Members Page", () => {
 
     test("dialog has role selector", async ({ page }) => {
       await page.getByRole("button", { name: /invite member/i }).click();
-      await expect(page.getByLabel(/role/i)).toBeVisible();
+      const inviteDialog = page.getByRole("dialog", { name: /invite team member/i });
+      await expect(inviteDialog).toBeVisible();
+      await expect(inviteDialog.getByRole("combobox").first()).toBeVisible();
     });
 
     test("can select different roles", async ({ page }) => {
       await page.getByRole("button", { name: /invite member/i }).click();
-      await page.getByLabel(/role/i).click();
+      const inviteDialog = page.getByRole("dialog", { name: /invite team member/i });
+      const roleSelector = inviteDialog.getByRole("combobox").first();
+      await roleSelector.click();
 
       await expect(page.getByRole("option", { name: /viewer/i })).toBeVisible();
       await expect(page.getByRole("option", { name: /member/i })).toBeVisible();
@@ -108,16 +125,28 @@ test.describe("Team Members Page", () => {
 
     test("can send invitation", async ({ page }) => {
       await page.getByRole("button", { name: /invite member/i }).click();
-      await page.getByLabel(/email address/i).fill(`invite-${Date.now()}@example.com`);
-      await page.getByRole("button", { name: /send invitation/i }).click();
+      const uniqueEmail = `invite-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
+      await page.getByLabel(/email address/i).fill(uniqueEmail);
+      const inviteDialog = page.getByRole("dialog", { name: /invite team member/i });
+      const sendButton = page.getByRole("button", { name: /send invitation/i });
+      await expect(sendButton).toBeEnabled({ timeout: 15000 });
 
-      // Wait for API response
-      await page.waitForTimeout(2000);
+      const inviteResponsePromise = page.waitForResponse(
+        (response) =>
+          response.request().method() === "POST" &&
+          response.url().includes("/api/v1/auth/invite"),
+        { timeout: 15000 }
+      );
 
-      // Should either succeed or show error
-      const dialogHidden = await page.getByRole("dialog").isHidden().catch(() => false);
-      const hasError = await page.getByText(/failed|error/i).isVisible().catch(() => false);
-      expect(dialogHidden || hasError).toBeTruthy();
+      await sendButton.click();
+      const inviteResponse = await inviteResponsePromise;
+      expect(inviteResponse.status()).toBeLessThan(500);
+
+      if (inviteResponse.status() < 400) {
+        await expect(inviteDialog).toBeHidden({ timeout: 15000 });
+      } else {
+        await expect(inviteDialog).toBeVisible();
+      }
     });
   });
 

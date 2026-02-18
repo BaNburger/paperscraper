@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { alertsApi } from '@/lib/api'
+import { queryKeys } from '@/config/queryKeys'
 import type { CreateAlertRequest, UpdateAlertRequest } from '@/types'
 
 export function useAlerts(params?: {
@@ -8,14 +9,14 @@ export function useAlerts(params?: {
   active_only?: boolean
 }) {
   return useQuery({
-    queryKey: ['alerts', params],
+    queryKey: queryKeys.alerts.list(params),
     queryFn: () => alertsApi.list(params),
   })
 }
 
 export function useAlert(id: string | undefined) {
   return useQuery({
-    queryKey: ['alert', id],
+    queryKey: queryKeys.alerts.detail(id ?? ''),
     queryFn: () => alertsApi.get(id!),
     enabled: !!id,
   })
@@ -27,7 +28,7 @@ export function useCreateAlert() {
   return useMutation({
     mutationFn: (data: CreateAlertRequest) => alertsApi.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['alerts'] })
+      queryClient.invalidateQueries({ queryKey: ['alerts', 'list'] })
     },
   })
 }
@@ -39,8 +40,8 @@ export function useUpdateAlert() {
     mutationFn: ({ id, data }: { id: string; data: UpdateAlertRequest }) =>
       alertsApi.update(id, data),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['alerts'] })
-      queryClient.invalidateQueries({ queryKey: ['alert', variables.id] })
+      queryClient.invalidateQueries({ queryKey: ['alerts', 'list'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.alerts.detail(variables.id) })
     },
   })
 }
@@ -51,7 +52,7 @@ export function useDeleteAlert() {
   return useMutation({
     mutationFn: (id: string) => alertsApi.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['alerts'] })
+      queryClient.invalidateQueries({ queryKey: ['alerts', 'list'] })
     },
   })
 }
@@ -61,7 +62,7 @@ export function useAlertResults(alertId: string | undefined, params?: {
   page_size?: number
 }) {
   return useQuery({
-    queryKey: ['alert-results', alertId, params],
+    queryKey: queryKeys.alerts.results(alertId ?? '', params),
     queryFn: () => alertsApi.getResults(alertId!, params),
     enabled: !!alertId,
   })
@@ -79,8 +80,8 @@ export function useTriggerAlert() {
   return useMutation({
     mutationFn: (id: string) => alertsApi.trigger(id),
     onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ['alert', id] })
-      queryClient.invalidateQueries({ queryKey: ['alert-results', id] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.alerts.detail(id) })
+      queryClient.invalidateQueries({ queryKey: ['alerts', 'results', id] })
     },
   })
 }

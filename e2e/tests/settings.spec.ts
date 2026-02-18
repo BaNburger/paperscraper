@@ -156,7 +156,9 @@ test.describe("User Settings Page", () => {
     });
 
     test("shows organization name", async ({ page }) => {
-      await expect(page.getByText(/organization/i).first()).toBeVisible();
+      const settingsMain = page.locator("main");
+      await expect(settingsMain.getByText(/^Organization$/)).toBeVisible();
+      await expect(settingsMain.getByText(/^Test Org /)).toBeVisible();
     });
 
     test("shows subscription tier", async ({ page }) => {

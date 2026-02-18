@@ -8,15 +8,6 @@ from pydantic import BaseModel, Field
 from paper_scraper.modules.scoring.schemas import ScoringWeightsSchema
 
 
-class OpenAlexIngestionJobPayload(BaseModel):
-    """Payload for OpenAlex ingestion job."""
-
-    organization_id: UUID
-    query: str
-    max_results: int = Field(default=100, ge=1, le=1000)
-    filters: dict = Field(default_factory=dict)
-
-
 class SourceIngestionJobPayload(BaseModel):
     """Payload for async source ingestion jobs."""
 

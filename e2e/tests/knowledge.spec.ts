@@ -3,11 +3,27 @@ import { test, expect, registerUser, generateTestUser, Page } from "./fixtures";
 /** Create a knowledge source via the dialog UI. */
 async function createKnowledgeSource(page: Page, title?: string): Promise<string> {
   const ksTitle = title ?? `Knowledge Source ${Date.now()}`;
-  await page.getByRole("button", { name: /add source/i }).click();
+  await page.getByRole("button", { name: /add source/i }).first().click();
   await page.getByLabel(/title/i).fill(ksTitle);
   await page.locator('textarea[id="ksContent"]').fill("Test content for this knowledge source.");
+
+  const createResponsePromise = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      /\/api\/v1\/knowledge\/(personal|organization)/.test(response.url()),
+    { timeout: 20000 }
+  );
+
   await page.getByRole("dialog").getByRole("button", { name: /create/i }).click();
-  await expect(page.getByRole("dialog")).toBeHidden({ timeout: 10000 });
+
+  const createResponse = await createResponsePromise;
+  expect(createResponse.status()).toBeGreaterThanOrEqual(200);
+  expect(createResponse.status()).toBeLessThan(400);
+
+  await expect(page.getByRole("dialog")).toBeHidden({ timeout: 15000 });
+  await expect(page.getByRole("heading", { level: 3, name: ksTitle })).toBeVisible({
+    timeout: 20000,
+  });
   return ksTitle;
 }
 
@@ -15,8 +31,10 @@ test.describe("Knowledge Page", () => {
   test.beforeEach(async ({ page }) => {
     const user = generateTestUser();
     await registerUser(page, user);
-    await page.goto("/knowledge");
-    await page.waitForLoadState("networkidle");
+    await page.goto("/knowledge", { waitUntil: "domcontentloaded", timeout: 60000 });
+    await expect(page.getByRole("heading", { level: 1, name: /knowledge base/i })).toBeVisible({
+      timeout: 20000,
+    });
   });
 
   test.describe("Page Structure", () => {
@@ -25,42 +43,49 @@ test.describe("Knowledge Page", () => {
     });
 
     test("displays page description", async ({ page }) => {
-      await expect(page.getByText(/manage knowledge sources to personalize/i)).toBeVisible();
+      await expect(page.getByText(/manage knowledge sources for ai-powered analysis/i)).toBeVisible();
     });
 
     test("displays Add Source button", async ({ page }) => {
-      await expect(page.getByRole("button", { name: /add source/i })).toBeVisible();
+      await expect(page.getByRole("button", { name: /add source/i }).first()).toBeVisible();
     });
   });
 
   test.describe("Tabs", () => {
     test("displays Personal tab", async ({ page }) => {
-      await expect(page.getByRole("button", { name: /personal/i })).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: /personal|pers.?nlich/i }).first()
+      ).toBeVisible();
     });
 
     test("Personal tab is active by default", async ({ page }) => {
-      const personalTab = page.getByRole("button", { name: /personal/i });
-      await expect(personalTab).toHaveClass(/bg-primary/);
+      await expect(
+        page.getByText(/no personal sources yet|noch keine .*quellen/i).first()
+      ).toBeVisible();
     });
 
     test("Organization tab visible for admin", async ({ page }) => {
       // New users are admins of their org
-      await expect(page.getByRole("button", { name: /organization/i })).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: /organization|organisation/i }).first()
+      ).toBeVisible();
     });
 
     test("can switch to Organization tab", async ({ page }) => {
-      await page.getByRole("button", { name: /organization/i }).click();
-      await expect(page.getByRole("button", { name: /organization/i })).toHaveClass(/bg-primary/);
+      await page.getByRole("button", { name: /organization|organisation/i }).first().click();
+      await expect(
+        page.getByText(/no organization sources yet|noch keine .*quellen/i).first()
+      ).toBeVisible();
     });
   });
 
   test.describe("Empty State", () => {
     test("shows empty state when no knowledge sources", async ({ page }) => {
-      await expect(page.getByText(/no personal knowledge sources/i)).toBeVisible();
+      await expect(page.getByText(/no personal sources yet/i)).toBeVisible();
     });
 
     test("shows helpful description in empty state", async ({ page }) => {
-      await expect(page.getByText(/add knowledge sources to help the ai/i)).toBeVisible();
+      await expect(page.getByText(/enhance ai analysis with domain-specific context/i)).toBeVisible();
     });
 
     test("shows Add Source button in empty state", async ({ page }) => {
@@ -74,7 +99,7 @@ test.describe("Knowledge Page", () => {
     test("opens create dialog when clicking Add Source", async ({ page }) => {
       await page.getByRole("button", { name: /add source/i }).first().click();
       await expect(page.getByRole("dialog")).toBeVisible();
-      await expect(page.getByText(/add knowledge source/i).first()).toBeVisible();
+      await expect(page.getByText(/add source/i).first()).toBeVisible();
     });
 
     test("dialog has title field", async ({ page }) => {
@@ -115,21 +140,14 @@ test.describe("Knowledge Page", () => {
 
     test("can create a new knowledge source", async ({ page }) => {
       const ksTitle = `Test Knowledge ${Date.now()}`;
-      await page.getByRole("button", { name: /add source/i }).first().click();
-      await page.getByLabel(/title/i).fill(ksTitle);
-      await page.locator('textarea[id="ksContent"]').fill("Test content");
-
-      await page.getByRole("dialog").getByRole("button", { name: /create/i }).click();
-
-      await expect(page.getByRole("dialog")).toBeHidden({ timeout: 10000 });
-      await expect(page.getByText(ksTitle).first()).toBeVisible({ timeout: 5000 });
+      await createKnowledgeSource(page, ksTitle);
+      await expect(page.getByRole("heading", { level: 3, name: ksTitle })).toBeVisible();
     });
   });
 
   test.describe("Knowledge Source Cards", () => {
     test.beforeEach(async ({ page }) => {
       await createKnowledgeSource(page);
-      await page.waitForTimeout(500);
     });
 
     test("displays knowledge source cards after creation", async ({ page }) => {
@@ -147,24 +165,33 @@ test.describe("Knowledge Page", () => {
     test("shows edit button on hover", async ({ page }) => {
       const card = page.locator(".group.relative").first();
       await card.hover();
-      await expect(page.locator('svg[class*="Pencil"]').first()).toBeVisible();
+      await expect(
+        page.locator('svg.lucide-pencil, svg[data-lucide="pencil"], svg[class*="pencil"]').first()
+      ).toBeVisible();
     });
 
     test("shows delete button on hover", async ({ page }) => {
       const card = page.locator(".group.relative").first();
       await card.hover();
-      await expect(page.locator('svg[class*="Trash"]').first()).toBeVisible();
+      await expect(
+        page.locator('svg.lucide-trash2, svg[data-lucide="trash2"], svg[class*="trash"]').first()
+      ).toBeVisible();
     });
   });
 
   test.describe("Delete Confirmation", () => {
     test("shows delete confirmation dialog", async ({ page }) => {
       await createKnowledgeSource(page, `Delete Test ${Date.now()}`);
-      await page.waitForTimeout(500);
 
       const card = page.locator(".group.relative").first();
       await card.hover();
-      await page.getByRole("button").filter({ has: page.locator('svg[class*="Trash"]') }).first().click();
+      await page
+        .getByRole("button")
+        .filter({
+          has: page.locator('svg.lucide-trash2, svg[data-lucide="trash2"], svg[class*="trash"]'),
+        })
+        .first()
+        .click();
 
       await expect(page.getByText(/are you sure/i)).toBeVisible();
     });

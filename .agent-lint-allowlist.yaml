@@ -1,0 +1,62 @@
+- rule_id: PSF004
+  path: frontend/src/hooks/useKeyboardShortcuts.ts
+  match: Hardcoded route literal
+  reason: Legacy keyboard action shortcuts still use inline route strings.
+  owner: platform-architecture
+  expires_on: 2026-12-31
+
+- rule_id: PSF004
+  path: frontend/src/components/CommandPalette.tsx
+  match: Hardcoded route literal
+  reason: Command palette navigation is still migrating to route registry references.
+  owner: platform-architecture
+  expires_on: 2026-12-31
+
+- rule_id: PSF005
+  path: frontend/src/hooks/useSubmissions.ts
+  match: Inline query key tuples
+  reason: Submission hooks still use legacy inline query keys.
+  owner: frontend-platform
+  expires_on: 2026-12-31
+
+- rule_id: PSF005
+  path: frontend/src/hooks/useTransfer.ts
+  match: Inline query key tuples
+  reason: Transfer hooks still use legacy inline query keys.
+  owner: frontend-platform
+  expires_on: 2026-12-31
+
+- rule_id: PSF007
+  path: frontend/src/pages/ProjectsPage.tsx
+  match: ResearchGroup
+  reason: UI component names still include legacy ResearchGroup wording.
+  owner: frontend-platform
+  expires_on: 2026-12-31
+
+- rule_id: PSF007
+  path: paper_scraper/modules/projects/models.py
+  match: ResearchGroup
+  reason: Legacy repr string retains transitional domain wording.
+  owner: backend-platform
+  expires_on: 2026-12-31
+
+- rule_id: PSF003
+  path: frontend/src/api/domains/auth.ts
+  match: must not import DTOs
+  reason: Domain auth API still consumes transitional DTO definitions from types index.
+  owner: frontend-platform
+  expires_on: 2026-12-31
+
+- rule_id: PSF003
+  path: frontend/src/api/domains/core.ts
+  match: must not import DTOs
+  reason: Core domain API module still uses transitional DTO imports pending full contract migration.
+  owner: frontend-platform
+  expires_on: 2026-12-31
+
+- rule_id: PSA004
+  path: paper_scraper/modules/alerts/router.py
+  match: private service method
+  reason: Alerts router still calls a legacy private service helper pending API cleanup.
+  owner: backend-platform
+  expires_on: 2026-12-31

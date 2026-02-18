@@ -1,17 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { knowledgeApi } from '@/lib/api'
+import { queryKeys } from '@/config/queryKeys'
 import type { CreateKnowledgeSourceRequest, UpdateKnowledgeSourceRequest } from '@/types'
 
 export function usePersonalKnowledge() {
   return useQuery({
-    queryKey: ['knowledge', 'personal'],
+    queryKey: queryKeys.knowledge.personal(),
     queryFn: () => knowledgeApi.listPersonal(),
   })
 }
 
 export function useOrganizationKnowledge() {
   return useQuery({
-    queryKey: ['knowledge', 'organization'],
+    queryKey: queryKeys.knowledge.organization(),
     queryFn: () => knowledgeApi.listOrganization(),
   })
 }
@@ -22,7 +23,7 @@ export function useCreatePersonalKnowledge() {
   return useMutation({
     mutationFn: (data: CreateKnowledgeSourceRequest) => knowledgeApi.createPersonal(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['knowledge', 'personal'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.personal() })
     },
   })
 }
@@ -34,7 +35,7 @@ export function useUpdatePersonalKnowledge() {
     mutationFn: ({ id, data }: { id: string; data: UpdateKnowledgeSourceRequest }) =>
       knowledgeApi.updatePersonal(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['knowledge', 'personal'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.personal() })
     },
   })
 }
@@ -45,7 +46,7 @@ export function useDeletePersonalKnowledge() {
   return useMutation({
     mutationFn: (id: string) => knowledgeApi.deletePersonal(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['knowledge', 'personal'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.personal() })
     },
   })
 }
@@ -56,7 +57,7 @@ export function useCreateOrganizationKnowledge() {
   return useMutation({
     mutationFn: (data: CreateKnowledgeSourceRequest) => knowledgeApi.createOrganization(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['knowledge', 'organization'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.organization() })
     },
   })
 }
@@ -68,7 +69,7 @@ export function useUpdateOrganizationKnowledge() {
     mutationFn: ({ id, data }: { id: string; data: UpdateKnowledgeSourceRequest }) =>
       knowledgeApi.updateOrganization(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['knowledge', 'organization'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.organization() })
     },
   })
 }
@@ -79,7 +80,7 @@ export function useDeleteOrganizationKnowledge() {
   return useMutation({
     mutationFn: (id: string) => knowledgeApi.deleteOrganization(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['knowledge', 'organization'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.organization() })
     },
   })
 }

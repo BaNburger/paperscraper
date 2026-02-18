@@ -28,6 +28,19 @@ class KnowledgeType(str, enum.Enum):
     CUSTOM = "custom"
 
 
+KNOWLEDGE_SCOPE_ENUM = Enum(
+    KnowledgeScope,
+    name="knowledgescope",
+    values_callable=lambda enum_cls: [member.value for member in enum_cls],
+)
+
+KNOWLEDGE_TYPE_ENUM = Enum(
+    KnowledgeType,
+    name="knowledgetype",
+    values_callable=lambda enum_cls: [member.value for member in enum_cls],
+)
+
+
 class KnowledgeSource(Base):
     """Knowledge source for AI personalization.
 
@@ -51,10 +64,10 @@ class KnowledgeSource(Base):
         index=True,
     )
     scope: Mapped[KnowledgeScope] = mapped_column(
-        Enum(KnowledgeScope), nullable=False
+        KNOWLEDGE_SCOPE_ENUM, nullable=False
     )
     type: Mapped[KnowledgeType] = mapped_column(
-        Enum(KnowledgeType), nullable=False, default=KnowledgeType.CUSTOM
+        KNOWLEDGE_TYPE_ENUM, nullable=False, default=KnowledgeType.CUSTOM
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)

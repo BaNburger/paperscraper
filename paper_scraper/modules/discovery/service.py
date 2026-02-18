@@ -19,9 +19,9 @@ from paper_scraper.modules.discovery.schemas import (
     DiscoveryTriggerResponse,
 )
 from paper_scraper.modules.ingestion.pipeline import IngestionPipeline
+from paper_scraper.modules.ingestion.models import SourceRecord
 from paper_scraper.modules.notifications.models import NotificationType
 from paper_scraper.modules.notifications.service import NotificationService
-from paper_scraper.modules.papers.models import Paper
 from paper_scraper.modules.projects.service import ProjectService
 from paper_scraper.modules.saved_searches.models import SavedSearch
 
@@ -209,37 +209,38 @@ class DiscoveryService:
                 filters=source_filters,
                 limit=max_results,
             )
+            run.ingest_run_id = ingest_run.id
             stats = ingest_run.stats_json if isinstance(ingest_run.stats_json, dict) else {}
             papers_created = int(stats.get("papers_created", 0))
-            papers_skipped = int(stats.get("source_records_duplicates", 0))
+            papers_matched = int(stats.get("papers_matched", 0))
+            papers_skipped = int(stats.get("source_records_duplicates", 0)) + papers_matched
             raw_errors = stats.get("errors")
             errors: list[str] = []
             if isinstance(raw_errors, list):
                 errors = [str(item) for item in raw_errors if item is not None]
 
-            run.papers_found = papers_created + papers_skipped
+            run.papers_found = int(stats.get("fetched_records", papers_created + papers_skipped))
             run.papers_imported = papers_created
             run.papers_skipped = papers_skipped
 
             # Add new papers to target project if configured
             added_to_project = 0
-            if saved_search.target_project_id and papers_created > 0:
-                # Identify newly created papers by querying those added after our snapshot
-                new_papers_result = await self.db.execute(
-                    select(Paper.id)
+            if saved_search.target_project_id:
+                run_records_result = await self.db.execute(
+                    select(SourceRecord.paper_id)
                     .where(
-                        Paper.organization_id == organization_id,
-                        Paper.created_by_id == user_id,
+                        SourceRecord.ingest_run_id == ingest_run.id,
+                        SourceRecord.organization_id == organization_id,
+                        SourceRecord.paper_id.is_not(None),
                     )
-                    .order_by(desc(Paper.created_at))
-                    .limit(papers_created)
+                    .distinct()
                 )
-                new_paper_ids = [row[0] for row in new_papers_result.all()]
+                run_paper_ids = [row[0] for row in run_records_result.all() if row[0] is not None]
 
                 added_to_project = await self._add_papers_to_project(
                     organization_id=organization_id,
                     project_id=saved_search.target_project_id,
-                    paper_ids=new_paper_ids,
+                    paper_ids=run_paper_ids,
                     user_id=user_id,
                 )
 

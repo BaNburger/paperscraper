@@ -172,6 +172,11 @@ DevData/
 /test-results/
 /playwright-report/
 /blob-report/
+/e2e/test-results/
+/e2e/playwright-report/
+/e2e/blob-report/
+/.playwright-cli/
+/.playwright-mcp/
 /playwright/.cache/
 /playwright/.auth/
 *.png
