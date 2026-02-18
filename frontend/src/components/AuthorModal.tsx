@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
 import { Badge } from '@/components/ui/Badge'
+import { ExternalLink } from '@/components/ui/ExternalLink'
 import {
   X,
   Loader2,
@@ -15,7 +16,7 @@ import {
   BookOpen,
   RefreshCw,
   Plus,
-  ExternalLink,
+  ExternalLink as ExternalLinkIcon,
   MessageSquare,
   Trash2,
 } from 'lucide-react'
@@ -157,28 +158,22 @@ export function AuthorModal({ authorId, isOpen, onClose }: AuthorModalProps) {
                   {/* External links */}
                   <div className="flex flex-wrap gap-2 mt-4">
                     {author.orcid && (
-                      <a
-                        href={`https://orcid.org/${author.orcid}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
+                      <ExternalLink href={`https://orcid.org/${author.orcid}`}>
                         <Badge variant="outline" className="cursor-pointer hover:bg-muted">
-                          <ExternalLink className="h-3 w-3 mr-1" />
+                          <ExternalLinkIcon className="h-3 w-3 mr-1" />
                           ORCID
                         </Badge>
-                      </a>
+                      </ExternalLink>
                     )}
                     {author.openalex_id && (
-                      <a
+                      <ExternalLink
                         href={`https://openalex.org/${author.openalex_id.replace('https://openalex.org/', '')}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
                       >
                         <Badge variant="outline" className="cursor-pointer hover:bg-muted">
-                          <ExternalLink className="h-3 w-3 mr-1" />
+                          <ExternalLinkIcon className="h-3 w-3 mr-1" />
                           OpenAlex
                         </Badge>
-                      </a>
+                      </ExternalLink>
                     )}
                   </div>
                 </CardContent>

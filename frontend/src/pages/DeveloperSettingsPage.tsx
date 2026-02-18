@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/Badge'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useToast } from '@/components/ui/Toast'
+import { copyTextToClipboard } from '@/lib/browser'
 import type {
   CreateAPIKeyRequest,
   CreateWebhookRequest,
@@ -164,7 +165,11 @@ function APIKeysTab() {
   }
 
   const copyToClipboard = async (text: string) => {
-    await navigator.clipboard.writeText(text)
+    const copied = await copyTextToClipboard(text)
+    if (!copied) {
+      toast.error(t('common.error'), t('common.tryAgain'))
+      return
+    }
     toast.success(t('devSettings.copied'), t('devSettings.apiKeyCopied'))
   }
 

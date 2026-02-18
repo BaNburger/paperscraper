@@ -5,7 +5,7 @@ import { authApi } from '@/lib/api'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/Card'
+import { AuthShell } from '@/components/auth/AuthShell'
 import { FileText, CheckCircle } from 'lucide-react'
 import { getApiErrorMessage } from '@/types'
 
@@ -54,96 +54,76 @@ export function ResetPasswordPage() {
 
   if (!token) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl text-destructive">{t('auth.invalidLink')}</CardTitle>
-            <CardDescription>
-              {t('auth.invalidLinkDescription')}
-            </CardDescription>
-          </CardHeader>
-          <CardFooter className="flex justify-center">
-            <Link to="/forgot-password">
-              <Button>{t('auth.requestNewLink')}</Button>
-            </Link>
-          </CardFooter>
-        </Card>
-      </main>
+      <AuthShell
+        title={t('auth.invalidLink')}
+        description={t('auth.invalidLinkDescription')}
+        contentClassName="space-y-4"
+      >
+        <div className="flex justify-center">
+          <Link to="/forgot-password">
+            <Button>{t('auth.requestNewLink')}</Button>
+          </Link>
+        </div>
+      </AuthShell>
     )
   }
 
   if (isSuccess) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="space-y-1 text-center">
-            <div className="flex justify-center mb-4">
-              <CheckCircle className="h-12 w-12 text-green-500" />
-            </div>
-            <CardTitle className="text-2xl">{t('auth.resetPasswordSuccess')}</CardTitle>
-            <CardDescription>
-              {t('auth.resetPasswordSuccessDescription')}
-            </CardDescription>
-          </CardHeader>
-          <CardFooter className="flex justify-center">
-            <Button onClick={() => navigate('/login')}>
-              {t('auth.signIn')}
-            </Button>
-          </CardFooter>
-        </Card>
-      </main>
+      <AuthShell
+        title={t('auth.resetPasswordSuccess')}
+        description={t('auth.resetPasswordSuccessDescription')}
+        icon={<CheckCircle className="h-12 w-12 text-green-500" />}
+        contentClassName="space-y-4"
+      >
+        <div className="flex justify-center">
+          <Button onClick={() => navigate('/login')}>
+            {t('auth.signIn')}
+          </Button>
+        </div>
+      </AuthShell>
     )
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 text-center">
-          <div className="flex justify-center mb-4">
-            <FileText className="h-12 w-12 text-primary" />
+    <AuthShell
+      title={t('auth.resetYourPassword')}
+      description={t('auth.resetYourPasswordDescription')}
+      icon={<FileText className="h-12 w-12 text-primary" />}
+      contentClassName="space-y-4"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+            {error}
           </div>
-          <CardTitle className="text-2xl">{t('auth.resetYourPassword')}</CardTitle>
-          <CardDescription>
-            {t('auth.resetYourPasswordDescription')}
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            {error && (
-              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                {error}
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="password">{t('auth.newPassword')}</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder={t('auth.passwordPlaceholder')}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={8}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">{t('auth.confirmNewPassword')}</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-              />
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button type="submit" className="w-full" isLoading={isLoading}>
-              {t('auth.resetPassword')}
-            </Button>
-          </CardFooter>
-        </form>
-      </Card>
-    </main>
+        )}
+        <div className="space-y-2">
+          <Label htmlFor="password">{t('auth.newPassword')}</Label>
+          <Input
+            id="password"
+            type="password"
+            placeholder={t('auth.passwordPlaceholder')}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={8}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="confirmPassword">{t('auth.confirmNewPassword')}</Label>
+          <Input
+            id="confirmPassword"
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+          />
+        </div>
+        <Button type="submit" className="w-full" isLoading={isLoading}>
+          {t('auth.resetPassword')}
+        </Button>
+      </form>
+    </AuthShell>
   )
 }

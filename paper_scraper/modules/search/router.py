@@ -14,7 +14,6 @@ from paper_scraper.jobs.worker import enqueue_job
 from paper_scraper.modules.search.schemas import (
     EmbeddingBackfillRequest,
     EmbeddingBackfillResponse,
-    EmbeddingBackfillResult,
     EmbeddingStats,
     SearchMode,
     SearchRequest,
@@ -266,29 +265,4 @@ async def start_embedding_backfill(
         status="queued",
         papers_to_process=papers_to_process,
         message=f"Backfill job queued for {papers_to_process} papers",
-    )
-
-
-@router.post(
-    "/embeddings/backfill/sync",
-    response_model=EmbeddingBackfillResult,
-    summary="Backfill embeddings synchronously",
-    description="Generate embeddings synchronously (for small batches).",
-    dependencies=[Depends(require_permission(Permission.SCORING_TRIGGER))],
-)
-async def backfill_embeddings_sync(
-    current_user: CurrentUser,
-    search_service: Annotated[SearchService, Depends(get_search_service)],
-    batch_size: int = Query(default=20, ge=1, le=50),
-    max_papers: int = Query(default=50, ge=1, le=100),
-) -> EmbeddingBackfillResult:
-    """
-    Generate embeddings synchronously for a small batch of papers.
-
-    For larger operations, use the async backfill endpoint.
-    """
-    return await search_service.backfill_embeddings(
-        organization_id=current_user.organization_id,
-        batch_size=batch_size,
-        max_papers=max_papers,
     )

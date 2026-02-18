@@ -610,14 +610,15 @@ class TestBackfillEmbeddings:
     """Test embedding backfill functionality."""
 
     @pytest.mark.asyncio
-    async def test_backfill_sync_endpoint(
+    async def test_backfill_async_endpoint(
         self,
         client: AsyncClient,
         auth_headers: dict,
         db_session: AsyncSession,
         test_user: User,
+        monkeypatch: pytest.MonkeyPatch,
     ):
-        """Test synchronous embedding backfill endpoint."""
+        """Test async embedding backfill endpoint queues a job."""
         # Create papers without embeddings
         for i in range(3):
             paper = Paper(
@@ -629,23 +630,24 @@ class TestBackfillEmbeddings:
             db_session.add(paper)
         await db_session.flush()
 
-        # Mock the embedding generation at the source module
-        with patch(
-            "paper_scraper.modules.scoring.embeddings.generate_paper_embedding"
-        ) as mock_embed:
-            mock_embed.return_value = [0.1] * 1536
+        class _FakeJob:
+            job_id = "job-123"
 
-            response = await client.post(
-                "/api/v1/search/embeddings/backfill/sync",
-                params={"batch_size": 10, "max_papers": 3},
-                headers=auth_headers,
-            )
+        async def fake_enqueue_job(*args, **kwargs):
+            return _FakeJob()
 
-        assert response.status_code == 200
+        monkeypatch.setattr("paper_scraper.modules.search.router.enqueue_job", fake_enqueue_job)
+        response = await client.post(
+            "/api/v1/search/embeddings/backfill",
+            json={"batch_size": 10, "max_papers": 3},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 202
         data = response.json()
-        assert "papers_processed" in data
-        assert "papers_succeeded" in data
-        assert "papers_failed" in data
+        assert data["job_id"] == "job-123"
+        assert data["status"] == "queued"
+        assert data["papers_to_process"] == 3
 
     @pytest.mark.asyncio
     async def test_backfill_handles_errors(
@@ -668,19 +670,24 @@ class TestBackfillEmbeddings:
             db_session.add(paper)
         await db_session.flush()
 
-        # Mock embedding to fail on some papers
+        async def failing_batch(*args, **kwargs):
+            raise Exception("Batch API error")
+
         call_count = 0
 
-        async def mock_embed(*args, **kwargs):
+        async def partial_single(*args, **kwargs):
             nonlocal call_count
             call_count += 1
             if call_count == 2:
-                raise Exception("API error")
+                raise Exception("Single API error")
             return [0.1] * 1536
 
         with patch(
-            "paper_scraper.modules.scoring.embeddings.generate_paper_embedding",
-            side_effect=mock_embed,
+            "paper_scraper.modules.embeddings.service.EmbeddingClient.embed_texts",
+            side_effect=failing_batch,
+        ), patch(
+            "paper_scraper.modules.embeddings.service.EmbeddingClient.embed_text",
+            side_effect=partial_single,
         ):
             result = await service.backfill_embeddings(
                 organization_id=test_user.organization_id,
@@ -691,4 +698,5 @@ class TestBackfillEmbeddings:
         assert result.papers_processed == 3
         assert result.papers_succeeded == 2
         assert result.papers_failed == 1
-        assert len(result.errors) == 1
+        assert len(result.errors) >= 1
+        assert any("Single API error" in message for message in result.errors)

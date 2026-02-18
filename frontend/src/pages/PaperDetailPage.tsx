@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
+import { ExternalLink as ExternalLinkAnchor } from '@/components/ui/ExternalLink'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/components/ui/Toast'
 import { AuthorBadge } from '@/components/AuthorBadge'
@@ -50,7 +51,7 @@ import {
 } from '@/components/ui/Select'
 import {
   ArrowLeft,
-  ExternalLink,
+  ExternalLink as ExternalLinkIcon,
   Loader2,
   Trash2,
   TrendingUp,
@@ -76,7 +77,7 @@ import {
   Library,
   Link as LinkIcon,
 } from 'lucide-react'
-import { formatDate, getScoreColor, cn, safeExternalUrl } from '@/lib/utils'
+import { formatDate, getScoreColor, cn } from '@/lib/utils'
 import { getApiErrorMessage } from '@/types'
 import type { TransferType } from '@/types'
 import { exportApi } from '@/lib/api'
@@ -419,10 +420,10 @@ export function PaperDetailPage() {
                 </DropdownMenuItem>
                 {paper.doi && (
                   <DropdownMenuItem asChild>
-                    <a href={`https://doi.org/${paper.doi}`} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="h-4 w-4 mr-2" />
+                    <ExternalLinkAnchor href={`https://doi.org/${paper.doi}`}>
+                      <ExternalLinkIcon className="h-4 w-4 mr-2" />
                       DOI
-                    </a>
+                    </ExternalLinkAnchor>
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
@@ -454,12 +455,12 @@ export function PaperDetailPage() {
 
             <div className="flex items-center gap-1">
               {paper.doi && (
-                <a href={`https://doi.org/${paper.doi}`} target="_blank" rel="noopener noreferrer">
+                <ExternalLinkAnchor href={`https://doi.org/${paper.doi}`}>
                   <Button variant="ghost" size="sm">
-                    <ExternalLink className="h-4 w-4 mr-1" />
+                    <ExternalLinkIcon className="h-4 w-4 mr-1" />
                     DOI
                   </Button>
-                </a>
+                </ExternalLinkAnchor>
               )}
               <Button
                 variant="ghost"
@@ -1030,7 +1031,7 @@ export function PaperDetailPage() {
                     <div className="flex justify-center py-4">
                       <Loader2 className="h-5 w-5 animate-spin" />
                     </div>
-                  ) : !similarData?.similar?.results?.length ? (
+                  ) : !similarData?.similar_papers?.length ? (
                     <p className="text-sm text-muted-foreground text-center py-4">
                       {paper.has_embedding
                         ? t('papers.noSimilarPapers')
@@ -1038,17 +1039,17 @@ export function PaperDetailPage() {
                     </p>
                   ) : (
                     <div className="space-y-3">
-                      {similarData.similar.results.map((result: { paper: { id: string; title: string }; relevance_score: number }) => (
+                      {similarData.similar_papers.map((result) => (
                         <Link
-                          key={result.paper.id}
-                          to={`/papers/${result.paper.id}`}
+                          key={result.id}
+                          to={`/papers/${result.id}`}
                           className="block rounded-lg border p-3 hover:bg-muted/50 transition-colors"
                         >
                           <p className="text-sm font-medium line-clamp-2">
-                            {result.paper.title}
+                            {result.title}
                           </p>
                           <p className="text-xs text-muted-foreground mt-1">
-                            {t('papers.similarity', { value: (result.relevance_score * 100).toFixed(0) })}
+                            {t('papers.similarity', { value: (result.similarity_score * 100).toFixed(0) })}
                           </p>
                         </Link>
                       ))}
@@ -1088,11 +1089,9 @@ export function PaperDetailPage() {
               ) : (
                 <div className="space-y-3">
                   {patentsData.patents.map((patent) => (
-                    <a
+                    <ExternalLinkAnchor
                       key={patent.patent_number}
-                      href={safeExternalUrl(patent.espacenet_url) ?? '#'}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      href={patent.espacenet_url}
                       className="block rounded-lg border p-3 hover:bg-muted/50 transition-colors"
                     >
                       <div className="flex items-start justify-between gap-2">
@@ -1107,9 +1106,9 @@ export function PaperDetailPage() {
                             <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{patent.abstract}</p>
                           )}
                         </div>
-                        <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <ExternalLinkIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
                       </div>
-                    </a>
+                    </ExternalLinkAnchor>
                   ))}
                 </div>
               )}
@@ -1250,17 +1249,12 @@ export function PaperDetailPage() {
                         </div>
                       </div>
                       {ref.jstor_url && (
-                        <a
-                          href={safeExternalUrl(ref.jstor_url) ?? '#'}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="shrink-0"
-                        >
+                        <ExternalLinkAnchor href={ref.jstor_url} className="shrink-0">
                           <Button variant="ghost" size="sm">
-                            <ExternalLink className="h-3 w-3 mr-1" />
+                            <ExternalLinkIcon className="h-3 w-3 mr-1" />
                             {t('papers.viewOnJstor', 'JSTOR')}
                           </Button>
-                        </a>
+                        </ExternalLinkAnchor>
                       )}
                     </div>
                   </div>
@@ -1328,15 +1322,13 @@ export function PaperDetailPage() {
                     {/* GitHub data */}
                     {profile.github_username && (
                       <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
-                        <a
-                          href={safeExternalUrl(`https://github.com/${profile.github_username}`) ?? '#'}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <ExternalLinkAnchor
+                          href={`https://github.com/${profile.github_username}`}
                           className="flex items-center gap-1 hover:text-foreground"
                         >
-                          <ExternalLink className="h-3 w-3" />
+                          <ExternalLinkIcon className="h-3 w-3" />
                           @{profile.github_username}
-                        </a>
+                        </ExternalLinkAnchor>
                         {profile.github_public_repos != null && (
                           <span>{profile.github_public_repos} repos</span>
                         )}
@@ -1352,15 +1344,13 @@ export function PaperDetailPage() {
                     {/* Profile links */}
                     {profile.orcid && (
                       <div className="flex items-center gap-2 mt-1">
-                        <a
-                          href={safeExternalUrl(`https://orcid.org/${profile.orcid}`) ?? '#'}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <ExternalLinkAnchor
+                          href={`https://orcid.org/${profile.orcid}`}
                           className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
                         >
-                          <ExternalLink className="h-3 w-3" />
+                          <ExternalLinkIcon className="h-3 w-3" />
                           ORCID
-                        </a>
+                        </ExternalLinkAnchor>
                       </div>
                     )}
                   </div>

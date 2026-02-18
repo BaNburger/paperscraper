@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import { integrationsApi, libraryApi, papersApi, scoringApi } from '@/lib/api'
 import { queryKeys } from '@/config/queryKeys'
 import { invalidateMany, optimisticDeleteById, rollbackOptimisticSnapshots } from '@/lib/query'
+import { useIngestionRunPoller } from './useIngestionRuns'
 
 interface QueryControlOptions {
   enabled?: boolean
@@ -39,7 +40,7 @@ export function usePaperScore(paperId: string) {
 
 export function useDeletePaper() {
   const queryClient = useQueryClient()
-  const papersListKey = ['papers', 'list'] as const
+  const papersListKey = queryKeys.papers.listRoot()
 
   return useMutation({
     mutationFn: (id: string) => papersApi.delete(id),
@@ -66,43 +67,52 @@ export function useIngestByDoi() {
   return useMutation({
     mutationFn: (doi: string) => papersApi.ingestByDoi(doi),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['papers', 'list'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.papers.listRoot() })
     },
   })
 }
 
 export function useIngestFromOpenAlex() {
   const queryClient = useQueryClient()
+  const { waitForRun } = useIngestionRunPoller()
 
   return useMutation({
-    mutationFn: (params: { query: string; max_results?: number }) =>
-      papersApi.ingestFromOpenAlex(params),
+    mutationFn: async (params: { query: string; max_results?: number }) => {
+      const queued = await papersApi.ingestFromOpenAlex(params)
+      return waitForRun(queued.ingest_run_id)
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['papers', 'list'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.papers.listRoot() })
     },
   })
 }
 
 export function useIngestFromPubMed() {
   const queryClient = useQueryClient()
+  const { waitForRun } = useIngestionRunPoller()
 
   return useMutation({
-    mutationFn: (params: { query: string; max_results?: number }) =>
-      papersApi.ingestFromPubMed(params),
+    mutationFn: async (params: { query: string; max_results?: number }) => {
+      const queued = await papersApi.ingestFromPubMed(params)
+      return waitForRun(queued.ingest_run_id)
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['papers', 'list'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.papers.listRoot() })
     },
   })
 }
 
 export function useIngestFromArxiv() {
   const queryClient = useQueryClient()
+  const { waitForRun } = useIngestionRunPoller()
 
   return useMutation({
-    mutationFn: (params: { query: string; max_results?: number; category?: string }) =>
-      papersApi.ingestFromArxiv(params),
+    mutationFn: async (params: { query: string; max_results?: number; category?: string }) => {
+      const queued = await papersApi.ingestFromArxiv(params)
+      return waitForRun(queued.ingest_run_id)
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['papers', 'list'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.papers.listRoot() })
     },
   })
 }
@@ -113,7 +123,7 @@ export function useUploadPdf() {
   return useMutation({
     mutationFn: (file: File) => papersApi.uploadPdf(file),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['papers', 'list'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.papers.listRoot() })
     },
   })
 }
@@ -140,7 +150,7 @@ export function useGeneratePitch() {
     onSuccess: (_, paperId) => {
       invalidateMany(queryClient, [
         queryKeys.papers.detail(paperId),
-        ['papers', 'list'],
+        queryKeys.papers.listRoot(),
       ])
     },
   })
@@ -179,12 +189,15 @@ export function useCitationGraph(paperId: string) {
 
 export function useIngestFromSemanticScholar() {
   const queryClient = useQueryClient()
+  const { waitForRun } = useIngestionRunPoller()
 
   return useMutation({
-    mutationFn: (params: { query: string; max_results?: number }) =>
-      papersApi.ingestFromSemanticScholar(params),
+    mutationFn: async (params: { query: string; max_results?: number }) => {
+      const queued = await papersApi.ingestFromSemanticScholar(params)
+      return waitForRun(queued.ingest_run_id)
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['papers', 'list'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.papers.listRoot() })
     },
   })
 }

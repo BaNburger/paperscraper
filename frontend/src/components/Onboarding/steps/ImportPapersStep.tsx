@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
 import { papersApi } from '@/lib/api'
+import { useIngestionRunPoller } from '@/hooks/useIngestionRuns'
 
 type ImportMethod = 'doi' | 'openalex' | 'pdf'
 
@@ -21,6 +22,7 @@ export function ImportPapersStep({
   onNext,
   onSkip,
 }: ImportPapersStepProps) {
+  const { waitForRun } = useIngestionRunPoller()
   const [method, setMethod] = useState<ImportMethod>('doi')
   const [doi, setDoi] = useState('')
   const [query, setQuery] = useState('')
@@ -53,7 +55,8 @@ export function ImportPapersStep({
     setSuccessMessage(null)
 
     try {
-      const result = await papersApi.ingestFromOpenAlex({ query: query.trim(), max_results: 5 })
+      const queued = await papersApi.ingestFromOpenAlex({ query: query.trim(), max_results: 5 })
+      const result = await waitForRun(queued.ingest_run_id)
       if (result.papers_created > 0) {
         setSuccessMessage(`Successfully imported ${result.papers_created} paper(s)`)
       } else {

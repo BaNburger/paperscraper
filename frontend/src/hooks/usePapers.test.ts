@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createElement, type ReactNode } from 'react'
+import { queryKeys } from '@/config/queryKeys'
 
 import {
   usePapers,
@@ -30,6 +31,7 @@ vi.mock('@/lib/api', () => ({
     ingestFromSemanticScholar: vi.fn(),
     getRelatedPatents: vi.fn(),
     getCitationGraph: vi.fn(),
+    getIngestionRun: vi.fn(),
   },
   scoringApi: {
     scorePaper: vi.fn(),
@@ -47,6 +49,7 @@ const mockedPapersApi = papersApi as unknown as {
   delete: ReturnType<typeof vi.fn>
   ingestByDoi: ReturnType<typeof vi.fn>
   ingestFromOpenAlex: ReturnType<typeof vi.fn>
+  getIngestionRun: ReturnType<typeof vi.fn>
 }
 
 const mockedScoringApi = scoringApi as unknown as {
@@ -101,6 +104,18 @@ const mockScoreResponse = {
   paper_id: 'paper-123',
   scores: mockPaperScore,
   model_version: 'v1',
+}
+
+const mockCompletedIngestionRun = {
+  id: 'run-123',
+  status: 'completed',
+  stats: {
+    papers_created: 5,
+    source_records_duplicates: 1,
+    papers_matched: 1,
+    errors: [] as string[],
+  },
+  error_message: null,
 }
 
 // ---- Tests ----
@@ -260,7 +275,7 @@ describe('useDeletePaper', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['papers'] })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.papers.listRoot() })
   })
 })
 
@@ -305,33 +320,42 @@ describe('useIngestByDoi', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['papers'] })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.papers.listRoot() })
   })
 })
 
 describe('useIngestFromOpenAlex', () => {
   it('calls papersApi.ingestFromOpenAlex with query and max_results', async () => {
-    const mockResult = { papers_created: 5, papers_skipped: 2, errors: [] }
-    mockedPapersApi.ingestFromOpenAlex.mockResolvedValueOnce(mockResult)
+    mockedPapersApi.ingestFromOpenAlex.mockResolvedValueOnce({ ingest_run_id: 'run-123' })
+    mockedPapersApi.getIngestionRun.mockResolvedValueOnce(mockCompletedIngestionRun)
 
     const params = { query: 'machine learning', max_results: 10 }
     const { result } = renderHook(() => useIngestFromOpenAlex(), {
       wrapper: createWrapper(),
     })
 
+    let mutationResult: unknown
     await act(async () => {
-      result.current.mutate(params)
+      mutationResult = await result.current.mutateAsync(params)
     })
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true))
-
     expect(mockedPapersApi.ingestFromOpenAlex).toHaveBeenCalledWith(params)
-    expect(result.current.data).toEqual(mockResult)
+    expect(mockedPapersApi.getIngestionRun).toHaveBeenCalledWith('run-123')
+    expect(mutationResult).toEqual({
+      ingest_run_id: 'run-123',
+      status: 'completed',
+      papers_created: 5,
+      papers_skipped: 2,
+      errors: [],
+    })
   })
 
   it('calls papersApi.ingestFromOpenAlex with only query (no max_results)', async () => {
-    const mockResult = { papers_created: 3, papers_skipped: 0, errors: [] }
-    mockedPapersApi.ingestFromOpenAlex.mockResolvedValueOnce(mockResult)
+    mockedPapersApi.ingestFromOpenAlex.mockResolvedValueOnce({ ingest_run_id: 'run-456' })
+    mockedPapersApi.getIngestionRun.mockResolvedValueOnce({
+      ...mockCompletedIngestionRun,
+      id: 'run-456',
+    })
 
     const params = { query: 'CRISPR' }
     const { result } = renderHook(() => useIngestFromOpenAlex(), {
@@ -339,12 +363,11 @@ describe('useIngestFromOpenAlex', () => {
     })
 
     await act(async () => {
-      result.current.mutate(params)
+      await result.current.mutateAsync(params)
     })
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true))
-
     expect(mockedPapersApi.ingestFromOpenAlex).toHaveBeenCalledWith({ query: 'CRISPR' })
+    expect(mockedPapersApi.getIngestionRun).toHaveBeenCalledWith('run-456')
   })
 })
 
@@ -366,7 +389,7 @@ describe('useScorePaper', () => {
     expect(result.current.data).toEqual(mockScoreResponse)
   })
 
-  it('invalidates both paperScore and paper queries on success', async () => {
+  it('invalidates both score and detail paper queries on success', async () => {
     mockedScoringApi.scorePaper.mockResolvedValueOnce(mockScoreResponse)
 
     const queryClient = new QueryClient({
@@ -388,7 +411,7 @@ describe('useScorePaper', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['paperScore', 'paper-123'] })
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['paper', 'paper-123'] })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.papers.score('paper-123') })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.papers.detail('paper-123') })
   })
 })

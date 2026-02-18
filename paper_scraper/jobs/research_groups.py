@@ -8,9 +8,11 @@ from uuid import UUID
 from sqlalchemy import func, select
 
 from paper_scraper.core.database import get_db_session
-from paper_scraper.modules.papers.clients.openalex import OpenAlexClient
+from paper_scraper.modules.embeddings.service import EmbeddingService
+from paper_scraper.modules.ingestion.filter_builder import build_openalex_entity_filters
+from paper_scraper.modules.ingestion.models import SourceRecord
+from paper_scraper.modules.ingestion.pipeline import IngestionPipeline
 from paper_scraper.modules.papers.models import Paper
-from paper_scraper.modules.papers.service import PaperService
 from paper_scraper.modules.projects.clustering import (
     cluster_embeddings,
     generate_cluster_label,
@@ -25,13 +27,6 @@ logger = logging.getLogger(__name__)
 MAX_EMBEDDINGS_PER_SYNC = 50
 
 
-def _extract_short_id(openalex_url: str) -> str:
-    """Extract short ID from OpenAlex URL (e.g., 'https://openalex.org/I63966007' -> 'I63966007')."""
-    if "/" in openalex_url:
-        return openalex_url.rsplit("/", 1)[-1]
-    return openalex_url
-
-
 async def sync_research_group_task(
     ctx: dict[str, Any],
     organization_id: str,
@@ -42,8 +37,8 @@ async def sync_research_group_task(
 
     Steps:
     1. Update sync_status -> "importing"
-    2. Fetch papers from OpenAlex (by institution or author filter)
-    3. Import papers via PaperService (dedup by DOI)
+    2. Run OpenAlex ingestion pipeline (institution/author scoped)
+    3. Read canonical run outcomes from source_records
     4. Create ProjectPaper records
     5. Generate embeddings for papers without them
     6. Update sync_status -> "clustering"
@@ -69,7 +64,6 @@ async def sync_research_group_task(
     async with get_db_session() as db:
         try:
             project_service = ProjectService(db)
-            paper_service = PaperService(db)
 
             # 1. Update status to importing
             await project_service.update_sync_status(proj_uuid, org_uuid, SyncStatus.IMPORTING)
@@ -87,13 +81,12 @@ async def sync_research_group_task(
                 logger.error("Research group %s not found", project_id)
                 return {"status": "error", "message": "Research group not found"}
 
-            # 3. Fetch papers from OpenAlex
-            filters: dict[str, str] = {}
-            if project.openalex_institution_id:
-                filters["institutions.id"] = _extract_short_id(project.openalex_institution_id)
-            elif project.openalex_author_id:
-                filters["authorships.author.id"] = _extract_short_id(project.openalex_author_id)
-            else:
+            # 3. Resolve OpenAlex filter scope from project metadata
+            entity_filters = build_openalex_entity_filters(
+                institution_id=project.openalex_institution_id,
+                author_id=project.openalex_author_id,
+            )
+            if not entity_filters:
                 logger.warning(
                     "Research group %s has no OpenAlex IDs, skipping import",
                     project_id,
@@ -104,38 +97,46 @@ async def sync_research_group_task(
                 await db.commit()
                 return {"status": "ok", "papers_imported": 0, "clusters_created": 0}
 
-            async with OpenAlexClient() as client:
-                openalex_papers = await client.search(
-                    "", max_results=max_papers, filters=filters
+            ingest_filters = {
+                "query": project.name.strip() or "research",
+                "filters": entity_filters,
+            }
+            ingest_run = await IngestionPipeline(db).run(
+                source="openalex",
+                organization_id=org_uuid,
+                initiated_by_id=None,
+                filters=ingest_filters,
+                limit=max_papers,
+            )
+            stats = ingest_run.stats_json if isinstance(ingest_run.stats_json, dict) else {}
+            imported_count = int(stats.get("papers_created", 0))
+            matched_count = int(stats.get("papers_matched", 0))
+            duplicate_count = int(stats.get("source_records_duplicates", 0))
+            fetched_count = int(stats.get("fetched_records", imported_count + matched_count))
+            run_errors = stats.get("errors")
+            error_count = len(run_errors) if isinstance(run_errors, list) else 0
+
+            run_records = await db.execute(
+                select(SourceRecord.paper_id)
+                .where(
+                    SourceRecord.ingest_run_id == ingest_run.id,
+                    SourceRecord.organization_id == org_uuid,
+                    SourceRecord.paper_id.is_not(None),
                 )
+                .distinct()
+            )
+            imported_ids = [row[0] for row in run_records.all() if row[0] is not None]
 
             logger.info(
-                "Fetched %d papers from OpenAlex for group %s",
-                len(openalex_papers),
+                "OpenAlex ingestion run %s for group %s fetched=%d created=%d matched=%d duplicates=%d errors=%d",
+                ingest_run.id,
                 project.name,
+                fetched_count,
+                imported_count,
+                matched_count,
+                duplicate_count,
+                error_count,
             )
-
-            # 4. Import papers (dedup by DOI, reuse existing)
-            imported_ids: list[UUID] = []
-            for paper_data in openalex_papers:
-                try:
-                    doi = paper_data.get("doi")
-                    if doi:
-                        existing = await paper_service.get_paper_by_doi(
-                            doi, org_uuid
-                        )
-                        if existing:
-                            imported_ids.append(existing.id)
-                            continue
-
-                    paper = await paper_service._create_paper_from_data(
-                        paper_data, org_uuid
-                    )
-                    imported_ids.append(paper.id)
-                except Exception as e:
-                    logger.debug("Skipping paper import: %s", e)
-
-            await db.flush()
 
             # 5. Add papers to project (tenant-isolated)
             added = await project_service.add_papers_to_project(
@@ -146,15 +147,18 @@ async def sync_research_group_task(
             await db.commit()
 
             logger.info(
-                "Added %d papers to research group %s (of %d fetched)",
+                "Added %d papers to research group %s (of %d resolved)",
                 added,
                 project.name,
-                len(openalex_papers),
+                len(imported_ids),
             )
 
             # 5b. Generate embeddings for project papers that lack them
             embeddings_generated = await _generate_missing_embeddings(
-                db, proj_uuid, project.name
+                db,
+                proj_uuid,
+                org_uuid,
+                project.name,
             )
 
             # 6. Update status to clustering
@@ -192,7 +196,7 @@ async def sync_research_group_task(
                 await db.commit()
                 return {
                     "status": "ok",
-                    "papers_imported": len(imported_ids),
+                    "papers_imported": imported_count,
                     "papers_added": added,
                     "embeddings_generated": embeddings_generated,
                     "clusters_created": 0,
@@ -263,7 +267,7 @@ async def sync_research_group_task(
 
             return {
                 "status": "ok",
-                "papers_imported": len(imported_ids),
+                "papers_imported": imported_count,
                 "papers_added": added,
                 "embeddings_generated": embeddings_generated,
                 "total_papers": total_papers_in_project or 0,
@@ -289,60 +293,38 @@ async def sync_research_group_task(
 async def _generate_missing_embeddings(
     db: Any,
     project_id: UUID,
+    organization_id: UUID,
     project_name: str,
 ) -> int:
     """Generate embeddings for project papers that lack them.
 
     Returns the number of embeddings generated.
     """
-    try:
-        from paper_scraper.modules.scoring.embeddings import generate_paper_embedding
-    except ImportError:
-        logger.debug("Embedding module not available, skipping embedding generation")
-        return 0
-
-    result = await db.execute(
-        select(Paper)
-        .join(ProjectPaper, ProjectPaper.paper_id == Paper.id)
-        .where(
-            ProjectPaper.project_id == project_id,
-            Paper.embedding.is_(None),
-        )
-        .limit(MAX_EMBEDDINGS_PER_SYNC)
+    embedding_service = EmbeddingService(db)
+    summary = await embedding_service.backfill_for_project(
+        project_id=project_id,
+        organization_id=organization_id,
+        batch_size=min(MAX_EMBEDDINGS_PER_SYNC, 100),
+        max_papers=MAX_EMBEDDINGS_PER_SYNC,
     )
-    papers_to_embed = list(result.scalars().all())
 
-    if not papers_to_embed:
+    if summary.papers_processed == 0:
         return 0
+
+    if summary.papers_failed > 0:
+        logger.warning(
+            "Embedding backfill for group %s completed with failures (%d/%d)",
+            project_name,
+            summary.papers_failed,
+            summary.papers_processed,
+        )
 
     logger.info(
-        "Generating embeddings for %d papers in group %s",
-        len(papers_to_embed),
+        "Generated %d embeddings for group %s",
+        summary.papers_succeeded,
         project_name,
     )
-
-    generated = 0
-    for paper in papers_to_embed:
-        try:
-            embedding = await generate_paper_embedding(
-                title=paper.title or "",
-                abstract=paper.abstract,
-                keywords=paper.keywords,
-            )
-            paper.embedding = embedding
-            generated += 1
-        except Exception as e:
-            logger.debug("Embedding generation failed for paper %s: %s", paper.id, e)
-
-    if generated > 0:
-        await db.flush()
-        logger.info(
-            "Generated %d embeddings for group %s",
-            generated,
-            project_name,
-        )
-
-    return generated
+    return summary.papers_succeeded
 
 
 async def _try_llm_labels(db: Any, cluster_data: list[dict]) -> None:

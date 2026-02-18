@@ -1,6 +1,4 @@
 """Service layer for model settings module."""
-
-import base64
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -290,11 +288,7 @@ class ModelSettingsService:
     @staticmethod
     def _decrypt_key(encrypted: str) -> str:
         """Decrypt an API key from storage.
-
-        Supports v2 encrypted values and legacy base64 payloads.
         """
-        if encrypted.startswith("enc:v1:"):
-            return decrypt_secret(encrypted.replace("enc:v1:", "", 1))
-
-        # Legacy fallback (base64 values from pre-v2 versions).
-        return base64.b64decode(encrypted.encode()).decode()
+        if not encrypted.startswith("enc:v1:"):
+            raise ValueError("Unsupported encrypted key format")
+        return decrypt_secret(encrypted.replace("enc:v1:", "", 1))

@@ -1960,6 +1960,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ingestion/runs/{run_id}/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List ingestion run records
+         * @description List per-record ingestion outcomes for a run.
+         */
+        get: operations["list_ingestion_run_records_api_v1_ingestion_runs__run_id__records_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/ingestion/sources/arxiv/runs": {
         parameters: {
             query?: never;
@@ -3268,28 +3288,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/scoring/batch": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Start batch scoring job
-         * @description Start a batch scoring job for multiple papers.
-         *
-         *     Papers are scored asynchronously via background job queue.
-         */
-        post: operations["batch_score_api_v1_scoring_batch_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/scoring/classification/batch": {
         parameters: {
             query?: never;
@@ -3326,28 +3324,6 @@ export interface paths {
         get: operations["get_unclassified_papers_api_v1_scoring_classification_unclassified_get"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/scoring/embeddings/backfill": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Backfill embeddings for papers
-         * @description Generate embeddings for papers that don't have them.
-         *
-         *     Useful for backfilling after bulk imports.
-         */
-        post: operations["backfill_embeddings_api_v1_scoring_embeddings_backfill_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3509,50 +3485,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/scoring/policies": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List scoring policies
-         * @description List scoring policies for the current organization.
-         */
-        get: operations["list_scoring_policies_api_v1_scoring_policies_get"];
-        put?: never;
-        /**
-         * Create scoring policy
-         * @description Create a scoring policy for model/provider selection.
-         */
-        post: operations["create_scoring_policy_api_v1_scoring_policies_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/scoring/policies/{policy_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Update scoring policy
-         * @description Update an existing scoring policy.
-         */
-        patch: operations["update_scoring_policy_api_v1_scoring_policies__policy_id__patch"];
-        trace?: never;
-    };
     "/api/v1/search/": {
         parameters: {
             query?: never;
@@ -3587,26 +3519,6 @@ export interface paths {
          * @description Start a background job to generate embeddings for papers without them.
          */
         post: operations["start_embedding_backfill_api_v1_search_embeddings_backfill_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/search/embeddings/backfill/sync": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Backfill embeddings synchronously
-         * @description Generate embeddings synchronously (for small batches).
-         */
-        post: operations["backfill_embeddings_sync_api_v1_search_embeddings_backfill_sync_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5108,24 +5020,6 @@ export interface components {
          */
         BadgeTier: "bronze" | "silver" | "gold" | "platinum";
         /**
-         * BatchScoreRequest
-         * @description Request to score multiple papers.
-         */
-        BatchScoreRequest: {
-            /**
-             * Async Mode
-             * @description If True, returns job ID for async processing.
-             * @default true
-             */
-            async_mode: boolean;
-            /**
-             * Paper Ids
-             * @description List of paper IDs to score.
-             */
-            paper_ids: string[];
-            weights?: components["schemas"]["ScoringWeightsSchema"] | null;
-        };
-        /**
          * BenchmarkMetric
          * @description A single benchmark metric comparison.
          */
@@ -5886,6 +5780,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Ingest Run Id */
+            ingest_run_id?: string | null;
             /**
              * Organization Id
              * Format: uuid
@@ -5966,20 +5862,6 @@ export interface components {
              * @default queued
              */
             status: string;
-        };
-        /**
-         * EmbeddingBackfillResult
-         * @description Result of embedding backfill operation.
-         */
-        EmbeddingBackfillResult: {
-            /** Errors */
-            errors?: string[];
-            /** Papers Failed */
-            papers_failed: number;
-            /** Papers Processed */
-            papers_processed: number;
-            /** Papers Succeeded */
-            papers_succeeded: number;
         };
         /**
          * EmbeddingResponse
@@ -6402,12 +6284,12 @@ export interface components {
         };
         /**
          * IngestArxivRequest
-         * @description Request to batch ingest from arXiv.
+         * @description Request to ingest from arXiv.
          */
         IngestArxivRequest: {
             /**
              * Category
-             * @description Optional arXiv category filter (e.g., 'cs.AI', 'physics.med-ph')
+             * @description Optional arXiv category
              */
             category?: string | null;
             /**
@@ -6434,7 +6316,7 @@ export interface components {
         };
         /**
          * IngestJobResponse
-         * @description Response for async ingestion job.
+         * @description Response for async source ingestion job creation.
          */
         IngestJobResponse: {
             /**
@@ -6456,7 +6338,7 @@ export interface components {
         };
         /**
          * IngestOpenAlexRequest
-         * @description Request to batch ingest from OpenAlex.
+         * @description Request to ingest from OpenAlex.
          */
         IngestOpenAlexRequest: {
             /** Filters */
@@ -6476,7 +6358,7 @@ export interface components {
         };
         /**
          * IngestPubMedRequest
-         * @description Request to batch ingest from PubMed.
+         * @description Request to ingest from PubMed.
          */
         IngestPubMedRequest: {
             /**
@@ -6507,34 +6389,82 @@ export interface components {
             total: number;
         };
         /**
+         * IngestRunRecordListResponse
+         * @description Paginated source-record list for a run.
+         */
+        IngestRunRecordListResponse: {
+            /** Items */
+            items: components["schemas"]["IngestRunRecordResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Pages */
+            pages: number;
+            /** Total */
+            total: number;
+        };
+        /**
+         * IngestRunRecordResponse
+         * @description Per-record resolution details for an ingestion run.
+         */
+        IngestRunRecordResponse: {
+            /** Content Hash */
+            content_hash: string;
+            /** Error */
+            error?: string | null;
+            /**
+             * Fetched At
+             * Format: date-time
+             */
+            fetched_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Matched On */
+            matched_on?: string | null;
+            /** Paper Id */
+            paper_id?: string | null;
+            /** Resolution Status */
+            resolution_status?: string | null;
+            /** Resolved At */
+            resolved_at?: string | null;
+            /** Source */
+            source: string;
+            /** Source Record Id */
+            source_record_id: string;
+        };
+        /**
          * IngestRunResponse
          * @description Ingestion run response.
          */
         IngestRunResponse: {
             /** Completed At */
-            completed_at: string | null;
+            completed_at?: string | null;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
             /** Cursor After */
-            cursor_after: {
+            cursor_after?: {
                 [key: string]: unknown;
             };
             /** Cursor Before */
-            cursor_before: {
+            cursor_before?: {
                 [key: string]: unknown;
             };
             /** Error Message */
-            error_message: string | null;
+            error_message?: string | null;
             /**
              * Id
              * Format: uuid
              */
             id: string;
             /** Idempotency Key */
-            idempotency_key: string | null;
+            idempotency_key?: string | null;
             /** Organization Id */
             organization_id: string | null;
             /** Source */
@@ -6544,11 +6474,50 @@ export interface components {
              * Format: date-time
              */
             started_at: string;
-            /** Stats Json */
-            stats_json: {
-                [key: string]: unknown;
-            };
+            stats?: components["schemas"]["IngestRunStats"];
             status: components["schemas"]["IngestRunStatus"];
+        };
+        /**
+         * IngestRunStats
+         * @description Typed ingestion run stats.
+         */
+        IngestRunStats: {
+            /** Dedupe Report */
+            dedupe_report?: {
+                [key: string]: number;
+            };
+            /** Errors */
+            errors?: string[];
+            /**
+             * Fetched Records
+             * @default 0
+             */
+            fetched_records: number;
+            /**
+             * Papers Created
+             * @default 0
+             */
+            papers_created: number;
+            /**
+             * Papers Failed
+             * @default 0
+             */
+            papers_failed: number;
+            /**
+             * Papers Matched
+             * @default 0
+             */
+            papers_matched: number;
+            /**
+             * Source Records Duplicates
+             * @default 0
+             */
+            source_records_duplicates: number;
+            /**
+             * Source Records Inserted
+             * @default 0
+             */
+            source_records_inserted: number;
         };
         /**
          * IngestRunStatus
@@ -6558,7 +6527,7 @@ export interface components {
         IngestRunStatus: "queued" | "running" | "completed" | "completed_with_errors" | "failed";
         /**
          * IngestSemanticScholarRequest
-         * @description Request to batch ingest from Semantic Scholar.
+         * @description Request to ingest from Semantic Scholar.
          */
         IngestSemanticScholarRequest: {
             /**
@@ -8808,99 +8777,6 @@ export interface components {
             status: string;
             /** Total Papers */
             total_papers: number;
-        };
-        /**
-         * ScoringPolicyCreate
-         * @description Create request for scoring policy.
-         */
-        ScoringPolicyCreate: {
-            /**
-             * Is Default
-             * @default true
-             */
-            is_default: boolean;
-            /**
-             * Max Tokens
-             * @default 4096
-             */
-            max_tokens: number;
-            /** Model */
-            model: string;
-            /** Provider */
-            provider: string;
-            /** Secret Ref */
-            secret_ref?: string | null;
-            /**
-             * Temperature
-             * @default 0.3
-             */
-            temperature: number;
-        };
-        /**
-         * ScoringPolicyListResponse
-         * @description List response for scoring policies.
-         */
-        ScoringPolicyListResponse: {
-            /** Items */
-            items: components["schemas"]["ScoringPolicyResponse"][];
-            /** Total */
-            total: number;
-        };
-        /**
-         * ScoringPolicyResponse
-         * @description Response schema for scoring policy.
-         */
-        ScoringPolicyResponse: {
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Is Default */
-            is_default: boolean;
-            /** Max Tokens */
-            max_tokens: number;
-            /** Model */
-            model: string;
-            /**
-             * Organization Id
-             * Format: uuid
-             */
-            organization_id: string;
-            /** Provider */
-            provider: string;
-            /** Secret Ref */
-            secret_ref: string | null;
-            /** Temperature */
-            temperature: number;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /**
-         * ScoringPolicyUpdate
-         * @description Partial update for scoring policy.
-         */
-        ScoringPolicyUpdate: {
-            /** Is Default */
-            is_default?: boolean | null;
-            /** Max Tokens */
-            max_tokens?: number | null;
-            /** Model */
-            model?: string | null;
-            /** Provider */
-            provider?: string | null;
-            /** Secret Ref */
-            secret_ref?: string | null;
-            /** Temperature */
-            temperature?: number | null;
         };
         /**
          * ScoringStats
@@ -14171,6 +14047,43 @@ export interface operations {
             };
         };
     };
+    list_ingestion_run_records_api_v1_ingestion_runs__run_id__records_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+                resolution_status?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestRunRecordListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     enqueue_arxiv_run_api_v1_ingestion_sources_arxiv_runs_post: {
         parameters: {
             query?: never;
@@ -17042,41 +16955,6 @@ export interface operations {
             };
         };
     };
-    batch_score_api_v1_scoring_batch_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BatchScoreRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScoringJobResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     batch_classify_papers_api_v1_scoring_classification_batch_post: {
         parameters: {
             query?: never;
@@ -17115,41 +16993,6 @@ export interface operations {
         };
     };
     get_unclassified_papers_api_v1_scoring_classification_unclassified_get: {
-        parameters: {
-            query?: {
-                limit?: number;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    backfill_embeddings_api_v1_scoring_embeddings_backfill_post: {
         parameters: {
             query?: {
                 limit?: number;
@@ -17463,109 +17306,6 @@ export interface operations {
             };
         };
     };
-    list_scoring_policies_api_v1_scoring_policies_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScoringPolicyListResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_scoring_policy_api_v1_scoring_policies_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ScoringPolicyCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScoringPolicyResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_scoring_policy_api_v1_scoring_policies__policy_id__patch: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                policy_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ScoringPolicyUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScoringPolicyResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     search_api_v1_search__post: {
         parameters: {
             query?: never;
@@ -17623,40 +17363,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EmbeddingBackfillResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    backfill_embeddings_sync_api_v1_search_embeddings_backfill_sync_post: {
-        parameters: {
-            query?: {
-                batch_size?: number;
-                max_papers?: number;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EmbeddingBackfillResult"];
                 };
             };
             /** @description Validation Error */

@@ -148,6 +148,12 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Enforce frontend budgets
+        run: npm run budget:check
+        env:
+          FRONTEND_ENTRY_BUNDLE_BUDGET_BYTES: "716800"
+          FRONTEND_MAX_SOURCE_LINES: "1900"
+
   e2e:
     name: E2E Tests
     runs-on: ubuntu-latest

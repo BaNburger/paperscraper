@@ -12,11 +12,10 @@ import {
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
+import { Pagination } from '@/components/ui/Pagination'
 import {
   Bell,
   BellOff,
-  ChevronLeft,
-  ChevronRight,
   Loader2,
   Trash2,
   Play,
@@ -379,34 +378,19 @@ export function AlertsPage() {
 
           {/* Pagination */}
           {data && data.pages > 1 && (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                {t('alerts.showingResults', { from: (page - 1) * pageSize + 1, to: Math.min(page * pageSize, data.total), total: data.total })}
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(page - 1)}
-                  disabled={page <= 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  {t('common.previous')}
-                </Button>
-                <span className="text-sm">
-                  {t('common.pageOf', { page, pages: data.pages })}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(page + 1)}
-                  disabled={page >= data.pages}
-                >
-                  {t('common.next')}
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
+            <Pagination
+              page={page}
+              pages={data.pages}
+              onPageChange={handlePageChange}
+              summary={t('alerts.showingResults', {
+                from: (page - 1) * pageSize + 1,
+                to: Math.min(page * pageSize, data.total),
+                total: data.total,
+              })}
+              previousLabel={t('common.previous')}
+              nextLabel={t('common.next')}
+              pageLabel={t('common.pageOf', { page, pages: data.pages })}
+            />
           )}
         </>
       )}
@@ -478,34 +462,19 @@ export function AlertsPage() {
 
               {/* Results Pagination */}
               {resultsData.pages > 1 && (
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">
-                    {t('alerts.showingResultsDetail', { from: (resultsPage - 1) * 10 + 1, to: Math.min(resultsPage * 10, resultsData.total), total: resultsData.total })}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setResultsPage(resultsPage - 1)}
-                      disabled={resultsPage <= 1}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                      {t('common.previous')}
-                    </Button>
-                    <span className="text-sm">
-                      {t('common.pageOf', { page: resultsPage, pages: resultsData.pages })}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setResultsPage(resultsPage + 1)}
-                      disabled={resultsPage >= resultsData.pages}
-                    >
-                      {t('common.next')}
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
+                <Pagination
+                  page={resultsPage}
+                  pages={resultsData.pages}
+                  onPageChange={setResultsPage}
+                  summary={t('alerts.showingResultsDetail', {
+                    from: (resultsPage - 1) * 10 + 1,
+                    to: Math.min(resultsPage * 10, resultsData.total),
+                    total: resultsData.total,
+                  })}
+                  previousLabel={t('common.previous')}
+                  nextLabel={t('common.next')}
+                  pageLabel={t('common.pageOf', { page: resultsPage, pages: resultsData.pages })}
+                />
               )}
             </>
           )}

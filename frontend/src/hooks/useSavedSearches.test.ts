@@ -70,13 +70,14 @@ const mockListResponse: SavedSearchListResponse = {
 }
 
 const mockSearchResponse: SearchResponse = {
-  results: [],
+  items: [],
   total: 0,
   page: 1,
   page_size: 20,
   pages: 0,
   query: 'machine learning',
   mode: 'hybrid',
+  search_time_ms: 0,
 }
 
 function createWrapper() {

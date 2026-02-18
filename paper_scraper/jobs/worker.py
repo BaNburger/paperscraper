@@ -40,7 +40,6 @@ from paper_scraper.jobs.retention import (
 )
 from paper_scraper.jobs.scoring import (
     cleanup_expired_score_cache_task,
-    generate_embeddings_batch_task,
     score_paper_task,
     score_papers_batch_task,
 )
@@ -84,7 +83,6 @@ class WorkerSettings:
         score_paper_task,
         score_papers_batch_task,
         ingest_source_task,
-        generate_embeddings_batch_task,
         backfill_embeddings_task,
         process_daily_alerts_task,
         process_weekly_alerts_task,

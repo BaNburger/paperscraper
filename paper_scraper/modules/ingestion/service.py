@@ -165,6 +165,7 @@ class IngestionService:
         """Store raw source payload metadata for idempotency/replay."""
         result = await self.db.execute(
             select(SourceRecord).where(
+                SourceRecord.organization_id == organization_id,
                 SourceRecord.source == source,
                 SourceRecord.source_record_id == source_record_id,
                 SourceRecord.content_hash == content_hash,

@@ -9,6 +9,7 @@ from sqlalchemy import select
 from paper_scraper.core.database import get_db_session
 from paper_scraper.modules.developer import service as dev_service
 from paper_scraper.modules.developer.models import RepositoryProvider, RepositorySource
+from paper_scraper.modules.ingestion.filter_builder import build_repository_pipeline_filters
 from paper_scraper.modules.ingestion.pipeline import IngestionPipeline
 
 
@@ -72,7 +73,11 @@ async def sync_repository_source_task(
             config.get("max_results") if isinstance(config, dict) else None,
             default=100,
         )
-        filters = _build_pipeline_filters(provider=provider, config=config, query=query)
+        filters = build_repository_pipeline_filters(
+            provider=provider,
+            config=config,
+            query=query,
+        )
 
         try:
             if provider not in {item.value for item in RepositoryProvider}:
@@ -137,35 +142,6 @@ def _as_positive_int(value: Any, *, default: int) -> int:
     except (TypeError, ValueError):
         return default
     return parsed if parsed > 0 else default
-
-
-def _build_pipeline_filters(
-    *,
-    provider: str,
-    config: dict[str, Any] | Any,
-    query: str,
-) -> dict[str, Any]:
-    filters: dict[str, Any] = {"query": query}
-    source_filters = config.get("filters") if isinstance(config, dict) else None
-
-    if provider in {RepositoryProvider.OPENALEX.value, RepositoryProvider.CROSSREF.value}:
-        if isinstance(source_filters, dict) and source_filters:
-            filters["filters"] = source_filters
-
-    if provider == RepositoryProvider.ARXIV.value:
-        category = source_filters.get("category") if isinstance(source_filters, dict) else None
-        if category:
-            filters["category"] = category
-
-    if provider == RepositoryProvider.SEMANTIC_SCHOLAR.value and isinstance(source_filters, dict):
-        year = source_filters.get("year")
-        if year is not None:
-            filters["year"] = year
-        fields_of_study = source_filters.get("fields_of_study")
-        if fields_of_study is not None:
-            filters["fields_of_study"] = fields_of_study
-
-    return filters
 
 
 def _extract_pipeline_stats(stats_json: Any) -> tuple[int, list[str]]:

@@ -5,7 +5,7 @@ import { authApi } from '@/lib/api'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/Card'
+import { AuthShell } from '@/components/auth/AuthShell'
 import { FileText, ArrowLeft, CheckCircle } from 'lucide-react'
 import { getApiErrorMessage } from '@/types'
 
@@ -33,78 +33,58 @@ export function ForgotPasswordPage() {
 
   if (isSubmitted) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="space-y-1 text-center">
-            <div className="flex justify-center mb-4">
-              <CheckCircle className="h-12 w-12 text-green-500" />
-            </div>
-            <CardTitle className="text-2xl">{t('auth.checkYourEmail')}</CardTitle>
-            <CardDescription>
-              {t('auth.resetEmailSent', { email })}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground text-center">
-              {t('auth.resetEmailExpiry')}
-            </p>
-          </CardContent>
-          <CardFooter className="flex flex-col gap-4">
-            <Link to="/login" className="w-full">
-              <Button variant="outline" className="w-full">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                {t('auth.backToLogin')}
-              </Button>
-            </Link>
-          </CardFooter>
-        </Card>
-      </main>
+      <AuthShell
+        title={t('auth.checkYourEmail')}
+        description={t('auth.resetEmailSent', { email })}
+        icon={<CheckCircle className="h-12 w-12 text-green-500" />}
+        contentClassName="space-y-4"
+      >
+        <p className="text-sm text-muted-foreground text-center">
+          {t('auth.resetEmailExpiry')}
+        </p>
+        <Link to="/login" className="w-full block">
+          <Button variant="outline" className="w-full">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            {t('auth.backToLogin')}
+          </Button>
+        </Link>
+      </AuthShell>
     )
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 text-center">
-          <div className="flex justify-center mb-4">
-            <FileText className="h-12 w-12 text-primary" />
+    <AuthShell
+      title={t('auth.forgotPassword')}
+      description={t('auth.forgotPasswordDescription')}
+      icon={<FileText className="h-12 w-12 text-primary" />}
+      contentClassName="space-y-4"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+            {error}
           </div>
-          <CardTitle className="text-2xl">{t('auth.forgotPassword')}</CardTitle>
-          <CardDescription>
-            {t('auth.forgotPasswordDescription')}
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            {error && (
-              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                {error}
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="email">{t('auth.email')}</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full" isLoading={isLoading}>
-              {t('auth.sendResetLink')}
-            </Button>
-            <Link to="/login" className="text-sm text-primary hover:underline">
-              <ArrowLeft className="inline mr-1 h-4 w-4" />
-              {t('auth.backToLogin')}
-            </Link>
-          </CardFooter>
-        </form>
-      </Card>
-    </main>
+        )}
+        <div className="space-y-2">
+          <Label htmlFor="email">{t('auth.email')}</Label>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </div>
+        <Button type="submit" className="w-full" isLoading={isLoading}>
+          {t('auth.sendResetLink')}
+        </Button>
+        <Link to="/login" className="text-sm text-primary hover:underline block text-center">
+          <ArrowLeft className="inline mr-1 h-4 w-4" />
+          {t('auth.backToLogin')}
+        </Link>
+      </form>
+    </AuthShell>
   )
 }

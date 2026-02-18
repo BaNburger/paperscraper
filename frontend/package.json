@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "budget:check": "node scripts/check-frontend-budgets.mjs",
     "codegen": "npm run codegen:openapi",
     "codegen:openapi": "openapi-typescript ../openapi.json -o src/api/generated/openapi.ts",
     "codegen:check": "npm run codegen:openapi && git diff --exit-code src/api/generated/openapi.ts",

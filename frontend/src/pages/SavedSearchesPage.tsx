@@ -12,12 +12,12 @@ import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
+import { Pagination } from '@/components/ui/Pagination'
 import { AccessibleModal } from '@/components/ui/AccessibleModal'
+import { copyTextToClipboard } from '@/lib/browser'
 import {
   Bookmark,
   Search,
-  ChevronLeft,
-  ChevronRight,
   Loader2,
   Bell,
   Share2,
@@ -81,8 +81,9 @@ export function SavedSearchesPage() {
     }
   }
 
-  const handleCopyLink = (url: string) => {
-    navigator.clipboard.writeText(url)
+  const handleCopyLink = async (url: string) => {
+    const copied = await copyTextToClipboard(url)
+    if (!copied) return
     setCopiedLink(true)
     setTimeout(() => setCopiedLink(false), 2000)
   }
@@ -273,34 +274,19 @@ export function SavedSearchesPage() {
 
           {/* Pagination */}
           {data && data.pages > 1 && (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                {t('savedSearches.showingResults', { from: (page - 1) * pageSize + 1, to: Math.min(page * pageSize, data.total), total: data.total })}
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(page - 1)}
-                  disabled={page <= 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  {t('common.previous')}
-                </Button>
-                <span className="text-sm">
-                  {t('common.pageOf', { page, pages: data.pages })}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(page + 1)}
-                  disabled={page >= data.pages}
-                >
-                  {t('common.next')}
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
+            <Pagination
+              page={page}
+              pages={data.pages}
+              onPageChange={handlePageChange}
+              summary={t('savedSearches.showingResults', {
+                from: (page - 1) * pageSize + 1,
+                to: Math.min(page * pageSize, data.total),
+                total: data.total,
+              })}
+              previousLabel={t('common.previous')}
+              nextLabel={t('common.next')}
+              pageLabel={t('common.pageOf', { page, pages: data.pages })}
+            />
           )}
         </>
       )}
@@ -328,7 +314,7 @@ export function SavedSearchesPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => handleCopyLink(selectedSearch.share_url || '')}
+                onClick={() => void handleCopyLink(selectedSearch.share_url || '')}
               >
                 {copiedLink ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </Button>

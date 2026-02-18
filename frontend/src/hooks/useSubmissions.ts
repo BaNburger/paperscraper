@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { submissionsApi } from '@/lib/api'
+import { queryKeys } from '@/config/queryKeys'
 import type { CreateSubmissionRequest, UpdateSubmissionRequest, SubmissionReviewRequest } from '@/types'
 
 export function useSubmissions(params?: {
@@ -8,7 +9,7 @@ export function useSubmissions(params?: {
   status?: string
 }) {
   return useQuery({
-    queryKey: ['submissions', params],
+    queryKey: queryKeys.submissions.list(params),
     queryFn: () => submissionsApi.list(params),
   })
 }
@@ -19,14 +20,14 @@ export function useMySubmissions(params?: {
   status?: string
 }) {
   return useQuery({
-    queryKey: ['mySubmissions', params],
+    queryKey: queryKeys.submissions.myList(params),
     queryFn: () => submissionsApi.listMy(params),
   })
 }
 
 export function useSubmission(id: string) {
   return useQuery({
-    queryKey: ['submission', id],
+    queryKey: queryKeys.submissions.detail(id),
     queryFn: () => submissionsApi.get(id),
     enabled: !!id,
   })
@@ -38,8 +39,8 @@ export function useCreateSubmission() {
   return useMutation({
     mutationFn: (data: CreateSubmissionRequest) => submissionsApi.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['submissions'] })
-      queryClient.invalidateQueries({ queryKey: ['mySubmissions'] })
+      queryClient.invalidateQueries({ queryKey: ['submissions', 'list'] })
+      queryClient.invalidateQueries({ queryKey: ['submissions', 'my-list'] })
     },
   })
 }
@@ -51,9 +52,9 @@ export function useUpdateSubmission() {
     mutationFn: ({ id, data }: { id: string; data: UpdateSubmissionRequest }) =>
       submissionsApi.update(id, data),
     onSuccess: (_, { id }) => {
-      queryClient.invalidateQueries({ queryKey: ['submission', id] })
-      queryClient.invalidateQueries({ queryKey: ['submissions'] })
-      queryClient.invalidateQueries({ queryKey: ['mySubmissions'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.submissions.detail(id) })
+      queryClient.invalidateQueries({ queryKey: ['submissions', 'list'] })
+      queryClient.invalidateQueries({ queryKey: ['submissions', 'my-list'] })
     },
   })
 }
@@ -64,9 +65,9 @@ export function useSubmitSubmission() {
   return useMutation({
     mutationFn: (id: string) => submissionsApi.submit(id),
     onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ['submission', id] })
-      queryClient.invalidateQueries({ queryKey: ['submissions'] })
-      queryClient.invalidateQueries({ queryKey: ['mySubmissions'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.submissions.detail(id) })
+      queryClient.invalidateQueries({ queryKey: ['submissions', 'list'] })
+      queryClient.invalidateQueries({ queryKey: ['submissions', 'my-list'] })
     },
   })
 }
@@ -78,8 +79,8 @@ export function useReviewSubmission() {
     mutationFn: ({ id, data }: { id: string; data: SubmissionReviewRequest }) =>
       submissionsApi.review(id, data),
     onSuccess: (_, { id }) => {
-      queryClient.invalidateQueries({ queryKey: ['submission', id] })
-      queryClient.invalidateQueries({ queryKey: ['submissions'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.submissions.detail(id) })
+      queryClient.invalidateQueries({ queryKey: ['submissions', 'list'] })
     },
   })
 }
@@ -90,7 +91,7 @@ export function useAnalyzeSubmission() {
   return useMutation({
     mutationFn: (id: string) => submissionsApi.analyze(id),
     onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ['submission', id] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.submissions.detail(id) })
     },
   })
 }
@@ -101,9 +102,9 @@ export function useConvertSubmission() {
   return useMutation({
     mutationFn: (id: string) => submissionsApi.convert(id),
     onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ['submission', id] })
-      queryClient.invalidateQueries({ queryKey: ['submissions'] })
-      queryClient.invalidateQueries({ queryKey: ['papers'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.submissions.detail(id) })
+      queryClient.invalidateQueries({ queryKey: ['submissions', 'list'] })
+      queryClient.invalidateQueries({ queryKey: ['papers', 'list'] })
     },
   })
 }
@@ -122,7 +123,7 @@ export function useUploadAttachment() {
       attachmentType: string
     }) => submissionsApi.uploadAttachment(submissionId, file, attachmentType),
     onSuccess: (_, { submissionId }) => {
-      queryClient.invalidateQueries({ queryKey: ['submission', submissionId] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.submissions.detail(submissionId) })
     },
   })
 }

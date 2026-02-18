@@ -16,6 +16,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
+import { ExternalLink as SafeExternalLink } from '@/components/ui/ExternalLink'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Skeleton, SkeletonStats } from '@/components/ui/Skeleton'
@@ -196,10 +197,8 @@ function PatentItem({ patent }: { patent: PatentResult }) {
           )}
         </div>
       </div>
-      <a
+      <SafeExternalLink
         href={patent.espacenet_url}
-        target="_blank"
-        rel="noopener noreferrer"
         className="shrink-0"
         aria-label={`View patent ${patent.patent_number} on Espacenet`}
       >
@@ -207,7 +206,7 @@ function PatentItem({ patent }: { patent: PatentResult }) {
           <ExternalLink className="h-4 w-4 mr-1" />
           Espacenet
         </Button>
-      </a>
+      </SafeExternalLink>
     </div>
   )
 }

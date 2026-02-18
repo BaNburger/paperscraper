@@ -69,7 +69,6 @@ from paper_scraper.modules.scoring.models import (  # noqa: F401
     GlobalScoreCache,
     PaperScore,
     ScoringJob,
-    ScoringPolicy,
 )
 from paper_scraper.modules.search.models import SearchActivity  # noqa: F401
 from paper_scraper.modules.submissions.models import (  # noqa: F401

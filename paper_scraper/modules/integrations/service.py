@@ -6,11 +6,12 @@ import re
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from paper_scraper.core.exceptions import NotFoundError, ValidationError
+from paper_scraper.modules.ingestion.interfaces import NormalizedAuthor, NormalizedPaperBundle
 from paper_scraper.modules.integrations.connectors.zotero import (
     ZoteroConnector,
     ZoteroCredentials,
@@ -37,7 +38,8 @@ from paper_scraper.modules.library.models import (
     LibraryCollectionItem,
     PaperTag,
 )
-from paper_scraper.modules.papers.models import Paper, PaperAuthor, PaperSource
+from paper_scraper.modules.papers.models import Paper, PaperAuthor
+from paper_scraper.modules.papers.upsert_service import PaperUpsertService
 
 
 class IntegrationService:
@@ -391,6 +393,7 @@ class IntegrationService:
                         organization_id=organization_id,
                         item_key=item_key,
                         data=data,
+                        created_by=triggered_by,
                     )
                     if was_created:
                         stats["papers_created"] += 1
@@ -519,63 +522,64 @@ class IntegrationService:
         organization_id: UUID,
         item_key: str,
         data: dict,
+        created_by: UUID | None,
     ) -> tuple[Paper, bool, bool]:
-        """Find a paper by DOI/title or create a new one from inbound Zotero item."""
-        doi = str(data.get("DOI", "")).strip() or None
+        """Resolve inbound Zotero item through canonical paper upsert."""
+        upsert_service = PaperUpsertService(self.db)
+        publication_date = self._parse_zotero_date(str(data.get("date", "")).strip())
         title = str(data.get("title", "")).strip() or "Untitled Zotero Item"
+        doi = str(data.get("DOI", "")).strip() or None
+        source_record_id = item_key or doi or title
 
-        paper: Paper | None = None
-        if doi:
-            result = await self.db.execute(
-                select(Paper).where(
-                    Paper.organization_id == organization_id,
-                    Paper.doi == doi,
+        bundle = NormalizedPaperBundle(
+            source="manual",
+            source_record_id=source_record_id,
+            title=title,
+            abstract=str(data.get("abstractNote", "")).strip() or None,
+            publication_date=publication_date.isoformat() if publication_date else None,
+            doi=doi,
+            metadata={
+                "source_id": f"zotero:{item_key}" if item_key else None,
+                "journal": str(data.get("publicationTitle", "")).strip() or None,
+                "keywords": self._extract_zotero_tags(data),
+                "raw_metadata": {"zotero": data},
+            },
+            authors=self._extract_zotero_authors(data),
+        )
+        result = await upsert_service.upsert_from_bundle(
+            bundle=bundle,
+            organization_id=organization_id,
+            created_by_id=created_by,
+        )
+        return result.paper, result.created, result.merged
+
+    def _extract_zotero_authors(self, data: dict) -> list[NormalizedAuthor]:
+        """Extract normalized author payloads from Zotero creators."""
+        creators = data.get("creators")
+        if not isinstance(creators, list):
+            return []
+
+        authors: list[NormalizedAuthor] = []
+        for creator in creators:
+            if not isinstance(creator, dict):
+                continue
+            display_name = str(creator.get("name", "")).strip()
+            if not display_name:
+                first = str(creator.get("firstName", "")).strip()
+                last = str(creator.get("lastName", "")).strip()
+                display_name = " ".join(part for part in [first, last] if part).strip()
+            if not display_name:
+                continue
+            orcid = str(creator.get("orcid", "")).strip() or None
+            authors.append(
+                NormalizedAuthor(
+                    name=display_name,
+                    orcid=orcid,
+                    source_ids={},
+                    affiliations=[],
                 )
             )
-            paper = result.scalar_one_or_none()
-
-        if not paper and title:
-            result = await self.db.execute(
-                select(Paper).where(
-                    Paper.organization_id == organization_id,
-                    func.lower(Paper.title) == title.lower(),
-                )
-            )
-            paper = result.scalar_one_or_none()
-
-        if not paper:
-            paper = Paper(
-                organization_id=organization_id,
-                source=PaperSource.MANUAL,
-                source_id=f"zotero:{item_key}" if item_key else None,
-                doi=doi,
-                title=title,
-                abstract=str(data.get("abstractNote", "")).strip() or None,
-                journal=str(data.get("publicationTitle", "")).strip() or None,
-                publication_date=self._parse_zotero_date(str(data.get("date", "")).strip()),
-                raw_metadata={"zotero": data},
-            )
-            self.db.add(paper)
-            await self.db.flush()
-            return paper, True, False
-
-        # Non-destructive merge: fill missing local values only.
-        merged = False
-        if not paper.doi and doi:
-            paper.doi = doi
-            merged = True
-        if not paper.abstract and data.get("abstractNote"):
-            paper.abstract = str(data.get("abstractNote")).strip() or paper.abstract
-            merged = True
-        if not paper.journal and data.get("publicationTitle"):
-            paper.journal = str(data.get("publicationTitle")).strip() or paper.journal
-            merged = True
-        if not paper.publication_date and data.get("date"):
-            parsed = self._parse_zotero_date(str(data.get("date")).strip())
-            if parsed:
-                paper.publication_date = parsed
-                merged = True
-        return paper, False, merged
+        return authors
 
     async def _get_or_create_zotero_collection(
         self,

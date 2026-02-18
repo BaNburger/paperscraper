@@ -12,6 +12,7 @@ export const queryKeys = {
     pendingInvitations: () => ['auth', 'pending-invitations'] as const,
   },
   papers: {
+    listRoot: () => ['papers', 'list'] as const,
     list: (params?: { page?: number; page_size?: number; search?: string }) =>
       ['papers', 'list', params ?? {}] as const,
     detail: (id: string) => ['papers', 'detail', id] as const,

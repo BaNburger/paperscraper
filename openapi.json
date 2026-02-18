@@ -1812,43 +1812,6 @@
         "title": "BadgeTier",
         "type": "string"
       },
-      "BatchScoreRequest": {
-        "description": "Request to score multiple papers.",
-        "properties": {
-          "async_mode": {
-            "default": true,
-            "description": "If True, returns job ID for async processing.",
-            "title": "Async Mode",
-            "type": "boolean"
-          },
-          "paper_ids": {
-            "description": "List of paper IDs to score.",
-            "items": {
-              "format": "uuid",
-              "type": "string"
-            },
-            "maxItems": 100,
-            "minItems": 1,
-            "title": "Paper Ids",
-            "type": "array"
-          },
-          "weights": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ScoringWeightsSchema"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "paper_ids"
-        ],
-        "title": "BatchScoreRequest",
-        "type": "object"
-      },
       "BenchmarkMetric": {
         "description": "A single benchmark metric comparison.",
         "properties": {
@@ -3617,6 +3580,18 @@
             "title": "Id",
             "type": "string"
           },
+          "ingest_run_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ingest Run Id"
+          },
           "organization_id": {
             "format": "uuid",
             "title": "Organization Id",
@@ -3766,37 +3741,6 @@
           "message"
         ],
         "title": "EmbeddingBackfillResponse",
-        "type": "object"
-      },
-      "EmbeddingBackfillResult": {
-        "description": "Result of embedding backfill operation.",
-        "properties": {
-          "errors": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Errors",
-            "type": "array"
-          },
-          "papers_failed": {
-            "title": "Papers Failed",
-            "type": "integer"
-          },
-          "papers_processed": {
-            "title": "Papers Processed",
-            "type": "integer"
-          },
-          "papers_succeeded": {
-            "title": "Papers Succeeded",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "papers_processed",
-          "papers_succeeded",
-          "papers_failed"
-        ],
-        "title": "EmbeddingBackfillResult",
         "type": "object"
       },
       "EmbeddingResponse": {
@@ -4731,7 +4675,7 @@
         "type": "object"
       },
       "IngestArxivRequest": {
-        "description": "Request to batch ingest from arXiv.",
+        "description": "Request to ingest from arXiv.",
         "properties": {
           "category": {
             "anyOf": [
@@ -4742,7 +4686,7 @@
                 "type": "null"
               }
             ],
-            "description": "Optional arXiv category filter (e.g., 'cs.AI', 'physics.med-ph')",
+            "description": "Optional arXiv category",
             "title": "Category"
           },
           "max_results": {
@@ -4754,6 +4698,7 @@
           },
           "query": {
             "description": "arXiv search query",
+            "minLength": 1,
             "title": "Query",
             "type": "string"
           }
@@ -4781,7 +4726,7 @@
         "type": "object"
       },
       "IngestJobResponse": {
-        "description": "Response for async ingestion job.",
+        "description": "Response for async source ingestion job creation.",
         "properties": {
           "ingest_run_id": {
             "format": "uuid",
@@ -4816,7 +4761,7 @@
         "type": "object"
       },
       "IngestOpenAlexRequest": {
-        "description": "Request to batch ingest from OpenAlex.",
+        "description": "Request to ingest from OpenAlex.",
         "properties": {
           "filters": {
             "additionalProperties": true,
@@ -4832,6 +4777,7 @@
           },
           "query": {
             "description": "Search query for OpenAlex",
+            "minLength": 1,
             "title": "Query",
             "type": "string"
           }
@@ -4843,7 +4789,7 @@
         "type": "object"
       },
       "IngestPubMedRequest": {
-        "description": "Request to batch ingest from PubMed.",
+        "description": "Request to ingest from PubMed.",
         "properties": {
           "max_results": {
             "default": 100,
@@ -4854,6 +4800,7 @@
           },
           "query": {
             "description": "PubMed search query",
+            "minLength": 1,
             "title": "Query",
             "type": "string"
           }
@@ -4899,6 +4846,136 @@
           "pages"
         ],
         "title": "IngestRunListResponse",
+        "type": "object"
+      },
+      "IngestRunRecordListResponse": {
+        "description": "Paginated source-record list for a run.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/IngestRunRecordResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "pages": {
+            "title": "Pages",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "pages"
+        ],
+        "title": "IngestRunRecordListResponse",
+        "type": "object"
+      },
+      "IngestRunRecordResponse": {
+        "description": "Per-record resolution details for an ingestion run.",
+        "properties": {
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "fetched_at": {
+            "format": "date-time",
+            "title": "Fetched At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "matched_on": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched On"
+          },
+          "paper_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paper Id"
+          },
+          "resolution_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution Status"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "source_record_id": {
+            "title": "Source Record Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "source_record_id",
+          "content_hash",
+          "fetched_at"
+        ],
+        "title": "IngestRunRecordResponse",
         "type": "object"
       },
       "IngestRunResponse": {
@@ -4979,10 +5056,8 @@
             "title": "Started At",
             "type": "string"
           },
-          "stats_json": {
-            "additionalProperties": true,
-            "title": "Stats Json",
-            "type": "object"
+          "stats": {
+            "$ref": "#/components/schemas/IngestRunStats"
           },
           "status": {
             "$ref": "#/components/schemas/IngestRunStatus"
@@ -4993,16 +5068,61 @@
           "source",
           "organization_id",
           "status",
-          "cursor_before",
-          "cursor_after",
-          "stats_json",
-          "idempotency_key",
-          "error_message",
           "started_at",
-          "completed_at",
           "created_at"
         ],
         "title": "IngestRunResponse",
+        "type": "object"
+      },
+      "IngestRunStats": {
+        "description": "Typed ingestion run stats.",
+        "properties": {
+          "dedupe_report": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Dedupe Report",
+            "type": "object"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "fetched_records": {
+            "default": 0,
+            "title": "Fetched Records",
+            "type": "integer"
+          },
+          "papers_created": {
+            "default": 0,
+            "title": "Papers Created",
+            "type": "integer"
+          },
+          "papers_failed": {
+            "default": 0,
+            "title": "Papers Failed",
+            "type": "integer"
+          },
+          "papers_matched": {
+            "default": 0,
+            "title": "Papers Matched",
+            "type": "integer"
+          },
+          "source_records_duplicates": {
+            "default": 0,
+            "title": "Source Records Duplicates",
+            "type": "integer"
+          },
+          "source_records_inserted": {
+            "default": 0,
+            "title": "Source Records Inserted",
+            "type": "integer"
+          }
+        },
+        "title": "IngestRunStats",
         "type": "object"
       },
       "IngestRunStatus": {
@@ -5018,7 +5138,7 @@
         "type": "string"
       },
       "IngestSemanticScholarRequest": {
-        "description": "Request to batch ingest from Semantic Scholar.",
+        "description": "Request to ingest from Semantic Scholar.",
         "properties": {
           "max_results": {
             "default": 100,
@@ -5029,6 +5149,7 @@
           },
           "query": {
             "description": "Semantic Scholar search query",
+            "minLength": 1,
             "title": "Query",
             "type": "string"
           }
@@ -10119,234 +10240,6 @@
           "completed_at"
         ],
         "title": "ScoringJobResponse",
-        "type": "object"
-      },
-      "ScoringPolicyCreate": {
-        "description": "Create request for scoring policy.",
-        "properties": {
-          "is_default": {
-            "default": true,
-            "title": "Is Default",
-            "type": "boolean"
-          },
-          "max_tokens": {
-            "default": 4096,
-            "maximum": 32768.0,
-            "minimum": 1.0,
-            "title": "Max Tokens",
-            "type": "integer"
-          },
-          "model": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Model",
-            "type": "string"
-          },
-          "provider": {
-            "maxLength": 50,
-            "minLength": 1,
-            "title": "Provider",
-            "type": "string"
-          },
-          "secret_ref": {
-            "anyOf": [
-              {
-                "maxLength": 255,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Secret Ref"
-          },
-          "temperature": {
-            "default": 0.3,
-            "maximum": 2.0,
-            "minimum": 0.0,
-            "title": "Temperature",
-            "type": "number"
-          }
-        },
-        "required": [
-          "provider",
-          "model"
-        ],
-        "title": "ScoringPolicyCreate",
-        "type": "object"
-      },
-      "ScoringPolicyListResponse": {
-        "description": "List response for scoring policies.",
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/ScoringPolicyResponse"
-            },
-            "title": "Items",
-            "type": "array"
-          },
-          "total": {
-            "title": "Total",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "items",
-          "total"
-        ],
-        "title": "ScoringPolicyListResponse",
-        "type": "object"
-      },
-      "ScoringPolicyResponse": {
-        "description": "Response schema for scoring policy.",
-        "properties": {
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "is_default": {
-            "title": "Is Default",
-            "type": "boolean"
-          },
-          "max_tokens": {
-            "title": "Max Tokens",
-            "type": "integer"
-          },
-          "model": {
-            "title": "Model",
-            "type": "string"
-          },
-          "organization_id": {
-            "format": "uuid",
-            "title": "Organization Id",
-            "type": "string"
-          },
-          "provider": {
-            "title": "Provider",
-            "type": "string"
-          },
-          "secret_ref": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Secret Ref"
-          },
-          "temperature": {
-            "title": "Temperature",
-            "type": "number"
-          },
-          "updated_at": {
-            "format": "date-time",
-            "title": "Updated At",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "organization_id",
-          "provider",
-          "model",
-          "temperature",
-          "max_tokens",
-          "secret_ref",
-          "is_default",
-          "created_at",
-          "updated_at"
-        ],
-        "title": "ScoringPolicyResponse",
-        "type": "object"
-      },
-      "ScoringPolicyUpdate": {
-        "description": "Partial update for scoring policy.",
-        "properties": {
-          "is_default": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Is Default"
-          },
-          "max_tokens": {
-            "anyOf": [
-              {
-                "maximum": 32768.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Max Tokens"
-          },
-          "model": {
-            "anyOf": [
-              {
-                "maxLength": 200,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Model"
-          },
-          "provider": {
-            "anyOf": [
-              {
-                "maxLength": 50,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provider"
-          },
-          "secret_ref": {
-            "anyOf": [
-              {
-                "maxLength": 255,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Secret Ref"
-          },
-          "temperature": {
-            "anyOf": [
-              {
-                "maximum": 2.0,
-                "minimum": 0.0,
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Temperature"
-          }
-        },
-        "title": "ScoringPolicyUpdate",
         "type": "object"
       },
       "ScoringStats": {
@@ -21149,6 +21042,105 @@
         ]
       }
     },
+    "/api/v1/ingestion/runs/{run_id}/records": {
+      "get": {
+        "description": "List per-record ingestion outcomes for a run.",
+        "operationId": "list_ingestion_run_records_api_v1_ingestion_runs__run_id__records_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "resolution_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Resolution Status"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestRunRecordListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List ingestion run records",
+        "tags": [
+          "Ingestion"
+        ]
+      }
+    },
     "/api/v1/ingestion/sources/arxiv/runs": {
       "post": {
         "description": "Queue asynchronous arXiv source ingestion.",
@@ -26560,66 +26552,6 @@
         ]
       }
     },
-    "/api/v1/scoring/batch": {
-      "post": {
-        "description": "Start a batch scoring job for multiple papers.\n\nPapers are scored asynchronously via background job queue.",
-        "operationId": "batch_score_api_v1_scoring_batch_post",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BatchScoreRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "202": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ScoringJobResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Start batch scoring job",
-        "tags": [
-          "Scoring"
-        ]
-      }
-    },
     "/api/v1/scoring/classification/batch": {
       "post": {
         "description": "Classify multiple papers in batch.\n\nReturns classification results for each paper.",
@@ -26746,70 +26678,6 @@
           }
         },
         "summary": "Get unclassified papers",
-        "tags": [
-          "Scoring"
-        ]
-      }
-    },
-    "/api/v1/scoring/embeddings/backfill": {
-      "post": {
-        "description": "Generate embeddings for papers that don't have them.\n\nUseful for backfilling after bulk imports.",
-        "operationId": "backfill_embeddings_api_v1_scoring_embeddings_backfill_post",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 100,
-              "maximum": 1000,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Backfill Embeddings Api V1 Scoring Embeddings Backfill Post",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Backfill embeddings for papers",
         "tags": [
           "Scoring"
         ]
@@ -27379,184 +27247,6 @@
         ]
       }
     },
-    "/api/v1/scoring/policies": {
-      "get": {
-        "description": "List scoring policies for the current organization.",
-        "operationId": "list_scoring_policies_api_v1_scoring_policies_get",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ScoringPolicyListResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "List scoring policies",
-        "tags": [
-          "Scoring"
-        ]
-      },
-      "post": {
-        "description": "Create a scoring policy for model/provider selection.",
-        "operationId": "create_scoring_policy_api_v1_scoring_policies_post",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ScoringPolicyCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ScoringPolicyResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Create scoring policy",
-        "tags": [
-          "Scoring"
-        ]
-      }
-    },
-    "/api/v1/scoring/policies/{policy_id}": {
-      "patch": {
-        "description": "Update an existing scoring policy.",
-        "operationId": "update_scoring_policy_api_v1_scoring_policies__policy_id__patch",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "policy_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Policy Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ScoringPolicyUpdate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ScoringPolicyResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Update scoring policy",
-        "tags": [
-          "Scoring"
-        ]
-      }
-    },
     "/api/v1/search/": {
       "post": {
         "description": "Search papers using full-text, semantic, or hybrid mode.",
@@ -27672,80 +27362,6 @@
           }
         },
         "summary": "Start embedding backfill job",
-        "tags": [
-          "Search"
-        ]
-      }
-    },
-    "/api/v1/search/embeddings/backfill/sync": {
-      "post": {
-        "description": "Generate embeddings synchronously (for small batches).",
-        "operationId": "backfill_embeddings_sync_api_v1_search_embeddings_backfill_sync_post",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "batch_size",
-            "required": false,
-            "schema": {
-              "default": 20,
-              "maximum": 50,
-              "minimum": 1,
-              "title": "Batch Size",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "max_papers",
-            "required": false,
-            "schema": {
-              "default": 50,
-              "maximum": 100,
-              "minimum": 1,
-              "title": "Max Papers",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EmbeddingBackfillResult"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Backfill embeddings synchronously",
         "tags": [
           "Search"
         ]

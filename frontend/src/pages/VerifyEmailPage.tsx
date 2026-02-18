@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { authApi } from '@/lib/api'
 import { Button } from '@/components/ui/Button'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/Card'
+import { AuthShell } from '@/components/auth/AuthShell'
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react'
 import { getApiErrorMessage } from '@/types'
 
@@ -44,71 +44,49 @@ export function VerifyEmailPage() {
 
   if (status === 'loading') {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="space-y-1 text-center">
-            <div className="flex justify-center mb-4">
-              <Loader2 className="h-12 w-12 text-primary animate-spin" />
-            </div>
-            <CardTitle className="text-2xl">{t('auth.verifyingEmail')}</CardTitle>
-            <CardDescription>
-              {t('auth.verifyingEmailDescription')}
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </main>
+      <AuthShell
+        title={t('auth.verifyingEmail')}
+        description={t('auth.verifyingEmailDescription')}
+        icon={<Loader2 className="h-12 w-12 text-primary animate-spin" />}
+      />
     )
   }
 
   if (status === 'success') {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="space-y-1 text-center">
-            <div className="flex justify-center mb-4">
-              <CheckCircle className="h-12 w-12 text-green-500" />
-            </div>
-            <CardTitle className="text-2xl">{t('auth.emailVerified')}</CardTitle>
-            <CardDescription>
-              {t('auth.emailVerifiedDescription')}
-            </CardDescription>
-          </CardHeader>
-          <CardFooter className="flex justify-center">
-            <Link to="/dashboard">
-              <Button>{t('auth.goToDashboard')}</Button>
-            </Link>
-          </CardFooter>
-        </Card>
-      </main>
+      <AuthShell
+        title={t('auth.emailVerified')}
+        description={t('auth.emailVerifiedDescription')}
+        icon={<CheckCircle className="h-12 w-12 text-green-500" />}
+        contentClassName="space-y-4"
+      >
+        <div className="flex justify-center">
+          <Link to="/dashboard">
+            <Button>{t('auth.goToDashboard')}</Button>
+          </Link>
+        </div>
+      </AuthShell>
     )
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 text-center">
-          <div className="flex justify-center mb-4">
-            <XCircle className="h-12 w-12 text-destructive" />
-          </div>
-          <CardTitle className="text-2xl">{t('auth.verificationFailedTitle')}</CardTitle>
-          <CardDescription>
-            {error}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="text-center">
-          <p className="text-sm text-muted-foreground">
-            {t('auth.verificationFailedHint')}
-          </p>
-        </CardContent>
-        <CardFooter className="flex justify-center gap-4">
-          <Link to="/login">
-            <Button variant="outline">{t('auth.signIn')}</Button>
-          </Link>
-          <Link to="/register">
-            <Button>{t('auth.createAccount')}</Button>
-          </Link>
-        </CardFooter>
-      </Card>
-    </main>
+    <AuthShell
+      title={t('auth.verificationFailedTitle')}
+      description={error}
+      icon={<XCircle className="h-12 w-12 text-destructive" />}
+      contentClassName="space-y-4"
+    >
+      <p className="text-sm text-muted-foreground text-center">
+        {t('auth.verificationFailedHint')}
+      </p>
+      <div className="flex justify-center gap-4">
+        <Link to="/login">
+          <Button variant="outline">{t('auth.signIn')}</Button>
+        </Link>
+        <Link to="/register">
+          <Button>{t('auth.createAccount')}</Button>
+        </Link>
+      </div>
+    </AuthShell>
   )
 }

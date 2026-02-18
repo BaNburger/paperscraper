@@ -1,3 +1,4 @@
+import type { AxiosError } from 'axios'
 import type {
   Paper,
   PaperDetail,
@@ -95,109 +96,13 @@ import type {
   DiscoveryRunListResponse,
   DiscoveryRunResponse,
   DiscoveryTriggerResponse,
+  IngestionJobResponse,
+  IngestionRunResponse,
+  SimilarPapersResponse,
 } from '@/types'
 
 import { api } from '@/api/http/client'
-type IngestionRunStatus = 'queued' | 'running' | 'completed' | 'completed_with_errors' | 'failed'
-
-interface IngestionJobResponse {
-  ingest_run_id: string
-}
-
-interface IngestionRunResponse {
-  id: string
-  status: IngestionRunStatus
-  stats_json?: Record<string, unknown>
-  error_message?: string | null
-}
-
-interface IngestionSummaryResult {
-  papers_created: number
-  papers_skipped: number
-  errors: string[]
-}
-
-const INGESTION_TERMINAL_STATUSES = new Set<IngestionRunStatus>([
-  'completed',
-  'completed_with_errors',
-  'failed',
-])
-const INGESTION_POLL_INTERVAL_MS = 1200
-const INGESTION_POLL_TIMEOUT_MS = 3 * 60 * 1000
-
-function toInt(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return Math.trunc(value)
-  }
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number.parseInt(value, 10)
-    if (Number.isFinite(parsed)) {
-      return parsed
-    }
-  }
-  return 0
-}
-
-function extractIngestionErrors(run: IngestionRunResponse): string[] {
-  const statsErrors = run.stats_json?.errors
-  if (Array.isArray(statsErrors)) {
-    const normalized = statsErrors.filter((item): item is string => typeof item === 'string')
-    if (normalized.length > 0) {
-      return normalized
-    }
-  }
-  if (run.status === 'failed' && run.error_message) {
-    return [run.error_message]
-  }
-  return []
-}
-
-function summarizeIngestionRun(run: IngestionRunResponse): IngestionSummaryResult {
-  return {
-    papers_created: toInt(run.stats_json?.papers_created),
-    papers_skipped: toInt(
-      run.stats_json?.source_records_duplicates ?? run.stats_json?.papers_skipped
-    ),
-    errors: extractIngestionErrors(run),
-  }
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms)
-  })
-}
-
-async function waitForIngestionRun(
-  runId: string,
-  timeoutMs = INGESTION_POLL_TIMEOUT_MS,
-): Promise<IngestionSummaryResult> {
-  const startedAt = Date.now()
-
-  while (Date.now() - startedAt < timeoutMs) {
-    const response = await api.get<IngestionRunResponse>(`/ingestion/runs/${runId}`)
-    const run = response.data
-    if (INGESTION_TERMINAL_STATUSES.has(run.status)) {
-      return summarizeIngestionRun(run)
-    }
-    await sleep(INGESTION_POLL_INTERVAL_MS)
-  }
-
-  return {
-    papers_created: 0,
-    papers_skipped: 0,
-    errors: ['Timed out waiting for ingestion run completion'],
-  }
-}
-
-async function queueAndAwaitIngestionRun(
-  path: string,
-  payload: Record<string, unknown>,
-): Promise<IngestionSummaryResult> {
-  const response = await api.post<IngestionJobResponse>(path, payload)
-  return waitForIngestionRun(response.data.ingest_run_id)
-}
-
+import { triggerBrowserDownload } from '@/lib/browser'
 // Papers API
 export const papersApi = {
   list: async (params: {
@@ -227,23 +132,26 @@ export const papersApi = {
     query: string
     max_results?: number
     filters?: Record<string, string>
-  }): Promise<{ papers_created: number; papers_skipped: number; errors: string[] }> => {
-    return queueAndAwaitIngestionRun('/ingestion/sources/openalex/runs', params)
+  }): Promise<IngestionJobResponse> => {
+    const response = await api.post<IngestionJobResponse>('/ingestion/sources/openalex/runs', params)
+    return response.data
   },
 
   ingestFromPubMed: async (params: {
     query: string
     max_results?: number
-  }): Promise<{ papers_created: number; papers_skipped: number; errors: string[] }> => {
-    return queueAndAwaitIngestionRun('/ingestion/sources/pubmed/runs', params)
+  }): Promise<IngestionJobResponse> => {
+    const response = await api.post<IngestionJobResponse>('/ingestion/sources/pubmed/runs', params)
+    return response.data
   },
 
   ingestFromArxiv: async (params: {
     query: string
     max_results?: number
     category?: string
-  }): Promise<{ papers_created: number; papers_skipped: number; errors: string[] }> => {
-    return queueAndAwaitIngestionRun('/ingestion/sources/arxiv/runs', params)
+  }): Promise<IngestionJobResponse> => {
+    const response = await api.post<IngestionJobResponse>('/ingestion/sources/arxiv/runs', params)
+    return response.data
   },
 
   uploadPdf: async (file: File): Promise<Paper> => {
@@ -270,8 +178,14 @@ export const papersApi = {
   ingestFromSemanticScholar: async (params: {
     query: string
     max_results?: number
-  }): Promise<{ papers_created: number; papers_skipped: number; errors: string[] }> => {
-    return queueAndAwaitIngestionRun('/ingestion/sources/semantic-scholar/runs', params)
+  }): Promise<IngestionJobResponse> => {
+    const response = await api.post<IngestionJobResponse>('/ingestion/sources/semantic-scholar/runs', params)
+    return response.data
+  },
+
+  getIngestionRun: async (runId: string): Promise<IngestionRunResponse> => {
+    const response = await api.get<IngestionRunResponse>(`/ingestion/runs/${runId}`)
+    return response.data
   },
 
   getRelatedPatents: async (paperId: string): Promise<RelatedPatentsResponse> => {
@@ -581,74 +495,16 @@ export const projectsApi = {
 // Search API
 export const searchApi = {
   search: async (data: SearchRequest): Promise<SearchResponse> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response = await api.post<any>('/search/', data)
-    const raw = response.data
-    // Transform backend flat items to frontend nested SearchResult format
-    const results = (raw.items ?? []).map((item: Record<string, unknown>) => {
-      // Convert highlights array [{field, snippet}] to {title?, abstract?}
-      const highlightsArr = (item.highlights ?? []) as Array<{ field: string; snippet: string }>
-      const highlights: Record<string, string> = {}
-      for (const h of highlightsArr) {
-        highlights[h.field] = h.snippet
-      }
-      return {
-        paper: {
-          id: item.id,
-          title: item.title,
-          abstract: item.abstract,
-          doi: item.doi,
-          source: item.source,
-          journal: item.journal,
-          publication_date: item.publication_date,
-          keywords: item.keywords,
-          citations_count: item.citations_count,
-          has_embedding: item.has_embedding,
-          created_at: item.created_at,
-        },
-        relevance_score: item.relevance_score ?? 0,
-        highlights,
-        latest_score: item.score ?? null,
-      }
-    })
-    return {
-      results,
-      total: raw.total,
-      page: raw.page,
-      page_size: raw.page_size,
-      pages: raw.pages,
-      query: raw.query,
-      mode: raw.mode,
-    }
+    const response = await api.post<SearchResponse>('/search/', data)
+    return response.data
   },
 
   findSimilar: async (
     paperId: string,
     params?: { limit?: number }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ): Promise<any> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response = await api.get<any>(`/search/similar/${paperId}`, { params })
-    const raw = response.data
-    // Transform backend SimilarPapersResponse to frontend expected format
-    const results = (raw.similar_papers ?? []).map((item: Record<string, unknown>) => ({
-      paper: {
-        id: item.id,
-        title: item.title,
-        abstract: item.abstract,
-        doi: item.doi,
-        source: item.source,
-        journal: item.journal,
-        publication_date: item.publication_date,
-        keywords: item.keywords,
-      },
-      relevance_score: item.similarity_score ?? 0,
-      highlights: {},
-    }))
-    return {
-      paper_id: raw.paper_id,
-      similar: { results, total: raw.total_found },
-    }
+  ): Promise<SimilarPapersResponse> => {
+    const response = await api.get<SimilarPapersResponse>(`/search/similar/${paperId}`, { params })
+    return response.data
   },
 
   getEmbeddingStats: async (): Promise<{
@@ -868,14 +724,7 @@ export const exportApi = {
 
   // Helper to trigger download
   downloadFile: (blob: Blob, filename: string): void => {
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.setAttribute('download', filename)
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    window.URL.revokeObjectURL(url)
+    triggerBrowserDownload(blob, filename)
   },
 }
 

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { transferApi } from '@/lib/api'
+import { queryKeys } from '@/config/queryKeys'
 import type { CreateConversationRequest } from '@/types'
 
 export function useConversations(params?: {
@@ -9,14 +10,14 @@ export function useConversations(params?: {
   search?: string
 }) {
   return useQuery({
-    queryKey: ['conversations', params],
+    queryKey: queryKeys.transfer.conversations(params),
     queryFn: () => transferApi.list(params),
   })
 }
 
 export function useConversation(id: string) {
   return useQuery({
-    queryKey: ['conversation', id],
+    queryKey: queryKeys.transfer.conversation(id),
     queryFn: () => transferApi.get(id),
     enabled: !!id,
   })
@@ -28,7 +29,7 @@ export function useCreateConversation() {
   return useMutation({
     mutationFn: (data: CreateConversationRequest) => transferApi.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      queryClient.invalidateQueries({ queryKey: ['transfer', 'conversations'] })
     },
   })
 }
@@ -40,8 +41,8 @@ export function useChangeStage() {
     mutationFn: ({ id, stage, notes }: { id: string; stage: string; notes?: string }) =>
       transferApi.updateStage(id, stage, notes),
     onSuccess: (_, { id }) => {
-      queryClient.invalidateQueries({ queryKey: ['conversation', id] })
-      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.transfer.conversation(id) })
+      queryClient.invalidateQueries({ queryKey: ['transfer', 'conversations'] })
     },
   })
 }
@@ -60,7 +61,9 @@ export function useSendMessage() {
       mentions?: string[]
     }) => transferApi.sendMessage(conversationId, content, mentions),
     onSuccess: (_, { conversationId }) => {
-      queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] })
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.transfer.conversation(conversationId),
+      })
     },
   })
 }
@@ -79,7 +82,9 @@ export function useSendMessageFromTemplate() {
       mentions?: string[]
     }) => transferApi.sendMessageFromTemplate(conversationId, templateId, mentions),
     onSuccess: (_, { conversationId }) => {
-      queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] })
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.transfer.conversation(conversationId),
+      })
     },
   })
 }
@@ -91,14 +96,16 @@ export function useUploadResource() {
     mutationFn: ({ conversationId, file }: { conversationId: string; file: File }) =>
       transferApi.uploadResource(conversationId, file),
     onSuccess: (_, { conversationId }) => {
-      queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] })
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.transfer.conversation(conversationId),
+      })
     },
   })
 }
 
 export function useNextSteps(conversationId: string) {
   return useQuery({
-    queryKey: ['nextSteps', conversationId],
+    queryKey: queryKeys.transfer.nextSteps(conversationId),
     queryFn: () => transferApi.getNextSteps(conversationId),
     enabled: !!conversationId,
   })
@@ -106,7 +113,7 @@ export function useNextSteps(conversationId: string) {
 
 export function useMessageTemplates(stage?: string) {
   return useQuery({
-    queryKey: ['messageTemplates', stage],
+    queryKey: queryKeys.transfer.templates(stage),
     queryFn: () => transferApi.listTemplates(stage),
   })
 }

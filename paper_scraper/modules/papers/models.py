@@ -142,6 +142,21 @@ class Paper(Base):
     __table_args__ = (
         Index("ix_papers_source_source_id", "source", "source_id"),
         Index("ix_papers_org_created", "organization_id", "created_at"),
+        Index(
+            "uq_papers_org_lower_doi",
+            "organization_id",
+            func.lower(doi),
+            unique=True,
+            postgresql_where=doi.is_not(None),
+        ),
+        Index(
+            "uq_papers_org_source_source_id",
+            "organization_id",
+            "source",
+            "source_id",
+            unique=True,
+            postgresql_where=source_id.is_not(None),
+        ),
     )
 
     @property

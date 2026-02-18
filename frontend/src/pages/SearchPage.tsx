@@ -36,13 +36,20 @@ import {
   Check,
 } from 'lucide-react'
 import { formatDate, truncate, getScoreColor, cn } from '@/lib/utils'
-import type { SearchMode, SearchResult, PaperScore } from '@/types'
+import type { SearchMode, SearchResultItem } from '@/types'
 
 const searchModeDefs: { value: SearchMode; labelKey: string; descriptionKey: string }[] = [
   { value: 'hybrid', labelKey: 'search.modeHybrid', descriptionKey: 'search.modeHybridDescription' },
   { value: 'fulltext', labelKey: 'search.modeFulltext', descriptionKey: 'search.modeFulltextDescription' },
   { value: 'semantic', labelKey: 'search.modeSemantic', descriptionKey: 'search.modeSemanticDescription' },
 ]
+
+type SearchScore = NonNullable<SearchResultItem['score']>
+
+function getHighlightSnippet(item: SearchResultItem, field: 'title' | 'abstract'): string | null {
+  const highlight = item.highlights?.find((entry) => entry.field === field)
+  return highlight?.snippet ?? null
+}
 
 function ScoreCard({ label, value, className }: { label: string; value: number; className?: string }) {
   return (
@@ -54,14 +61,14 @@ function ScoreCard({ label, value, className }: { label: string; value: number; 
 }
 
 // Radar chart for comparing paper scores
-function ComparisonRadarChart({ papers }: { papers: { title: string; score: PaperScore }[] }) {
+function ComparisonRadarChart({ papers }: { papers: { title: string; score: SearchScore }[] }) {
   const dimensions = [
     { key: 'overall_score', label: 'Overall' },
     { key: 'novelty', label: 'Novelty' },
     { key: 'ip_potential', label: 'IP' },
     { key: 'marketability', label: 'Market' },
     { key: 'feasibility', label: 'Feasibility' },
-    { key: 'team_readiness', label: 'Team' },
+    { key: 'commercialization', label: 'Commercial' },
   ] as const
 
   const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6']
@@ -70,7 +77,7 @@ function ComparisonRadarChart({ papers }: { papers: { title: string; score: Pape
   const radius = (size - 60) / 2
 
   // Generate radar polygon points for a paper
-  const getPolygonPoints = (score: PaperScore): string => {
+  const getPolygonPoints = (score: SearchScore): string => {
     return dimensions
       .map((dim, i) => {
         const angle = (Math.PI * 2 * i) / dimensions.length - Math.PI / 2
@@ -171,11 +178,11 @@ function ComparisonModal({
   onOpenChange,
 }: {
   open: boolean
-  papers: SearchResult[]
+  papers: SearchResultItem[]
   onOpenChange: (open: boolean) => void
 }) {
   const { t } = useTranslation()
-  const papersWithScores = papers.filter((p) => p.latest_score)
+  const papersWithScores = papers.filter((p) => p.score)
 
   return (
     <AccessibleModal
@@ -196,8 +203,8 @@ function ComparisonModal({
             <CardContent className="flex justify-center">
               <ComparisonRadarChart
                 papers={papersWithScores.map((p) => ({
-                  title: p.paper.title,
-                  score: p.latest_score!,
+                  title: p.title,
+                  score: p.score!,
                 }))}
               />
             </CardContent>
@@ -220,9 +227,9 @@ function ComparisonModal({
                   <tr className="border-b">
                     <th className="text-left p-2 font-medium">{t('search.metric')}</th>
                     {papers.map((p) => (
-                      <th key={p.paper.id} className="text-center p-2 font-medium">
-                        <div className="max-w-[150px] truncate" title={p.paper.title}>
-                          {p.paper.title.slice(0, 30)}...
+                      <th key={p.id} className="text-center p-2 font-medium">
+                        <div className="max-w-[150px] truncate" title={p.title}>
+                          {p.title.slice(0, 30)}...
                         </div>
                       </th>
                     ))}
@@ -232,10 +239,10 @@ function ComparisonModal({
                   <tr className="border-b">
                     <td className="p-2 font-medium">{t('papers.overallScore')}</td>
                     {papers.map((p) => (
-                      <td key={p.paper.id} className="text-center p-2">
-                        {p.latest_score ? (
-                          <span className={getScoreColor(p.latest_score.overall_score)}>
-                            {p.latest_score.overall_score.toFixed(1)}
+                      <td key={p.id} className="text-center p-2">
+                        {p.score ? (
+                          <span className={getScoreColor(p.score.overall_score)}>
+                            {p.score.overall_score.toFixed(1)}
                           </span>
                         ) : (
                           <span className="text-muted-foreground">-</span>
@@ -246,47 +253,47 @@ function ComparisonModal({
                   <tr className="border-b">
                     <td className="p-2 font-medium">{t('papers.novelty')}</td>
                     {papers.map((p) => (
-                      <td key={p.paper.id} className="text-center p-2">
-                        {p.latest_score?.novelty?.toFixed(1) ?? '-'}
+                      <td key={p.id} className="text-center p-2">
+                        {p.score?.novelty?.toFixed(1) ?? '-'}
                       </td>
                     ))}
                   </tr>
                   <tr className="border-b">
                     <td className="p-2 font-medium">{t('papers.ipPotential')}</td>
                     {papers.map((p) => (
-                      <td key={p.paper.id} className="text-center p-2">
-                        {p.latest_score?.ip_potential?.toFixed(1) ?? '-'}
+                      <td key={p.id} className="text-center p-2">
+                        {p.score?.ip_potential?.toFixed(1) ?? '-'}
                       </td>
                     ))}
                   </tr>
                   <tr className="border-b">
                     <td className="p-2 font-medium">{t('papers.marketability')}</td>
                     {papers.map((p) => (
-                      <td key={p.paper.id} className="text-center p-2">
-                        {p.latest_score?.marketability?.toFixed(1) ?? '-'}
+                      <td key={p.id} className="text-center p-2">
+                        {p.score?.marketability?.toFixed(1) ?? '-'}
                       </td>
                     ))}
                   </tr>
                   <tr className="border-b">
                     <td className="p-2 font-medium">{t('papers.feasibility')}</td>
                     {papers.map((p) => (
-                      <td key={p.paper.id} className="text-center p-2">
-                        {p.latest_score?.feasibility?.toFixed(1) ?? '-'}
+                      <td key={p.id} className="text-center p-2">
+                        {p.score?.feasibility?.toFixed(1) ?? '-'}
                       </td>
                     ))}
                   </tr>
                   <tr className="border-b">
-                    <td className="p-2 font-medium">{t('papers.teamReadiness')}</td>
+                    <td className="p-2 font-medium">{t('papers.commercialization')}</td>
                     {papers.map((p) => (
-                      <td key={p.paper.id} className="text-center p-2">
-                        {p.latest_score?.team_readiness?.toFixed(1) ?? '-'}
+                      <td key={p.id} className="text-center p-2">
+                        {p.score?.commercialization?.toFixed(1) ?? '-'}
                       </td>
                     ))}
                   </tr>
                   <tr className="border-b">
                     <td className="p-2 font-medium">{t('search.relevance')}</td>
                     {papers.map((p) => (
-                      <td key={p.paper.id} className="text-center p-2">
+                      <td key={p.id} className="text-center p-2">
                         {(p.relevance_score * 100).toFixed(0)}%
                       </td>
                     ))}
@@ -294,16 +301,16 @@ function ComparisonModal({
                   <tr className="border-b">
                     <td className="p-2 font-medium">{t('papers.source')}</td>
                     {papers.map((p) => (
-                      <td key={p.paper.id} className="text-center p-2">
-                        <Badge variant="outline">{p.paper.source}</Badge>
+                      <td key={p.id} className="text-center p-2">
+                        <Badge variant="outline">{p.source}</Badge>
                       </td>
                     ))}
                   </tr>
                   <tr>
                     <td className="p-2 font-medium">{t('search.published')}</td>
                     {papers.map((p) => (
-                      <td key={p.paper.id} className="text-center p-2">
-                        {p.paper.publication_date ? formatDate(p.paper.publication_date) : '-'}
+                      <td key={p.id} className="text-center p-2">
+                        {p.publication_date ? formatDate(p.publication_date) : '-'}
                       </td>
                     ))}
                   </tr>
@@ -321,11 +328,11 @@ function PreviewPanel({
   selectedResult,
   onClose,
 }: {
-  selectedResult: SearchResult | null
+  selectedResult: SearchResultItem | null
   onClose: () => void
 }) {
   const { t } = useTranslation()
-  const { data: paperDetail } = usePaper(selectedResult?.paper.id || '')
+  const { data: paperDetail } = usePaper(selectedResult?.id || '')
 
   if (!selectedResult) {
     return (
@@ -339,8 +346,9 @@ function PreviewPanel({
     )
   }
 
-  const paper = selectedResult.paper
-  const score = selectedResult.latest_score
+  const paper = selectedResult
+  const score = selectedResult.score
+  const abstractHighlight = getHighlightSnippet(selectedResult, 'abstract')
 
   return (
     <div className="h-full flex flex-col">
@@ -402,10 +410,10 @@ function PreviewPanel({
         <div>
           <h3 className="text-sm font-medium mb-2">{t('papers.abstract')}</h3>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            {selectedResult.highlights.abstract ? (
+            {abstractHighlight ? (
               <span
                 dangerouslySetInnerHTML={{
-                  __html: DOMPurify.sanitize(selectedResult.highlights.abstract, SANITIZE_CONFIG),
+                  __html: DOMPurify.sanitize(abstractHighlight, SANITIZE_CONFIG),
                 }}
               />
             ) : (
@@ -424,7 +432,7 @@ function PreviewPanel({
               <ScoreCard label="IP" value={score.ip_potential} />
               <ScoreCard label="Market" value={score.marketability} />
               <ScoreCard label="Feasibility" value={score.feasibility} />
-              <ScoreCard label="Team" value={score.team_readiness} />
+              <ScoreCard label="Commercial" value={score.commercialization} />
             </div>
           </div>
         )}
@@ -492,7 +500,8 @@ export function SearchPage() {
       mode,
       page: newPage,
       page_size: 10,
-      semantic_weight: mode === 'hybrid' ? semanticWeight : undefined,
+      semantic_weight: mode === 'hybrid' ? semanticWeight : 0.5,
+      include_highlights: true,
     })
   }
 
@@ -512,9 +521,9 @@ export function SearchPage() {
   }
 
   const result = searchMutation.data
-  const results = useMemo(() => result?.results ?? [], [result])
+  const results = useMemo(() => result?.items ?? [], [result])
   const selectedResult = selectedIndex >= 0 ? results[selectedIndex] : null
-  const papersForCompare = results.filter((r) => selectedForCompare.has(r.paper.id))
+  const papersForCompare = results.filter((r) => selectedForCompare.has(r.id))
 
   const focusResultItem = useCallback((index: number) => {
     const item = resultItemRefs.current[index]
@@ -547,7 +556,7 @@ export function SearchPage() {
 
       if (e.key === 'Enter' && selectedIndex >= 0) {
         e.preventDefault()
-        navigate(`/papers/${results[selectedIndex].paper.id}`)
+        navigate(`/papers/${results[selectedIndex].id}`)
         return
       }
 
@@ -753,7 +762,7 @@ export function SearchPage() {
               >
                 {results.map((item, index) => (
                   <div
-                    key={item.paper.id}
+                    key={item.id}
                     ref={(element) => {
                       resultItemRefs.current[index] = element
                     }}
@@ -776,53 +785,59 @@ export function SearchPage() {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation()
-                                toggleCompareSelect(item.paper.id)
+                                toggleCompareSelect(item.id)
                               }}
                               className={cn(
                                 'shrink-0 w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center transition-colors',
-                                selectedForCompare.has(item.paper.id)
+                                selectedForCompare.has(item.id)
                                   ? 'bg-primary border-primary text-primary-foreground'
                                   : 'border-muted-foreground/50 hover:border-primary'
                               )}
                             >
-                              {selectedForCompare.has(item.paper.id) && (
+                              {selectedForCompare.has(item.id) && (
                                 <Check className="h-3 w-3" />
                               )}
                             </button>
                           )}
                           <div className="min-w-0 flex-1">
                             <h3 className="font-medium line-clamp-2">
-                              {item.highlights.title ? (
+                              {getHighlightSnippet(item, 'title') ? (
                                 <span
                                   dangerouslySetInnerHTML={{
-                                    __html: DOMPurify.sanitize(item.highlights.title, SANITIZE_CONFIG),
+                                    __html: DOMPurify.sanitize(
+                                      getHighlightSnippet(item, 'title') || '',
+                                      SANITIZE_CONFIG,
+                                    ),
                                   }}
                                 />
                               ) : (
-                                item.paper.title
+                                item.title
                               )}
                             </h3>
                             <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-                              {item.highlights.abstract ? (
+                              {getHighlightSnippet(item, 'abstract') ? (
                                 <span
                                   dangerouslySetInnerHTML={{
-                                    __html: DOMPurify.sanitize(item.highlights.abstract, SANITIZE_CONFIG),
+                                    __html: DOMPurify.sanitize(
+                                      getHighlightSnippet(item, 'abstract') || '',
+                                      SANITIZE_CONFIG,
+                                    ),
                                   }}
                                 />
                               ) : (
-                                truncate(item.paper.abstract ?? 'No abstract', 150)
+                                truncate(item.abstract ?? 'No abstract', 150)
                               )}
                             </p>
                             <div className="flex flex-wrap items-center gap-2 mt-3">
-                              <Badge variant="outline">{item.paper.source}</Badge>
-                              {item.paper.journal && (
+                              <Badge variant="outline">{item.source}</Badge>
+                              {item.journal && (
                                 <span className="text-xs text-muted-foreground">
-                                  {item.paper.journal}
+                                  {item.journal}
                                 </span>
                               )}
-                              {item.paper.publication_date && (
+                              {item.publication_date && (
                                 <span className="text-xs text-muted-foreground">
-                                  {formatDate(item.paper.publication_date)}
+                                  {formatDate(item.publication_date)}
                                 </span>
                               )}
                             </div>
@@ -831,11 +846,11 @@ export function SearchPage() {
                             <Badge variant="secondary">
                               {(item.relevance_score * 100).toFixed(0)}% match
                             </Badge>
-                            {item.latest_score && (
+                            {item.score && (
                               <div className="flex items-center gap-1 text-sm">
                                 <TrendingUp className="h-3 w-3" />
-                                <span className={getScoreColor(item.latest_score.overall_score)}>
-                                  {item.latest_score.overall_score.toFixed(1)}
+                                <span className={getScoreColor(item.score.overall_score)}>
+                                  {item.score.overall_score.toFixed(1)}
                                 </span>
                               </div>
                             )}
@@ -845,7 +860,7 @@ export function SearchPage() {
                               size="sm"
                               onClick={(event) => {
                                 event.stopPropagation()
-                                navigate(`/papers/${item.paper.id}`)
+                                navigate(`/papers/${item.id}`)
                               }}
                             >
                               <ExternalLink className="h-3.5 w-3.5 mr-1" />

@@ -399,44 +399,13 @@ export interface SyncResponse {
 }
 
 // Search types
-export type SearchMode = 'fulltext' | 'semantic' | 'hybrid'
-
-export interface SearchRequest {
-  query: string
-  mode?: SearchMode
-  page?: number
-  page_size?: number
-  sources?: PaperSource[]
-  min_score?: number
-  max_score?: number
-  date_from?: string
-  date_to?: string
-  has_embedding?: boolean
-  has_score?: boolean
-  semantic_weight?: number
-}
-
-export interface SearchResultHighlight {
-  title?: string
-  abstract?: string
-}
-
-export interface SearchResult {
-  paper: Paper
-  relevance_score: number
-  highlights: SearchResultHighlight
-  latest_score?: PaperScore
-}
-
-export interface SearchResponse {
-  results: SearchResult[]
-  total: number
-  page: number
-  page_size: number
-  pages: number
-  query: string
-  mode: SearchMode
-}
+export type SearchMode = OpenApiComponents['schemas']['SearchMode']
+export type SearchRequest = OpenApiComponents['schemas']['SearchRequest']
+export type SearchResultItem = OpenApiComponents['schemas']['SearchResultItem']
+export type SearchResponse = OpenApiComponents['schemas']['SearchResponse']
+export type SimilarPapersResponse = OpenApiComponents['schemas']['SimilarPapersResponse']
+export type IngestionJobResponse = OpenApiComponents['schemas']['IngestJobResponse']
+export type IngestionRunResponse = OpenApiComponents['schemas']['IngestRunResponse']
 
 // Pagination types
 export interface PaginationParams {

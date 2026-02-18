@@ -18,14 +18,13 @@ import { Badge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { SkeletonCard } from '@/components/ui/Skeleton'
 import { AccessibleModal } from '@/components/ui/AccessibleModal'
+import { Pagination } from '@/components/ui/Pagination'
 import { useToast } from '@/components/ui/Toast'
 import {
   FileText,
   UsersRound,
   Search,
   Plus,
-  ChevronLeft,
-  ChevronRight,
   Download,
   Upload,
   X,
@@ -639,34 +638,19 @@ export function PapersPage() {
 
           {/* Pagination */}
           {data && data.pages > 1 && (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                {t('papers.showingResults', { from: (page - 1) * pageSize + 1, to: Math.min(page * pageSize, data.total), total: data.total })}
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(page - 1)}
-                  disabled={page <= 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  {t('common.previous')}
-                </Button>
-                <span className="text-sm">
-                  {t('common.pageOf', { page, pages: data.pages })}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(page + 1)}
-                  disabled={page >= data.pages}
-                >
-                  {t('common.next')}
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
+            <Pagination
+              page={page}
+              pages={data.pages}
+              onPageChange={handlePageChange}
+              summary={t('papers.showingResults', {
+                from: (page - 1) * pageSize + 1,
+                to: Math.min(page * pageSize, data.total),
+                total: data.total,
+              })}
+              previousLabel={t('common.previous')}
+              nextLabel={t('common.next')}
+              pageLabel={t('common.pageOf', { page, pages: data.pages })}
+            />
           )}
         </>
       )}

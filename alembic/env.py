@@ -23,7 +23,6 @@ try:
         GlobalScoreCache,
         PaperScore,
         ScoringJob,
-        ScoringPolicy,
     )
 except ImportError:
     pass

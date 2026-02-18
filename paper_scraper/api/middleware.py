@@ -120,7 +120,6 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # Security headers
         headers["X-Content-Type-Options"] = "nosniff"
         headers["X-Frame-Options"] = "DENY"
-        headers["X-XSS-Protection"] = "1; mode=block"
         headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         headers["Permissions-Policy"] = _build_permissions_header()
 

@@ -124,34 +124,6 @@ async def score_papers_batch_task(
     }
 
 
-async def generate_embeddings_batch_task(
-    ctx: dict[str, Any],
-    organization_id: str,
-    limit: int = 100,
-) -> dict[str, Any]:
-    """Generate embeddings for papers without them.
-
-    Args:
-        ctx: arq context.
-        organization_id: UUID string of organization.
-        limit: Maximum papers to process.
-
-    Returns:
-        Result dict with count of embeddings generated.
-    """
-    async with get_db_session() as db:
-        service = ScoringService(db)
-        count = await service.batch_generate_embeddings(
-            organization_id=UUID(organization_id),
-            limit=limit,
-        )
-
-    return {
-        "status": "completed",
-        "embeddings_generated": count,
-    }
-
-
 async def cleanup_expired_score_cache_task(
     ctx: dict[str, Any],
 ) -> dict[str, Any]:
