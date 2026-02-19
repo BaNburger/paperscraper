@@ -42,6 +42,7 @@ export const queryKeys = {
     authors: (query: string) => ['authorSearch', query] as const,
   },
   authors: {
+    listRoot: () => ['authors', 'list'] as const,
     list: (params?: { page?: number; page_size?: number; search?: string }) =>
       ['authors', 'list', params ?? {}] as const,
     profile: (authorId: string) => ['authors', 'profile', authorId] as const,
@@ -56,17 +57,21 @@ export const queryKeys = {
     benchmarks: () => ['analytics', 'benchmarks'] as const,
   },
   reports: {
+    scheduledRoot: () => ['reports', 'scheduled'] as const,
     scheduled: (params?: { page?: number; page_size?: number; is_active?: boolean }) =>
       ['reports', 'scheduled', params ?? {}] as const,
     scheduledDetail: (reportId: string) => ['reports', 'scheduled', reportId] as const,
   },
   savedSearches: {
+    listRoot: () => ['saved-searches', 'list'] as const,
     list: (params?: { page?: number; page_size?: number; include_public?: boolean }) =>
       ['saved-searches', 'list', params ?? {}] as const,
     detail: (id: string) => ['saved-searches', 'detail', id] as const,
     shared: (shareToken: string) => ['saved-searches', 'shared', shareToken] as const,
   },
   alerts: {
+    listRoot: () => ['alerts', 'list'] as const,
+    resultsRoot: (alertId: string) => ['alerts', 'results', alertId] as const,
     list: (params?: { page?: number; page_size?: number; active_only?: boolean }) =>
       ['alerts', 'list', params ?? {}] as const,
     detail: (id: string) => ['alerts', 'detail', id] as const,
@@ -74,17 +79,21 @@ export const queryKeys = {
       ['alerts', 'results', alertId, params ?? {}] as const,
   },
   groups: {
+    listRoot: () => ['groups', 'list'] as const,
     list: (params?: { page?: number; page_size?: number; type?: string }) =>
       ['groups', 'list', params ?? {}] as const,
     detail: (id: string) => ['groups', 'detail', id] as const,
   },
   transfer: {
+    conversationsRoot: () => ['transfer', 'conversations'] as const,
     conversations: (params?: object) => ['transfer', 'conversations', params ?? {}] as const,
     conversation: (id: string) => ['transfer', 'conversation', id] as const,
     nextSteps: (conversationId: string) => ['transfer', 'next-steps', conversationId] as const,
     templates: (stage?: string) => ['transfer', 'templates', stage ?? 'all'] as const,
   },
   submissions: {
+    listRoot: () => ['submissions', 'list'] as const,
+    myListRoot: () => ['submissions', 'my-list'] as const,
     list: (params?: object) => ['submissions', 'list', params ?? {}] as const,
     myList: (params?: object) => ['submissions', 'my-list', params ?? {}] as const,
     detail: (id: string) => ['submissions', 'detail', id] as const,
@@ -109,6 +118,7 @@ export const queryKeys = {
     repository: (id: string) => ['developer', 'repositories', id] as const,
   },
   compliance: {
+    root: () => ['compliance'] as const,
     auditLogs: (page: number, action?: string) => ['compliance', 'audit-logs', page, action ?? 'all'] as const,
     auditSummary: () => ['compliance', 'audit-logs-summary'] as const,
     retentionPolicies: () => ['compliance', 'retention-policies'] as const,
@@ -122,12 +132,14 @@ export const queryKeys = {
     all: () => ['notifications'] as const,
   },
   trends: {
+    root: () => ['trends'] as const,
     list: (includeInactive: boolean) => ['trends', 'list', includeInactive] as const,
     dashboard: (id: string) => ['trends', 'dashboard', id] as const,
     papers: (id: string, page: number, pageSize: number) =>
       ['trends', 'papers', id, page, pageSize] as const,
   },
   discovery: {
+    root: () => ['discovery'] as const,
     profiles: () => ['discovery', 'profiles'] as const,
     runs: (savedSearchId: string) => ['discovery', 'runs', savedSearchId] as const,
   },

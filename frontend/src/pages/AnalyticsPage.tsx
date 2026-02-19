@@ -40,7 +40,7 @@ import {
   Mail,
   Clock,
 } from 'lucide-react'
-import { exportApi } from '@/lib/api'
+import { exportApi } from '@/api'
 import { cn } from '@/lib/utils'
 import {
   ComparisonBarChart,
@@ -94,8 +94,8 @@ function OverviewTab({
   return (
     <div className="space-y-8">
       {/* Summary Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4" data-testid="analytics-summary-cards">
+        <Card data-testid="analytics-card-total-papers">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {t('analytics.totalPapers')}
@@ -118,7 +118,7 @@ function OverviewTab({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="analytics-card-scored-papers">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {t('analytics.scoredPapers')}
@@ -133,7 +133,7 @@ function OverviewTab({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="analytics-card-projects">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {t('analytics.projects')}
@@ -148,7 +148,7 @@ function OverviewTab({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="analytics-card-team-members">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {t('analytics.teamMembers')}
@@ -166,7 +166,7 @@ function OverviewTab({
 
       {/* Charts Row */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
+        <Card data-testid="analytics-chart-import-trend">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5" />
@@ -179,7 +179,7 @@ function OverviewTab({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="analytics-chart-papers-source">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <PieChart className="h-5 w-5" />
@@ -195,7 +195,7 @@ function OverviewTab({
 
       {/* More Charts */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
+        <Card data-testid="analytics-chart-score-distribution">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5" />
@@ -214,7 +214,7 @@ function OverviewTab({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card data-testid="analytics-chart-average-scores">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />
@@ -244,14 +244,14 @@ function OverviewTab({
       </div>
 
       {/* Top Papers */}
-      <Card>
+      <Card data-testid="analytics-top-papers">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>{t('analytics.topScoredPapers')}</CardTitle>
             <CardDescription>{t('analytics.topScoredPapersDescription')}</CardDescription>
           </div>
           <Link to="/papers">
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" data-testid="analytics-view-all-papers">
               {t('analytics.viewAll')}
             </Button>
           </Link>
@@ -294,7 +294,7 @@ function OverviewTab({
       </Card>
 
       {/* Embedding Coverage */}
-      <Card>
+      <Card data-testid="analytics-embedding-coverage">
         <CardHeader>
           <CardTitle>{t('analytics.embeddingCoverage')}</CardTitle>
           <CardDescription>{t('analytics.embeddingCoverageDescription')}</CardDescription>
@@ -302,8 +302,9 @@ function OverviewTab({
         <CardContent>
           <div className="flex items-center gap-4">
             <div className="flex-1">
-              <div className="h-4 bg-muted rounded-full overflow-hidden">
+              <div className="h-4 bg-muted rounded-full overflow-hidden" data-testid="analytics-embedding-progress-track">
                 <div
+                  data-testid="analytics-embedding-progress-fill"
                   className="h-full bg-primary transition-all"
                   style={{
                     width: `${paperAnalytics?.embedding_coverage_percent ?? 0}%`,
@@ -311,7 +312,7 @@ function OverviewTab({
                 />
               </div>
             </div>
-            <div className="text-lg font-medium">
+            <div className="text-lg font-medium" data-testid="analytics-embedding-percent">
               {paperAnalytics?.embedding_coverage_percent?.toFixed(1) ?? 0}%
             </div>
           </div>
@@ -858,17 +859,18 @@ export function AnalyticsPage() {
   ]
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" data-testid="analytics-page">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">{t('analytics.title')}</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-3xl font-bold" data-testid="analytics-heading">{t('analytics.title')}</h1>
+          <p className="text-muted-foreground mt-1" data-testid="analytics-subtitle">
             {t('analytics.subtitle')}
           </p>
         </div>
         <div className="flex gap-2">
           <Button
+            data-testid="analytics-export-csv"
             variant="outline"
             onClick={() => handleExport('csv')}
             disabled={isExporting}
@@ -877,6 +879,7 @@ export function AnalyticsPage() {
             {t('analytics.exportCsv')}
           </Button>
           <Button
+            data-testid="analytics-export-bibtex"
             variant="outline"
             onClick={() => handleExport('bibtex')}
             disabled={isExporting}
@@ -889,10 +892,11 @@ export function AnalyticsPage() {
 
       {/* Tabs */}
       <div className="border-b">
-        <nav className="flex gap-4 -mb-px">
+        <nav className="flex gap-4 -mb-px" data-testid="analytics-tabs">
           {tabs.map((tab) => (
             <button
               key={tab.value}
+              data-testid={`analytics-tab-${tab.value}`}
               onClick={() => setActiveTab(tab.value)}
               className={cn(
                 'flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors',
@@ -909,16 +913,18 @@ export function AnalyticsPage() {
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'overview' && (
-        <OverviewTab
-          summary={summary}
-          paperAnalytics={paperAnalytics}
-          teamOverview={teamOverview}
-        />
-      )}
-      {activeTab === 'funnel' && <FunnelTab />}
-      {activeTab === 'benchmarks' && <BenchmarksTab />}
-      {activeTab === 'reports' && <ReportsTab />}
+      <div data-testid="analytics-tab-content">
+        {activeTab === 'overview' && (
+          <OverviewTab
+            summary={summary}
+            paperAnalytics={paperAnalytics}
+            teamOverview={teamOverview}
+          />
+        )}
+        {activeTab === 'funnel' && <FunnelTab />}
+        {activeTab === 'benchmarks' && <BenchmarksTab />}
+        {activeTab === 'reports' && <ReportsTab />}
+      </div>
     </div>
   )
 }

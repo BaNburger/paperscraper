@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 from xml.etree import ElementTree
 
 import httpx
+from pydantic import SecretStr
 
 from paper_scraper.core.config import settings
 
@@ -41,7 +42,7 @@ class EPOOPSClient:
         """Async context manager entry."""
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, _exc_type, _exc_val, _exc_tb):
         """Async context manager exit."""
         await self.client.aclose()
 
@@ -57,7 +58,7 @@ class EPOOPSClient:
         if not self.key or not self.secret:
             raise ValueError("EPO_OPS_KEY and EPO_OPS_SECRET must be configured")
 
-        secret_value = self.secret.get_secret_value() if hasattr(self.secret, "get_secret_value") else str(self.secret)
+        secret_value = self.secret.get_secret_value() if isinstance(self.secret, SecretStr) else str(self.secret)
         credentials = base64.b64encode(f"{self.key}:{secret_value}".encode()).decode()
 
         response = await self.client.post(

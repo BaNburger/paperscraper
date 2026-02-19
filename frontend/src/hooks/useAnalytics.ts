@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { analyticsApi, exportApi } from '@/lib/api'
+import { analyticsApi, exportApi } from '@/api'
 import { queryKeys } from '@/config/queryKeys'
 import type { ExportFormat } from '@/types'
 

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
 import { Badge } from '@/components/ui/Badge'
+import { Textarea } from '@/components/ui/Textarea'
 import { ExternalLink } from '@/components/ui/ExternalLink'
 import {
   X,
@@ -243,9 +244,8 @@ export function AuthorModal({ authorId, isOpen, onClose }: AuthorModalProps) {
 
                         <div>
                           <Label htmlFor="notes">Notes</Label>
-                          <textarea
+                          <Textarea
                             id="notes"
-                            className="w-full min-h-[80px] px-3 py-2 text-sm rounded-md border border-input bg-background"
                             value={contactForm.notes || ''}
                             onChange={(e) =>
                               setContactForm((prev) => ({ ...prev, notes: e.target.value }))

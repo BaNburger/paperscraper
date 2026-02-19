@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { trendsApi } from '@/lib/api'
+import { trendsApi } from '@/api'
 import { queryKeys } from '@/config/queryKeys'
 
 export function useTrendTopics(includeInactive = false) {
@@ -32,7 +32,7 @@ export function useCreateTrendTopic() {
     mutationFn: (data: { name: string; description: string; color?: string }) =>
       trendsApi.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['trends'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.trends.root() })
     },
   })
 }
@@ -43,7 +43,7 @@ export function useUpdateTrendTopic() {
     mutationFn: ({ id, data }: { id: string; data: { name?: string; description?: string; color?: string; is_active?: boolean } }) =>
       trendsApi.update(id, data),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['trends'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.trends.root() })
       queryClient.invalidateQueries({ queryKey: queryKeys.trends.dashboard(variables.id) })
     },
   })
@@ -54,7 +54,7 @@ export function useDeleteTrendTopic() {
   return useMutation({
     mutationFn: (id: string) => trendsApi.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['trends'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.trends.root() })
     },
   })
 }
@@ -65,7 +65,7 @@ export function useAnalyzeTrend() {
     mutationFn: ({ id, params }: { id: string; params?: { min_similarity?: number; max_papers?: number } }) =>
       trendsApi.analyze(id, params),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['trends'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.trends.root() })
       queryClient.invalidateQueries({ queryKey: queryKeys.trends.dashboard(variables.id) })
     },
   })

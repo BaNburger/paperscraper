@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { authApi } from '@/lib/api'
+import { authApi } from '@/api'
 import { Button } from '@/components/ui/Button'
 import { AuthShell } from '@/components/auth/AuthShell'
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react'

@@ -175,8 +175,27 @@ DevData/
 /e2e/test-results/
 /e2e/playwright-report/
 /e2e/blob-report/
+/e2e/traces/
+/e2e/videos/
+/test-screenshots/
+.trace/
+.artifacts/
 /.playwright-cli/
 /.playwright-mcp/
 /playwright/.cache/
 /playwright/.auth/
 *.png
+
+# Additional generated artifacts (not source code)
+.ruff_cache/
+coverage/
+frontend/coverage/
+frontend/.vite/
+frontend/.eslintcache
+*.trace
+*.har
+*.webm
+*.mp4
+*.mov
+*.sqlite3
+*.db

@@ -16,7 +16,7 @@ import {
 
 // ---- Mocks ----
 
-vi.mock('@/lib/api', () => ({
+vi.mock('@/api', () => ({
   papersApi: {
     list: vi.fn(),
     get: vi.fn(),
@@ -39,7 +39,7 @@ vi.mock('@/lib/api', () => ({
   },
 }))
 
-import { papersApi, scoringApi } from '@/lib/api'
+import { papersApi, scoringApi } from '@/api'
 
 // ---- Helpers ----
 

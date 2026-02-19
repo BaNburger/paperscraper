@@ -143,7 +143,7 @@ jobs:
         run: npm run lint
 
       - name: Run tests
-        run: npm run test || echo "Tests not yet configured"
+        run: npm run test
 
       - name: Build
         run: npm run build
@@ -151,8 +151,8 @@ jobs:
       - name: Enforce frontend budgets
         run: npm run budget:check
         env:
-          FRONTEND_ENTRY_BUNDLE_BUDGET_BYTES: "716800"
-          FRONTEND_MAX_SOURCE_LINES: "1900"
+          FRONTEND_ENTRY_BUNDLE_BUDGET_BYTES: "409600"
+          FRONTEND_MAX_SOURCE_LINES: "1200"
 
   e2e:
     name: E2E Tests

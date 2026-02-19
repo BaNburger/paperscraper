@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { projectsApi } from '@/lib/api'
+import { projectsApi } from '@/api'
 import { queryKeys } from '@/config/queryKeys'
 import type { CreateProject } from '@/types'
 

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { knowledgeApi } from '@/lib/api'
+import { knowledgeApi } from '@/api'
 import { queryKeys } from '@/config/queryKeys'
 import type { CreateKnowledgeSourceRequest, UpdateKnowledgeSourceRequest } from '@/types'
 

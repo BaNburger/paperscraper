@@ -1,5 +1,5 @@
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { searchApi } from '@/lib/api'
+import { searchApi } from '@/api'
 import { queryKeys } from '@/config/queryKeys'
 import type { SearchRequest } from '@/types'
 

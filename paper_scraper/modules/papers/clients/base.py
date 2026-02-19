@@ -20,7 +20,7 @@ class BaseAPIClient(ABC):
         """Async context manager entry."""
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, _exc_type, _exc_val, _exc_tb):
         """Async context manager exit - close client."""
         await self.client.aclose()
 
@@ -48,11 +48,11 @@ class BaseAPIClient(ABC):
         """
 
     @abstractmethod
-    def normalize(self, raw_data: dict) -> dict:
+    def normalize(self, _raw_data: dict) -> dict:
         """Normalize API response to standard paper format.
 
         Args:
-            raw_data: Raw API response data.
+            _raw_data: Raw API response data.
 
         Returns:
             Normalized paper dictionary with standard fields.

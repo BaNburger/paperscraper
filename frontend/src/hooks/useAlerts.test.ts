@@ -21,7 +21,7 @@ import type {
   UpdateAlertRequest,
 } from '@/types'
 
-vi.mock('@/lib/api', () => ({
+vi.mock('@/api', () => ({
   alertsApi: {
     list: vi.fn(),
     get: vi.fn(),
@@ -34,7 +34,7 @@ vi.mock('@/lib/api', () => ({
   },
 }))
 
-import { alertsApi } from '@/lib/api'
+import { alertsApi } from '@/api'
 
 const mockedAlertsApi = alertsApi as {
   list: ReturnType<typeof vi.fn>

@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Users, Loader2, XCircle } from 'lucide-react'
 
-import { authApi } from '@/lib/api'
+import { authApi } from '@/api'
 import { useAuth } from '@/contexts/AuthContext'
 import { AuthShell } from '@/components/auth/AuthShell'
 import { Button } from '@/components/ui/Button'

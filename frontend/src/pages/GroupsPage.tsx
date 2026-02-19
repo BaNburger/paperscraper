@@ -27,8 +27,8 @@ import {
 } from '@/components/ui/Select'
 import { Users, Plus, Trash2, AlertTriangle, UserMinus, Download } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
-import { groupsApi } from '@/lib/api'
-import { exportApi } from '@/lib/api'
+import { groupsApi } from '@/api'
+import { exportApi } from '@/api'
 import type { GroupType } from '@/types'
 
 const GROUP_TYPE_KEYS: Record<GroupType, string> = {

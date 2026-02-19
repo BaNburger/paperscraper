@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { papersApi } from '@/lib/api'
+import { papersApi } from '@/api'
 
 export interface IngestionSummaryResult {
   ingest_run_id: string

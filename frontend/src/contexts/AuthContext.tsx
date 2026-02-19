@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { authApi } from '@/lib/api'
+import { authApi } from '@/api'
 import type { User, LoginRequest, RegisterRequest } from '@/types'
 
 interface AuthContextType {

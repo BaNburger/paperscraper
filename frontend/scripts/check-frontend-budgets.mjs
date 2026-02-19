@@ -8,6 +8,7 @@ const distAssetsDir = path.join(rootDir, 'dist', 'assets')
 const srcDir = path.join(rootDir, 'src')
 
 const entryBundleBudgetBytes = Number(process.env.FRONTEND_ENTRY_BUNDLE_BUDGET_BYTES ?? 700 * 1024)
+const routeChunkBudgetBytes = Number(process.env.FRONTEND_ROUTE_CHUNK_BUDGET_BYTES ?? 80 * 1024)
 const maxSourceLines = Number(process.env.FRONTEND_MAX_SOURCE_LINES ?? 1900)
 
 function formatKiB(bytes) {
@@ -56,6 +57,18 @@ if (existsSync(distAssetsDir)) {
   } else if (entryChunk.size > entryBundleBudgetBytes) {
     failures.push(
       `Entry bundle budget exceeded: ${entryChunk.rel} is ${formatKiB(entryChunk.size)} (limit ${formatKiB(entryBundleBudgetBytes)}).`
+    )
+  }
+
+  const oversizedRouteChunks = jsAssets.filter(
+    (asset) =>
+      !asset.name.startsWith('index-') &&
+      !asset.name.startsWith('vendor-') &&
+      asset.size > routeChunkBudgetBytes
+  )
+  for (const chunk of oversizedRouteChunks) {
+    failures.push(
+      `Route chunk budget exceeded: ${chunk.rel} is ${formatKiB(chunk.size)} (limit ${formatKiB(routeChunkBudgetBytes)}).`
     )
   }
 }

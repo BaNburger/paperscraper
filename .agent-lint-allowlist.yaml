@@ -40,19 +40,6 @@
   owner: backend-platform
   expires_on: 2026-12-31
 
-- rule_id: PSF003
-  path: frontend/src/api/domains/auth.ts
-  match: must not import DTOs
-  reason: Domain auth API still consumes transitional DTO definitions from types index.
-  owner: frontend-platform
-  expires_on: 2026-12-31
-
-- rule_id: PSF003
-  path: frontend/src/api/domains/core.ts
-  match: must not import DTOs
-  reason: Core domain API module still uses transitional DTO imports pending full contract migration.
-  owner: frontend-platform
-  expires_on: 2026-12-31
 
 - rule_id: PSA004
   path: paper_scraper/modules/alerts/router.py

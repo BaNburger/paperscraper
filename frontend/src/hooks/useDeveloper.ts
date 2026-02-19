@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { developerApi } from '@/lib/api'
+import { developerApi } from '@/api'
 import { queryKeys } from '@/config/queryKeys'
 import type {
   CreateAPIKeyRequest,

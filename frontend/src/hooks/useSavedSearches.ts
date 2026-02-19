@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { savedSearchesApi } from '@/lib/api'
+import { savedSearchesApi } from '@/api'
 import { queryKeys } from '@/config/queryKeys'
 import type { CreateSavedSearchRequest, UpdateSavedSearchRequest } from '@/types'
 
@@ -36,7 +36,7 @@ export function useCreateSavedSearch() {
   return useMutation({
     mutationFn: (data: CreateSavedSearchRequest) => savedSearchesApi.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['saved-searches', 'list'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.savedSearches.listRoot() })
     },
   })
 }
@@ -48,7 +48,7 @@ export function useUpdateSavedSearch() {
     mutationFn: ({ id, data }: { id: string; data: UpdateSavedSearchRequest }) =>
       savedSearchesApi.update(id, data),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['saved-searches', 'list'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.savedSearches.listRoot() })
       queryClient.invalidateQueries({ queryKey: queryKeys.savedSearches.detail(variables.id) })
     },
   })
@@ -60,7 +60,7 @@ export function useDeleteSavedSearch() {
   return useMutation({
     mutationFn: (id: string) => savedSearchesApi.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['saved-searches', 'list'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.savedSearches.listRoot() })
     },
   })
 }
@@ -72,7 +72,7 @@ export function useGenerateShareLink() {
     mutationFn: (id: string) => savedSearchesApi.generateShareLink(id),
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.savedSearches.detail(id) })
-      queryClient.invalidateQueries({ queryKey: ['saved-searches', 'list'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.savedSearches.listRoot() })
     },
   })
 }
@@ -84,7 +84,7 @@ export function useRevokeShareLink() {
     mutationFn: (id: string) => savedSearchesApi.revokeShareLink(id),
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.savedSearches.detail(id) })
-      queryClient.invalidateQueries({ queryKey: ['saved-searches', 'list'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.savedSearches.listRoot() })
     },
   })
 }

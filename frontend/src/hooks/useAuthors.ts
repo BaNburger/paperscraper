@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { authorsApi } from '@/lib/api'
+import { authorsApi } from '@/api'
 import { queryKeys } from '@/config/queryKeys'
 import type { CreateContactRequest } from '@/types'
 
@@ -43,7 +43,7 @@ export function useCreateContact() {
     onSuccess: (_, { authorId }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.authors.detail(authorId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.authors.contactStats(authorId) })
-      queryClient.invalidateQueries({ queryKey: ['authors', 'list'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.authors.listRoot() })
     },
   })
 }
@@ -77,7 +77,7 @@ export function useDeleteContact() {
     onSuccess: (_, { authorId }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.authors.detail(authorId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.authors.contactStats(authorId) })
-      queryClient.invalidateQueries({ queryKey: ['authors', 'list'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.authors.listRoot() })
     },
   })
 }
@@ -98,7 +98,7 @@ export function useEnrichAuthor() {
     onSuccess: (_, { authorId }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.authors.profile(authorId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.authors.detail(authorId) })
-      queryClient.invalidateQueries({ queryKey: ['authors', 'list'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.authors.listRoot() })
     },
   })
 }

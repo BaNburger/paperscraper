@@ -12,6 +12,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
+import { Textarea } from '@/components/ui/Textarea'
 import {
   Select,
   SelectContent,
@@ -244,8 +245,8 @@ export function TransferDetailPage() {
                   )}
                 </div>
                 <div className="flex gap-2">
-                  <textarea
-                    className="flex-1 min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                  <Textarea
+                    className="flex-1 min-h-[80px] resize-none"
                     placeholder={t('transfer.messagePlaceholder')}
                     value={messageContent}
                     onChange={(e) => setMessageContent(e.target.value)}

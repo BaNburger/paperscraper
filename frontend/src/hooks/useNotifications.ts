@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { notificationsApi } from '@/lib/api'
+import { notificationsApi } from '@/api'
 import { queryKeys } from '@/config/queryKeys'
 import type { NotificationItem } from '@/types'
 

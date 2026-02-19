@@ -88,7 +88,7 @@ class EnrichmentProvider(Protocol):
     async def enrich(
         self,
         paper_id: UUID,
-        context_hints: dict[str, Any] | None = None,
+        _context_hints: dict[str, Any] | None = None,
     ) -> EnrichmentFragment: ...
 
 

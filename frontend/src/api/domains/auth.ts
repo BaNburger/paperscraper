@@ -13,7 +13,7 @@ import type {
   OrganizationUsers,
   UserListItem,
   UpdateBrandingRequest,
-} from '@/types'
+} from '@/types/core'
 
 import { api } from '@/api/http/client'
 

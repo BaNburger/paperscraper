@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { transferApi } from '@/lib/api'
+import { transferApi } from '@/api'
 import { queryKeys } from '@/config/queryKeys'
 import type { CreateConversationRequest } from '@/types'
 
@@ -29,7 +29,7 @@ export function useCreateConversation() {
   return useMutation({
     mutationFn: (data: CreateConversationRequest) => transferApi.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['transfer', 'conversations'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.transfer.conversationsRoot() })
     },
   })
 }
@@ -42,7 +42,7 @@ export function useChangeStage() {
       transferApi.updateStage(id, stage, notes),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.transfer.conversation(id) })
-      queryClient.invalidateQueries({ queryKey: ['transfer', 'conversations'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.transfer.conversationsRoot() })
     },
   })
 }

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { badgesApi } from '@/lib/api'
+import { badgesApi } from '@/api'
 import { queryKeys } from '@/config/queryKeys'
 
 export function useBadges() {

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { discoveryApi } from '@/lib/api'
+import { discoveryApi } from '@/api'
 import { queryKeys } from '@/config/queryKeys'
 
 export function useDiscoveryProfiles() {
@@ -22,7 +22,7 @@ export function useTriggerDiscovery() {
   return useMutation({
     mutationFn: (savedSearchId: string) => discoveryApi.triggerRun(savedSearchId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['discovery'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.discovery.root() })
     },
   })
 }

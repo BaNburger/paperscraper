@@ -151,7 +151,10 @@ async def get_redis_pool() -> ArqRedis:
     Returns:
         ArqRedis connection pool.
     """
-    return await arq.create_pool(get_redis_settings())
+    return await arq.create_pool(
+        get_redis_settings(),
+        default_queue_name=WorkerSettings.queue_name,
+    )
 
 
 async def enqueue_job(

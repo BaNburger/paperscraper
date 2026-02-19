@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { reportsApi } from '@/lib/api'
+import { reportsApi } from '@/api'
 import { queryKeys } from '@/config/queryKeys'
 import type { CreateScheduledReportRequest, UpdateScheduledReportRequest } from '@/types'
 
@@ -29,7 +29,7 @@ export function useCreateScheduledReport() {
     mutationFn: (data: CreateScheduledReportRequest) =>
       reportsApi.createScheduledReport(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reports', 'scheduled'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.reports.scheduledRoot() })
     },
   })
 }
@@ -46,7 +46,7 @@ export function useUpdateScheduledReport() {
       data: UpdateScheduledReportRequest
     }) => reportsApi.updateScheduledReport(reportId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reports', 'scheduled'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.reports.scheduledRoot() })
     },
   })
 }
@@ -57,7 +57,7 @@ export function useDeleteScheduledReport() {
   return useMutation({
     mutationFn: (reportId: string) => reportsApi.deleteScheduledReport(reportId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reports', 'scheduled'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.reports.scheduledRoot() })
     },
   })
 }

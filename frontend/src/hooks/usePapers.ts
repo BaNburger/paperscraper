@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
-import { integrationsApi, libraryApi, papersApi, scoringApi } from '@/lib/api'
+import { integrationsApi, libraryApi, papersApi, scoringApi } from '@/api'
 import { queryKeys } from '@/config/queryKeys'
 import { invalidateMany, optimisticDeleteById, rollbackOptimisticSnapshots } from '@/lib/query'
 import { useIngestionRunPoller } from './useIngestionRuns'

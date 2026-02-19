@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { alertsApi } from '@/lib/api'
+import { alertsApi } from '@/api'
 import { queryKeys } from '@/config/queryKeys'
 import type { CreateAlertRequest, UpdateAlertRequest } from '@/types'
 
@@ -28,7 +28,7 @@ export function useCreateAlert() {
   return useMutation({
     mutationFn: (data: CreateAlertRequest) => alertsApi.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['alerts', 'list'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.alerts.listRoot() })
     },
   })
 }
@@ -40,7 +40,7 @@ export function useUpdateAlert() {
     mutationFn: ({ id, data }: { id: string; data: UpdateAlertRequest }) =>
       alertsApi.update(id, data),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['alerts', 'list'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.alerts.listRoot() })
       queryClient.invalidateQueries({ queryKey: queryKeys.alerts.detail(variables.id) })
     },
   })
@@ -52,7 +52,7 @@ export function useDeleteAlert() {
   return useMutation({
     mutationFn: (id: string) => alertsApi.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['alerts', 'list'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.alerts.listRoot() })
     },
   })
 }
@@ -81,7 +81,7 @@ export function useTriggerAlert() {
     mutationFn: (id: string) => alertsApi.trigger(id),
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.alerts.detail(id) })
-      queryClient.invalidateQueries({ queryKey: ['alerts', 'results', id] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.alerts.resultsRoot(id) })
     },
   })
 }

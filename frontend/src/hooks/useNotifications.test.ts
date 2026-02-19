@@ -5,7 +5,7 @@ import { createElement, type ReactNode } from 'react'
 import { useNotifications } from './useNotifications'
 import type { NotificationItem, NotificationListResponse } from '@/types'
 
-vi.mock('@/lib/api', () => ({
+vi.mock('@/api', () => ({
   notificationsApi: {
     list: vi.fn(),
     getUnreadCount: vi.fn(),
@@ -14,7 +14,7 @@ vi.mock('@/lib/api', () => ({
   },
 }))
 
-import { notificationsApi } from '@/lib/api'
+import { notificationsApi } from '@/api'
 
 const mockedApi = notificationsApi as {
   list: ReturnType<typeof vi.fn>

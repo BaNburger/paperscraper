@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
-import { groupsApi } from '@/lib/api'
+import { groupsApi } from '@/api'
 import { queryKeys } from '@/config/queryKeys'
 import { optimisticDeleteById, rollbackOptimisticSnapshots } from '@/lib/query'
 import type { CreateGroupRequest, UpdateGroupRequest } from '@/types'
@@ -36,7 +36,7 @@ export function useCreateGroup() {
   return useMutation({
     mutationFn: (data: CreateGroupRequest) => groupsApi.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['groups', 'list'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups.listRoot() })
     },
   })
 }
@@ -49,14 +49,14 @@ export function useUpdateGroup() {
       groupsApi.update(id, data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.groups.detail(id) })
-      queryClient.invalidateQueries({ queryKey: ['groups', 'list'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups.listRoot() })
     },
   })
 }
 
 export function useDeleteGroup() {
   const queryClient = useQueryClient()
-  const groupsListKey = ['groups', 'list'] as const
+  const groupsListKey = queryKeys.groups.listRoot()
 
   return useMutation({
     mutationFn: (id: string) => groupsApi.delete(id),
@@ -85,7 +85,7 @@ export function useAddMembers() {
       groupsApi.addMembers(groupId, researcherIds),
     onSuccess: (_, { groupId }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.groups.detail(groupId) })
-      queryClient.invalidateQueries({ queryKey: ['groups', 'list'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups.listRoot() })
     },
   })
 }
@@ -98,7 +98,7 @@ export function useRemoveMember() {
       groupsApi.removeMember(groupId, researcherId),
     onSuccess: (_, { groupId }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.groups.detail(groupId) })
-      queryClient.invalidateQueries({ queryKey: ['groups', 'list'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.groups.listRoot() })
     },
   })
 }

@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
+import { Textarea } from '@/components/ui/Textarea'
 import { Badge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { SkeletonCard } from '@/components/ui/Skeleton'
@@ -445,9 +446,9 @@ export function SubmissionsPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="subAbstract">{t('submissions.abstract')}</Label>
-                <textarea
+                <Textarea
                   id="subAbstract"
-                  className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="min-h-[100px] resize-none"
                   placeholder={t('submissions.abstractPlaceholder')}
                   value={newAbstract}
                   onChange={(e) => setNewAbstract(e.target.value)}

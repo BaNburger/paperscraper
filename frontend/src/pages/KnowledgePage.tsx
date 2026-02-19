@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
+import { Textarea } from '@/components/ui/Textarea'
 import { Badge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { SkeletonCard } from '@/components/ui/Skeleton'
@@ -315,9 +316,9 @@ export function KnowledgePage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="ksContent">{t('knowledge.content')}</Label>
-                <textarea
+                <Textarea
                   id="ksContent"
-                  className="w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="min-h-[120px] resize-none"
                   placeholder="Describe the knowledge..."
                   value={formContent}
                   onChange={(e) => setFormContent(e.target.value)}

@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import React from 'react'
 
-vi.mock('@/lib/api', () => ({
+vi.mock('@/api', () => ({
   savedSearchesApi: {
     list: vi.fn(),
     get: vi.fn(),
@@ -18,7 +18,7 @@ vi.mock('@/lib/api', () => ({
   },
 }))
 
-import { savedSearchesApi } from '@/lib/api'
+import { savedSearchesApi } from '@/api'
 import {
   useSavedSearches,
   useSavedSearch,

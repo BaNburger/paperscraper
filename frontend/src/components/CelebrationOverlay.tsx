@@ -263,8 +263,3 @@ function CelebrationToast({
     </div>
   )
 }
-
-// Export a standalone function for simple confetti triggering
-export function triggerConfetti(config?: CelebrationConfig) {
-  fireConfetti(config)
-}

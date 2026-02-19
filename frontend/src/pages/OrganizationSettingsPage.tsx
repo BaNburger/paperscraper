@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Building2,
   Users,
@@ -12,15 +11,25 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
-import { authApi } from '@/lib/api'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { useToast } from '@/components/ui/Toast'
-import type { UpdateOrganizationRequest } from '@/types'
 import { useNavigate } from 'react-router-dom'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/Select'
+import {
+  useMyPermissions,
+  useOrganizationRoles,
+  useUpdateOrganization,
+} from '@/features/organization-settings/hooks/useOrganizationSettings'
 
 const organizationTypes = [
   { id: 'university', label: 'University / Research Institution' },
@@ -80,17 +89,8 @@ const ROLE_ORDER = ['admin', 'manager', 'member', 'viewer']
 
 function PermissionMatrix() {
   const { t } = useTranslation()
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['roles-permissions'],
-    queryFn: () => authApi.getRoles(),
-    staleTime: 5 * 60 * 1000,
-  })
-
-  const { data: myPerms } = useQuery({
-    queryKey: ['my-permissions'],
-    queryFn: () => authApi.getMyPermissions(),
-    staleTime: 5 * 60 * 1000,
-  })
+  const { data, isLoading, error } = useOrganizationRoles()
+  const { data: myPerms } = useMyPermissions()
 
   if (isLoading || !data) {
     return (
@@ -166,10 +166,9 @@ function PermissionMatrix() {
 
 export function OrganizationSettingsPage() {
   const { t } = useTranslation()
-  const { user } = useAuth()
+  const { user, refreshUser } = useAuth()
   const navigate = useNavigate()
   const { success, error: showError } = useToast()
-  const queryClient = useQueryClient()
 
   const isAdmin = user?.role === 'admin'
   const org = user?.organization
@@ -180,12 +179,11 @@ export function OrganizationSettingsPage() {
   const [saved, setSaved] = useState(false)
 
   // Update organization mutation
-  const updateOrgMutation = useMutation({
-    mutationFn: (data: UpdateOrganizationRequest) => authApi.updateOrganization(data),
+  const updateOrgMutation = useUpdateOrganization({
     onSuccess: () => {
+      void refreshUser()
       setSaved(true)
       success(t('orgSettings.updateSuccess'), t('orgSettings.updateSuccessDescription'))
-      queryClient.invalidateQueries({ queryKey: ['user'] })
       setTimeout(() => setSaved(false), 3000)
     },
     onError: () => {
@@ -260,18 +258,18 @@ export function OrganizationSettingsPage() {
 
             <div className="space-y-2">
               <Label htmlFor="orgType">{t('orgSettings.orgType')}</Label>
-              <select
-                id="orgType"
-                value={orgType}
-                onChange={(e) => setOrgType(e.target.value)}
-                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
+              <Select value={orgType} onValueChange={setOrgType}>
+                <SelectTrigger id="orgType">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
                 {organizationTypes.map((type) => (
-                  <option key={type.id} value={type.id}>
+                  <SelectItem key={type.id} value={type.id}>
                     {type.label}
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
+                </SelectContent>
+              </Select>
             </div>
 
             <Button

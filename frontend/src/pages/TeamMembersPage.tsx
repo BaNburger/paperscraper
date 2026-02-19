@@ -1,7 +1,5 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { authApi } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -42,6 +40,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Users, UserPlus, MoreHorizontal, Shield, Mail, Clock, Check, X } from 'lucide-react'
 import { getApiErrorMessage } from '@/types'
 import type { UserRole, TeamInvitation, OrganizationUsers } from '@/types'
+import { useTeamMembers } from '@/features/team-members/hooks/useTeamMembers'
 
 const roleLabels: Record<UserRole, string> = {
   admin: 'Admin',
@@ -60,72 +59,42 @@ const roleColors: Record<UserRole, string> = {
 export function TeamMembersPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
-  const queryClient = useQueryClient()
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<UserRole>('member')
   const [inviteError, setInviteError] = useState('')
 
-  const { data: usersData, isLoading: loadingUsers } = useQuery<OrganizationUsers>({
-    queryKey: ['organization-users'],
-    queryFn: authApi.listUsers,
-  })
+  const {
+    usersQuery,
+    invitationsQuery,
+    inviteMutation,
+    updateRoleMutation,
+    deactivateMutation,
+    reactivateMutation,
+    cancelInvitationMutation,
+  } = useTeamMembers()
 
-  const { data: invitations } = useQuery<TeamInvitation[]>({
-    queryKey: ['pending-invitations'],
-    queryFn: authApi.listInvitations,
-  })
-
-  const inviteMutation = useMutation({
-    mutationFn: ({ email, role }: { email: string; role: string }) =>
-      authApi.inviteUser(email, role),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pending-invitations'] })
-      queryClient.invalidateQueries({ queryKey: ['organization-users'] })
-      setInviteDialogOpen(false)
-      setInviteEmail('')
-      setInviteRole('member')
-      setInviteError('')
-    },
-    onError: (err) => {
-      setInviteError(getApiErrorMessage(err, 'Failed to send invitation'))
-    },
-  })
-
-  const updateRoleMutation = useMutation({
-    mutationFn: ({ userId, role }: { userId: string; role: string }) =>
-      authApi.updateUserRole(userId, role),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['organization-users'] })
-    },
-  })
-
-  const deactivateMutation = useMutation({
-    mutationFn: (userId: string) => authApi.deactivateUser(userId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['organization-users'] })
-    },
-  })
-
-  const reactivateMutation = useMutation({
-    mutationFn: (userId: string) => authApi.reactivateUser(userId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['organization-users'] })
-    },
-  })
-
-  const cancelInvitationMutation = useMutation({
-    mutationFn: (invitationId: string) => authApi.cancelInvitation(invitationId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pending-invitations'] })
-      queryClient.invalidateQueries({ queryKey: ['organization-users'] })
-    },
-  })
+  const usersData = usersQuery.data as OrganizationUsers | undefined
+  const loadingUsers = usersQuery.isLoading
+  const invitations = invitationsQuery.data as TeamInvitation[] | undefined
 
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault()
     setInviteError('')
-    inviteMutation.mutate({ email: inviteEmail, role: inviteRole })
+    inviteMutation.mutate(
+      { email: inviteEmail, role: inviteRole },
+      {
+        onSuccess: () => {
+          setInviteDialogOpen(false)
+          setInviteEmail('')
+          setInviteRole('member')
+          setInviteError('')
+        },
+        onError: (err) => {
+          setInviteError(getApiErrorMessage(err, 'Failed to send invitation'))
+        },
+      }
+    )
   }
 
   const isCurrentUser = (userId: string) => user?.id === userId

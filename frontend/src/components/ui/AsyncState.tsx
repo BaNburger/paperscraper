@@ -1,61 +1,37 @@
 import type { ReactNode } from 'react'
 
-import { Loader2 } from 'lucide-react'
-
-import { Card, CardContent } from '@/components/ui/Card'
-
-interface AsyncStateProps {
-  isLoading?: boolean
-  error?: boolean
-  isEmpty?: boolean
-  loadingFallback?: ReactNode
-  errorFallback?: ReactNode
-  emptyFallback?: ReactNode
-  children: ReactNode
+interface AsyncStateProps<TData> {
+  data: TData | undefined
+  isLoading: boolean
+  error: unknown
+  loading: ReactNode
+  errorState: ReactNode
+  empty: ReactNode
+  isEmpty: (data: TData) => boolean
+  children: (data: TData) => ReactNode
 }
 
-export function AsyncState({
+export function AsyncState<TData>({
+  data,
   isLoading,
   error,
+  loading,
+  errorState,
+  empty,
   isEmpty,
-  loadingFallback,
-  errorFallback,
-  emptyFallback,
   children,
-}: AsyncStateProps) {
+}: AsyncStateProps<TData>) {
   if (isLoading) {
-    return (
-      loadingFallback ?? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      )
-    )
+    return <>{loading}</>
   }
 
   if (error) {
-    return (
-      errorFallback ?? (
-        <Card>
-          <CardContent className="py-12 text-center text-destructive">
-            Something went wrong.
-          </CardContent>
-        </Card>
-      )
-    )
+    return <>{errorState}</>
   }
 
-  if (isEmpty) {
-    return (
-      emptyFallback ?? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            No data available.
-          </CardContent>
-        </Card>
-      )
-    )
+  if (!data || isEmpty(data)) {
+    return <>{empty}</>
   }
 
-  return <>{children}</>
+  return <>{children(data)}</>
 }

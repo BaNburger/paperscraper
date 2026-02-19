@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { modelSettingsApi } from '@/lib/api'
+import { modelSettingsApi } from '@/api'
 import { queryKeys } from '@/config/queryKeys'
 import type { CreateModelConfigurationRequest, UpdateModelConfigurationRequest } from '@/types'
 

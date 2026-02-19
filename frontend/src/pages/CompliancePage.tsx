@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   FileText,
   Clock,
@@ -16,18 +15,36 @@ import {
   ChevronRight,
   Info,
 } from 'lucide-react'
-import { complianceApi, exportApi } from '@/lib/api'
+import { complianceApi, exportApi } from '@/api'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { Textarea } from '@/components/ui/Textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/Select'
 import { useToast } from '@/components/ui/Toast'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { AccessibleModal } from '@/components/ui/AccessibleModal'
+import {
+  useApplyRetentionPolicies,
+  useComplianceAuditLogs,
+  useComplianceAuditSummary,
+  useComplianceDataProcessing,
+  useComplianceSoc2Status,
+  useCreateRetentionPolicy,
+  useDeleteRetentionPolicy,
+  useRetentionLogs,
+  useRetentionPolicies,
+} from '@/features/compliance/hooks/useCompliance'
 import type {
   RetentionPolicy,
   RetentionEntityType,
   RetentionAction,
   SOC2ControlStatus,
-  CreateRetentionPolicyRequest,
 } from '@/types'
 
 type TabType = 'audit-logs' | 'retention' | 'data-processing' | 'soc2'
@@ -114,20 +131,8 @@ function AuditLogsTab() {
   const [actionFilter, setActionFilter] = useState<string>('')
   const toast = useToast()
 
-  const { data: logs, isLoading } = useQuery({
-    queryKey: ['compliance', 'audit-logs', page, actionFilter],
-    queryFn: () =>
-      complianceApi.searchAuditLogs({
-        page,
-        page_size: 50,
-        action: actionFilter || undefined,
-      }),
-  })
-
-  const { data: summary } = useQuery({
-    queryKey: ['compliance', 'audit-logs-summary'],
-    queryFn: () => complianceApi.getAuditLogSummary(),
-  })
+  const { data: logs, isLoading } = useComplianceAuditLogs(page, actionFilter)
+  const { data: summary } = useComplianceAuditSummary()
 
   const handleExport = async () => {
     try {
@@ -172,19 +177,20 @@ function AuditLogsTab() {
 
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-4">
-          <select
-            value={actionFilter}
-            onChange={(e) => setActionFilter(e.target.value)}
-            className="border rounded-md px-3 py-1.5 text-sm"
-          >
-            <option value="">{t('compliance.allActions')}</option>
+          <Select value={actionFilter || '__all__'} onValueChange={(value) => setActionFilter(value === '__all__' ? '' : value)}>
+            <SelectTrigger className="w-[220px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+            <SelectItem value="__all__">{t('compliance.allActions')}</SelectItem>
             {summary?.logs_by_action &&
               Object.keys(summary.logs_by_action).map((action) => (
-                <option key={action} value={action}>
+                <SelectItem key={action} value={action}>
                   {action.replace(/_/g, ' ')}
-                </option>
+                </SelectItem>
               ))}
-          </select>
+            </SelectContent>
+          </Select>
         </div>
         <Button onClick={handleExport} variant="outline" size="sm">
           <Download className="h-4 w-4 mr-2" />
@@ -279,37 +285,25 @@ function RetentionTab() {
   const [deletePolicy, setDeletePolicy] = useState<RetentionPolicy | null>(null)
   const [applyConfirm, setApplyConfirm] = useState(false)
   const toast = useToast()
-  const queryClient = useQueryClient()
 
-  const { data: policies, isLoading } = useQuery({
-    queryKey: ['compliance', 'retention-policies'],
-    queryFn: () => complianceApi.listRetentionPolicies(),
-  })
+  const { data: policies, isLoading } = useRetentionPolicies()
+  const { data: logs } = useRetentionLogs(10)
 
-  const { data: logs } = useQuery({
-    queryKey: ['compliance', 'retention-logs'],
-    queryFn: () => complianceApi.listRetentionLogs({ page: 1, page_size: 10 }),
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: (policyId: string) => complianceApi.deleteRetentionPolicy(policyId),
+  const deleteMutation = useDeleteRetentionPolicy({
     onSuccess: () => {
       toast.success(t('compliance.policyDeleted'))
-      queryClient.invalidateQueries({ queryKey: ['compliance', 'retention-policies'] })
       setDeletePolicy(null)
     },
     onError: () => toast.error(t('compliance.policyDeleteFailed')),
   })
 
-  const applyMutation = useMutation({
-    mutationFn: (dryRun: boolean) => complianceApi.applyRetentionPolicies({ dry_run: dryRun }),
-    onSuccess: (data) => {
-      if (data.is_dry_run) {
-        toast.success(t('compliance.dryRunComplete', { count: data.total_affected }))
+  const applyMutation = useApplyRetentionPolicies({
+    onSuccess: (isDryRun, totalAffected) => {
+      if (isDryRun) {
+        toast.success(t('compliance.dryRunComplete', { count: totalAffected }))
       } else {
-        toast.success(t('compliance.retentionApplied', { count: data.total_affected }))
+        toast.success(t('compliance.retentionApplied', { count: totalAffected }))
       }
-      queryClient.invalidateQueries({ queryKey: ['compliance'] })
       setApplyConfirm(false)
     },
     onError: () => toast.error(t('compliance.retentionApplyFailed')),
@@ -476,13 +470,9 @@ function CreateRetentionPolicyDialog({ onClose }: { onClose: () => void }) {
   const [action, setAction] = useState<RetentionAction>('archive')
   const [description, setDescription] = useState('')
   const toast = useToast()
-  const queryClient = useQueryClient()
-
-  const createMutation = useMutation({
-    mutationFn: (data: CreateRetentionPolicyRequest) => complianceApi.createRetentionPolicy(data),
+  const createMutation = useCreateRetentionPolicy({
     onSuccess: () => {
       toast.success(t('compliance.policyCreated'))
-      queryClient.invalidateQueries({ queryKey: ['compliance', 'retention-policies'] })
       onClose()
     },
     onError: () => toast.error(t('compliance.policyCreateFailed')),
@@ -511,17 +501,18 @@ function CreateRetentionPolicyDialog({ onClose }: { onClose: () => void }) {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium mb-1">{t('compliance.entityType')}</label>
-          <select
-            value={entityType}
-            onChange={(e) => setEntityType(e.target.value as RetentionEntityType)}
-            className="w-full border rounded-md px-3 py-2"
-          >
+          <Select value={entityType} onValueChange={(value) => setEntityType(value as RetentionEntityType)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
             {Object.entries(ENTITY_TYPE_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
+              <SelectItem key={value} value={value}>
                 {label}
-              </option>
+              </SelectItem>
             ))}
-          </select>
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
@@ -538,26 +529,26 @@ function CreateRetentionPolicyDialog({ onClose }: { onClose: () => void }) {
 
         <div>
           <label className="block text-sm font-medium mb-1">{t('compliance.action')}</label>
-          <select
-            value={action}
-            onChange={(e) => setAction(e.target.value as RetentionAction)}
-            className="w-full border rounded-md px-3 py-2"
-          >
+          <Select value={action} onValueChange={(value) => setAction(value as RetentionAction)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
             {Object.entries(ACTION_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
+              <SelectItem key={value} value={value}>
                 {label}
-              </option>
+              </SelectItem>
             ))}
-          </select>
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
           <label className="block text-sm font-medium mb-1">{t('compliance.descriptionOptional')}</label>
-          <textarea
+          <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
-            className="w-full border rounded-md px-3 py-2"
           />
         </div>
 
@@ -581,10 +572,7 @@ function CreateRetentionPolicyDialog({ onClose }: { onClose: () => void }) {
 
 function DataProcessingTab() {
   const { t } = useTranslation()
-  const { data, isLoading } = useQuery({
-    queryKey: ['compliance', 'data-processing'],
-    queryFn: () => complianceApi.getDataProcessingInfo(),
-  })
+  const { data, isLoading } = useComplianceDataProcessing()
 
   if (isLoading) {
     return (
@@ -697,10 +685,7 @@ function SOC2Tab() {
   const [expandedCategories, setExpandedCategories] = useState<string[]>([])
   const toast = useToast()
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['compliance', 'soc2-status'],
-    queryFn: () => complianceApi.getSOC2Status(),
-  })
+  const { data, isLoading } = useComplianceSoc2Status()
 
   const handleExport = async () => {
     try {
