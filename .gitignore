@@ -111,7 +111,7 @@ dmypy.json
 .pyre/
 
 # Poetry
-poetry.lock
+# poetry.lock should be committed for reproducible CI builds
 
 # IDE
 .idea/
