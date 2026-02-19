@@ -2,9 +2,13 @@
 
 Uses testcontainers-postgres for real PostgreSQL testing (with pgvector)
 and fakeredis for in-memory Redis mocking.
+
+When DATABASE_URL is set (e.g. in CI), the pre-configured database is used
+directly instead of testcontainers.
 """
 
 import asyncio
+import os
 from collections.abc import AsyncGenerator, Generator
 
 import fakeredis.aioredis
@@ -131,12 +135,17 @@ def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
 
 
 @pytest.fixture(scope="session")
-def postgres_container() -> Generator[PostgresContainer, None, None]:
+def postgres_container() -> Generator[PostgresContainer | None, None, None]:
     """Start a PostgreSQL container for the test session.
 
+    Skipped when DATABASE_URL is set (e.g. in CI with a service container).
     Uses the pgvector/pgvector:pg16 image so that CREATE EXTENSION vector
     works the same as in production.
     """
+    if os.environ.get("DATABASE_URL"):
+        yield None
+        return
+
     container = PostgresContainer(
         image=POSTGRES_IMAGE,
         username="test",
@@ -149,8 +158,12 @@ def postgres_container() -> Generator[PostgresContainer, None, None]:
 
 
 @pytest.fixture(scope="session")
-def database_url(postgres_container: PostgresContainer) -> str:
-    """Build the async database URL from the running container."""
+def database_url(postgres_container: PostgresContainer | None) -> str:
+    """Build the async database URL from env or the running container."""
+    env_url = os.environ.get("DATABASE_URL")
+    if env_url:
+        return env_url
+    assert postgres_container is not None
     return postgres_container.get_connection_url()
 
 
