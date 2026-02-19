@@ -149,9 +149,7 @@ class TestKnowledgeService:
             tags=["quantum"],
         )
 
-        source = await knowledge_service.create_personal(
-            test_user.id, test_organization.id, data
-        )
+        source = await knowledge_service.create_personal(test_user.id, test_organization.id, data)
 
         assert source.id is not None
         assert source.title == "My Expertise"
@@ -169,9 +167,7 @@ class TestKnowledgeService:
         personal_source: KnowledgeSource,
     ):
         """Test listing personal knowledge sources."""
-        response = await knowledge_service.list_personal(
-            test_user.id, test_organization.id
-        )
+        response = await knowledge_service.list_personal(test_user.id, test_organization.id)
 
         assert response.total == 1
         assert len(response.items) == 1
@@ -185,9 +181,7 @@ class TestKnowledgeService:
         test_organization: Organization,
     ):
         """Test listing personal sources when none exist."""
-        response = await knowledge_service.list_personal(
-            test_user.id, test_organization.id
-        )
+        response = await knowledge_service.list_personal(test_user.id, test_organization.id)
 
         assert response.total == 0
         assert len(response.items) == 0
@@ -200,9 +194,7 @@ class TestKnowledgeService:
         org_source: KnowledgeSource,
     ):
         """Test that listing personal sources excludes org sources."""
-        response = await knowledge_service.list_personal(
-            test_user.id, test_organization.id
-        )
+        response = await knowledge_service.list_personal(test_user.id, test_organization.id)
         assert response.total == 0
 
     async def test_update_personal(
@@ -235,7 +227,9 @@ class TestKnowledgeService:
         """Test updating a non-existent personal source."""
         with pytest.raises(NotFoundError):
             await knowledge_service.update_personal(
-                uuid4(), test_user.id, test_organization.id,
+                uuid4(),
+                test_user.id,
+                test_organization.id,
                 KnowledgeSourceUpdate(title="X"),
             )
 
@@ -249,7 +243,9 @@ class TestKnowledgeService:
         other_user_id = uuid4()
         with pytest.raises(ForbiddenError):
             await knowledge_service.update_personal(
-                personal_source.id, other_user_id, test_organization.id,
+                personal_source.id,
+                other_user_id,
+                test_organization.id,
                 KnowledgeSourceUpdate(title="Hacked"),
             )
 
@@ -263,7 +259,9 @@ class TestKnowledgeService:
         """Test that updating an org source via personal endpoint is forbidden."""
         with pytest.raises(ForbiddenError):
             await knowledge_service.update_personal(
-                org_source.id, test_user.id, test_organization.id,
+                org_source.id,
+                test_user.id,
+                test_organization.id,
                 KnowledgeSourceUpdate(title="X"),
             )
 
@@ -281,9 +279,7 @@ class TestKnowledgeService:
         )
 
         result = await db_session.execute(
-            select(KnowledgeSource).where(
-                KnowledgeSource.id == personal_source.id
-            )
+            select(KnowledgeSource).where(KnowledgeSource.id == personal_source.id)
         )
         assert result.scalar_one_or_none() is None
 
@@ -295,9 +291,7 @@ class TestKnowledgeService:
     ):
         """Test deleting a non-existent source."""
         with pytest.raises(NotFoundError):
-            await knowledge_service.delete_personal(
-                uuid4(), test_user.id, test_organization.id
-            )
+            await knowledge_service.delete_personal(uuid4(), test_user.id, test_organization.id)
 
     async def test_delete_personal_wrong_user(
         self,
@@ -325,9 +319,7 @@ class TestKnowledgeService:
             type=KnowledgeType.EVALUATION_CRITERIA,
         )
 
-        source = await knowledge_service.create_organization(
-            test_organization.id, data
-        )
+        source = await knowledge_service.create_organization(test_organization.id, data)
 
         assert source.scope == KnowledgeScope.ORGANIZATION
         assert source.user_id is None
@@ -340,9 +332,7 @@ class TestKnowledgeService:
         org_source: KnowledgeSource,
     ):
         """Test listing org knowledge sources."""
-        response = await knowledge_service.list_organization(
-            test_organization.id
-        )
+        response = await knowledge_service.list_organization(test_organization.id)
 
         assert response.total == 1
         assert response.items[0].title == "Our Industry Focus"
@@ -354,9 +344,7 @@ class TestKnowledgeService:
         personal_source: KnowledgeSource,
     ):
         """Test that listing org sources excludes personal ones."""
-        response = await knowledge_service.list_organization(
-            test_organization.id
-        )
+        response = await knowledge_service.list_organization(test_organization.id)
         assert response.total == 0
 
     async def test_list_organization_tenant_isolation(
@@ -366,9 +354,7 @@ class TestKnowledgeService:
         org_source: KnowledgeSource,
     ):
         """Test org source listing respects tenant boundaries."""
-        response = await knowledge_service.list_organization(
-            second_organization.id
-        )
+        response = await knowledge_service.list_organization(second_organization.id)
         assert response.total == 0
 
     async def test_update_organization(
@@ -396,7 +382,8 @@ class TestKnowledgeService:
         """Test that updating a personal source via org endpoint is forbidden."""
         with pytest.raises(ForbiddenError):
             await knowledge_service.update_organization(
-                personal_source.id, test_organization.id,
+                personal_source.id,
+                test_organization.id,
                 KnowledgeSourceUpdate(title="X"),
             )
 
@@ -409,7 +396,8 @@ class TestKnowledgeService:
         """Test that updating from wrong org raises NotFoundError."""
         with pytest.raises(NotFoundError):
             await knowledge_service.update_organization(
-                org_source.id, second_organization.id,
+                org_source.id,
+                second_organization.id,
                 KnowledgeSourceUpdate(title="Hacked"),
             )
 
@@ -421,14 +409,10 @@ class TestKnowledgeService:
         db_session: AsyncSession,
     ):
         """Test deleting an org knowledge source."""
-        await knowledge_service.delete_organization(
-            org_source.id, test_organization.id
-        )
+        await knowledge_service.delete_organization(org_source.id, test_organization.id)
 
         result = await db_session.execute(
-            select(KnowledgeSource).where(
-                KnowledgeSource.id == org_source.id
-            )
+            select(KnowledgeSource).where(KnowledgeSource.id == org_source.id)
         )
         assert result.scalar_one_or_none() is None
 
@@ -440,9 +424,7 @@ class TestKnowledgeService:
     ):
         """Test that deleting a personal source via org endpoint is forbidden."""
         with pytest.raises(ForbiddenError):
-            await knowledge_service.delete_organization(
-                personal_source.id, test_organization.id
-            )
+            await knowledge_service.delete_organization(personal_source.id, test_organization.id)
 
 
 # =============================================================================
@@ -551,9 +533,7 @@ class TestKnowledgeRouter:
         authenticated_client: AsyncClient,
     ):
         """Test deleting non-existent source returns 404."""
-        response = await authenticated_client.delete(
-            f"/api/v1/knowledge/personal/{uuid4()}"
-        )
+        response = await authenticated_client.delete(f"/api/v1/knowledge/personal/{uuid4()}")
         assert response.status_code == 404
 
     # --- Organization endpoints ---
@@ -564,9 +544,7 @@ class TestKnowledgeRouter:
         org_source: KnowledgeSource,
     ):
         """Test listing org sources via API (admin)."""
-        response = await authenticated_client.get(
-            "/api/v1/knowledge/organization"
-        )
+        response = await authenticated_client.get("/api/v1/knowledge/organization")
         assert response.status_code == 200
         data = response.json()
         assert data["total"] == 1
@@ -642,9 +620,7 @@ class TestKnowledgeRouter:
         org_source: KnowledgeSource,
     ):
         """Test that deleting org sources requires admin."""
-        response = await member_client.delete(
-            f"/api/v1/knowledge/organization/{org_source.id}"
-        )
+        response = await member_client.delete(f"/api/v1/knowledge/organization/{org_source.id}")
         assert response.status_code == 403
 
     async def test_unauthorized_personal(

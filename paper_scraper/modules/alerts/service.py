@@ -223,9 +223,7 @@ class AlertService:
         await self.db.flush()
         # Re-query to get fresh column values (updated_at from onupdate) + relationship
         result = await self.db.execute(
-            select(Alert)
-            .options(selectinload(Alert.saved_search))
-            .where(Alert.id == alert_id)
+            select(Alert).options(selectinload(Alert.saved_search)).where(Alert.id == alert_id)
         )
         alert = result.scalar_one()
 
@@ -296,9 +294,7 @@ class AlertService:
 
         # Count query
         count_query = (
-            select(func.count())
-            .select_from(AlertResult)
-            .where(AlertResult.alert_id == alert_id)
+            select(func.count()).select_from(AlertResult).where(AlertResult.alert_id == alert_id)
         )
         total = (await self.db.execute(count_query)).scalar() or 0
 
@@ -362,7 +358,9 @@ class AlertService:
                     "id": str(item.id),
                     "title": item.title,
                     "journal": item.journal,
-                    "publication_date": item.publication_date.isoformat() if item.publication_date else None,
+                    "publication_date": item.publication_date.isoformat()
+                    if item.publication_date
+                    else None,
                 }
                 for item in search_response.items
             ],
@@ -498,7 +496,9 @@ class AlertService:
                             "id": str(item.id),
                             "title": item.title,
                             "journal": item.journal,
-                            "publication_date": item.publication_date.isoformat() if item.publication_date else None,
+                            "publication_date": item.publication_date.isoformat()
+                            if item.publication_date
+                            else None,
                         }
                         for item in search_response.items
                     ],

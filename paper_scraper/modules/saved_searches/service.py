@@ -83,7 +83,9 @@ class SavedSearchService:
             auto_import_enabled=data.auto_import_enabled,
             import_sources=data.import_sources,
             max_import_per_run=data.max_import_per_run,
-            discovery_frequency=data.discovery_frequency.value if data.discovery_frequency else None,
+            discovery_frequency=data.discovery_frequency.value
+            if data.discovery_frequency
+            else None,
         )
 
         self.db.add(saved_search)
@@ -479,9 +481,7 @@ class SavedSearchService:
             )
         )
         if not result.scalar_one_or_none():
-            raise ValidationError(
-                "Target project not found or belongs to a different organization"
-            )
+            raise ValidationError("Target project not found or belongs to a different organization")
 
     def to_response(
         self,
@@ -503,6 +503,7 @@ class SavedSearchService:
         creator = None
         if saved_search.created_by:
             from paper_scraper.modules.saved_searches.schemas import SavedSearchCreator
+
             creator = SavedSearchCreator(
                 id=saved_search.created_by.id,
                 email=saved_search.created_by.email,

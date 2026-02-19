@@ -233,10 +233,12 @@ class ProjectService:
         added = 0
         for paper_id in valid_ids:
             if paper_id not in existing_ids:
-                self.db.add(ProjectPaper(
-                    project_id=project_id,
-                    paper_id=paper_id,
-                ))
+                self.db.add(
+                    ProjectPaper(
+                        project_id=project_id,
+                        paper_id=paper_id,
+                    )
+                )
                 added += 1
 
         if added > 0:
@@ -288,11 +290,7 @@ class ProjectService:
             Number of clusters created.
         """
         # Delete existing clusters for this project
-        await self.db.execute(
-            delete(ProjectCluster).where(
-                ProjectCluster.project_id == project_id
-            )
-        )
+        await self.db.execute(delete(ProjectCluster).where(ProjectCluster.project_id == project_id))
         await self.db.flush()
 
         created = 0
@@ -313,11 +311,13 @@ class ProjectService:
             paper_ids = cdata.get("paper_ids", [])
             similarities = cdata.get("similarities", {})
             for pid in paper_ids:
-                self.db.add(ProjectClusterPaper(
-                    cluster_id=cluster.id,
-                    paper_id=pid,
-                    similarity_score=similarities.get(pid),
-                ))
+                self.db.add(
+                    ProjectClusterPaper(
+                        cluster_id=cluster.id,
+                        paper_id=pid,
+                        similarity_score=similarities.get(pid),
+                    )
+                )
 
             created += 1
 
@@ -373,9 +373,7 @@ class ProjectService:
                 papers_by_cluster[cluster_id].append((paper, sim))
 
         # Batch-fetch author names for all top papers
-        all_paper_ids = [
-            p.id for papers in papers_by_cluster.values() for p, _ in papers
-        ]
+        all_paper_ids = [p.id for papers in papers_by_cluster.values() for p, _ in papers]
         authors_map = await self._batch_get_authors_display(all_paper_ids)
 
         responses = []
@@ -385,14 +383,16 @@ class ProjectService:
                 self._paper_to_summary(paper, similarity_score=sim, authors_map=authors_map)
                 for paper, sim in top
             ]
-            responses.append(ClusterResponse(
-                id=cluster.id,
-                label=cluster.label,
-                description=cluster.description,
-                keywords=cluster.keywords or [],
-                paper_count=cluster.paper_count,
-                top_papers=top_papers,
-            ))
+            responses.append(
+                ClusterResponse(
+                    id=cluster.id,
+                    label=cluster.label,
+                    description=cluster.description,
+                    keywords=cluster.keywords or [],
+                    paper_count=cluster.paper_count,
+                    top_papers=top_papers,
+                )
+            )
 
         return responses
 
@@ -524,7 +524,9 @@ class ProjectService:
             id=paper.id,
             title=paper.title or "Untitled",
             authors_display=(authors_map or {}).get(paper.id, ""),
-            publication_date=paper.publication_date.strftime("%Y-%m-%d") if paper.publication_date else None,
+            publication_date=paper.publication_date.strftime("%Y-%m-%d")
+            if paper.publication_date
+            else None,
             citations_count=paper.citations_count,
             similarity_score=similarity_score,
         )

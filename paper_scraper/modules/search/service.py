@@ -149,18 +149,13 @@ class SearchService:
             )
 
         # Build base query for similar papers
-        query = (
-            select(
-                Paper,
-                (1 - Paper.embedding.cosine_distance(paper.embedding)).label(
-                    "similarity"
-                ),
-            )
-            .where(
-                Paper.organization_id == organization_id,
-                Paper.id != paper_id,
-                Paper.embedding.is_not(None),
-            )
+        query = select(
+            Paper,
+            (1 - Paper.embedding.cosine_distance(paper.embedding)).label("similarity"),
+        ).where(
+            Paper.organization_id == organization_id,
+            Paper.id != paper_id,
+            Paper.embedding.is_not(None),
         )
 
         # Apply filters
@@ -169,9 +164,7 @@ class SearchService:
         # Filter by minimum similarity (cosine distance < 1 - min_similarity)
         if min_similarity > 0:
             max_distance = 1 - min_similarity
-            query = query.where(
-                Paper.embedding.cosine_distance(paper.embedding) <= max_distance
-            )
+            query = query.where(Paper.embedding.cosine_distance(paper.embedding) <= max_distance)
 
         # Order by similarity (lowest distance = highest similarity)
         query = query.order_by(Paper.embedding.cosine_distance(paper.embedding))
@@ -313,21 +306,16 @@ class SearchService:
         ).label("abstract_sim")
 
         # Combined score with title weighted higher
-        text_score = (title_similarity * 0.7 + abstract_similarity * 0.3).label(
-            "text_score"
-        )
+        text_score = (title_similarity * 0.7 + abstract_similarity * 0.3).label("text_score")
 
         # Build base query
-        base_query = (
-            select(Paper, text_score)
-            .where(
-                Paper.organization_id == organization_id,
-                # Match either title or abstract with minimum similarity
-                or_(
-                    func.similarity(Paper.title, query) > 0.1,
-                    func.similarity(Paper.abstract, query) > 0.1,
-                ),
-            )
+        base_query = select(Paper, text_score).where(
+            Paper.organization_id == organization_id,
+            # Match either title or abstract with minimum similarity
+            or_(
+                func.similarity(Paper.title, query) > 0.1,
+                func.similarity(Paper.abstract, query) > 0.1,
+            ),
         )
 
         # Apply filters
@@ -339,9 +327,7 @@ class SearchService:
 
         # Order by score and paginate
         paginated_query = (
-            base_query.order_by(text_score.desc())
-            .offset((page - 1) * page_size)
-            .limit(page_size)
+            base_query.order_by(text_score.desc()).offset((page - 1) * page_size).limit(page_size)
         )
 
         result = await self.db.execute(paginated_query)
@@ -403,17 +389,14 @@ class SearchService:
             query_embedding = await self.embedding_client.embed_text(query)
 
         # Calculate cosine similarity (1 - distance)
-        cosine_similarity = (
-            1 - Paper.embedding.cosine_distance(query_embedding)
-        ).label("semantic_score")
+        cosine_similarity = (1 - Paper.embedding.cosine_distance(query_embedding)).label(
+            "semantic_score"
+        )
 
         # Build base query - only papers with embeddings
-        base_query = (
-            select(Paper, cosine_similarity)
-            .where(
-                Paper.organization_id == organization_id,
-                Paper.embedding.is_not(None),
-            )
+        base_query = select(Paper, cosine_similarity).where(
+            Paper.organization_id == organization_id,
+            Paper.embedding.is_not(None),
         )
 
         # Apply filters
@@ -425,9 +408,7 @@ class SearchService:
 
         # Order by similarity (highest first) and paginate
         query_stmt = (
-            base_query.order_by(
-                Paper.embedding.cosine_distance(query_embedding)
-            )
+            base_query.order_by(Paper.embedding.cosine_distance(query_embedding))
             .offset((page - 1) * page_size)
             .limit(page_size)
         )
@@ -511,9 +492,7 @@ class SearchService:
         )
 
         # Create rank mappings
-        text_ranks: dict[UUID, int] = {
-            item.id: rank + 1 for rank, item in enumerate(text_results)
-        }
+        text_ranks: dict[UUID, int] = {item.id: rank + 1 for rank, item in enumerate(text_results)}
         semantic_ranks: dict[UUID, int] = {
             item.id: rank + 1 for rank, item in enumerate(semantic_results)
         }
@@ -607,9 +586,7 @@ class SearchService:
             query = query.where(Paper.journal.in_(filters.journals))
 
         if filters.keywords:
-            keyword_conditions = [
-                Paper.keywords.contains([kw]) for kw in filters.keywords
-            ]
+            keyword_conditions = [Paper.keywords.contains([kw]) for kw in filters.keywords]
             query = query.where(or_(*keyword_conditions))
 
         return query
@@ -702,15 +679,12 @@ class SearchService:
             .subquery()
         )
 
-        query = (
-            select(PaperScore)
-            .join(
-                latest_subquery,
-                and_(
-                    PaperScore.paper_id == latest_subquery.c.paper_id,
-                    PaperScore.created_at == latest_subquery.c.latest,
-                ),
-            )
+        query = select(PaperScore).join(
+            latest_subquery,
+            and_(
+                PaperScore.paper_id == latest_subquery.c.paper_id,
+                PaperScore.created_at == latest_subquery.c.latest,
+            ),
         )
 
         result = await self.db.execute(query)
@@ -756,9 +730,7 @@ class SearchService:
         if title_highlight:
             highlights.append(title_highlight)
 
-        abstract_highlight = self._find_highlight(
-            paper.abstract, query_words, "abstract", 50
-        )
+        abstract_highlight = self._find_highlight(paper.abstract, query_words, "abstract", 50)
         if abstract_highlight:
             highlights.append(abstract_highlight)
 

@@ -87,9 +87,7 @@ async def fetch_citation_graph(
     referenced_work_ids = _extract_reference_ids(raw_metadata)
     if referenced_work_ids:
         graph.total_references = len(referenced_work_ids)
-        graph.references = await _fetch_works_batch(
-            referenced_work_ids[:MAX_REFERENCES]
-        )
+        graph.references = await _fetch_works_batch(referenced_work_ids[:MAX_REFERENCES])
 
     # Phase 2: Get citing papers via live API
     if openalex_id:

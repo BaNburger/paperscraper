@@ -324,9 +324,7 @@ def require_api_permission(
             # API key - check API key permissions
             missing = [p for p in permissions if p not in auth.permissions]
             if missing:
-                raise ForbiddenError(
-                    f"API key missing required permissions: {', '.join(missing)}"
-                )
+                raise ForbiddenError(f"API key missing required permissions: {', '.join(missing)}")
             return auth
 
     return _check

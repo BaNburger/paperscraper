@@ -48,9 +48,7 @@ class TrendTopic(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     embedding: Mapped[list | None] = mapped_column(Vector(1536), nullable=True)
     color: Mapped[str | None] = mapped_column(String(7), nullable=True)
-    is_active: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, server_default="true"
-    )
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -72,9 +70,7 @@ class TrendTopic(Base):
         "TrendPaper", back_populates="trend_topic", cascade="all, delete-orphan"
     )
 
-    __table_args__ = (
-        Index("ix_trend_topics_org_active", "organization_id", "is_active"),
-    )
+    __table_args__ = (Index("ix_trend_topics_org_active", "organization_id", "is_active"),)
 
     def __repr__(self) -> str:
         return f"<TrendTopic {self.name} org={self.organization_id}>"
@@ -99,9 +95,7 @@ class TrendSnapshot(Base):
     )
 
     # Aggregate score metrics
-    matched_papers_count: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0
-    )
+    matched_papers_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     avg_novelty: Mapped[float | None] = mapped_column(Float, nullable=True)
     avg_ip_potential: Mapped[float | None] = mapped_column(Float, nullable=True)
     avg_marketability: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -130,13 +124,9 @@ class TrendSnapshot(Base):
 
     # Relationships
     organization: Mapped["Organization"] = relationship("Organization")
-    trend_topic: Mapped["TrendTopic"] = relationship(
-        "TrendTopic", back_populates="snapshots"
-    )
+    trend_topic: Mapped["TrendTopic"] = relationship("TrendTopic", back_populates="snapshots")
 
-    __table_args__ = (
-        Index("ix_trend_snapshots_topic_created", "trend_topic_id", "created_at"),
-    )
+    __table_args__ = (Index("ix_trend_snapshots_topic_created", "trend_topic_id", "created_at"),)
 
     def __repr__(self) -> str:
         return f"<TrendSnapshot topic={self.trend_topic_id} papers={self.matched_papers_count}>"
@@ -171,16 +161,12 @@ class TrendPaper(Base):
     )
 
     # Relationships
-    trend_topic: Mapped["TrendTopic"] = relationship(
-        "TrendTopic", back_populates="trend_papers"
-    )
+    trend_topic: Mapped["TrendTopic"] = relationship("TrendTopic", back_populates="trend_papers")
     paper: Mapped["Paper"] = relationship("Paper")
 
     __table_args__ = (
         UniqueConstraint("trend_topic_id", "paper_id", name="uq_trend_topic_paper"),
-        Index(
-            "ix_trend_papers_topic_relevance", "trend_topic_id", "relevance_score"
-        ),
+        Index("ix_trend_papers_topic_relevance", "trend_topic_id", "relevance_score"),
     )
 
     def __repr__(self) -> str:

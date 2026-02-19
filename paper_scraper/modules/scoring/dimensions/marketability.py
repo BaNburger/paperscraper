@@ -29,7 +29,9 @@ class MarketabilityDimension(BaseDimension):
             "target_industries": self._safe_get(response, "target_industries", [], list),
             "market_size_estimate": self._safe_get(response, "market_size_estimate", "medium", str),
             "market_timing": self._safe_get(response, "market_timing", "good", str),
-            "competitive_landscape": self._safe_get(response, "competitive_landscape", "emerging", str),
+            "competitive_landscape": self._safe_get(
+                response, "competitive_landscape", "emerging", str
+            ),
             "key_trends_alignment": self._safe_get(response, "key_trends_alignment", [], list),
         }
 

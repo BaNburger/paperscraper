@@ -160,9 +160,7 @@ async def update_group(
     audit: Annotated[AuditService, Depends(get_audit_service)],
 ):
     """Update a group."""
-    group = await service.update_group(
-        group_id, current_user.organization_id, data
-    )
+    group = await service.update_group(group_id, current_user.organization_id, data)
     await audit.log(
         action=AuditAction.GROUP_UPDATE,
         user_id=current_user.id,
@@ -256,9 +254,7 @@ async def remove_member(
     audit: Annotated[AuditService, Depends(get_audit_service)],
 ):
     """Remove a member from a group."""
-    await service.remove_member(
-        group_id, current_user.organization_id, researcher_id
-    )
+    await service.remove_member(group_id, current_user.organization_id, researcher_id)
     await audit.log(
         action=AuditAction.GROUP_MEMBER_REMOVE,
         user_id=current_user.id,
@@ -310,13 +306,9 @@ async def export_group(
     service: Annotated[GroupService, Depends(get_group_service)],
 ):
     """Export group members as CSV."""
-    csv_data = await service.export_group(
-        group_id, current_user.organization_id
-    )
+    csv_data = await service.export_group(group_id, current_user.organization_id)
     return Response(
         content=csv_data,
         media_type="text/csv",
-        headers={
-            "Content-Disposition": f"attachment; filename=group_{group_id}.csv"
-        },
+        headers={"Content-Disposition": f"attachment; filename=group_{group_id}.csv"},
     )

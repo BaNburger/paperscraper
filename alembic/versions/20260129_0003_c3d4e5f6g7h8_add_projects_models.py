@@ -220,9 +220,7 @@ def upgrade() -> None:
     op.create_index("ix_projects_organization_id", "projects", ["organization_id"])
 
     # Create indexes for paper_project_statuses
-    op.create_index(
-        "ix_paper_project_statuses_paper_id", "paper_project_statuses", ["paper_id"]
-    )
+    op.create_index("ix_paper_project_statuses_paper_id", "paper_project_statuses", ["paper_id"])
     op.create_index(
         "ix_paper_project_statuses_project_id", "paper_project_statuses", ["project_id"]
     )
@@ -251,18 +249,10 @@ def downgrade() -> None:
     op.drop_index("ix_paper_stage_history_status_id", table_name="paper_stage_history")
 
     # Drop indexes for paper_project_statuses
-    op.drop_index(
-        "ix_paper_project_status_assigned", table_name="paper_project_statuses"
-    )
-    op.drop_index(
-        "ix_paper_project_status_project_stage", table_name="paper_project_statuses"
-    )
-    op.drop_index(
-        "ix_paper_project_statuses_project_id", table_name="paper_project_statuses"
-    )
-    op.drop_index(
-        "ix_paper_project_statuses_paper_id", table_name="paper_project_statuses"
-    )
+    op.drop_index("ix_paper_project_status_assigned", table_name="paper_project_statuses")
+    op.drop_index("ix_paper_project_status_project_stage", table_name="paper_project_statuses")
+    op.drop_index("ix_paper_project_statuses_project_id", table_name="paper_project_statuses")
+    op.drop_index("ix_paper_project_statuses_paper_id", table_name="paper_project_statuses")
 
     # Drop indexes for projects
     op.drop_index("ix_projects_organization_id", table_name="projects")

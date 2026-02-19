@@ -28,10 +28,14 @@ class FeasibilityDimension(BaseDimension):
         details = {
             "estimated_trl": self._safe_get(response, "estimated_trl", 5, int),
             "time_to_market_years": self._safe_get(response, "time_to_market_years", "2-5", str),
-            "development_cost_estimate": self._safe_get(response, "development_cost_estimate", "medium", str),
+            "development_cost_estimate": self._safe_get(
+                response, "development_cost_estimate", "medium", str
+            ),
             "key_technical_risks": self._safe_get(response, "key_technical_risks", [], list),
             "required_capabilities": self._safe_get(response, "required_capabilities", [], list),
-            "scalability_assessment": self._safe_get(response, "scalability_assessment", "moderate", str),
+            "scalability_assessment": self._safe_get(
+                response, "scalability_assessment", "moderate", str
+            ),
         }
 
         return DimensionResult(

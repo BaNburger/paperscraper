@@ -193,6 +193,7 @@ class Settings(BaseSettings):
             # Handle JSON-like string
             if v.startswith("["):
                 import json
+
                 loaded = json.loads(v)
                 if isinstance(loaded, list):
                     return [str(origin) for origin in loaded]
@@ -212,15 +213,12 @@ class Settings(BaseSettings):
             errors = self._validate_production_config(jwt_secret)
 
             if self.APP_ENV == "production" and self.DEBUG:
-                logger.warning(
-                    "DEBUG is True in production - forcing to False for security"
-                )
+                logger.warning("DEBUG is True in production - forcing to False for security")
                 object.__setattr__(self, "DEBUG", False)
 
             if errors:
                 raise ValueError(
-                    "Production configuration validation failed:\n- " +
-                    "\n- ".join(errors)
+                    "Production configuration validation failed:\n- " + "\n- ".join(errors)
                 )
 
         elif self.APP_ENV == "development" and not jwt_secret:
@@ -241,9 +239,7 @@ class Settings(BaseSettings):
         # Normalize SameSite values.
         same_site = self.AUTH_COOKIE_SAMESITE.lower()
         if same_site not in ("lax", "strict", "none"):
-            raise ValueError(
-                "AUTH_COOKIE_SAMESITE must be one of: lax, strict, none"
-            )
+            raise ValueError("AUTH_COOKIE_SAMESITE must be one of: lax, strict, none")
         object.__setattr__(self, "AUTH_COOKIE_SAMESITE", same_site)
 
         return self
@@ -283,8 +279,7 @@ class Settings(BaseSettings):
         # CORS origins should not include localhost in production
         if self.APP_ENV == "production":
             localhost_origins = [
-                o for o in self.CORS_ORIGINS
-                if "localhost" in o or "127.0.0.1" in o
+                o for o in self.CORS_ORIGINS if "localhost" in o or "127.0.0.1" in o
             ]
             if localhost_origins:
                 errors.append(
@@ -305,8 +300,7 @@ class Settings(BaseSettings):
             r"^.{0,15}$",  # Too short (less than 16 chars)
         ]
         return any(
-            re_module.match(pattern, secret, re_module.IGNORECASE)
-            for pattern in weak_patterns
+            re_module.match(pattern, secret, re_module.IGNORECASE) for pattern in weak_patterns
         )
 
     @property
@@ -323,7 +317,6 @@ class Settings(BaseSettings):
     def is_staging(self) -> bool:
         """Check if running in staging environment."""
         return self.APP_ENV == "staging"
-
 
     @property
     def arq_redis_settings(self) -> RedisSettings:

@@ -53,9 +53,7 @@ class NoteService:
         """
         self.db = db
 
-    async def _get_paper(
-        self, paper_id: UUID, organization_id: UUID
-    ) -> Paper:
+    async def _get_paper(self, paper_id: UUID, organization_id: UUID) -> Paper:
         """Get paper by ID with tenant isolation.
 
         Args:
@@ -156,9 +154,7 @@ class NoteService:
 
         # Reload with user info
         result = await self.db.execute(
-            select(PaperNote)
-            .options(selectinload(PaperNote.user))
-            .where(PaperNote.id == note.id)
+            select(PaperNote).options(selectinload(PaperNote.user)).where(PaperNote.id == note.id)
         )
         note = result.scalar_one()
 
@@ -250,9 +246,7 @@ class NoteService:
 
         # Reload with user info
         result = await self.db.execute(
-            select(PaperNote)
-            .options(selectinload(PaperNote.user))
-            .where(PaperNote.id == note.id)
+            select(PaperNote).options(selectinload(PaperNote.user)).where(PaperNote.id == note.id)
         )
         note = result.scalar_one()
 

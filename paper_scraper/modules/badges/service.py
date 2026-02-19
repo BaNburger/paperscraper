@@ -185,9 +185,7 @@ class BadgeService:
         await self.db.flush()
         return created
 
-    async def list_badges(
-        self, organization_id: UUID | None = None
-    ) -> BadgeListResponse:
+    async def list_badges(self, organization_id: UUID | None = None) -> BadgeListResponse:
         """List available badge definitions (system + org-specific)."""
         await self.seed_badges()
 
@@ -195,8 +193,7 @@ class BadgeService:
         if organization_id is not None:
             # Show system-wide badges (org_id is NULL) + this org's custom badges
             query = query.where(
-                (Badge.organization_id.is_(None))
-                | (Badge.organization_id == organization_id)
+                (Badge.organization_id.is_(None)) | (Badge.organization_id == organization_id)
             )
 
         result = await self.db.execute(query)
@@ -236,9 +233,7 @@ class BadgeService:
             total_points=total_points,
         )
 
-    async def get_user_stats(
-        self, user_id: UUID, organization_id: UUID
-    ) -> UserStatsResponse:
+    async def get_user_stats(self, user_id: UUID, organization_id: UUID) -> UserStatsResponse:
         """Get user activity statistics for gamification display.
 
         Uses a single query with scalar subqueries instead of 7 sequential
@@ -340,9 +335,7 @@ class BadgeService:
             level_progress=round(level_progress, 2),
         )
 
-    async def check_and_award_badges(
-        self, user_id: UUID, organization_id: UUID
-    ) -> list[Badge]:
+    async def check_and_award_badges(self, user_id: UUID, organization_id: UUID) -> list[Badge]:
         """Check if user qualifies for any new badges and award them.
 
         Returns list of newly awarded badges.
@@ -352,8 +345,7 @@ class BadgeService:
         # Get badges visible to this user's organization (system + org-specific)
         all_badges_result = await self.db.execute(
             select(Badge).where(
-                (Badge.organization_id.is_(None))
-                | (Badge.organization_id == organization_id)
+                (Badge.organization_id.is_(None)) | (Badge.organization_id == organization_id)
             )
         )
         all_badges = list(all_badges_result.scalars().all())

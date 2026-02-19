@@ -66,9 +66,7 @@ class TrendsService:
         include_inactive: bool = False,
     ) -> TrendTopicListResponse:
         """List all trend topics for an organization with summary metrics."""
-        query = select(TrendTopic).where(
-            TrendTopic.organization_id == organization_id
-        )
+        query = select(TrendTopic).where(TrendTopic.organization_id == organization_id)
         if not include_inactive:
             query = query.where(TrendTopic.is_active.is_(True))
         query = query.order_by(desc(TrendTopic.created_at))
@@ -80,10 +78,7 @@ class TrendsService:
         topic_ids = [t.id for t in topics]
         snapshots_map = await self._get_latest_snapshots(topic_ids)
 
-        items = [
-            self._build_topic_response(topic, snapshots_map.get(topic.id))
-            for topic in topics
-        ]
+        items = [self._build_topic_response(topic, snapshots_map.get(topic.id)) for topic in topics]
         return TrendTopicListResponse(items=items, total=len(items))
 
     async def get_topic(
@@ -183,9 +178,7 @@ class TrendsService:
 
         return TrendDashboardResponse(
             topic=self._build_topic_response(topic, snapshot),
-            snapshot=TrendSnapshotResponse.model_validate(snapshot)
-            if snapshot
-            else None,
+            snapshot=TrendSnapshotResponse.model_validate(snapshot) if snapshot else None,
             top_papers=top_papers_result.items,
         )
 
@@ -262,9 +255,7 @@ class TrendsService:
     # Helpers
     # =========================================================================
 
-    async def _get_topic(
-        self, topic_id: UUID, organization_id: UUID
-    ) -> TrendTopic:
+    async def _get_topic(self, topic_id: UUID, organization_id: UUID) -> TrendTopic:
         """Get topic with tenant isolation. Raises NotFoundError."""
         result = await self.db.execute(
             select(TrendTopic).where(
@@ -277,9 +268,7 @@ class TrendsService:
             raise NotFoundError("TrendTopic", str(topic_id))
         return topic
 
-    async def _get_latest_snapshot(
-        self, topic_id: UUID
-    ) -> TrendSnapshot | None:
+    async def _get_latest_snapshot(self, topic_id: UUID) -> TrendSnapshot | None:
         """Get the most recent snapshot for a topic."""
         result = await self.db.execute(
             select(TrendSnapshot)
@@ -289,9 +278,7 @@ class TrendsService:
         )
         return result.scalar_one_or_none()
 
-    async def _get_latest_snapshots(
-        self, topic_ids: list[UUID]
-    ) -> dict[UUID, TrendSnapshot]:
+    async def _get_latest_snapshots(self, topic_ids: list[UUID]) -> dict[UUID, TrendSnapshot]:
         """Batch-fetch latest snapshot for each topic."""
         if not topic_ids:
             return {}

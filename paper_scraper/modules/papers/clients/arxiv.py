@@ -131,10 +131,12 @@ class ArxivClient(BaseAPIClient):
         for author in entry.findall("atom:author", ns):
             name = author.findtext("atom:name", "Unknown", ns)
             affiliation = author.findtext("arxiv:affiliation", None, ns)
-            authors.append({
-                "name": name,
-                "affiliations": [affiliation] if affiliation else [],
-            })
+            authors.append(
+                {
+                    "name": name,
+                    "affiliations": [affiliation] if affiliation else [],
+                }
+            )
 
         # Extract publication date
         published = entry.findtext("atom:published", None, ns)
@@ -146,10 +148,7 @@ class ArxivClient(BaseAPIClient):
         doi = entry.findtext("arxiv:doi", None, ns)
 
         # Extract categories as keywords
-        categories = [
-            cat.get("term", "")
-            for cat in entry.findall("atom:category", ns)
-        ]
+        categories = [cat.get("term", "") for cat in entry.findall("atom:category", ns)]
 
         # Extract PDF link
         pdf_url = None

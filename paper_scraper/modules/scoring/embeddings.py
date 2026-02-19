@@ -49,9 +49,7 @@ class EmbeddingClient:
         # Truncate texts to max token limit (approximately)
         # text-embedding-3-small has 8191 token limit
         max_chars = 30000  # Rough estimate, safe limit
-        truncated_texts = [
-            text[:max_chars] if len(text) > max_chars else text for text in texts
-        ]
+        truncated_texts = [text[:max_chars] if len(text) > max_chars else text for text in texts]
 
         headers = {
             "Authorization": f"Bearer {self.api_key}",

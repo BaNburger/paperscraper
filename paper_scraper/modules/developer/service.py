@@ -112,9 +112,7 @@ async def list_api_keys(
         List of API keys.
     """
     result = await db.execute(
-        select(APIKey)
-        .where(APIKey.organization_id == org_id)
-        .order_by(APIKey.created_at.desc())
+        select(APIKey).where(APIKey.organization_id == org_id).order_by(APIKey.created_at.desc())
     )
     return list(result.scalars().all())
 
@@ -158,11 +156,7 @@ async def update_api_key_last_used(
         db: Database session.
         api_key_id: API key ID.
     """
-    await db.execute(
-        update(APIKey)
-        .where(APIKey.id == api_key_id)
-        .values(last_used_at=func.now())
-    )
+    await db.execute(update(APIKey).where(APIKey.id == api_key_id).values(last_used_at=func.now()))
 
 
 async def revoke_api_key(
@@ -281,9 +275,7 @@ async def list_webhooks(
         List of webhooks.
     """
     result = await db.execute(
-        select(Webhook)
-        .where(Webhook.organization_id == org_id)
-        .order_by(Webhook.created_at.desc())
+        select(Webhook).where(Webhook.organization_id == org_id).order_by(Webhook.created_at.desc())
     )
     return list(result.scalars().all())
 
@@ -443,9 +435,7 @@ async def record_webhook_failure(
     Returns:
         New failure count.
     """
-    result = await db.execute(
-        select(Webhook.failure_count).where(Webhook.id == webhook_id)
-    )
+    result = await db.execute(select(Webhook.failure_count).where(Webhook.id == webhook_id))
     current_count = result.scalar_one_or_none() or 0
     new_count = current_count + 1
 
@@ -455,11 +445,7 @@ async def record_webhook_failure(
     if new_count >= 10:
         update_values["is_active"] = False
 
-    await db.execute(
-        update(Webhook)
-        .where(Webhook.id == webhook_id)
-        .values(**update_values)
-    )
+    await db.execute(update(Webhook).where(Webhook.id == webhook_id).values(**update_values))
 
     return new_count
 

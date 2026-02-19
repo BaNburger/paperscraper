@@ -253,9 +253,8 @@ async def refresh_token(
 
     The old refresh token should be discarded after calling this endpoint.
     """
-    refresh_token_value = (
-        refresh_data.refresh_token
-        or request.cookies.get(settings.AUTH_REFRESH_COOKIE_NAME)
+    refresh_token_value = refresh_data.refresh_token or request.cookies.get(
+        settings.AUTH_REFRESH_COOKIE_NAME
     )
     if not refresh_token_value:
         raise HTTPException(
@@ -612,9 +611,7 @@ async def list_invitations(
 
     Only admins can view invitations.
     """
-    invitations = await auth_service.list_pending_invitations(
-        current_user.organization_id
-    )
+    invitations = await auth_service.list_pending_invitations(current_user.organization_id)
     return [TeamInvitationResponse.model_validate(inv) for inv in invitations]
 
 
@@ -951,10 +948,7 @@ async def list_roles(
     from paper_scraper.core.permissions import ROLE_PERMISSIONS
 
     return {
-        "roles": {
-            role: [p.value for p in perms]
-            for role, perms in ROLE_PERMISSIONS.items()
-        },
+        "roles": {role: [p.value for p in perms] for role, perms in ROLE_PERMISSIONS.items()},
     }
 
 

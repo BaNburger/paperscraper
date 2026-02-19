@@ -77,6 +77,8 @@ jobs:
       DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test
       REDIS_URL: redis://localhost:6379
       SECRET_KEY: test-secret-key-for-ci-only
+      JWT_SECRET_KEY: a]3Fk9$mP2xR7vQ4wL8nZ1bY6cH0jT5gS
+      APP_ENV: test
       ENVIRONMENT: test
     steps:
       - uses: actions/checkout@v4

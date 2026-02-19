@@ -232,23 +232,27 @@ class TestGetUserStats:
         not all papers in the org."""
         # user_a imports 3 papers
         for i in range(3):
-            db_session.add(Paper(
-                title=f"Paper by user_a #{i}",
-                abstract=f"Abstract {i}",
-                source="openalex",
-                organization_id=org_a.id,
-                created_by_id=user_a.id,
-            ))
+            db_session.add(
+                Paper(
+                    title=f"Paper by user_a #{i}",
+                    abstract=f"Abstract {i}",
+                    source="openalex",
+                    organization_id=org_a.id,
+                    created_by_id=user_a.id,
+                )
+            )
 
         # user_a2 imports 2 papers in the same org
         for i in range(2):
-            db_session.add(Paper(
-                title=f"Paper by user_a2 #{i}",
-                abstract=f"Abstract {i}",
-                source="openalex",
-                organization_id=org_a.id,
-                created_by_id=user_a2.id,
-            ))
+            db_session.add(
+                Paper(
+                    title=f"Paper by user_a2 #{i}",
+                    abstract=f"Abstract {i}",
+                    source="openalex",
+                    organization_id=org_a.id,
+                    created_by_id=user_a2.id,
+                )
+            )
         await db_session.flush()
 
         service = BadgeService(db_session)
@@ -333,22 +337,26 @@ class TestGetUserStats:
         """searches_performed should count only the specific user's searches."""
         # user_a: 4 searches
         for i in range(4):
-            db_session.add(SearchActivity(
-                user_id=user_a.id,
-                organization_id=org_a.id,
-                query=f"user_a query {i}",
-                mode="fulltext",
-                results_count=0,
-            ))
+            db_session.add(
+                SearchActivity(
+                    user_id=user_a.id,
+                    organization_id=org_a.id,
+                    query=f"user_a query {i}",
+                    mode="fulltext",
+                    results_count=0,
+                )
+            )
         # user_a2: 2 searches
         for i in range(2):
-            db_session.add(SearchActivity(
-                user_id=user_a2.id,
-                organization_id=org_a.id,
-                query=f"user_a2 query {i}",
-                mode="hybrid",
-                results_count=0,
-            ))
+            db_session.add(
+                SearchActivity(
+                    user_id=user_a2.id,
+                    organization_id=org_a.id,
+                    query=f"user_a2 query {i}",
+                    mode="hybrid",
+                    results_count=0,
+                )
+            )
         await db_session.flush()
 
         service = BadgeService(db_session)
@@ -368,10 +376,12 @@ class TestGetUserStats:
     ) -> None:
         """projects_created counts projects in the user's organization."""
         for i in range(2):
-            db_session.add(Project(
-                organization_id=org_a.id,
-                name=f"Project {i}",
-            ))
+            db_session.add(
+                Project(
+                    organization_id=org_a.id,
+                    name=f"Project {i}",
+                )
+            )
         await db_session.flush()
 
         service = BadgeService(db_session)
@@ -399,19 +409,23 @@ class TestGetUserStats:
 
         # user_a: 3 notes
         for i in range(3):
-            db_session.add(PaperNote(
+            db_session.add(
+                PaperNote(
+                    organization_id=org_a.id,
+                    paper_id=paper.id,
+                    user_id=user_a.id,
+                    content=f"Note {i} by user_a",
+                )
+            )
+        # user_a2: 1 note
+        db_session.add(
+            PaperNote(
                 organization_id=org_a.id,
                 paper_id=paper.id,
-                user_id=user_a.id,
-                content=f"Note {i} by user_a",
-            ))
-        # user_a2: 1 note
-        db_session.add(PaperNote(
-            organization_id=org_a.id,
-            paper_id=paper.id,
-            user_id=user_a2.id,
-            content="Note by user_a2",
-        ))
+                user_id=user_a2.id,
+                content="Note by user_a2",
+            )
+        )
         await db_session.flush()
 
         service = BadgeService(db_session)
@@ -542,22 +556,26 @@ class TestGetUserStats:
         """Stats for user_a should not include data from org_b."""
         # Create papers in org_b
         for i in range(5):
-            db_session.add(Paper(
-                title=f"Org B paper {i}",
-                abstract="Abstract",
-                source="openalex",
-                organization_id=org_b.id,
-                created_by_id=user_b.id,
-            ))
+            db_session.add(
+                Paper(
+                    title=f"Org B paper {i}",
+                    abstract="Abstract",
+                    source="openalex",
+                    organization_id=org_b.id,
+                    created_by_id=user_b.id,
+                )
+            )
         # Create searches in org_b
         for i in range(3):
-            db_session.add(SearchActivity(
-                user_id=user_b.id,
-                organization_id=org_b.id,
-                query=f"org_b query {i}",
-                mode="fulltext",
-                results_count=0,
-            ))
+            db_session.add(
+                SearchActivity(
+                    user_id=user_b.id,
+                    organization_id=org_b.id,
+                    query=f"org_b query {i}",
+                    mode="fulltext",
+                    results_count=0,
+                )
+            )
         await db_session.flush()
 
         service = BadgeService(db_session)
@@ -588,30 +606,34 @@ class TestListBadges:
         await service.seed_badges()
 
         # Add custom badges for both orgs
-        db_session.add(Badge(
-            name="Custom A",
-            description="For org A",
-            icon="a",
-            category=BadgeCategory.MILESTONE,
-            tier=BadgeTier.BRONZE,
-            criteria={"action": "a", "count": 1},
-            threshold=1,
-            points=5,
-            organization_id=org_a.id,
-            is_custom=True,
-        ))
-        db_session.add(Badge(
-            name="Custom B",
-            description="For org B",
-            icon="b",
-            category=BadgeCategory.MILESTONE,
-            tier=BadgeTier.BRONZE,
-            criteria={"action": "b", "count": 1},
-            threshold=1,
-            points=5,
-            organization_id=org_b.id,
-            is_custom=True,
-        ))
+        db_session.add(
+            Badge(
+                name="Custom A",
+                description="For org A",
+                icon="a",
+                category=BadgeCategory.MILESTONE,
+                tier=BadgeTier.BRONZE,
+                criteria={"action": "a", "count": 1},
+                threshold=1,
+                points=5,
+                organization_id=org_a.id,
+                is_custom=True,
+            )
+        )
+        db_session.add(
+            Badge(
+                name="Custom B",
+                description="For org B",
+                icon="b",
+                category=BadgeCategory.MILESTONE,
+                tier=BadgeTier.BRONZE,
+                criteria={"action": "b", "count": 1},
+                threshold=1,
+                points=5,
+                organization_id=org_b.id,
+                is_custom=True,
+            )
+        )
         await db_session.flush()
 
         result = await service.list_badges(organization_id=None)
@@ -633,30 +655,34 @@ class TestListBadges:
         service = BadgeService(db_session)
         await service.seed_badges()
 
-        db_session.add(Badge(
-            name="Org A Exclusive",
-            description="Only for A",
-            icon="a",
-            category=BadgeCategory.IMPORT,
-            tier=BadgeTier.SILVER,
-            criteria={"action": "a", "count": 1},
-            threshold=1,
-            points=20,
-            organization_id=org_a.id,
-            is_custom=True,
-        ))
-        db_session.add(Badge(
-            name="Org B Exclusive",
-            description="Only for B",
-            icon="b",
-            category=BadgeCategory.IMPORT,
-            tier=BadgeTier.SILVER,
-            criteria={"action": "b", "count": 1},
-            threshold=1,
-            points=20,
-            organization_id=org_b.id,
-            is_custom=True,
-        ))
+        db_session.add(
+            Badge(
+                name="Org A Exclusive",
+                description="Only for A",
+                icon="a",
+                category=BadgeCategory.IMPORT,
+                tier=BadgeTier.SILVER,
+                criteria={"action": "a", "count": 1},
+                threshold=1,
+                points=20,
+                organization_id=org_a.id,
+                is_custom=True,
+            )
+        )
+        db_session.add(
+            Badge(
+                name="Org B Exclusive",
+                description="Only for B",
+                icon="b",
+                category=BadgeCategory.IMPORT,
+                tier=BadgeTier.SILVER,
+                criteria={"action": "b", "count": 1},
+                threshold=1,
+                points=20,
+                organization_id=org_b.id,
+                is_custom=True,
+            )
+        )
         await db_session.flush()
 
         result = await service.list_badges(organization_id=org_a.id)
@@ -709,13 +735,15 @@ class TestCheckAndAwardBadges:
     ) -> None:
         """User with 1 imported paper should earn the 'First Import' badge."""
         # Arrange: user_a imports a paper
-        db_session.add(Paper(
-            title="First paper",
-            abstract="Abstract",
-            source="openalex",
-            organization_id=org_a.id,
-            created_by_id=user_a.id,
-        ))
+        db_session.add(
+            Paper(
+                title="First paper",
+                abstract="Abstract",
+                source="openalex",
+                organization_id=org_a.id,
+                created_by_id=user_a.id,
+            )
+        )
         await db_session.flush()
 
         service = BadgeService(db_session)
@@ -733,13 +761,15 @@ class TestCheckAndAwardBadges:
     ) -> None:
         """A badge already earned should not be awarded again."""
         # Arrange: user_a imports a paper
-        db_session.add(Paper(
-            title="Paper",
-            abstract="Abstract",
-            source="openalex",
-            organization_id=org_a.id,
-            created_by_id=user_a.id,
-        ))
+        db_session.add(
+            Paper(
+                title="Paper",
+                abstract="Abstract",
+                source="openalex",
+                organization_id=org_a.id,
+                created_by_id=user_a.id,
+            )
+        )
         await db_session.flush()
 
         service = BadgeService(db_session)
@@ -779,26 +809,32 @@ class TestCheckAndAwardBadges:
     ) -> None:
         """If a user meets thresholds for multiple badges, all should be awarded."""
         # Import 1 paper (triggers First Import)
-        db_session.add(Paper(
-            title="Paper 1",
-            abstract="Abstract",
-            source="openalex",
-            organization_id=org_a.id,
-            created_by_id=user_a.id,
-        ))
+        db_session.add(
+            Paper(
+                title="Paper 1",
+                abstract="Abstract",
+                source="openalex",
+                organization_id=org_a.id,
+                created_by_id=user_a.id,
+            )
+        )
         # Add 1 search (triggers Explorer)
-        db_session.add(SearchActivity(
-            user_id=user_a.id,
-            organization_id=org_a.id,
-            query="test search",
-            mode="fulltext",
-            results_count=5,
-        ))
+        db_session.add(
+            SearchActivity(
+                user_id=user_a.id,
+                organization_id=org_a.id,
+                query="test search",
+                mode="fulltext",
+                results_count=5,
+            )
+        )
         # Add 1 project (triggers Project Starter)
-        db_session.add(Project(
-            organization_id=org_a.id,
-            name="Test Project",
-        ))
+        db_session.add(
+            Project(
+                organization_id=org_a.id,
+                name="Test Project",
+            )
+        )
         await db_session.flush()
 
         service = BadgeService(db_session)
@@ -839,13 +875,15 @@ class TestCheckAndAwardBadges:
         await db_session.flush()
 
         # user_a imports a paper (meets threshold)
-        db_session.add(Paper(
-            title="Paper for user_a",
-            abstract="Abstract",
-            source="openalex",
-            organization_id=org_a.id,
-            created_by_id=user_a.id,
-        ))
+        db_session.add(
+            Paper(
+                title="Paper for user_a",
+                abstract="Abstract",
+                source="openalex",
+                organization_id=org_a.id,
+                created_by_id=user_a.id,
+            )
+        )
         await db_session.flush()
 
         newly_awarded = await service.check_and_award_badges(user_a.id, org_a.id)
@@ -883,13 +921,15 @@ class TestCheckAndAwardBadges:
         await db_session.flush()
 
         # user_a imports a paper
-        db_session.add(Paper(
-            title="Paper",
-            abstract="Abstract",
-            source="openalex",
-            organization_id=org_a.id,
-            created_by_id=user_a.id,
-        ))
+        db_session.add(
+            Paper(
+                title="Paper",
+                abstract="Abstract",
+                source="openalex",
+                organization_id=org_a.id,
+                created_by_id=user_a.id,
+            )
+        )
         await db_session.flush()
 
         newly_awarded = await service.check_and_award_badges(user_a.id, org_a.id)
@@ -905,21 +945,21 @@ class TestCheckAndAwardBadges:
         org_a: Organization,
     ) -> None:
         """Awarded badges should create UserBadge records in the database."""
-        db_session.add(Paper(
-            title="Paper",
-            abstract="Abstract",
-            source="openalex",
-            organization_id=org_a.id,
-            created_by_id=user_a.id,
-        ))
+        db_session.add(
+            Paper(
+                title="Paper",
+                abstract="Abstract",
+                source="openalex",
+                organization_id=org_a.id,
+                created_by_id=user_a.id,
+            )
+        )
         await db_session.flush()
 
         service = BadgeService(db_session)
         await service.check_and_award_badges(user_a.id, org_a.id)
 
-        result = await db_session.execute(
-            select(UserBadge).where(UserBadge.user_id == user_a.id)
-        )
+        result = await db_session.execute(select(UserBadge).where(UserBadge.user_id == user_a.id))
         user_badges = list(result.scalars().all())
 
         assert len(user_badges) > 0
@@ -941,13 +981,15 @@ class TestCheckAndAwardBadges:
 
         # Create 25 search activities
         for i in range(25):
-            db_session.add(SearchActivity(
-                user_id=user_a.id,
-                organization_id=org_a.id,
-                query=f"query {i}",
-                mode="hybrid",
-                results_count=i,
-            ))
+            db_session.add(
+                SearchActivity(
+                    user_id=user_a.id,
+                    organization_id=org_a.id,
+                    query=f"query {i}",
+                    mode="hybrid",
+                    results_count=i,
+                )
+            )
         await db_session.flush()
 
         newly_awarded = await service.check_and_award_badges(user_a.id, org_a.id)
@@ -999,11 +1041,13 @@ class TestGetUserBadges:
         db_session.add(badge)
         await db_session.flush()
 
-        db_session.add(UserBadge(
-            user_id=user_a.id,
-            badge_id=badge.id,
-            progress=5,
-        ))
+        db_session.add(
+            UserBadge(
+                user_id=user_a.id,
+                badge_id=badge.id,
+                progress=5,
+            )
+        )
         await db_session.flush()
 
         service = BadgeService(db_session)
@@ -1045,11 +1089,13 @@ class TestBadgeTenantIsolation:
         db_session.add(badge)
         await db_session.flush()
 
-        db_session.add(UserBadge(
-            user_id=user_a.id,
-            badge_id=badge.id,
-            progress=1,
-        ))
+        db_session.add(
+            UserBadge(
+                user_id=user_a.id,
+                badge_id=badge.id,
+                progress=1,
+            )
+        )
         await db_session.flush()
 
         service = BadgeService(db_session)
@@ -1072,13 +1118,15 @@ class TestBadgeTenantIsolation:
         """Stats for one org should not leak into another org's stats."""
         # user_b creates papers in org_b
         for i in range(10):
-            db_session.add(Paper(
-                title=f"Org B paper {i}",
-                abstract="Abstract",
-                source="openalex",
-                organization_id=org_b.id,
-                created_by_id=user_b.id,
-            ))
+            db_session.add(
+                Paper(
+                    title=f"Org B paper {i}",
+                    abstract="Abstract",
+                    source="openalex",
+                    organization_id=org_b.id,
+                    created_by_id=user_b.id,
+                )
+            )
         await db_session.flush()
 
         service = BadgeService(db_session)

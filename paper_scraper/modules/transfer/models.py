@@ -133,9 +133,7 @@ class ConversationMessage(Base):
     )
 
     # Relationships
-    conversation: Mapped["TransferConversation"] = relationship(
-        back_populates="messages"
-    )
+    conversation: Mapped["TransferConversation"] = relationship(back_populates="messages")
     sender: Mapped["User | None"] = relationship("User")
 
     __table_args__ = (
@@ -167,9 +165,7 @@ class ConversationResource(Base):
     )
 
     # Relationships
-    conversation: Mapped["TransferConversation"] = relationship(
-        back_populates="resources"
-    )
+    conversation: Mapped["TransferConversation"] = relationship(back_populates="resources")
 
     def __repr__(self) -> str:
         return f"<ConversationResource {self.name}>"
@@ -198,9 +194,7 @@ class StageChange(Base):
     )
 
     # Relationships
-    conversation: Mapped["TransferConversation"] = relationship(
-        back_populates="stage_history"
-    )
+    conversation: Mapped["TransferConversation"] = relationship(back_populates="stage_history")
     changed_by_user: Mapped["User | None"] = relationship("User")
 
     def __repr__(self) -> str:
@@ -222,9 +216,7 @@ class MessageTemplate(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     subject: Mapped[str | None] = mapped_column(String(500), nullable=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    stage: Mapped[TransferStage | None] = mapped_column(
-        TRANSFER_STAGE_ENUM, nullable=True
-    )
+    stage: Mapped[TransferStage | None] = mapped_column(TRANSFER_STAGE_ENUM, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -232,9 +224,7 @@ class MessageTemplate(Base):
     # Relationships
     organization: Mapped["Organization"] = relationship("Organization")
 
-    __table_args__ = (
-        Index("ix_message_templates_org_stage", "organization_id", "stage"),
-    )
+    __table_args__ = (Index("ix_message_templates_org_stage", "organization_id", "stage"),)
 
     def __repr__(self) -> str:
         return f"<MessageTemplate {self.name}>"

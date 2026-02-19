@@ -77,9 +77,7 @@ class TestPitchGenerator:
         import uuid
 
         fake_paper_id = str(uuid.uuid4())
-        response = await authenticated_client.post(
-            f"/api/v1/papers/{fake_paper_id}/generate-pitch"
-        )
+        response = await authenticated_client.post(f"/api/v1/papers/{fake_paper_id}/generate-pitch")
         # Should return 404 for non-existent paper
         assert response.status_code == 404
 

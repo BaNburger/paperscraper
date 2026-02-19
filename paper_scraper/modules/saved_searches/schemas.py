@@ -33,12 +33,18 @@ class SavedSearchCreate(BaseModel):
     """Schema for creating a saved search."""
 
     name: str = Field(..., min_length=1, max_length=255, description="Name of the saved search")
-    description: str | None = Field(default=None, max_length=1000, description="Optional description")
+    description: str | None = Field(
+        default=None, max_length=1000, description="Optional description"
+    )
     query: str = Field(..., min_length=1, max_length=1000, description="Search query text")
     mode: SearchMode = Field(default=SearchMode.HYBRID, description="Search mode")
     filters: SearchFilters | None = Field(default=None, description="Search filters")
-    is_public: bool = Field(default=False, description="Whether search is visible to all org members")
-    alert_enabled: bool = Field(default=False, description="Whether to receive alerts for new matches")
+    is_public: bool = Field(
+        default=False, description="Whether search is visible to all org members"
+    )
+    alert_enabled: bool = Field(
+        default=False, description="Whether to receive alerts for new matches"
+    )
     alert_frequency: AlertFrequency | None = Field(
         default=None, description="How often to send alerts"
     )

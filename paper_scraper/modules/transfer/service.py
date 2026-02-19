@@ -103,9 +103,8 @@ class TransferService:
             .label("res_count")
         )
 
-        query = (
-            select(TransferConversation, msg_count_sq, res_count_sq)
-            .where(TransferConversation.organization_id == organization_id)
+        query = select(TransferConversation, msg_count_sq, res_count_sq).where(
+            TransferConversation.organization_id == organization_id
         )
 
         if stage:
@@ -201,10 +200,7 @@ class TransferService:
             .where(ConversationResource.conversation_id == conversation_id)
             .order_by(ConversationResource.created_at.desc())
         )
-        resources = [
-            ResourceResponse.model_validate(r)
-            for r in resources_result.scalars().all()
-        ]
+        resources = [ResourceResponse.model_validate(r) for r in resources_result.scalars().all()]
 
         # Load stage history with user info
         history_result = await self.db.execute(
@@ -222,9 +218,7 @@ class TransferService:
                 changed_by=sc.changed_by,
                 notes=sc.notes,
                 changed_at=sc.changed_at,
-                changed_by_name=(
-                    sc.changed_by_user.full_name if sc.changed_by_user else None
-                ),
+                changed_by_name=(sc.changed_by_user.full_name if sc.changed_by_user else None),
             )
             for sc in history_result.scalars().all()
         ]
@@ -306,9 +300,7 @@ class TransferService:
 
         old_stage = conv.stage
         if old_stage == data.stage:
-            raise ValidationError(
-                f"Conversation is already in stage '{data.stage.value}'"
-            )
+            raise ValidationError(f"Conversation is already in stage '{data.stage.value}'")
 
         # Record stage change
         stage_change = StageChange(
@@ -452,17 +444,13 @@ class TransferService:
         stage: TransferStage | None = None,
     ) -> list[TemplateResponse]:
         """List message templates for an organization."""
-        query = select(MessageTemplate).where(
-            MessageTemplate.organization_id == organization_id
-        )
+        query = select(MessageTemplate).where(MessageTemplate.organization_id == organization_id)
         if stage:
             query = query.where(MessageTemplate.stage == stage)
 
         query = query.order_by(MessageTemplate.name)
         result = await self.db.execute(query)
-        return [
-            TemplateResponse.model_validate(t) for t in result.scalars().all()
-        ]
+        return [TemplateResponse.model_validate(t) for t in result.scalars().all()]
 
     async def get_template(
         self,
@@ -593,10 +581,7 @@ class TransferService:
             ]
 
             # Build template data for prompt
-            template_data = [
-                {"name": t.name, "subject": t.subject}
-                for t in templates
-            ]
+            template_data = [{"name": t.name, "subject": t.subject} for t in templates]
 
             # Render enhanced prompt
             template = _jinja_env.get_template("transfer_next_steps.jinja2")
@@ -605,11 +590,25 @@ class TransferService:
                 type=detail.type.value,
                 stage=detail.stage.value,
                 days_in_stage=days_in_stage,
-                paper_title=sanitize_text_for_prompt(paper_context.get("title"), max_length=200) if paper_context else None,
-                paper_abstract=sanitize_text_for_prompt(paper_context.get("abstract"), max_length=500) if paper_context else None,
-                researcher_name=sanitize_text_for_prompt(researcher_context.get("name"), max_length=100) if researcher_context else None,
-                researcher_affiliations=researcher_context.get("affiliations") if researcher_context else None,
-                researcher_h_index=researcher_context.get("h_index") if researcher_context else None,
+                paper_title=sanitize_text_for_prompt(paper_context.get("title"), max_length=200)
+                if paper_context
+                else None,
+                paper_abstract=sanitize_text_for_prompt(
+                    paper_context.get("abstract"), max_length=500
+                )
+                if paper_context
+                else None,
+                researcher_name=sanitize_text_for_prompt(
+                    researcher_context.get("name"), max_length=100
+                )
+                if researcher_context
+                else None,
+                researcher_affiliations=researcher_context.get("affiliations")
+                if researcher_context
+                else None,
+                researcher_h_index=researcher_context.get("h_index")
+                if researcher_context
+                else None,
                 messages=messages_data,
                 stage_history=stage_history_data,
                 available_templates=template_data,
@@ -672,8 +671,9 @@ class TransferService:
             return None
 
         result = await self.db.execute(
-            select(Author.name, Author.affiliations, Author.h_index)
-            .where(Author.id == researcher_id)
+            select(Author.name, Author.affiliations, Author.h_index).where(
+                Author.id == researcher_id
+            )
         )
         row = result.first()
         if row:
@@ -691,24 +691,18 @@ class TransferService:
     async def count_messages(self, conversation_id: UUID) -> int:
         """Count messages in a conversation."""
         result = await self.db.execute(
-            select(func.count()).where(
-                ConversationMessage.conversation_id == conversation_id
-            )
+            select(func.count()).where(ConversationMessage.conversation_id == conversation_id)
         )
         return result.scalar() or 0
 
     async def count_resources(self, conversation_id: UUID) -> int:
         """Count resources in a conversation."""
         result = await self.db.execute(
-            select(func.count()).where(
-                ConversationResource.conversation_id == conversation_id
-            )
+            select(func.count()).where(ConversationResource.conversation_id == conversation_id)
         )
         return result.scalar() or 0
 
-    def _get_fallback_next_steps(
-        self, detail: ConversationDetailResponse
-    ) -> NextStepsResponse:
+    def _get_fallback_next_steps(self, detail: ConversationDetailResponse) -> NextStepsResponse:
         """Generate fallback next steps when AI is unavailable."""
         stage = detail.stage
         steps: list[NextStep] = []

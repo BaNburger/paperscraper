@@ -42,9 +42,7 @@ class GroupService:
 
     async def get_member_count(self, group_id: UUID) -> int:
         """Get the number of members in a group."""
-        result = await self.db.execute(
-            select(func.count()).where(GroupMember.group_id == group_id)
-        )
+        result = await self.db.execute(select(func.count()).where(GroupMember.group_id == group_id))
         return result.scalar() or 0
 
     async def list_groups(
@@ -113,17 +111,11 @@ class GroupService:
             page_size=page_size,
         )
 
-    async def get_group(
-        self, group_id: UUID, organization_id: UUID
-    ) -> ResearcherGroup:
+    async def get_group(self, group_id: UUID, organization_id: UUID) -> ResearcherGroup:
         """Get group with members."""
         result = await self.db.execute(
             select(ResearcherGroup)
-            .options(
-                selectinload(ResearcherGroup.members).selectinload(
-                    GroupMember.researcher
-                )
-            )
+            .options(selectinload(ResearcherGroup.members).selectinload(GroupMember.researcher))
             .where(
                 ResearcherGroup.id == group_id,
                 ResearcherGroup.organization_id == organization_id,
@@ -168,9 +160,7 @@ class GroupService:
         await self.db.refresh(group)
         return group
 
-    async def delete_group(
-        self, group_id: UUID, organization_id: UUID
-    ) -> None:
+    async def delete_group(self, group_id: UUID, organization_id: UUID) -> None:
         """Delete a group."""
         group = await self.get_group(group_id, organization_id)
         await self.db.delete(group)
@@ -284,7 +274,11 @@ class GroupService:
         # Find authors with similar research profiles using pgvector
         # Authors have 768d embeddings, but we generated 1536d - need to handle this
         # Truncate embedding to 768d and convert to list for pgvector compatibility
-        truncated_embedding = list(keywords_embedding[:768]) if len(keywords_embedding) > 768 else list(keywords_embedding)
+        truncated_embedding = (
+            list(keywords_embedding[:768])
+            if len(keywords_embedding) > 768
+            else list(keywords_embedding)
+        )
         query = (
             select(Author)
             .where(
@@ -305,17 +299,11 @@ class GroupService:
         # If we don't have enough authors with embeddings, supplement with others
         if len(authors_with_embeddings) < target_size:
             existing_ids = [a.id for a in authors_with_embeddings]
-            supplement_query = select(Author).where(
-                Author.organization_id == organization_id
-            )
+            supplement_query = select(Author).where(Author.organization_id == organization_id)
             # Only add notin_ filter if we have existing IDs to exclude
             if existing_ids:
-                supplement_query = supplement_query.where(
-                    Author.id.notin_(existing_ids)
-                )
-            supplement_query = supplement_query.limit(
-                target_size - len(authors_with_embeddings)
-            )
+                supplement_query = supplement_query.where(Author.id.notin_(existing_ids))
+            supplement_query = supplement_query.limit(target_size - len(authors_with_embeddings))
             supplement_result = await self.db.execute(supplement_query)
             authors_without_embeddings = list(supplement_result.scalars().all())
             all_authors = authors_with_embeddings + authors_without_embeddings
@@ -348,7 +336,7 @@ class GroupService:
         if use_llm_explanation and suggestions and group_name:
             suggestions = await self._enhance_suggestions_with_llm(
                 suggestions,
-                all_authors[:len(suggestions)],
+                all_authors[: len(suggestions)],
                 keywords,
                 group_name,
                 group_description,
@@ -430,8 +418,12 @@ class GroupService:
 
             # Sanitize user inputs before prompt rendering to prevent injection
             sanitized_group_name = sanitize_text_for_prompt(group_name, max_length=200)
-            sanitized_description = sanitize_text_for_prompt(group_description or "", max_length=500)
-            sanitized_keywords = [sanitize_text_for_prompt(k, max_length=100) for k in keywords[:10]]
+            sanitized_description = sanitize_text_for_prompt(
+                group_description or "", max_length=500
+            )
+            sanitized_keywords = [
+                sanitize_text_for_prompt(k, max_length=100) for k in keywords[:10]
+            ]
 
             # Render prompt template
             template = _jinja_env.get_template("suggest_members.jinja2")
@@ -467,7 +459,9 @@ class GroupService:
                             researcher_id=suggestion.researcher_id,
                             name=suggestion.name,
                             relevance_score=relevance_score,
-                            matching_keywords=llm_data.get("matching_keywords", suggestion.matching_keywords),
+                            matching_keywords=llm_data.get(
+                                "matching_keywords", suggestion.matching_keywords
+                            ),
                             affiliations=suggestion.affiliations,
                             explanation=llm_data.get("explanation"),
                         )
@@ -483,9 +477,7 @@ class GroupService:
             logger.warning(f"LLM enhancement failed: {e}")
             return suggestions
 
-    async def export_group(
-        self, group_id: UUID, organization_id: UUID
-    ) -> bytes:
+    async def export_group(self, group_id: UUID, organization_id: UUID) -> bytes:
         """Export group members as CSV."""
         group = await self.get_group(group_id, organization_id)
 

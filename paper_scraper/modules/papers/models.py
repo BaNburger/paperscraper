@@ -217,9 +217,7 @@ class Author(Base):
 
     # Relationships
     organization: Mapped["Organization"] = relationship("Organization")
-    papers: Mapped[list["PaperAuthor"]] = relationship(
-        "PaperAuthor", back_populates="author"
-    )
+    papers: Mapped[list["PaperAuthor"]] = relationship("PaperAuthor", back_populates="author")
     contacts: Mapped[list["AuthorContact"]] = relationship(
         "AuthorContact", back_populates="author", cascade="all, delete-orphan"
     )
@@ -267,9 +265,7 @@ class PaperAuthor(Base):
         Uuid, ForeignKey("authors.id", ondelete="CASCADE"), primary_key=True
     )
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    is_corresponding: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False
-    )
+    is_corresponding: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # Relationships
     paper: Mapped["Paper"] = relationship("Paper", back_populates="authors")

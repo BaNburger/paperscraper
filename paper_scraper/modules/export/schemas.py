@@ -24,9 +24,7 @@ class ExportRequest(BaseModel):
         description="Specific paper IDs to export. If None, exports all papers.",
     )
     format: ExportFormat = Field(default=ExportFormat.CSV)
-    include_scores: bool = Field(
-        default=True, description="Include scoring data in export"
-    )
+    include_scores: bool = Field(default=True, description="Include scoring data in export")
     include_authors: bool = Field(default=True, description="Include author data")
 
 

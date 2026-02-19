@@ -18,8 +18,8 @@ from paper_scraper.modules.discovery.schemas import (
     DiscoveryRunResponse,
     DiscoveryTriggerResponse,
 )
-from paper_scraper.modules.ingestion.pipeline import IngestionPipeline
 from paper_scraper.modules.ingestion.models import SourceRecord
+from paper_scraper.modules.ingestion.pipeline import IngestionPipeline
 from paper_scraper.modules.notifications.models import NotificationType
 from paper_scraper.modules.notifications.service import NotificationService
 from paper_scraper.modules.projects.service import ProjectService
@@ -74,18 +74,14 @@ class DiscoveryService:
                     import_sources=search.import_sources or [],
                     target_project_id=search.target_project_id,
                     target_project_name=(
-                        search.target_project.name
-                        if search.target_project
-                        else None
+                        search.target_project.name if search.target_project else None
                     ),
                     discovery_frequency=search.discovery_frequency,
                     max_import_per_run=search.max_import_per_run,
                     last_discovery_at=search.last_discovery_at,
                     auto_import_enabled=search.auto_import_enabled,
                     created_at=search.created_at,
-                    last_run_status=(
-                        latest_run.status.value if latest_run else None
-                    ),
+                    last_run_status=(latest_run.status.value if latest_run else None),
                     total_papers_imported=import_totals.get(search.id, 0),
                 )
             )
@@ -164,9 +160,7 @@ class DiscoveryService:
         except Exception as exc:
             logger.warning("Failed to send discovery notification: %s", exc)
 
-        run_responses = [
-            DiscoveryRunResponse.model_validate(r) for r in runs
-        ]
+        run_responses = [DiscoveryRunResponse.model_validate(r) for r in runs]
         return DiscoveryTriggerResponse(
             saved_search_id=saved_search_id,
             runs=run_responses,
@@ -313,9 +307,7 @@ class DiscoveryService:
             DiscoveryRun.organization_id == organization_id,
         ]
 
-        count_query = (
-            select(func.count()).select_from(DiscoveryRun).where(*conditions)
-        )
+        count_query = select(func.count()).select_from(DiscoveryRun).where(*conditions)
         total = (await self.db.execute(count_query)).scalar() or 0
 
         query = (
@@ -393,9 +385,7 @@ class DiscoveryService:
                 processed += 1
                 succeeded += 1
             except Exception as exc:
-                logger.exception(
-                    "Failed to process discovery profile %s: %s", search.id, exc
-                )
+                logger.exception("Failed to process discovery profile %s: %s", search.id, exc)
                 processed += 1
                 failed += 1
 
@@ -438,11 +428,7 @@ class DiscoveryService:
             .subquery()
         )
 
-        query = (
-            select(DiscoveryRun)
-            .join(subq, DiscoveryRun.id == subq.c.id)
-            .where(subq.c.rn == 1)
-        )
+        query = select(DiscoveryRun).join(subq, DiscoveryRun.id == subq.c.id).where(subq.c.rn == 1)
         result = await self.db.execute(query)
         runs = result.scalars().all()
         return {r.saved_search_id: r for r in runs}

@@ -133,9 +133,7 @@ class EnrichmentRequest(BaseModel):
         default="openalex",
         description="Data source for enrichment (openalex, orcid, semantic_scholar)",
     )
-    force_update: bool = Field(
-        default=False, description="Update even if data already exists"
-    )
+    force_update: bool = Field(default=False, description="Update even if data already exists")
 
 
 class EnrichmentResult(BaseModel):

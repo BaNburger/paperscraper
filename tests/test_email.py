@@ -92,9 +92,7 @@ class TestSendEmail:
             mock_client.post.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_send_email_with_text_content(
-        self, email_service, mock_httpx_response_success
-    ):
+    async def test_send_email_with_text_content(self, email_service, mock_httpx_response_success):
         """Test email with both HTML and text content."""
         email_service.api_key = "test_api_key"
 
@@ -445,9 +443,7 @@ class TestEmailServiceIntegration:
             assert "verify_token_abc123" in payload["html"]
 
     @pytest.mark.asyncio
-    async def test_full_password_reset_flow(
-        self, email_service, mock_httpx_response_success
-    ):
+    async def test_full_password_reset_flow(self, email_service, mock_httpx_response_success):
         """Test complete password reset email flow."""
         email_service.api_key = "test_api_key"
         email_service.frontend_url = "http://localhost:3000"

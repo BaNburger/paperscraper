@@ -26,9 +26,7 @@ from paper_scraper.modules.authors.service import AuthorService
 router = APIRouter()
 
 
-def get_author_service(
-    db: Annotated[AsyncSession, Depends(get_db)]
-) -> AuthorService:
+def get_author_service(db: Annotated[AsyncSession, Depends(get_db)]) -> AuthorService:
     """Dependency to get author service instance."""
     return AuthorService(db)
 

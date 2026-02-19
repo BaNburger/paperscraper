@@ -30,12 +30,16 @@ def upgrade() -> None:
         sa.Column("char_start", sa.Integer(), nullable=False),
         sa.Column("char_end", sa.Integer(), nullable=False),
         sa.Column("source", sa.String(length=50), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["paper_id"], ["papers.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_paper_text_chunks_organization_id", "paper_text_chunks", ["organization_id"])
+    op.create_index(
+        "ix_paper_text_chunks_organization_id", "paper_text_chunks", ["organization_id"]
+    )
     op.create_index("ix_paper_text_chunks_paper_id", "paper_text_chunks", ["paper_id"])
     op.create_index(
         "ix_paper_text_chunks_org_paper",

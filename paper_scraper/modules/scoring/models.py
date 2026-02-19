@@ -9,7 +9,6 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Index,
-    Integer,
     String,
     Text,
     Uuid,
@@ -104,9 +103,7 @@ class ScoringJob(Base):
     )
 
     # Job metadata
-    job_type: Mapped[str] = mapped_column(
-        String(50), nullable=False
-    )  # single, batch, rescore
+    job_type: Mapped[str] = mapped_column(String(50), nullable=False)  # single, batch, rescore
     status: Mapped[str] = mapped_column(
         String(50), nullable=False, default="pending"
     )  # pending, running, completed, failed
@@ -127,12 +124,8 @@ class ScoringJob(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    started_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    completed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     organization: Mapped["Organization"] = relationship("Organization")
@@ -174,13 +167,9 @@ class GlobalScoreCache(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    expires_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
-    __table_args__ = (
-        Index("ix_global_score_cache_expires", "expires_at"),
-    )
+    __table_args__ = (Index("ix_global_score_cache_expires", "expires_at"),)
 
     def __repr__(self) -> str:
         return f"<GlobalScoreCache doi={self.doi} overall={self.overall_score:.1f}>"

@@ -713,9 +713,7 @@ class TestTransferRouter:
         test_message: ConversationMessage,
     ):
         """Test getting conversation detail via API."""
-        response = await authenticated_client.get(
-            f"/api/v1/transfer/{test_conversation.id}"
-        )
+        response = await authenticated_client.get(f"/api/v1/transfer/{test_conversation.id}")
         assert response.status_code == 200
         data = response.json()
         assert data["id"] == str(test_conversation.id)
@@ -728,9 +726,7 @@ class TestTransferRouter:
         authenticated_client: AsyncClient,
     ):
         """Test getting nonexistent conversation returns 404."""
-        response = await authenticated_client.get(
-            f"/api/v1/transfer/{uuid4()}"
-        )
+        response = await authenticated_client.get(f"/api/v1/transfer/{uuid4()}")
         assert response.status_code == 404
 
     async def test_update_conversation_stage(
@@ -887,9 +883,7 @@ class TestTransferRouter:
         test_conversation: TransferConversation,
     ):
         """Test that conversation response has correct structure."""
-        response = await authenticated_client.get(
-            f"/api/v1/transfer/{test_conversation.id}"
-        )
+        response = await authenticated_client.get(f"/api/v1/transfer/{test_conversation.id}")
         assert response.status_code == 200
         data = response.json()
 

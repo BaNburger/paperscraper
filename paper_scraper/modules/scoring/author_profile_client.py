@@ -86,9 +86,7 @@ class AuthorProfile:
             "orcid_past_affiliations": (
                 self.orcid_data.past_affiliations[:3] if self.orcid_data else []
             ),
-            "orcid_funding_count": (
-                self.orcid_data.funding_count if self.orcid_data else None
-            ),
+            "orcid_funding_count": (self.orcid_data.funding_count if self.orcid_data else None),
             "orcid_peer_review_count": (
                 self.orcid_data.peer_review_count if self.orcid_data else None
             ),
@@ -234,9 +232,7 @@ async def _search_github_user(
                 except (TypeError, ValueError):
                     remaining_int = 0
                 if remaining_int < GITHUB_RATE_LIMIT_FLOOR:
-                    logger.warning(
-                        "GitHub rate limit low (%s remaining), skipping", remaining
-                    )
+                    logger.warning("GitHub rate limit low (%s remaining), skipping", remaining)
                     return None
 
             resp.raise_for_status()
@@ -326,9 +322,10 @@ def _pick_best_github_match(
             for item in items[:3]:
                 login = (item.get("login") or "").lower()
                 # Check patterns like "jsmith", "johnsmith", "smith_j"
-                if login and last_name in login and (
-                    first_initial == login[0]
-                    or author_lower.replace(" ", "") in login
+                if (
+                    login
+                    and last_name in login
+                    and (first_initial == login[0] or author_lower.replace(" ", "") in login)
                 ):
                     best = item
                     break
@@ -389,9 +386,7 @@ async def _fetch_orcid_profile(orcid: str) -> OrcidProfile | None:
 
     try:
         async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
-            resp = await client.get(
-                url, headers={"Accept": "application/json"}
-            )
+            resp = await client.get(url, headers={"Accept": "application/json"})
             resp.raise_for_status()
             data = resp.json()
 

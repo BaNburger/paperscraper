@@ -122,9 +122,7 @@ class TrendAnalyzer:
         query = (
             select(
                 Paper.id,
-                (1 - Paper.embedding.cosine_distance(topic.embedding)).label(
-                    "similarity"
-                ),
+                (1 - Paper.embedding.cosine_distance(topic.embedding)).label("similarity"),
             )
             .where(
                 Paper.organization_id == topic.organization_id,
@@ -146,9 +144,7 @@ class TrendAnalyzer:
     ) -> None:
         """Replace existing paper matches with new ones."""
         # Delete existing matches
-        await self.db.execute(
-            delete(TrendPaper).where(TrendPaper.trend_topic_id == topic_id)
-        )
+        await self.db.execute(delete(TrendPaper).where(TrendPaper.trend_topic_id == topic_id))
 
         # Insert new matches
         for paper_id, similarity in matched:
@@ -210,24 +206,12 @@ class TrendAnalyzer:
 
         return {
             "avg_novelty": round(float(row[0]), 2) if row[0] is not None else None,
-            "avg_ip_potential": round(float(row[1]), 2)
-            if row[1] is not None
-            else None,
-            "avg_marketability": round(float(row[2]), 2)
-            if row[2] is not None
-            else None,
-            "avg_feasibility": round(float(row[3]), 2)
-            if row[3] is not None
-            else None,
-            "avg_commercialization": round(float(row[4]), 2)
-            if row[4] is not None
-            else None,
-            "avg_team_readiness": round(float(row[5]), 2)
-            if row[5] is not None
-            else None,
-            "avg_overall_score": round(float(row[6]), 2)
-            if row[6] is not None
-            else None,
+            "avg_ip_potential": round(float(row[1]), 2) if row[1] is not None else None,
+            "avg_marketability": round(float(row[2]), 2) if row[2] is not None else None,
+            "avg_feasibility": round(float(row[3]), 2) if row[3] is not None else None,
+            "avg_commercialization": round(float(row[4]), 2) if row[4] is not None else None,
+            "avg_team_readiness": round(float(row[5]), 2) if row[5] is not None else None,
+            "avg_overall_score": round(float(row[6]), 2) if row[6] is not None else None,
         }
 
     async def _search_patents(self, topic_name: str) -> list[dict]:

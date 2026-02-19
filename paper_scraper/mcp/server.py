@@ -170,7 +170,9 @@ async def get_paper_details(
             "doi": paper.doi,
             "abstract": paper.abstract,
             "source": paper.source.value if hasattr(paper.source, "value") else str(paper.source),
-            "publication_date": paper.publication_date.isoformat() if paper.publication_date else None,
+            "publication_date": paper.publication_date.isoformat()
+            if paper.publication_date
+            else None,
             "created_at": paper.created_at.isoformat() if paper.created_at else None,
         }
 
@@ -429,7 +431,11 @@ def create_mcp_app():
                 "description": "Search the paper library using fulltext, semantic, or hybrid search.",
                 "parameters": {
                     "query": {"type": "string", "description": "Search query"},
-                    "mode": {"type": "string", "enum": ["fulltext", "semantic", "hybrid"], "default": "hybrid"},
+                    "mode": {
+                        "type": "string",
+                        "enum": ["fulltext", "semantic", "hybrid"],
+                        "default": "hybrid",
+                    },
                     "limit": {"type": "integer", "default": 10, "maximum": 50},
                 },
                 "handler": search_papers,

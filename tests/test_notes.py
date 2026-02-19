@@ -453,9 +453,7 @@ class TestNotesRouter:
         test_note: PaperNote,
     ):
         """Test listing notes via API."""
-        response = await authenticated_client.get(
-            f"/api/v1/papers/{test_paper.id}/notes"
-        )
+        response = await authenticated_client.get(f"/api/v1/papers/{test_paper.id}/notes")
 
         assert response.status_code == 200
         data = response.json()

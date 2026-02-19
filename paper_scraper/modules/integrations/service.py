@@ -246,9 +246,7 @@ class IntegrationService:
                 select(ZoteroItemLink).where(ZoteroItemLink.organization_id == organization_id)
             )
             links = list(link_result.scalars().all())
-            active_link_by_paper = {
-                link.paper_id: link for link in links if link.is_active
-            }
+            active_link_by_paper = {link.paper_id: link for link in links if link.is_active}
 
             stats = {
                 "total": len(papers),
@@ -287,7 +285,9 @@ class IntegrationService:
                         item_payload=payload,
                         zotero_item_key=local_link.zotero_item_key if local_link else None,
                     )
-                    item_key = response.get("item_key") or (local_link.zotero_item_key if local_link else None)
+                    item_key = response.get("item_key") or (
+                        local_link.zotero_item_key if local_link else None
+                    )
                     if not item_key:
                         raise ValidationError("Zotero API did not return an item key")
 
@@ -468,7 +468,11 @@ class IntegrationService:
 
             # Deletions in Zotero -> mark links inactive (do not delete local papers).
             for link in existing_links:
-                if link.zotero_item_key and link.zotero_item_key not in seen_item_keys and link.is_active:
+                if (
+                    link.zotero_item_key
+                    and link.zotero_item_key not in seen_item_keys
+                    and link.is_active
+                ):
                     link.is_active = False
                     stats["links_deactivated"] += 1
 
@@ -651,7 +655,9 @@ class IntegrationService:
                 continue
 
         # Fallback: extract YYYY[-MM[-DD]] from free-form Zotero values.
-        match = re.search(r"(?P<year>\d{4})(?:-(?P<month>\d{1,2}))?(?:-(?P<day>\d{1,2}))?", normalized)
+        match = re.search(
+            r"(?P<year>\d{4})(?:-(?P<month>\d{1,2}))?(?:-(?P<day>\d{1,2}))?", normalized
+        )
         if not match:
             return None
 

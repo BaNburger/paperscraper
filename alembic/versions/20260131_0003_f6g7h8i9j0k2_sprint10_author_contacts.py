@@ -90,18 +90,10 @@ def upgrade() -> None:
             nullable=False,
         ),
         # Foreign keys
-        sa.ForeignKeyConstraint(
-            ["author_id"], ["authors.id"], ondelete="CASCADE"
-        ),
-        sa.ForeignKeyConstraint(
-            ["organization_id"], ["organizations.id"], ondelete="CASCADE"
-        ),
-        sa.ForeignKeyConstraint(
-            ["contacted_by_id"], ["users.id"], ondelete="SET NULL"
-        ),
-        sa.ForeignKeyConstraint(
-            ["paper_id"], ["papers.id"], ondelete="SET NULL"
-        ),
+        sa.ForeignKeyConstraint(["author_id"], ["authors.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["contacted_by_id"], ["users.id"], ondelete="SET NULL"),
+        sa.ForeignKeyConstraint(["paper_id"], ["papers.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
     )
 

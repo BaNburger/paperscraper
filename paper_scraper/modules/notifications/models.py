@@ -59,9 +59,7 @@ class Notification(Base):
     )  # ID of related resource
 
     # Extensible metadata
-    metadata_: Mapped[dict] = mapped_column(
-        "metadata", JSONB, nullable=False, default=dict
-    )
+    metadata_: Mapped[dict] = mapped_column("metadata", JSONB, nullable=False, default=dict)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(

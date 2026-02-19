@@ -93,11 +93,7 @@ class NotificationService:
             filter_conditions.append(Notification.is_read == False)  # noqa: E712
 
         # Count query (respects unread_only filter)
-        count_query = (
-            select(func.count())
-            .select_from(Notification)
-            .where(*filter_conditions)
-        )
+        count_query = select(func.count()).select_from(Notification).where(*filter_conditions)
         total = (await self.db.execute(count_query)).scalar() or 0
 
         # Unread count query (always unfiltered by unread_only)

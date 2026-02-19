@@ -49,4 +49,3 @@ def test_ci_workflow_contains_agent_lint_step() -> None:
     repo = Path(__file__).resolve().parents[2]
     ci = (repo / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     assert "python scripts/paperscraper_linters/run.py --repo . --mode ci --format text" in ci
-

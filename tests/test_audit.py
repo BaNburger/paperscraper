@@ -142,9 +142,7 @@ class TestAuditService:
         assert log.details == {"method": "password"}
 
         # Verify it's in the database
-        result = await db_session.execute(
-            select(AuditLog).where(AuditLog.id == log.id)
-        )
+        result = await db_session.execute(select(AuditLog).where(AuditLog.id == log.id))
         db_log = result.scalar_one()
         assert db_log.action == "login"
 
@@ -418,9 +416,7 @@ class TestAuditRouter:
         sample_audit_logs: list[AuditLog],
     ):
         """Test filtering audit logs by action."""
-        response = await authenticated_client.get(
-            "/api/v1/audit/", params={"action": "login"}
-        )
+        response = await authenticated_client.get("/api/v1/audit/", params={"action": "login"})
 
         assert response.status_code == 200
         data = response.json()
@@ -453,9 +449,7 @@ class TestAuditRouter:
         test_user: User,
     ):
         """Test that admins can view user activity."""
-        response = await authenticated_client.get(
-            f"/api/v1/audit/users/{test_user.id}"
-        )
+        response = await authenticated_client.get(f"/api/v1/audit/users/{test_user.id}")
 
         assert response.status_code == 200
         data = response.json()
@@ -483,9 +477,7 @@ class TestAuditRouter:
         test_user: User,
     ):
         """Test that non-admin users cannot view other user activity."""
-        response = await regular_user_client.get(
-            f"/api/v1/audit/users/{test_user.id}"
-        )
+        response = await regular_user_client.get(f"/api/v1/audit/users/{test_user.id}")
 
         assert response.status_code == 403
 
@@ -533,9 +525,7 @@ class TestAuditRouter:
         sample_audit_logs: list[AuditLog],
     ):
         """Test limiting own activity results."""
-        response = await authenticated_client.get(
-            "/api/v1/audit/my-activity", params={"limit": 2}
-        )
+        response = await authenticated_client.get("/api/v1/audit/my-activity", params={"limit": 2})
 
         assert response.status_code == 200
         data = response.json()

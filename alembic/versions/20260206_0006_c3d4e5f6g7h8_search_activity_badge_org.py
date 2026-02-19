@@ -35,12 +35,8 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
-        sa.ForeignKeyConstraint(
-            ["user_id"], ["users.id"], ondelete="CASCADE"
-        ),
-        sa.ForeignKeyConstraint(
-            ["organization_id"], ["organizations.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
     # Composite indexes cover single-column lookups via leftmost prefix
@@ -76,14 +72,10 @@ def upgrade() -> None:
 
     # Replace global unique(name) with composite unique(name, organization_id)
     op.drop_constraint("badges_name_key", "badges", type_="unique")
-    op.create_unique_constraint(
-        "uq_badges_name_org", "badges", ["name", "organization_id"]
-    )
+    op.create_unique_constraint("uq_badges_name_org", "badges", ["name", "organization_id"])
 
     # Prevent duplicate badge awards
-    op.create_unique_constraint(
-        "uq_user_badges_user_badge", "user_badges", ["user_id", "badge_id"]
-    )
+    op.create_unique_constraint("uq_user_badges_user_badge", "user_badges", ["user_id", "badge_id"])
 
 
 def downgrade() -> None:

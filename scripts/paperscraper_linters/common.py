@@ -118,11 +118,7 @@ def _parse_key_value(chunk: str) -> tuple[str, str]:
     value = raw_value.strip()
     if not key:
         raise ValueError(f"Invalid allowlist key: {chunk}")
-    if (
-        len(value) >= 2
-        and value[0] in {"'", '"'}
-        and value[-1] == value[0]
-    ):
+    if len(value) >= 2 and value[0] in {"'", '"'} and value[-1] == value[0]:
         value = value[1:-1]
     return key, value
 

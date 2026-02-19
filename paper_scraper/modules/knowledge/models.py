@@ -63,18 +63,14 @@ class KnowledgeSource(Base):
         nullable=True,
         index=True,
     )
-    scope: Mapped[KnowledgeScope] = mapped_column(
-        KNOWLEDGE_SCOPE_ENUM, nullable=False
-    )
+    scope: Mapped[KnowledgeScope] = mapped_column(KNOWLEDGE_SCOPE_ENUM, nullable=False)
     type: Mapped[KnowledgeType] = mapped_column(
         KNOWLEDGE_TYPE_ENUM, nullable=False, default=KnowledgeType.CUSTOM
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     tags: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
-    metadata_: Mapped[dict] = mapped_column(
-        "metadata", JSONB, nullable=False, default=dict
-    )
+    metadata_: Mapped[dict] = mapped_column("metadata", JSONB, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

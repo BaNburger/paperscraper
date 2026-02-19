@@ -87,9 +87,7 @@ class PaperClassifier:
         # Validate response
         paper_type = response.get("paper_type", "OTHER")
         if paper_type not in PAPER_TYPES:
-            logger.warning(
-                f"Unknown paper type '{paper_type}' from LLM, defaulting to OTHER"
-            )
+            logger.warning(f"Unknown paper type '{paper_type}' from LLM, defaulting to OTHER")
             paper_type = "OTHER"
 
         confidence = response.get("confidence", 0.5)
@@ -133,10 +131,12 @@ class PaperClassifier:
                 results.append(result)
             except Exception as e:
                 logger.exception(f"Failed to classify paper {paper_id}: {e}")
-                errors.append({
-                    "paper_id": str(paper_id),
-                    "error": str(e),
-                })
+                errors.append(
+                    {
+                        "paper_id": str(paper_id),
+                        "error": str(e),
+                    }
+                )
 
         return {
             "total": len(paper_ids),

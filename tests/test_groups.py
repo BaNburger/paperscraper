@@ -159,9 +159,7 @@ class TestGroupService:
             keywords=["biotech", "genomics"],
         )
 
-        group = await group_service.create_group(
-            test_organization.id, test_user.id, data
-        )
+        group = await group_service.create_group(test_organization.id, test_user.id, data)
 
         assert group.id is not None
         assert group.name == "Biotech Group"
@@ -179,9 +177,7 @@ class TestGroupService:
         """Test creating a group with only required fields."""
         data = GroupCreate(name="Minimal Group")
 
-        group = await group_service.create_group(
-            test_organization.id, test_user.id, data
-        )
+        group = await group_service.create_group(test_organization.id, test_user.id, data)
 
         assert group.name == "Minimal Group"
         assert group.type == GroupType.CUSTOM
@@ -195,9 +191,7 @@ class TestGroupService:
         test_organization: Organization,
     ):
         """Test retrieving a group by ID."""
-        group = await group_service.get_group(
-            test_group.id, test_organization.id
-        )
+        group = await group_service.get_group(test_group.id, test_organization.id)
 
         assert group.id == test_group.id
         assert group.name == "AI Researchers"
@@ -219,9 +213,7 @@ class TestGroupService:
     ):
         """Test that group retrieval respects organization boundaries."""
         with pytest.raises(NotFoundError):
-            await group_service.get_group(
-                test_group.id, second_organization.id
-            )
+            await group_service.get_group(test_group.id, second_organization.id)
 
     async def test_list_groups(
         self,
@@ -230,9 +222,7 @@ class TestGroupService:
         test_organization: Organization,
     ):
         """Test listing groups with pagination."""
-        response = await group_service.list_groups(
-            test_organization.id, page=1, page_size=20
-        )
+        response = await group_service.list_groups(test_organization.id, page=1, page_size=20)
 
         assert response.total == 1
         assert len(response.items) == 1
@@ -244,9 +234,7 @@ class TestGroupService:
         test_organization: Organization,
     ):
         """Test listing groups when none exist."""
-        response = await group_service.list_groups(
-            test_organization.id, page=1, page_size=20
-        )
+        response = await group_service.list_groups(test_organization.id, page=1, page_size=20)
 
         assert response.total == 0
         assert len(response.items) == 0
@@ -258,9 +246,7 @@ class TestGroupService:
         second_organization: Organization,
     ):
         """Test that listing groups respects organization boundaries."""
-        response = await group_service.list_groups(
-            second_organization.id, page=1, page_size=20
-        )
+        response = await group_service.list_groups(second_organization.id, page=1, page_size=20)
 
         assert response.total == 0
         assert len(response.items) == 0
@@ -299,9 +285,7 @@ class TestGroupService:
             keywords=["AI", "NLP"],
         )
 
-        group = await group_service.update_group(
-            test_group.id, test_organization.id, data
-        )
+        group = await group_service.update_group(test_group.id, test_organization.id, data)
 
         assert group.name == "Updated AI Researchers"
         assert group.keywords == ["AI", "NLP"]
@@ -314,9 +298,7 @@ class TestGroupService:
     ):
         """Test that updating a non-existent group raises NotFoundError."""
         with pytest.raises(NotFoundError):
-            await group_service.update_group(
-                uuid4(), test_organization.id, GroupUpdate(name="X")
-            )
+            await group_service.update_group(uuid4(), test_organization.id, GroupUpdate(name="X"))
 
     async def test_update_group_tenant_isolation(
         self,
@@ -340,14 +322,10 @@ class TestGroupService:
         db_session: AsyncSession,
     ):
         """Test deleting a group."""
-        await group_service.delete_group(
-            test_group.id, test_organization.id
-        )
+        await group_service.delete_group(test_group.id, test_organization.id)
 
         result = await db_session.execute(
-            select(ResearcherGroup).where(
-                ResearcherGroup.id == test_group.id
-            )
+            select(ResearcherGroup).where(ResearcherGroup.id == test_group.id)
         )
         assert result.scalar_one_or_none() is None
 
@@ -368,9 +346,7 @@ class TestGroupService:
     ):
         """Test that delete respects organization boundaries."""
         with pytest.raises(NotFoundError):
-            await group_service.delete_group(
-                test_group.id, second_organization.id
-            )
+            await group_service.delete_group(test_group.id, second_organization.id)
 
     async def test_delete_group_cascades_members(
         self,
@@ -523,9 +499,7 @@ class TestGroupService:
     ):
         """Test that removing from a nonexistent group raises NotFoundError."""
         with pytest.raises(NotFoundError):
-            await group_service.remove_member(
-                uuid4(), test_organization.id, uuid4()
-            )
+            await group_service.remove_member(uuid4(), test_organization.id, uuid4())
 
     async def test_suggest_members(
         self,
@@ -563,9 +537,7 @@ class TestGroupService:
         test_organization: Organization,
     ):
         """Test exporting group members as CSV."""
-        csv_data = await group_service.export_group(
-            group_with_member.id, test_organization.id
-        )
+        csv_data = await group_service.export_group(group_with_member.id, test_organization.id)
 
         csv_str = csv_data.decode("utf-8")
         assert "Name" in csv_str
@@ -581,9 +553,7 @@ class TestGroupService:
         test_organization: Organization,
     ):
         """Test exporting a group with no members produces headers only."""
-        csv_data = await group_service.export_group(
-            test_group.id, test_organization.id
-        )
+        csv_data = await group_service.export_group(test_group.id, test_organization.id)
 
         csv_str = csv_data.decode("utf-8")
         lines = csv_str.strip().split("\n")
@@ -683,9 +653,7 @@ class TestGroupsRouter:
         test_group: ResearcherGroup,
     ):
         """Test filtering groups by type via API."""
-        response = await authenticated_client.get(
-            "/api/v1/groups/", params={"type": "custom"}
-        )
+        response = await authenticated_client.get("/api/v1/groups/", params={"type": "custom"})
 
         assert response.status_code == 200
         data = response.json()
@@ -697,9 +665,7 @@ class TestGroupsRouter:
         test_group: ResearcherGroup,
     ):
         """Test getting a group detail via API."""
-        response = await authenticated_client.get(
-            f"/api/v1/groups/{test_group.id}"
-        )
+        response = await authenticated_client.get(f"/api/v1/groups/{test_group.id}")
 
         assert response.status_code == 200
         data = response.json()
@@ -713,9 +679,7 @@ class TestGroupsRouter:
         authenticated_client: AsyncClient,
     ):
         """Test getting a non-existent group returns 404."""
-        response = await authenticated_client.get(
-            f"/api/v1/groups/{uuid4()}"
-        )
+        response = await authenticated_client.get(f"/api/v1/groups/{uuid4()}")
 
         assert response.status_code == 404
 
@@ -768,9 +732,7 @@ class TestGroupsRouter:
         test_group: ResearcherGroup,
     ):
         """Test deleting a group via API."""
-        response = await authenticated_client.delete(
-            f"/api/v1/groups/{test_group.id}"
-        )
+        response = await authenticated_client.delete(f"/api/v1/groups/{test_group.id}")
 
         assert response.status_code == 204
 
@@ -779,9 +741,7 @@ class TestGroupsRouter:
         authenticated_client: AsyncClient,
     ):
         """Test deleting a non-existent group returns 404."""
-        response = await authenticated_client.delete(
-            f"/api/v1/groups/{uuid4()}"
-        )
+        response = await authenticated_client.delete(f"/api/v1/groups/{uuid4()}")
 
         assert response.status_code == 404
 
@@ -862,9 +822,7 @@ class TestGroupsRouter:
         group_with_member: ResearcherGroup,
     ):
         """Test exporting group members as CSV via API."""
-        response = await authenticated_client.get(
-            f"/api/v1/groups/{group_with_member.id}/export"
-        )
+        response = await authenticated_client.get(f"/api/v1/groups/{group_with_member.id}/export")
 
         assert response.status_code == 200
         assert "text/csv" in response.headers["content-type"]
@@ -876,9 +834,7 @@ class TestGroupsRouter:
         authenticated_client: AsyncClient,
     ):
         """Test exporting a non-existent group returns 404."""
-        response = await authenticated_client.get(
-            f"/api/v1/groups/{uuid4()}/export"
-        )
+        response = await authenticated_client.get(f"/api/v1/groups/{uuid4()}/export")
 
         assert response.status_code == 404
 

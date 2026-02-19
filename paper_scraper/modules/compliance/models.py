@@ -41,9 +41,7 @@ class RetentionPolicy(Base):
 
     __tablename__ = "retention_policies"
 
-    id: Mapped[UUID] = mapped_column(
-        PgUUID(as_uuid=True), primary_key=True, default=uuid4
-    )
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=uuid4)
     organization_id: Mapped[UUID] = mapped_column(
         PgUUID(as_uuid=True),
         ForeignKey("organizations.id", ondelete="CASCADE"),
@@ -52,24 +50,16 @@ class RetentionPolicy(Base):
     )
 
     # Policy configuration
-    entity_type: Mapped[str] = mapped_column(
-        String(50), nullable=False
-    )
-    retention_days: Mapped[int] = mapped_column(
-        Integer, nullable=False
-    )
+    entity_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    retention_days: Mapped[int] = mapped_column(Integer, nullable=False)
     action: Mapped[str] = mapped_column(
         String(20), nullable=False, default=RetentionAction.ARCHIVE.value
     )
 
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    last_applied_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    records_affected: Mapped[int] = mapped_column(
-        Integer, default=0
-    )
+    last_applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    records_affected: Mapped[int] = mapped_column(Integer, default=0)
 
     # Metadata
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -109,9 +99,7 @@ class RetentionLog(Base):
 
     __tablename__ = "retention_logs"
 
-    id: Mapped[UUID] = mapped_column(
-        PgUUID(as_uuid=True), primary_key=True, default=uuid4
-    )
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=uuid4)
     organization_id: Mapped[UUID] = mapped_column(
         PgUUID(as_uuid=True),
         ForeignKey("organizations.id", ondelete="CASCADE"),
@@ -140,17 +128,12 @@ class RetentionLog(Base):
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    completed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    __table_args__ = (
-        Index("ix_retention_logs_org_started", "organization_id", "started_at"),
-    )
+    __table_args__ = (Index("ix_retention_logs_org_started", "organization_id", "started_at"),)
 
     def __repr__(self) -> str:
         """String representation of retention log."""
         return (
-            f"<RetentionLog {self.entity_type} {self.action} "
-            f"records={self.records_affected}>"
+            f"<RetentionLog {self.entity_type} {self.action} " f"records={self.records_affected}>"
         )

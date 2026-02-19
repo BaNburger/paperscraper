@@ -37,9 +37,7 @@ class PaperService:
     # Paper CRUD
     # =========================================================================
 
-    async def get_paper(
-        self, paper_id: UUID, organization_id: UUID
-    ) -> Paper | None:
+    async def get_paper(self, paper_id: UUID, organization_id: UUID) -> Paper | None:
         """Get paper by ID with tenant isolation.
 
         Args:
@@ -106,9 +104,7 @@ class PaperService:
             pages=(total + page_size - 1) // page_size if total > 0 else 0,
         )
 
-    async def get_paper_by_doi(
-        self, doi: str, organization_id: UUID
-    ) -> Paper | None:
+    async def get_paper_by_doi(self, doi: str, organization_id: UUID) -> Paper | None:
         """Get paper by DOI within organization.
 
         Args:
@@ -126,9 +122,7 @@ class PaperService:
         )
         return result.scalar_one_or_none()
 
-    async def delete_paper(
-        self, paper_id: UUID, organization_id: UUID
-    ) -> bool:
+    async def delete_paper(self, paper_id: UUID, organization_id: UUID) -> bool:
         """Delete paper by ID.
 
         Args:
@@ -306,9 +300,7 @@ class PaperService:
         await self.db.flush()
         return paper
 
-    async def _get_or_create_author(
-        self, data: dict, organization_id: UUID
-    ) -> Author:
+    async def _get_or_create_author(self, data: dict, organization_id: UUID) -> Author:
         """Get existing author or create new one within organization.
 
         Lookup order: ORCID > OpenAlex ID > Create new.
@@ -361,9 +353,7 @@ class PaperService:
     # AI-Generated Content
     # =========================================================================
 
-    async def generate_pitch(
-        self, paper_id: UUID, organization_id: UUID
-    ) -> Paper:
+    async def generate_pitch(self, paper_id: UUID, organization_id: UUID) -> Paper:
         """Generate one-line pitch for a paper.
 
         Args:
@@ -394,9 +384,7 @@ class PaperService:
 
         return paper
 
-    async def generate_simplified_abstract(
-        self, paper_id: UUID, organization_id: UUID
-    ) -> Paper:
+    async def generate_simplified_abstract(self, paper_id: UUID, organization_id: UUID) -> Paper:
         """Generate simplified abstract for a paper.
 
         Args:

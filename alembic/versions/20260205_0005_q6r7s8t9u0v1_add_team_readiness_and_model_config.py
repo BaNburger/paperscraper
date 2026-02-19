@@ -58,9 +58,7 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
-        sa.ForeignKeyConstraint(
-            ["organization_id"], ["organizations.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
@@ -93,17 +91,13 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
-        sa.ForeignKeyConstraint(
-            ["organization_id"], ["organizations.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(
             ["model_configuration_id"],
             ["model_configurations.id"],
             ondelete="SET NULL",
         ),
-        sa.ForeignKeyConstraint(
-            ["user_id"], ["users.id"], ondelete="SET NULL"
-        ),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
@@ -118,18 +112,19 @@ def upgrade() -> None:
     )
 
     # Add updated_at trigger for model_configurations
-    op.execute("""
+    op.execute(
+        """
         CREATE TRIGGER update_model_configurations_updated_at
             BEFORE UPDATE ON model_configurations
             FOR EACH ROW
             EXECUTE FUNCTION update_updated_at_column();
-    """)
+    """
+    )
 
 
 def downgrade() -> None:
     op.execute(
-        "DROP TRIGGER IF EXISTS update_model_configurations_updated_at "
-        "ON model_configurations"
+        "DROP TRIGGER IF EXISTS update_model_configurations_updated_at " "ON model_configurations"
     )
     op.drop_table("model_usage")
     op.drop_table("model_configurations")

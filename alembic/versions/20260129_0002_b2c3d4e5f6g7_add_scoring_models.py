@@ -125,12 +125,8 @@ def upgrade() -> None:
 
     # Create indexes for paper_scores
     op.create_index("ix_paper_scores_paper_id", "paper_scores", ["paper_id"])
-    op.create_index(
-        "ix_paper_scores_organization_id", "paper_scores", ["organization_id"]
-    )
-    op.create_index(
-        "ix_paper_scores_paper_org", "paper_scores", ["paper_id", "organization_id"]
-    )
+    op.create_index("ix_paper_scores_organization_id", "paper_scores", ["organization_id"])
+    op.create_index("ix_paper_scores_paper_org", "paper_scores", ["paper_id", "organization_id"])
     op.create_index(
         "ix_paper_scores_org_created",
         "paper_scores",
@@ -138,9 +134,7 @@ def upgrade() -> None:
     )
 
     # Create indexes for scoring_jobs
-    op.create_index(
-        "ix_scoring_jobs_organization_id", "scoring_jobs", ["organization_id"]
-    )
+    op.create_index("ix_scoring_jobs_organization_id", "scoring_jobs", ["organization_id"])
     op.create_index("ix_scoring_jobs_status", "scoring_jobs", ["status"])
 
 

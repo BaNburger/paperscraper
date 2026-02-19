@@ -121,7 +121,9 @@ class PaperContextService:
                 "publication_date": (
                     paper.publication_date.isoformat() if paper.publication_date else None
                 ),
-                "source": paper.source.value if hasattr(paper.source, "value") else str(paper.source),
+                "source": paper.source.value
+                if hasattr(paper.source, "value")
+                else str(paper.source),
                 "references_count": paper.references_count,
                 "citations_count": paper.citations_count,
             },

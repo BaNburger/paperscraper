@@ -63,14 +63,10 @@ def upgrade() -> None:
 
     # Use existing userrole enum - reference it without creating
     userrole_enum = postgresql.ENUM(
-        'admin', 'manager', 'member', 'viewer',
-        name='userrole',
-        create_type=False
+        "admin", "manager", "member", "viewer", name="userrole", create_type=False
     )
     invitationstatus_enum = postgresql.ENUM(
-        'pending', 'accepted', 'declined', 'expired',
-        name='invitationstatus',
-        create_type=False
+        "pending", "accepted", "declined", "expired", name="invitationstatus", create_type=False
     )
 
     # Create team_invitations table

@@ -39,9 +39,7 @@ def upgrade() -> None:
         sa.Column("semantic_description", sa.Text(), nullable=True),
     )
     # Vector column via raw SQL (pgvector)
-    op.execute(
-        "ALTER TABLE saved_searches ADD COLUMN embedding vector(1536)"
-    )
+    op.execute("ALTER TABLE saved_searches ADD COLUMN embedding vector(1536)")
     op.add_column(
         "saved_searches",
         sa.Column(
@@ -121,9 +119,7 @@ def upgrade() -> None:
             server_default=sa.text("'running'"),
         ),
         sa.Column("source", sa.String(100), nullable=False),
-        sa.Column(
-            "papers_found", sa.Integer(), nullable=False, server_default=sa.text("0")
-        ),
+        sa.Column("papers_found", sa.Integer(), nullable=False, server_default=sa.text("0")),
         sa.Column(
             "papers_imported",
             sa.Integer(),

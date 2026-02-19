@@ -48,10 +48,22 @@ DIMENSION_KNOWLEDGE_MAP: dict[str, list[KnowledgeType]] = {
 }
 
 USES_SIMILAR_PAPERS = {"novelty", "ip_potential", "feasibility", "team_readiness"}
-USES_CITATION_GRAPH = {"novelty", "ip_potential", "marketability", "feasibility", "commercialization"}
+USES_CITATION_GRAPH = {
+    "novelty",
+    "ip_potential",
+    "marketability",
+    "feasibility",
+    "commercialization",
+}
 USES_PATENTS = {"ip_potential", "novelty"}
 USES_MARKET_SIGNALS = {"marketability", "commercialization"}
-USES_JSTOR_CONTEXT = {"novelty", "ip_potential", "marketability", "feasibility", "commercialization"}
+USES_JSTOR_CONTEXT = {
+    "novelty",
+    "ip_potential",
+    "marketability",
+    "feasibility",
+    "commercialization",
+}
 USES_AUTHOR_PROFILES = {"team_readiness", "ip_potential", "feasibility"}
 
 
@@ -195,16 +207,12 @@ class DimensionContextBuilder:
             if section:
                 sections.append(section)
 
-        enrichment_section = self._format_enrichment(
-            dimension, snapshot_data, budget.enrichment
-        )
+        enrichment_section = self._format_enrichment(dimension, snapshot_data, budget.enrichment)
         if enrichment_section:
             sections.append(enrichment_section)
 
         if knowledge_sources:
-            section = self._format_knowledge(
-                dimension, knowledge_sources, budget.knowledge
-            )
+            section = self._format_knowledge(dimension, knowledge_sources, budget.knowledge)
             if section:
                 sections.append(section)
 
@@ -234,9 +242,7 @@ class DimensionContextBuilder:
         for i, p in enumerate(similar_papers[:5], 1):
             safe_title = sanitize_text_for_prompt(p.title, max_length=200)
             safe_abstract = (
-                sanitize_text_for_prompt(p.abstract, max_length=200)
-                if p.abstract
-                else ""
+                sanitize_text_for_prompt(p.abstract, max_length=200) if p.abstract else ""
             )
 
             entry = f"{i}. **{safe_title}**"
@@ -271,9 +277,7 @@ class DimensionContextBuilder:
         elif dimension in ("marketability", "commercialization"):
             if graph.total_citing > 0:
                 lines.append("## Citation Impact")
-                lines.append(
-                    f"This paper has been cited {graph.total_citing} times."
-                )
+                lines.append(f"This paper has been cited {graph.total_citing} times.")
                 if graph.citing_papers:
                     lines.append("Top citing papers:")
                     for cit in graph.citing_papers[:5]:
@@ -281,9 +285,7 @@ class DimensionContextBuilder:
 
         elif dimension == "feasibility":
             if graph.references:
-                lines.append(
-                    f"## Foundation Works Referenced ({graph.total_references} total)"
-                )
+                lines.append(f"## Foundation Works Referenced ({graph.total_references} total)")
                 for ref in graph.references[:5]:
                     lines.append(ref.to_context_line())
 
@@ -434,9 +436,7 @@ class DimensionContextBuilder:
                 raw_metadata=paper.raw_metadata,
             )
         except Exception as e:
-            logger.warning(
-                "Failed to fetch citation graph for paper %s: %s", paper.id, e
-            )
+            logger.warning("Failed to fetch citation graph for paper %s: %s", paper.id, e)
             return CitationGraph(errors=[str(e)])
 
     async def _get_jstor_references(self, paper: Paper) -> JstorSearchResult:
@@ -445,9 +445,7 @@ class DimensionContextBuilder:
             query = build_jstor_query(paper.title, paper.keywords)
             return await search_jstor(query, max_results=10)
         except Exception as e:
-            logger.warning(
-                "Failed to fetch JSTOR references for paper %s: %s", paper.id, e
-            )
+            logger.warning("Failed to fetch JSTOR references for paper %s: %s", paper.id, e)
             return JstorSearchResult(errors=[str(e)])
 
     async def _get_author_profiles(self, paper: Paper) -> AuthorProfileResult:
@@ -461,9 +459,7 @@ class DimensionContextBuilder:
                 return AuthorProfileResult()
             return await fetch_author_profiles(authors, max_authors=5)
         except Exception as e:
-            logger.warning(
-                "Failed to fetch author profiles for paper %s: %s", paper.id, e
-            )
+            logger.warning("Failed to fetch author profiles for paper %s: %s", paper.id, e)
             return AuthorProfileResult(errors=[str(e)])
 
     def _format_author_profiles(
@@ -490,20 +486,16 @@ class DimensionContextBuilder:
             if profile.orcid_data:
                 o = profile.orcid_data
                 if o.current_employment:
-                    safe_emp = sanitize_text_for_prompt(
-                        o.current_employment, max_length=150
-                    )
+                    safe_emp = sanitize_text_for_prompt(o.current_employment, max_length=150)
                     lines.append(f"Current affiliation: {safe_emp}")
                 if o.past_affiliations:
                     safe_past = [
-                        sanitize_text_for_prompt(a, max_length=100)
-                        for a in o.past_affiliations[:3]
+                        sanitize_text_for_prompt(a, max_length=100) for a in o.past_affiliations[:3]
                     ]
                     lines.append(f"Past affiliations: {', '.join(safe_past)}")
                 if o.education:
                     safe_edu = [
-                        sanitize_text_for_prompt(e, max_length=100)
-                        for e in o.education[:2]
+                        sanitize_text_for_prompt(e, max_length=100) for e in o.education[:2]
                     ]
                     lines.append(f"Education: {', '.join(safe_edu)}")
                 if o.funding_count:
@@ -519,16 +511,13 @@ class DimensionContextBuilder:
                 gh_line += f" ({g.public_repos} repos, {g.followers} followers)"
                 lines.append(gh_line)
                 if g.top_languages:
-                    lines.append(
-                        f"Primary languages: {', '.join(g.top_languages[:5])}"
-                    )
+                    lines.append(f"Primary languages: {', '.join(g.top_languages[:5])}")
                 if g.company:
                     safe_company = sanitize_text_for_prompt(g.company, max_length=100)
                     lines.append(f"Company: {safe_company}")
                 if dimension == "team_readiness" and g.popular_repos:
                     safe_repos = [
-                        sanitize_text_for_prompt(r, max_length=50)
-                        for r in g.popular_repos[:3]
+                        sanitize_text_for_prompt(r, max_length=50) for r in g.popular_repos[:3]
                     ]
                     lines.append(f"Notable repos: {', '.join(safe_repos)}")
 

@@ -102,9 +102,7 @@ class ModelUsage(Base):
     organization: Mapped["Organization"] = relationship("Organization")
     model_configuration: Mapped["ModelConfiguration | None"] = relationship("ModelConfiguration")
 
-    __table_args__ = (
-        Index("ix_model_usage_org_created", "organization_id", "created_at"),
-    )
+    __table_args__ = (Index("ix_model_usage_org_created", "organization_id", "created_at"),)
 
     def __repr__(self) -> str:
         return f"<ModelUsage {self.operation} tokens={self.input_tokens + self.output_tokens}>"

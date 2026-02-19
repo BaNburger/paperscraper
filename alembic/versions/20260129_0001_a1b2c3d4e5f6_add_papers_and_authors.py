@@ -157,18 +157,14 @@ def upgrade() -> None:
             primary_key=True,
         ),
         sa.Column("position", sa.Integer, nullable=False, server_default="0"),
-        sa.Column(
-            "is_corresponding", sa.Boolean, nullable=False, server_default="false"
-        ),
+        sa.Column("is_corresponding", sa.Boolean, nullable=False, server_default="false"),
     )
 
     # Create indexes for papers table
     op.create_index("ix_papers_organization_id", "papers", ["organization_id"])
     op.create_index("ix_papers_doi", "papers", ["doi"])
     op.create_index("ix_papers_source_source_id", "papers", ["source", "source_id"])
-    op.create_index(
-        "ix_papers_org_created", "papers", ["organization_id", "created_at"]
-    )
+    op.create_index("ix_papers_org_created", "papers", ["organization_id", "created_at"])
 
     # Create HNSW index for vector similarity search on papers
     op.execute(
@@ -180,12 +176,8 @@ def upgrade() -> None:
     )
 
     # Create trigram indexes for full-text search
-    op.execute(
-        "CREATE INDEX ix_papers_title_trgm ON papers USING gin (title gin_trgm_ops)"
-    )
-    op.execute(
-        "CREATE INDEX ix_papers_abstract_trgm ON papers USING gin (abstract gin_trgm_ops)"
-    )
+    op.execute("CREATE INDEX ix_papers_title_trgm ON papers USING gin (title gin_trgm_ops)")
+    op.execute("CREATE INDEX ix_papers_abstract_trgm ON papers USING gin (abstract gin_trgm_ops)")
 
     # Create updated_at triggers for new tables
     op.execute(

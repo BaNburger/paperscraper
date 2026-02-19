@@ -53,9 +53,7 @@ class ProjectCreate(BaseModel):
     pi_name: str | None = Field(
         default=None, max_length=255, description="Principal investigator name"
     )
-    max_papers: int = Field(
-        default=100, ge=10, le=500, description="Maximum papers to import"
-    )
+    max_papers: int = Field(default=100, ge=10, le=500, description="Maximum papers to import")
 
 
 class ProjectUpdate(BaseModel):

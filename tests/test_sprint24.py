@@ -304,9 +304,7 @@ class TestKnowledgeEnhancedScoring:
 
         assert context.knowledge_context is None
 
-    async def test_knowledge_service_formatting(
-        self, sample_knowledge_sources: list
-    ):
+    async def test_knowledge_service_formatting(self, sample_knowledge_sources: list):
         """Test knowledge source formatting for prompts."""
         from paper_scraper.modules.knowledge.service import KnowledgeService
 
@@ -316,9 +314,7 @@ class TestKnowledgeEnhancedScoring:
         service = KnowledgeService(mock_db)
 
         # Test format method exists and works
-        formatted = service.format_knowledge_for_prompt(
-            sample_knowledge_sources
-        )
+        formatted = service.format_knowledge_for_prompt(sample_knowledge_sources)
 
         assert isinstance(formatted, str)
         assert "Organization Knowledge" in formatted
@@ -362,14 +358,22 @@ class TestKnowledgeEnhancedScoring:
         )
 
         assert weights.team_readiness == 0.15
-        assert abs(sum([
-            weights.novelty,
-            weights.ip_potential,
-            weights.marketability,
-            weights.feasibility,
-            weights.commercialization,
-            weights.team_readiness,
-        ]) - 1.0) < 0.01  # Weights sum to ~1.0
+        assert (
+            abs(
+                sum(
+                    [
+                        weights.novelty,
+                        weights.ip_potential,
+                        weights.marketability,
+                        weights.feasibility,
+                        weights.commercialization,
+                        weights.team_readiness,
+                    ]
+                )
+                - 1.0
+            )
+            < 0.01
+        )  # Weights sum to ~1.0
 
 
 # =============================================================================
@@ -437,25 +441,19 @@ class TestPromptTemplates:
         """Test suggest_members prompt template exists."""
         from pathlib import Path
 
-        template_path = Path(
-            "paper_scraper/modules/scoring/prompts/suggest_members.jinja2"
-        )
+        template_path = Path("paper_scraper/modules/scoring/prompts/suggest_members.jinja2")
         assert template_path.exists()
 
     def test_transfer_next_steps_template_exists(self):
         """Test transfer_next_steps prompt template exists."""
         from pathlib import Path
 
-        template_path = Path(
-            "paper_scraper/modules/scoring/prompts/transfer_next_steps.jinja2"
-        )
+        template_path = Path("paper_scraper/modules/scoring/prompts/transfer_next_steps.jinja2")
         assert template_path.exists()
 
     def test_team_readiness_template_exists(self):
         """Test team_readiness prompt template exists."""
         from pathlib import Path
 
-        template_path = Path(
-            "paper_scraper/modules/scoring/prompts/team_readiness.jinja2"
-        )
+        template_path = Path("paper_scraper/modules/scoring/prompts/team_readiness.jinja2")
         assert template_path.exists()

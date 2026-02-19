@@ -29,18 +29,12 @@ def _table_exists(connection: Connection, table_name: str) -> bool:
 
 def _column_exists(connection: Connection, table_name: str, column_name: str) -> bool:
     inspector = sa.inspect(connection)
-    return any(
-        column.get("name") == column_name
-        for column in inspector.get_columns(table_name)
-    )
+    return any(column.get("name") == column_name for column in inspector.get_columns(table_name))
 
 
 def _index_exists(connection: Connection, table_name: str, index_name: str) -> bool:
     inspector = sa.inspect(connection)
-    return any(
-        index.get("name") == index_name
-        for index in inspector.get_indexes(table_name)
-    )
+    return any(index.get("name") == index_name for index in inspector.get_indexes(table_name))
 
 
 def _constraint_exists(connection: Connection, table_name: str, constraint_name: str) -> bool:
@@ -53,10 +47,7 @@ def _constraint_exists(connection: Connection, table_name: str, constraint_name:
 
 def _foreign_key_exists(connection: Connection, table_name: str, constraint_name: str) -> bool:
     inspector = sa.inspect(connection)
-    return any(
-        fk.get("name") == constraint_name
-        for fk in inspector.get_foreign_keys(table_name)
-    )
+    return any(fk.get("name") == constraint_name for fk in inspector.get_foreign_keys(table_name))
 
 
 def _find(parent: dict[str, str], value: str) -> str:
@@ -365,9 +356,13 @@ def _merge_duplicate_papers(connection: Connection) -> None:
     if not _table_exists(connection, "papers"):
         return
 
-    connection.execute(sa.text("UPDATE papers SET doi = NULL WHERE doi IS NOT NULL AND btrim(doi) = ''"))
     connection.execute(
-        sa.text("UPDATE papers SET source_id = NULL WHERE source_id IS NOT NULL AND btrim(source_id) = ''")
+        sa.text("UPDATE papers SET doi = NULL WHERE doi IS NOT NULL AND btrim(doi) = ''")
+    )
+    connection.execute(
+        sa.text(
+            "UPDATE papers SET source_id = NULL WHERE source_id IS NOT NULL AND btrim(source_id) = ''"
+        )
     )
 
     merge_map = _build_paper_merge_map(connection)
@@ -417,13 +412,21 @@ def upgrade() -> None:
             op.create_index("ix_source_records_paper_id", "source_records", ["paper_id"])
 
         if not _column_exists(connection, "source_records", "resolution_status"):
-            op.add_column("source_records", sa.Column("resolution_status", sa.String(length=32), nullable=True))
+            op.add_column(
+                "source_records",
+                sa.Column("resolution_status", sa.String(length=32), nullable=True),
+            )
         if not _column_exists(connection, "source_records", "matched_on"):
-            op.add_column("source_records", sa.Column("matched_on", sa.String(length=64), nullable=True))
+            op.add_column(
+                "source_records", sa.Column("matched_on", sa.String(length=64), nullable=True)
+            )
         if not _column_exists(connection, "source_records", "resolution_error"):
             op.add_column("source_records", sa.Column("resolution_error", sa.Text(), nullable=True))
         if not _column_exists(connection, "source_records", "resolved_at"):
-            op.add_column("source_records", sa.Column("resolved_at", sa.DateTime(timezone=True), nullable=True))
+            op.add_column(
+                "source_records",
+                sa.Column("resolved_at", sa.DateTime(timezone=True), nullable=True),
+            )
 
         if not _index_exists(connection, "source_records", "ix_source_records_resolution_status"):
             op.create_index(
@@ -460,7 +463,9 @@ def upgrade() -> None:
                 "source_records",
                 type_="unique",
             )
-        if not _constraint_exists(connection, "source_records", "uq_source_records_org_source_id_hash"):
+        if not _constraint_exists(
+            connection, "source_records", "uq_source_records_org_source_id_hash"
+        ):
             op.create_unique_constraint(
                 "uq_source_records_org_source_id_hash",
                 "source_records",
@@ -562,7 +567,13 @@ def downgrade() -> None:
         if _index_exists(connection, "source_records", "ix_source_records_paper_id"):
             op.drop_index("ix_source_records_paper_id", table_name="source_records")
 
-        for column_name in ["resolved_at", "resolution_error", "matched_on", "resolution_status", "paper_id"]:
+        for column_name in [
+            "resolved_at",
+            "resolution_error",
+            "matched_on",
+            "resolution_status",
+            "paper_id",
+        ]:
             if _column_exists(connection, "source_records", column_name):
                 op.drop_column("source_records", column_name)
 
@@ -577,8 +588,18 @@ def downgrade() -> None:
             sa.Column("max_tokens", sa.Integer(), nullable=False, server_default=sa.text("4096")),
             sa.Column("secret_ref", sa.String(length=255), nullable=True),
             sa.Column("is_default", sa.Boolean(), nullable=False, server_default=sa.text("false")),
-            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-            sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+            sa.Column(
+                "created_at",
+                sa.DateTime(timezone=True),
+                nullable=False,
+                server_default=sa.func.now(),
+            ),
+            sa.Column(
+                "updated_at",
+                sa.DateTime(timezone=True),
+                nullable=False,
+                server_default=sa.func.now(),
+            ),
             sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="CASCADE"),
             sa.PrimaryKeyConstraint("id"),
         )

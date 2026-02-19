@@ -211,9 +211,7 @@ class TestAuditLogEndpoints:
         sample_audit_logs: list[AuditLog],
     ):
         """Test getting audit log summary."""
-        response = await authenticated_client.get(
-            "/api/v1/compliance/audit-logs/summary"
-        )
+        response = await authenticated_client.get("/api/v1/compliance/audit-logs/summary")
         assert response.status_code == 200
         data = response.json()
         # At least the sample logs should be present (may have more from other operations)
@@ -228,9 +226,7 @@ class TestAuditLogEndpoints:
         sample_audit_logs: list[AuditLog],
     ):
         """Test exporting audit logs as CSV."""
-        response = await authenticated_client.get(
-            "/api/v1/compliance/audit-logs/export"
-        )
+        response = await authenticated_client.get("/api/v1/compliance/audit-logs/export")
         assert response.status_code == 200
         assert response.headers["content-type"] == "text/csv; charset=utf-8"
 
@@ -261,9 +257,7 @@ class TestSOC2Endpoints:
         authenticated_client: AsyncClient,
     ):
         """Test getting evidence for a SOC2 control."""
-        response = await authenticated_client.get(
-            "/api/v1/compliance/soc2/evidence/CC6.1"
-        )
+        response = await authenticated_client.get("/api/v1/compliance/soc2/evidence/CC6.1")
         assert response.status_code == 200
         data = response.json()
         assert data["control_id"] == "CC6.1"
@@ -275,9 +269,7 @@ class TestSOC2Endpoints:
     ):
         """Test getting evidence for non-existent control."""
         # Valid format but non-existent control returns 404
-        response = await authenticated_client.get(
-            "/api/v1/compliance/soc2/evidence/CC99.99"
-        )
+        response = await authenticated_client.get("/api/v1/compliance/soc2/evidence/CC99.99")
         assert response.status_code == 404
 
     async def test_get_soc2_evidence_invalid_format(
@@ -285,9 +277,7 @@ class TestSOC2Endpoints:
         authenticated_client: AsyncClient,
     ):
         """Test getting evidence with invalid control ID format returns 422."""
-        response = await authenticated_client.get(
-            "/api/v1/compliance/soc2/evidence/INVALID.99"
-        )
+        response = await authenticated_client.get("/api/v1/compliance/soc2/evidence/INVALID.99")
         assert response.status_code == 422
 
     async def test_export_soc2_report(
@@ -314,9 +304,7 @@ class TestDataProcessingEndpoints:
         authenticated_client: AsyncClient,
     ):
         """Test getting data processing info."""
-        response = await authenticated_client.get(
-            "/api/v1/compliance/data-processing"
-        )
+        response = await authenticated_client.get("/api/v1/compliance/data-processing")
         assert response.status_code == 200
         data = response.json()
         assert "hosting_info" in data

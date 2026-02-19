@@ -149,9 +149,7 @@ class AuditService:
         logs = list(result.scalars().all())
         return [AuditLogResponse.model_validate(log) for log in logs]
 
-    def _extract_request_metadata(
-        self, request: Request | None
-    ) -> tuple[str | None, str | None]:
+    def _extract_request_metadata(self, request: Request | None) -> tuple[str | None, str | None]:
         """Extract IP address and user agent from request.
 
         Args:

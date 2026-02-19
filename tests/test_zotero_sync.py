@@ -219,8 +219,8 @@ class TestZoteroSync:
     @pytest.mark.asyncio
     async def test_zotero_routes_require_authentication(self, client: AsyncClient):
         """Ensure Zotero integration routes are protected."""
-        status = await client.get('/api/v1/integrations/zotero/status')
+        status = await client.get("/api/v1/integrations/zotero/status")
         assert status.status_code == 401
 
-        outbound = await client.post('/api/v1/integrations/zotero/sync/outbound', json={})
+        outbound = await client.post("/api/v1/integrations/zotero/sync/outbound", json={})
         assert outbound.status_code == 401

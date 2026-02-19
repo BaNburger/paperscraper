@@ -133,9 +133,7 @@ class AlertResult(Base):
     paper_ids: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
 
     # Delivery details
-    delivered_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Timestamps
@@ -146,9 +144,7 @@ class AlertResult(Base):
     # Relationships
     alert: Mapped["Alert"] = relationship("Alert", back_populates="results")
 
-    __table_args__ = (
-        Index("ix_alert_results_alert_created", "alert_id", "created_at"),
-    )
+    __table_args__ = (Index("ix_alert_results_alert_created", "alert_id", "created_at"),)
 
     def __repr__(self) -> str:
         return f"<AlertResult {self.id} status={self.status}>"

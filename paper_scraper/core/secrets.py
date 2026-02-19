@@ -50,4 +50,3 @@ def try_decrypt_secret(value: str) -> str | None:
         return decrypt_secret(value)
     except InvalidToken:
         return None
-

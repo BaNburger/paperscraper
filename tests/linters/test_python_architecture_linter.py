@@ -71,4 +71,3 @@ def test_psa005_flags_plain_secret_marker(tmp_path: Path) -> None:
 
     findings = python_architecture.lint(tmp_path)
     assert _has_rule(findings, "PSA005")
-

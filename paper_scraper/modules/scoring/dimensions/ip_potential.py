@@ -31,12 +31,16 @@ class IPPotentialDimension(BaseDimension):
         details = {
             "patentability_factors": {
                 "novelty": self._safe_get(patentability_factors, "novelty", 5.0, float),
-                "non_obviousness": self._safe_get(patentability_factors, "non_obviousness", 5.0, float),
+                "non_obviousness": self._safe_get(
+                    patentability_factors, "non_obviousness", 5.0, float
+                ),
                 "utility": self._safe_get(patentability_factors, "utility", 5.0, float),
                 "enablement": self._safe_get(patentability_factors, "enablement", 5.0, float),
             },
             "prior_art_risk": self._safe_get(response, "prior_art_risk", "medium", str),
-            "suggested_claim_scope": self._safe_get(response, "suggested_claim_scope", "uncertain", str),
+            "suggested_claim_scope": self._safe_get(
+                response, "suggested_claim_scope", "uncertain", str
+            ),
         }
 
         return DimensionResult(

@@ -263,6 +263,7 @@ async def trigger_alert(
     # Should not happen, but return empty result if no result found
     from datetime import datetime
     from uuid import uuid4
+
     return AlertResultResponse(
         id=uuid4(),
         alert_id=alert_id,

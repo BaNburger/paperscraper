@@ -25,9 +25,7 @@ class DimensionResult:
         if not 0 <= self.score <= 10:
             raise ValueError(f"Score must be between 0 and 10, got {self.score}")
         if not 0 <= self.confidence <= 1:
-            raise ValueError(
-                f"Confidence must be between 0 and 1, got {self.confidence}"
-            )
+            raise ValueError(f"Confidence must be between 0 and 1, got {self.confidence}")
 
 
 @dataclass

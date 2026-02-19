@@ -31,16 +31,12 @@ from paper_scraper.modules.compliance.service import ComplianceService
 router = APIRouter()
 
 
-def get_compliance_service(
-    db: Annotated[AsyncSession, Depends(get_db)]
-) -> ComplianceService:
+def get_compliance_service(db: Annotated[AsyncSession, Depends(get_db)]) -> ComplianceService:
     """Dependency to get compliance service instance."""
     return ComplianceService(db)
 
 
-def get_audit_service(
-    db: Annotated[AsyncSession, Depends(get_db)]
-) -> AuditService:
+def get_audit_service(db: Annotated[AsyncSession, Depends(get_db)]) -> AuditService:
     """Dependency to get audit service instance."""
     return AuditService(db)
 
@@ -425,7 +421,9 @@ async def get_soc2_status(
     dependencies=[Depends(require_admin)],
 )
 async def get_soc2_evidence(
-    control_id: str = Path(..., description="SOC2 control ID (e.g., CC6.1)", pattern=r"^CC\d+\.\d+$"),
+    control_id: str = Path(
+        ..., description="SOC2 control ID (e.g., CC6.1)", pattern=r"^CC\d+\.\d+$"
+    ),
     current_user: CurrentUser = None,
     compliance_service: Annotated[ComplianceService, Depends(get_compliance_service)] = None,
 ) -> SOC2EvidenceResponse:

@@ -23,7 +23,12 @@ def upgrade() -> None:
     """Create research_submissions, submission_attachments, and submission_scores tables."""
     # Create SubmissionStatus enum
     submission_status_enum = postgresql.ENUM(
-        "draft", "submitted", "under_review", "approved", "rejected", "converted",
+        "draft",
+        "submitted",
+        "under_review",
+        "approved",
+        "rejected",
+        "converted",
         name="submissionstatus",
         create_type=False,
     )
@@ -31,7 +36,11 @@ def upgrade() -> None:
 
     # Create AttachmentType enum
     attachment_type_enum = postgresql.ENUM(
-        "pdf", "supplementary", "patent_draft", "presentation", "other",
+        "pdf",
+        "supplementary",
+        "patent_draft",
+        "presentation",
+        "other",
         name="attachmenttype",
         create_type=False,
     )
@@ -76,18 +85,10 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
-        sa.ForeignKeyConstraint(
-            ["organization_id"], ["organizations.id"], ondelete="CASCADE"
-        ),
-        sa.ForeignKeyConstraint(
-            ["submitted_by_id"], ["users.id"], ondelete="SET NULL"
-        ),
-        sa.ForeignKeyConstraint(
-            ["reviewed_by_id"], ["users.id"], ondelete="SET NULL"
-        ),
-        sa.ForeignKeyConstraint(
-            ["converted_paper_id"], ["papers.id"], ondelete="SET NULL"
-        ),
+        sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["submitted_by_id"], ["users.id"], ondelete="SET NULL"),
+        sa.ForeignKeyConstraint(["reviewed_by_id"], ["users.id"], ondelete="SET NULL"),
+        sa.ForeignKeyConstraint(["converted_paper_id"], ["papers.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
     )
     # Composite indexes (cover single-column lookups as leading columns)
@@ -139,9 +140,7 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
-        sa.ForeignKeyConstraint(
-            ["submission_id"], ["research_submissions.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["submission_id"], ["research_submissions.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
@@ -176,9 +175,7 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
-        sa.ForeignKeyConstraint(
-            ["submission_id"], ["research_submissions.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["submission_id"], ["research_submissions.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(

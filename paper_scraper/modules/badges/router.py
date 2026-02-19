@@ -60,9 +60,7 @@ async def get_my_stats(
     service: Annotated[BadgeService, Depends(get_badge_service)],
 ):
     """Get current user's activity statistics and gamification level."""
-    return await service.get_user_stats(
-        current_user.id, current_user.organization_id
-    )
+    return await service.get_user_stats(current_user.id, current_user.organization_id)
 
 
 @router.post(
@@ -75,7 +73,5 @@ async def check_badges(
     service: Annotated[BadgeService, Depends(get_badge_service)],
 ):
     """Check and award any newly earned badges for the current user."""
-    await service.check_and_award_badges(
-        current_user.id, current_user.organization_id
-    )
+    await service.check_and_award_badges(current_user.id, current_user.organization_id)
     return await service.get_user_badges(current_user.id)

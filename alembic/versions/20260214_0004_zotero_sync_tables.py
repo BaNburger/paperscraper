@@ -50,8 +50,15 @@ def upgrade() -> None:
         sa.Column("organization_id", sa.Uuid(), nullable=False),
         sa.Column("user_id", sa.String(length=64), nullable=False),
         sa.Column("api_key", sa.Text(), nullable=False),
-        sa.Column("base_url", sa.String(length=255), nullable=False, server_default=sa.text("'https://api.zotero.org'")),
-        sa.Column("library_type", sa.String(length=16), nullable=False, server_default=sa.text("'users'")),
+        sa.Column(
+            "base_url",
+            sa.String(length=255),
+            nullable=False,
+            server_default=sa.text("'https://api.zotero.org'"),
+        ),
+        sa.Column(
+            "library_type", sa.String(length=16), nullable=False, server_default=sa.text("'users'")
+        ),
         sa.Column(
             "status",
             postgresql.ENUM(
@@ -66,13 +73,19 @@ def upgrade() -> None:
         ),
         sa.Column("last_error", sa.Text(), nullable=True),
         sa.Column("last_synced_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("organization_id", name="uq_zotero_connections_org"),
     )
-    op.create_index("ix_zotero_connections_organization_id", "zotero_connections", ["organization_id"])
+    op.create_index(
+        "ix_zotero_connections_organization_id", "zotero_connections", ["organization_id"]
+    )
     op.create_index("ix_zotero_connections_status", "zotero_connections", ["status"])
 
     op.create_table(
@@ -83,15 +96,25 @@ def upgrade() -> None:
         sa.Column("zotero_item_key", sa.String(length=64), nullable=False),
         sa.Column("zotero_version", sa.Integer(), nullable=True),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
-        sa.Column("last_seen_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "last_seen_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["paper_id"], ["papers.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("organization_id", "paper_id", "zotero_item_key", name="uq_zotero_item_links"),
+        sa.UniqueConstraint(
+            "organization_id", "paper_id", "zotero_item_key", name="uq_zotero_item_links"
+        ),
     )
-    op.create_index("ix_zotero_item_links_organization_id", "zotero_item_links", ["organization_id"])
+    op.create_index(
+        "ix_zotero_item_links_organization_id", "zotero_item_links", ["organization_id"]
+    )
     op.create_index("ix_zotero_item_links_paper_id", "zotero_item_links", ["paper_id"])
     op.create_index("ix_zotero_item_links_key", "zotero_item_links", ["zotero_item_key"])
     op.create_index(
@@ -128,7 +151,9 @@ def upgrade() -> None:
             server_default=sa.text("'queued'"),
         ),
         sa.Column("triggered_by", sa.Uuid(), nullable=True),
-        sa.Column("started_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "started_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.Column("completed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("stats_json", JSONB(), nullable=False, server_default=sa.text("'{}'::jsonb")),
         sa.Column("error_message", sa.Text(), nullable=True),

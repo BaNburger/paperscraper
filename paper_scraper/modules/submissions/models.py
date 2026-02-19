@@ -103,9 +103,7 @@ class ResearchSubmission(Base):
     )
     review_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     review_decision: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    reviewed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Conversion tracking
     converted_paper_id: Mapped[UUID | None] = mapped_column(
@@ -116,9 +114,7 @@ class ResearchSubmission(Base):
     )
 
     # Timestamps
-    submitted_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -131,12 +127,8 @@ class ResearchSubmission(Base):
 
     # Relationships
     organization: Mapped["Organization"] = relationship("Organization")
-    submitted_by: Mapped["User | None"] = relationship(
-        "User", foreign_keys=[submitted_by_id]
-    )
-    reviewed_by: Mapped["User | None"] = relationship(
-        "User", foreign_keys=[reviewed_by_id]
-    )
+    submitted_by: Mapped["User | None"] = relationship("User", foreign_keys=[submitted_by_id])
+    reviewed_by: Mapped["User | None"] = relationship("User", foreign_keys=[reviewed_by_id])
     converted_paper: Mapped["Paper | None"] = relationship("Paper")
     attachments: Mapped[list["SubmissionAttachment"]] = relationship(
         "SubmissionAttachment",
@@ -236,9 +228,7 @@ class SubmissionScore(Base):
         "ResearchSubmission", back_populates="scores"
     )
 
-    __table_args__ = (
-        Index("ix_submission_scores_submission", "submission_id", "created_at"),
-    )
+    __table_args__ = (Index("ix_submission_scores_submission", "submission_id", "created_at"),)
 
     def __repr__(self) -> str:
         return f"<SubmissionScore submission={self.submission_id} overall={self.overall_score:.1f}>"

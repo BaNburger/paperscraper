@@ -215,13 +215,15 @@ class TestBadgeStatsEndpoint:
         """The stats endpoint should include searches_performed in its response."""
         # Arrange -- insert search activities directly
         for i in range(2):
-            db_session.add(SearchActivity(
-                user_id=test_user.id,
-                organization_id=test_organization.id,
-                query=f"api test query {i}",
-                mode="hybrid",
-                results_count=10,
-            ))
+            db_session.add(
+                SearchActivity(
+                    user_id=test_user.id,
+                    organization_id=test_organization.id,
+                    query=f"api test query {i}",
+                    mode="hybrid",
+                    results_count=10,
+                )
+            )
         await db_session.flush()
 
         # Act
@@ -595,13 +597,15 @@ class TestSearchActivityTracking:
         """Badge stats searches_performed should match SearchActivity count."""
         # Arrange -- 5 searches
         for i in range(5):
-            db_session.add(SearchActivity(
-                user_id=test_user.id,
-                organization_id=test_organization.id,
-                query=f"query {i}",
-                mode="fulltext",
-                results_count=0,
-            ))
+            db_session.add(
+                SearchActivity(
+                    user_id=test_user.id,
+                    organization_id=test_organization.id,
+                    query=f"query {i}",
+                    mode="fulltext",
+                    results_count=0,
+                )
+            )
         await db_session.flush()
 
         # Act

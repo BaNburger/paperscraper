@@ -36,7 +36,9 @@ class CommercializationDimension(BaseDimension):
                 "market_access": self._safe_get(entry_barriers, "market_access", "medium", str),
                 "competition": self._safe_get(entry_barriers, "competition", "medium", str),
             },
-            "revenue_model_suggestions": self._safe_get(response, "revenue_model_suggestions", [], list),
+            "revenue_model_suggestions": self._safe_get(
+                response, "revenue_model_suggestions", [], list
+            ),
             "strategic_value": self._safe_get(response, "strategic_value", "incremental", str),
             "key_success_factors": self._safe_get(response, "key_success_factors", [], list),
         }

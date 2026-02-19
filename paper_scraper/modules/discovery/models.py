@@ -60,9 +60,7 @@ class DiscoveryRun(Base):
     papers_found: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     papers_imported: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     papers_skipped: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    papers_added_to_project: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0
-    )
+    papers_added_to_project: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     # Error tracking
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -71,9 +69,7 @@ class DiscoveryRun(Base):
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    completed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

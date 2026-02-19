@@ -33,9 +33,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def get_project_service(
-    db: Annotated[AsyncSession, Depends(get_db)]
-) -> ProjectService:
+def get_project_service(db: Annotated[AsyncSession, Depends(get_db)]) -> ProjectService:
     """Dependency to get project service instance."""
     return ProjectService(db)
 
@@ -116,9 +114,7 @@ async def create_project(
             await project_service.db.flush()
             await project_service.db.refresh(project)
         except Exception:
-            logger.warning(
-                "Failed to enqueue sync for research group %s", project.id
-            )
+            logger.warning("Failed to enqueue sync for research group %s", project.id)
 
     return ProjectResponse.model_validate(project)
 
@@ -244,9 +240,7 @@ async def sync_project(
         project.sync_status = SyncStatus.IMPORTING.value
         await project_service.db.flush()
     except Exception:
-        logger.warning(
-            "Failed to enqueue sync for research group %s", project.id
-        )
+        logger.warning("Failed to enqueue sync for research group %s", project.id)
         return SyncResponse(
             project_id=project.id,
             status=project.sync_status,

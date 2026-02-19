@@ -114,9 +114,7 @@ class ComplianceService:
             )
         )
         if existing.scalar_one_or_none():
-            raise ValidationError(
-                f"Retention policy for {data.entity_type.value} already exists"
-            )
+            raise ValidationError(f"Retention policy for {data.entity_type.value} already exists")
 
         policy = RetentionPolicy(
             organization_id=organization_id,
@@ -202,9 +200,7 @@ class ComplianceService:
             RetentionPolicy.is_active == True,  # noqa: E712
         )
         if entity_types:
-            query = query.where(
-                RetentionPolicy.entity_type.in_([et.value for et in entity_types])
-            )
+            query = query.where(RetentionPolicy.entity_type.in_([et.value for et in entity_types]))
 
         policy_result = await self.db.execute(query)
         policies = list(policy_result.scalars().all())
@@ -442,9 +438,7 @@ class ComplianceService:
         from paper_scraper.modules.alerts.models import Alert, AlertResult
 
         # Must filter through Alert table since AlertResult has no org_id column
-        org_alert_ids = (
-            select(Alert.id).where(Alert.organization_id == organization_id)
-        )
+        org_alert_ids = select(Alert.id).where(Alert.organization_id == organization_id)
 
         count_result = await self.db.execute(
             select(func.count(AlertResult.id)).where(
@@ -577,9 +571,7 @@ class ComplianceService:
         Returns:
             Summary statistics.
         """
-        base_query = select(AuditLog).where(
-            AuditLog.organization_id == organization_id
-        )
+        base_query = select(AuditLog).where(AuditLog.organization_id == organization_id)
         if start_date:
             base_query = base_query.where(AuditLog.created_at >= start_date)
         if end_date:
@@ -628,9 +620,7 @@ class ComplianceService:
             .order_by(func.count(AuditLog.id).desc())
             .limit(10)
         )
-        logs_by_user = [
-            {"user_id": str(row[0]), "count": row[1]} for row in user_result
-        ]
+        logs_by_user = [{"user_id": str(row[0]), "count": row[1]} for row in user_result]
 
         # Time range
         range_result = await self.db.execute(
@@ -690,31 +680,35 @@ class ComplianceService:
         writer = csv.writer(output)
 
         # Header
-        writer.writerow([
-            "ID",
-            "Timestamp",
-            "User ID",
-            "Action",
-            "Resource Type",
-            "Resource ID",
-            "IP Address",
-            "User Agent",
-            "Details",
-        ])
+        writer.writerow(
+            [
+                "ID",
+                "Timestamp",
+                "User ID",
+                "Action",
+                "Resource Type",
+                "Resource ID",
+                "IP Address",
+                "User Agent",
+                "Details",
+            ]
+        )
 
         # Data rows (sanitize to prevent CSV formula injection)
         for log in logs:
-            writer.writerow([
-                str(log.id),
-                log.created_at.isoformat(),
-                str(log.user_id) if log.user_id else "",
-                sanitize_csv_field(log.action),
-                sanitize_csv_field(log.resource_type or ""),
-                str(log.resource_id) if log.resource_id else "",
-                sanitize_csv_field(log.ip_address or ""),
-                sanitize_csv_field(log.user_agent or ""),
-                sanitize_csv_field(str(log.details) if log.details else ""),
-            ])
+            writer.writerow(
+                [
+                    str(log.id),
+                    log.created_at.isoformat(),
+                    str(log.user_id) if log.user_id else "",
+                    sanitize_csv_field(log.action),
+                    sanitize_csv_field(log.resource_type or ""),
+                    str(log.resource_id) if log.resource_id else "",
+                    sanitize_csv_field(log.ip_address or ""),
+                    sanitize_csv_field(log.user_agent or ""),
+                    sanitize_csv_field(str(log.details) if log.details else ""),
+                ]
+            )
 
         return output.getvalue()
 
@@ -755,9 +749,7 @@ class ComplianceService:
         """
         # Get retention policies
         policies = await self.list_retention_policies(organization_id)
-        policy_responses = [
-            RetentionPolicyResponse.model_validate(p) for p in policies
-        ]
+        policy_responses = [RetentionPolicyResponse.model_validate(p) for p in policies]
 
         return DataProcessingInfo(
             hosting_info={

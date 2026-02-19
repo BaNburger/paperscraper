@@ -158,15 +158,14 @@ class PubMedClient(BaseAPIClient):
             first_name = author.findtext("ForeName", "")
             name = f"{first_name} {last_name}".strip()
 
-            affiliations = [
-                aff.text for aff in author.findall(".//Affiliation")
-                if aff.text
-            ]
+            affiliations = [aff.text for aff in author.findall(".//Affiliation") if aff.text]
 
-            authors.append({
-                "name": name or "Unknown",
-                "affiliations": affiliations,
-            })
+            authors.append(
+                {
+                    "name": name or "Unknown",
+                    "affiliations": affiliations,
+                }
+            )
 
         # Extract publication date
         pub_date = article_data.find(".//PubDate")
@@ -180,8 +179,18 @@ class PubMedClient(BaseAPIClient):
                 month = int(month)
             except ValueError:
                 month_map = {
-                    "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
-                    "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12
+                    "Jan": 1,
+                    "Feb": 2,
+                    "Mar": 3,
+                    "Apr": 4,
+                    "May": 5,
+                    "Jun": 6,
+                    "Jul": 7,
+                    "Aug": 8,
+                    "Sep": 9,
+                    "Oct": 10,
+                    "Nov": 11,
+                    "Dec": 12,
                 }
                 month = month_map.get(month[:3], 1)
             publication_date = f"{year}-{month:02d}-{int(day):02d}"
@@ -198,8 +207,7 @@ class PubMedClient(BaseAPIClient):
 
         # Extract MeSH terms
         mesh_terms = [
-            mesh.findtext("DescriptorName", "")
-            for mesh in medline.findall(".//MeshHeading")
+            mesh.findtext("DescriptorName", "") for mesh in medline.findall(".//MeshHeading")
         ]
 
         return {

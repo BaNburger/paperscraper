@@ -1,2 +1,1 @@
 """Shared embedding domain services."""
-

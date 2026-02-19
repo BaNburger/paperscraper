@@ -95,12 +95,8 @@ class ScoringService:
         if not force_rescore and paper.doi and not dimensions:
             cached = await self._check_global_cache(paper.doi)
             if cached:
-                logger.info(
-                    "Global cache hit for paper %s (DOI: %s)", paper_id, paper.doi
-                )
-                return await self._create_score_from_cache(
-                    paper, organization_id, cached, weights
-                )
+                logger.info("Global cache hit for paper %s (DOI: %s)", paper_id, paper.doi)
+                return await self._create_score_from_cache(paper, organization_id, cached, weights)
 
         # Ensure paper has embedding for similar paper lookup
         if not paper.embedding:
@@ -177,8 +173,12 @@ class ScoringService:
 
         # Save score to database
         score = await self._save_score(
-            paper, organization_id, result, knowledge_context,
-            jstor_references, author_profiles,
+            paper,
+            organization_id,
+            result,
+            knowledge_context,
+            jstor_references,
+            author_profiles,
         )
 
         # Log usage if tracked
@@ -503,7 +503,9 @@ class ScoringService:
                         api_key=api_key,
                     )
                 except Exception as exc:
-                    logger.warning("Failed to resolve workflow LLM client for %s: %s", workflow, exc)
+                    logger.warning(
+                        "Failed to resolve workflow LLM client for %s: %s", workflow, exc
+                    )
 
         # 1) model_configurations default
         config_query = (
@@ -552,9 +554,7 @@ class ScoringService:
         """Get paper with tenant isolation and eager-loaded authors."""
         result = await self.db.execute(
             select(Paper)
-            .options(
-                selectinload(Paper.authors).selectinload(PaperAuthor.author)
-            )
+            .options(selectinload(Paper.authors).selectinload(PaperAuthor.author))
             .where(
                 Paper.id == paper_id,
                 Paper.organization_id == organization_id,
@@ -776,10 +776,17 @@ class ScoringService:
                 "team_readiness": weights.team_readiness,
             }
             if weights
-            else {k: default_w for k in [
-                "novelty", "ip_potential", "marketability",
-                "feasibility", "commercialization", "team_readiness",
-            ]}
+            else {
+                k: default_w
+                for k in [
+                    "novelty",
+                    "ip_potential",
+                    "marketability",
+                    "feasibility",
+                    "commercialization",
+                    "team_readiness",
+                ]
+            }
         )
 
         score = PaperScore(

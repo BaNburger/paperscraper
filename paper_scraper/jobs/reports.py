@@ -78,8 +78,7 @@ async def generate_report_content(
     elif report.report_type == ReportType.TEAM_ACTIVITY:
         team = await analytics_service.get_team_overview(report.organization_id)
         user_activity = "".join(
-            f"<li>{u.email}: {u.notes_created} notes</li>"
-            for u in team.user_activity[:10]
+            f"<li>{u.email}: {u.notes_created} notes</li>" for u in team.user_activity[:10]
         )
         return f"""
         <h2>Team Activity Report</h2>
@@ -112,7 +111,9 @@ async def send_report_email(
         report: The scheduled report configuration.
         content: Report HTML content.
     """
-    subject = f"[Paper Scraper] {report.name} - {report.report_type.value.replace('_', ' ').title()}"
+    subject = (
+        f"[Paper Scraper] {report.name} - {report.report_type.value.replace('_', ' ').title()}"
+    )
 
     html_content = f"""
     <!DOCTYPE html>
@@ -236,9 +237,7 @@ async def run_single_report_task(
     logger.info(f"Running single report: {report_id}")
 
     async with get_db_session() as db:
-        query = select(ScheduledReport).where(
-            ScheduledReport.id == UUID(report_id)
-        )
+        query = select(ScheduledReport).where(ScheduledReport.id == UUID(report_id))
         result = await db.execute(query)
         report = result.scalar_one_or_none()
 

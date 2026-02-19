@@ -8,20 +8,22 @@ from paper_scraper.modules.papers.clients.base import BaseAPIClient
 logger = logging.getLogger(__name__)
 
 # Fields to request from Semantic Scholar API
-_PAPER_FIELDS = ",".join([
-    "paperId",
-    "externalIds",
-    "title",
-    "abstract",
-    "year",
-    "venue",
-    "publicationDate",
-    "journal",
-    "referenceCount",
-    "citationCount",
-    "fieldsOfStudy",
-    "authors",
-])
+_PAPER_FIELDS = ",".join(
+    [
+        "paperId",
+        "externalIds",
+        "title",
+        "abstract",
+        "year",
+        "venue",
+        "publicationDate",
+        "journal",
+        "referenceCount",
+        "citationCount",
+        "fieldsOfStudy",
+        "authors",
+    ]
+)
 
 _CITATION_FIELDS = "paperId,title,year,citationCount"
 
@@ -167,12 +169,14 @@ class SemanticScholarClient(BaseAPIClient):
         for item in data.get("data", []):
             citing_paper = item.get("citingPaper", {})
             if citing_paper.get("paperId"):
-                citations.append({
-                    "paper_id": citing_paper["paperId"],
-                    "title": citing_paper.get("title", "Unknown"),
-                    "year": citing_paper.get("year"),
-                    "citation_count": citing_paper.get("citationCount"),
-                })
+                citations.append(
+                    {
+                        "paper_id": citing_paper["paperId"],
+                        "title": citing_paper.get("title", "Unknown"),
+                        "year": citing_paper.get("year"),
+                        "citation_count": citing_paper.get("citationCount"),
+                    }
+                )
         return citations
 
     async def get_references(
@@ -209,12 +213,14 @@ class SemanticScholarClient(BaseAPIClient):
         for item in data.get("data", []):
             cited_paper = item.get("citedPaper", {})
             if cited_paper.get("paperId"):
-                refs.append({
-                    "paper_id": cited_paper["paperId"],
-                    "title": cited_paper.get("title", "Unknown"),
-                    "year": cited_paper.get("year"),
-                    "citation_count": cited_paper.get("citationCount"),
-                })
+                refs.append(
+                    {
+                        "paper_id": cited_paper["paperId"],
+                        "title": cited_paper.get("title", "Unknown"),
+                        "year": cited_paper.get("year"),
+                        "citation_count": cited_paper.get("citationCount"),
+                    }
+                )
         return refs
 
     def normalize(self, paper: dict) -> dict:
@@ -236,14 +242,16 @@ class SemanticScholarClient(BaseAPIClient):
         # Extract authors
         authors = []
         for author_data in paper.get("authors", []):
-            authors.append({
-                "name": author_data.get("name", "Unknown"),
-                "semantic_scholar_id": author_data.get("authorId"),
-                "orcid": None,
-                "openalex_id": None,
-                "affiliations": [],
-                "is_corresponding": False,
-            })
+            authors.append(
+                {
+                    "name": author_data.get("name", "Unknown"),
+                    "semantic_scholar_id": author_data.get("authorId"),
+                    "orcid": None,
+                    "openalex_id": None,
+                    "affiliations": [],
+                    "is_corresponding": False,
+                }
+            )
 
         # Journal info
         journal_info = paper.get("journal") or {}

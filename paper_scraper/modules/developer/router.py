@@ -77,9 +77,7 @@ async def create_api_key(
     _auth: DeveloperManager,
 ) -> APIKeyCreatedResponse:
     """Create a new API key."""
-    api_key, plain_key = await service.create_api_key(
-        db, org_id, current_user.id, data
-    )
+    api_key, plain_key = await service.create_api_key(db, org_id, current_user.id, data)
 
     # Audit log
     audit = AuditService(db)
@@ -353,9 +351,7 @@ async def create_repository(
     _auth: DeveloperManager,
 ) -> RepositorySourceResponse:
     """Create a new repository source."""
-    source = await service.create_repository_source(
-        db, org_id, current_user.id, data
-    )
+    source = await service.create_repository_source(db, org_id, current_user.id, data)
 
     # Audit log
     audit = AuditService(db)

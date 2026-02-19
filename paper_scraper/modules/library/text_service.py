@@ -138,10 +138,14 @@ class LibraryTextService:
         candidates: list[dict[str, str]] = []
 
         # 1) OpenAlex
-        openalex_url = f"{settings.OPENALEX_BASE_URL}/works/{quote('https://doi.org/' + doi, safe='')}"
+        openalex_url = (
+            f"{settings.OPENALEX_BASE_URL}/works/{quote('https://doi.org/' + doi, safe='')}"
+        )
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(openalex_url, params={"mailto": settings.OPENALEX_EMAIL})
+                response = await client.get(
+                    openalex_url, params={"mailto": settings.OPENALEX_EMAIL}
+                )
                 if response.status_code == 200:
                     data = response.json()
                     best_oa = data.get("best_oa_location") or {}
@@ -150,7 +154,9 @@ class LibraryTextService:
                     if isinstance(pdf_url, str):
                         candidates.append({"source": "openalex_pdf", "url": pdf_url, "type": "pdf"})
                     if isinstance(landing_url, str):
-                        candidates.append({"source": "openalex_landing", "url": landing_url, "type": "html"})
+                        candidates.append(
+                            {"source": "openalex_landing", "url": landing_url, "type": "html"}
+                        )
         except Exception as exc:
             logger.debug("OpenAlex OA resolve failed for DOI %s: %s", doi, exc)
 
@@ -171,9 +177,13 @@ class LibraryTextService:
                         content_type = (link.get("content-type") or "").lower()
                         if isinstance(url, str):
                             if "pdf" in content_type or url.lower().endswith(".pdf"):
-                                candidates.append({"source": "crossref_pdf", "url": url, "type": "pdf"})
+                                candidates.append(
+                                    {"source": "crossref_pdf", "url": url, "type": "pdf"}
+                                )
                             else:
-                                candidates.append({"source": "crossref_link", "url": url, "type": "html"})
+                                candidates.append(
+                                    {"source": "crossref_link", "url": url, "type": "html"}
+                                )
         except Exception as exc:
             logger.debug("Crossref OA resolve failed for DOI %s: %s", doi, exc)
 
@@ -193,10 +203,14 @@ class LibraryTextService:
                     data = response.json()
                     oa_pdf = (data.get("openAccessPdf") or {}).get("url")
                     if isinstance(oa_pdf, str):
-                        candidates.append({"source": "semantic_scholar_pdf", "url": oa_pdf, "type": "pdf"})
+                        candidates.append(
+                            {"source": "semantic_scholar_pdf", "url": oa_pdf, "type": "pdf"}
+                        )
                     paper_url = data.get("url")
                     if isinstance(paper_url, str):
-                        candidates.append({"source": "semantic_scholar_link", "url": paper_url, "type": "html"})
+                        candidates.append(
+                            {"source": "semantic_scholar_link", "url": paper_url, "type": "html"}
+                        )
         except Exception as exc:
             logger.debug("Semantic Scholar OA resolve failed for DOI %s: %s", doi, exc)
 

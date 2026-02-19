@@ -75,11 +75,7 @@ class IngestRunStats(BaseModel):
                 if isinstance(payload.get("dedupe_report"), dict)
                 else {}
             ),
-            errors=[
-                str(item)
-                for item in payload.get("errors", [])
-                if item is not None
-            ]
+            errors=[str(item) for item in payload.get("errors", []) if item is not None]
             if isinstance(payload.get("errors"), list)
             else [],
         )
@@ -115,18 +111,18 @@ class IngestRunResponse(BaseModel):
         if hasattr(data, "__dict__"):
             # Pydantic will read attributes directly; expose typed stats via a dict.
             return {
-                "id": getattr(data, "id"),
-                "source": getattr(data, "source"),
-                "organization_id": getattr(data, "organization_id"),
-                "status": getattr(data, "status"),
-                "cursor_before": getattr(data, "cursor_before"),
-                "cursor_after": getattr(data, "cursor_after"),
+                "id": data.id,
+                "source": data.source,
+                "organization_id": data.organization_id,
+                "status": data.status,
+                "cursor_before": data.cursor_before,
+                "cursor_after": data.cursor_after,
                 "stats": IngestRunStats.from_raw(raw_stats),
-                "idempotency_key": getattr(data, "idempotency_key"),
-                "error_message": getattr(data, "error_message"),
-                "started_at": getattr(data, "started_at"),
-                "completed_at": getattr(data, "completed_at"),
-                "created_at": getattr(data, "created_at"),
+                "idempotency_key": data.idempotency_key,
+                "error_message": data.error_message,
+                "started_at": data.started_at,
+                "completed_at": data.completed_at,
+                "created_at": data.created_at,
             }
         return data
 
@@ -166,16 +162,16 @@ class IngestRunRecordResponse(BaseModel):
             return data
         if hasattr(data, "__dict__"):
             return {
-                "id": getattr(data, "id"),
-                "source": getattr(data, "source"),
-                "source_record_id": getattr(data, "source_record_id"),
-                "content_hash": getattr(data, "content_hash"),
-                "paper_id": getattr(data, "paper_id"),
-                "resolution_status": getattr(data, "resolution_status"),
-                "matched_on": getattr(data, "matched_on"),
-                "error": getattr(data, "resolution_error"),
-                "resolved_at": getattr(data, "resolved_at"),
-                "fetched_at": getattr(data, "fetched_at"),
+                "id": data.id,
+                "source": data.source,
+                "source_record_id": data.source_record_id,
+                "content_hash": data.content_hash,
+                "paper_id": data.paper_id,
+                "resolution_status": data.resolution_status,
+                "matched_on": data.matched_on,
+                "error": data.resolution_error,
+                "resolved_at": data.resolved_at,
+                "fetched_at": data.fetched_at,
             }
         return data
 

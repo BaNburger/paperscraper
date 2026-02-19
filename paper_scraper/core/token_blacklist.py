@@ -109,9 +109,7 @@ class TokenBlacklist(RedisService):
             logger.error(f"Failed to invalidate user tokens: {e}")
             return False
 
-    async def is_token_invalid_for_user(
-        self, user_id: str, issued_at: int
-    ) -> bool:
+    async def is_token_invalid_for_user(self, user_id: str, issued_at: int) -> bool:
         """Check if a token was issued before the user's invalidation timestamp.
 
         Args:

@@ -43,9 +43,7 @@ async def dispatch_webhook_task(
                     UUID(webhook_id),
                 )
             else:
-                result = await db.execute(
-                    select(Webhook).where(Webhook.id == UUID(webhook_id))
-                )
+                result = await db.execute(select(Webhook).where(Webhook.id == UUID(webhook_id)))
                 webhook = result.scalar_one_or_none()
             if webhook is None:
                 raise ValueError("Webhook not found")
@@ -105,7 +103,7 @@ async def dispatch_webhook_task(
 
             # Exponential backoff before retry
             if attempt < max_retries - 1:
-                await asyncio.sleep(2 ** attempt)
+                await asyncio.sleep(2**attempt)
 
         # All retries failed
         failure_count = await dev_service.record_webhook_failure(db, webhook.id)

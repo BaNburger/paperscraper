@@ -63,10 +63,12 @@ async def apply_retention_policies_task(
                 org_ids = [row[0] for row in result]
         except Exception as e:
             logger.error("Failed to fetch organizations for retention: %s", e)
-            errors.append({
-                "organization_id": "global",
-                "error": str(e),
-            })
+            errors.append(
+                {
+                    "organization_id": "global",
+                    "error": str(e),
+                }
+            )
             results_summary["completed_at"] = datetime.now(UTC).isoformat()
             return results_summary
 
@@ -98,13 +100,13 @@ async def apply_retention_policies_task(
                 )
 
         except Exception as e:
-            logger.error(
-                "Retention failed for org %s: %s", org_id, e, exc_info=True
+            logger.error("Retention failed for org %s: %s", org_id, e, exc_info=True)
+            errors.append(
+                {
+                    "organization_id": str(org_id),
+                    "error": str(e),
+                }
             )
-            errors.append({
-                "organization_id": str(org_id),
-                "error": str(e),
-            })
 
     results_summary["completed_at"] = datetime.now(UTC).isoformat()
     logger.info(

@@ -26,21 +26,30 @@ def upgrade() -> None:
 
     # Create enum types
     organization_type = postgresql.ENUM(
-        "university", "vc", "corporate", "research_institute",
+        "university",
+        "vc",
+        "corporate",
+        "research_institute",
         name="organizationtype",
         create_type=False,
     )
     organization_type.create(op.get_bind(), checkfirst=True)
 
     subscription_tier = postgresql.ENUM(
-        "free", "starter", "professional", "enterprise",
+        "free",
+        "starter",
+        "professional",
+        "enterprise",
         name="subscriptiontier",
         create_type=False,
     )
     subscription_tier.create(op.get_bind(), checkfirst=True)
 
     user_role = postgresql.ENUM(
-        "admin", "manager", "member", "viewer",
+        "admin",
+        "manager",
+        "member",
+        "viewer",
         name="userrole",
         create_type=False,
     )
@@ -138,7 +147,8 @@ def upgrade() -> None:
     op.create_index("ix_users_email", "users", ["email"])
 
     # Create updated_at trigger function
-    op.execute("""
+    op.execute(
+        """
         CREATE OR REPLACE FUNCTION update_updated_at_column()
         RETURNS TRIGGER AS $$
         BEGIN
@@ -146,21 +156,26 @@ def upgrade() -> None:
             RETURN NEW;
         END;
         $$ language 'plpgsql';
-    """)
+    """
+    )
 
     # Create triggers for updated_at
-    op.execute("""
+    op.execute(
+        """
         CREATE TRIGGER update_organizations_updated_at
             BEFORE UPDATE ON organizations
             FOR EACH ROW
             EXECUTE FUNCTION update_updated_at_column();
-    """)
-    op.execute("""
+    """
+    )
+    op.execute(
+        """
         CREATE TRIGGER update_users_updated_at
             BEFORE UPDATE ON users
             FOR EACH ROW
             EXECUTE FUNCTION update_updated_at_column();
-    """)
+    """
+    )
 
 
 def downgrade() -> None:

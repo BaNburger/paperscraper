@@ -29,18 +29,10 @@ def upgrade() -> None:
     op.drop_index("ix_paper_stage_history_status_id", table_name="paper_stage_history")
     op.drop_table("paper_stage_history")
 
-    op.drop_index(
-        "ix_paper_project_status_assigned", table_name="paper_project_statuses"
-    )
-    op.drop_index(
-        "ix_paper_project_status_project_stage", table_name="paper_project_statuses"
-    )
-    op.drop_index(
-        "ix_paper_project_statuses_project_id", table_name="paper_project_statuses"
-    )
-    op.drop_index(
-        "ix_paper_project_statuses_paper_id", table_name="paper_project_statuses"
-    )
+    op.drop_index("ix_paper_project_status_assigned", table_name="paper_project_statuses")
+    op.drop_index("ix_paper_project_status_project_stage", table_name="paper_project_statuses")
+    op.drop_index("ix_paper_project_statuses_project_id", table_name="paper_project_statuses")
+    op.drop_index("ix_paper_project_statuses_paper_id", table_name="paper_project_statuses")
     op.drop_table("paper_project_statuses")
 
     # Drop the rejection reason enum
@@ -77,15 +69,11 @@ def upgrade() -> None:
     )
     op.add_column(
         "projects",
-        sa.Column(
-            "paper_count", sa.Integer(), nullable=False, server_default=sa.text("0")
-        ),
+        sa.Column("paper_count", sa.Integer(), nullable=False, server_default=sa.text("0")),
     )
     op.add_column(
         "projects",
-        sa.Column(
-            "cluster_count", sa.Integer(), nullable=False, server_default=sa.text("0")
-        ),
+        sa.Column("cluster_count", sa.Integer(), nullable=False, server_default=sa.text("0")),
     )
     op.add_column(
         "projects",
@@ -154,9 +142,7 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("'[]'::jsonb"),
         ),
-        sa.Column(
-            "paper_count", sa.Integer(), nullable=False, server_default=sa.text("0")
-        ),
+        sa.Column("paper_count", sa.Integer(), nullable=False, server_default=sa.text("0")),
         sa.Column("centroid", Vector(1536), nullable=True),
         sa.Column(
             "created_at",
@@ -171,9 +157,7 @@ def upgrade() -> None:
             server_default=sa.func.now(),
         ),
     )
-    op.create_index(
-        "ix_project_clusters_project_id", "project_clusters", ["project_id"]
-    )
+    op.create_index("ix_project_clusters_project_id", "project_clusters", ["project_id"])
 
     # --- Create project_cluster_papers junction table ---
     op.create_table(
@@ -278,9 +262,7 @@ def downgrade() -> None:
         sa.Column("rejection_reason", rejection_reason_enum, nullable=True),
         sa.Column("rejection_notes", sa.Text(), nullable=True),
         sa.Column("priority", sa.Integer(), nullable=False, server_default="3"),
-        sa.Column(
-            "tags", postgresql.JSONB(), nullable=False, server_default="[]"
-        ),
+        sa.Column("tags", postgresql.JSONB(), nullable=False, server_default="[]"),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -301,9 +283,7 @@ def downgrade() -> None:
         ),
         sa.UniqueConstraint("paper_id", "project_id", name="uq_paper_project"),
     )
-    op.create_index(
-        "ix_paper_project_statuses_paper_id", "paper_project_statuses", ["paper_id"]
-    )
+    op.create_index("ix_paper_project_statuses_paper_id", "paper_project_statuses", ["paper_id"])
     op.create_index(
         "ix_paper_project_statuses_project_id",
         "paper_project_statuses",

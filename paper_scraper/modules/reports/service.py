@@ -45,9 +45,7 @@ class ReportsService:
         Returns:
             Paginated list of scheduled reports.
         """
-        query = select(ScheduledReport).where(
-            ScheduledReport.organization_id == organization_id
-        )
+        query = select(ScheduledReport).where(ScheduledReport.organization_id == organization_id)
 
         if is_active is not None:
             query = query.where(ScheduledReport.is_active == is_active)
@@ -74,9 +72,7 @@ class ReportsService:
             pages=pages,
         )
 
-    async def get_report(
-        self, organization_id: UUID, report_id: UUID
-    ) -> ScheduledReportResponse:
+    async def get_report(self, organization_id: UUID, report_id: UUID) -> ScheduledReportResponse:
         """Get a specific scheduled report.
 
         Args:
@@ -183,9 +179,7 @@ class ReportsService:
 
         return ScheduledReportResponse.model_validate(report)
 
-    async def delete_report(
-        self, organization_id: UUID, report_id: UUID
-    ) -> None:
+    async def delete_report(self, organization_id: UUID, report_id: UUID) -> None:
         """Delete a scheduled report.
 
         Args:
@@ -208,9 +202,7 @@ class ReportsService:
         await self.db.delete(report)
         await self.db.flush()
 
-    async def run_report(
-        self, organization_id: UUID, report_id: UUID
-    ) -> ReportRunResult:
+    async def run_report(self, organization_id: UUID, report_id: UUID) -> ReportRunResult:
         """Run a report immediately (manual trigger).
 
         Args:
@@ -249,9 +241,7 @@ class ReportsService:
             sent_to=report.recipients,
         )
 
-    async def get_due_reports(
-        self, schedule: ReportSchedule
-    ) -> list[ScheduledReport]:
+    async def get_due_reports(self, schedule: ReportSchedule) -> list[ScheduledReport]:
         """Get all active reports due for the given schedule.
 
         Args:

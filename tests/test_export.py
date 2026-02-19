@@ -135,6 +135,7 @@ class TestExportEndpoints:
 
         # Create paper
         from datetime import datetime
+
         paper = Paper(
             organization_id=test_user.organization_id,
             title="BibTeX Test Paper",
@@ -307,7 +308,7 @@ class TestExportEndpoints:
             headers=auth_headers,
         )
         assert csl_response.status_code == 200
-        assert "\"type\": \"article-journal\"" in csl_response.text
+        assert '"type": "article-journal"' in csl_response.text
 
     @pytest.mark.asyncio
     async def test_batch_export_csv(

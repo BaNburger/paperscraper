@@ -99,27 +99,37 @@ class AggregatedScore:
     @property
     def ip_potential(self) -> float:
         """Get IP potential score."""
-        return self.dimension_results.get("ip_potential", DimensionResult("ip_potential", 0, 0, "")).score
+        return self.dimension_results.get(
+            "ip_potential", DimensionResult("ip_potential", 0, 0, "")
+        ).score
 
     @property
     def marketability(self) -> float:
         """Get marketability score."""
-        return self.dimension_results.get("marketability", DimensionResult("marketability", 0, 0, "")).score
+        return self.dimension_results.get(
+            "marketability", DimensionResult("marketability", 0, 0, "")
+        ).score
 
     @property
     def feasibility(self) -> float:
         """Get feasibility score."""
-        return self.dimension_results.get("feasibility", DimensionResult("feasibility", 0, 0, "")).score
+        return self.dimension_results.get(
+            "feasibility", DimensionResult("feasibility", 0, 0, "")
+        ).score
 
     @property
     def commercialization(self) -> float:
         """Get commercialization score."""
-        return self.dimension_results.get("commercialization", DimensionResult("commercialization", 0, 0, "")).score
+        return self.dimension_results.get(
+            "commercialization", DimensionResult("commercialization", 0, 0, "")
+        ).score
 
     @property
     def team_readiness(self) -> float:
         """Get team readiness score."""
-        return self.dimension_results.get("team_readiness", DimensionResult("team_readiness", 0, 0, "")).score
+        return self.dimension_results.get(
+            "team_readiness", DimensionResult("team_readiness", 0, 0, "")
+        ).score
 
 
 # Default concurrency limit for LLM calls (across all scoring dimensions)
@@ -197,11 +207,7 @@ class ScoringOrchestrator:
                 name,
                 paper,
                 similar_papers,
-                dimension_context=(
-                    dimension_contexts.get(name)
-                    if dimension_contexts
-                    else None
-                ),
+                dimension_context=(dimension_contexts.get(name) if dimension_contexts else None),
             )
             for name in dims_to_score
         ]
@@ -274,9 +280,7 @@ class ScoringOrchestrator:
     ) -> DimensionResult:
         """Score a single dimension."""
         dimension = self.dimensions[dimension_name]
-        return await dimension.score(
-            paper, similar_papers, dimension_context=dimension_context
-        )
+        return await dimension.score(paper, similar_papers, dimension_context=dimension_context)
 
     def _calculate_overall(
         self,

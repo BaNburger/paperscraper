@@ -461,7 +461,13 @@ class TestScoringEndpoints:
             overall_score=7.3,
             overall_confidence=0.8,
             model_version="v1.0.0",
-            weights={"novelty": 0.2, "ip_potential": 0.2, "marketability": 0.2, "feasibility": 0.2, "commercialization": 0.2},
+            weights={
+                "novelty": 0.2,
+                "ip_potential": 0.2,
+                "marketability": 0.2,
+                "feasibility": 0.2,
+                "commercialization": 0.2,
+            },
             dimension_details={},
             errors=[],
         )

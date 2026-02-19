@@ -59,9 +59,7 @@ async def test_webhook(
         url="https://example.com/webhook",
         events=[WebhookEvent.PAPER_CREATED, WebhookEvent.PAPER_SCORED],
     )
-    webhook = await service.create_webhook(
-        db_session, test_organization.id, test_user.id, data
-    )
+    webhook = await service.create_webhook(db_session, test_organization.id, test_user.id, data)
     await db_session.flush()
     return webhook
 
@@ -297,9 +295,7 @@ class TestWebhookService:
             url="https://example.com/hook",
             events=[WebhookEvent.PAPER_CREATED],
         )
-        webhook = await service.create_webhook(
-            db_session, test_organization.id, test_user.id, data
-        )
+        webhook = await service.create_webhook(db_session, test_organization.id, test_user.id, data)
 
         assert webhook.name == "My Webhook"
         assert webhook.url == "https://example.com/hook"
@@ -437,9 +433,7 @@ class TestRepositorySourceService:
         test_repository: RepositorySource,
     ):
         """Test deleting a repository source."""
-        await service.delete_repository_source(
-            db_session, test_organization.id, test_repository.id
-        )
+        await service.delete_repository_source(db_session, test_organization.id, test_repository.id)
 
         sources = await service.list_repository_sources(db_session, test_organization.id)
         assert not any(s.id == test_repository.id for s in sources)
@@ -619,7 +613,9 @@ class TestDeveloperRouter:
         test_repository: RepositorySource,
     ):
         """Test deleting a repository source via API."""
-        response = await admin_client.delete(f"/api/v1/developer/repositories/{test_repository.id}/")
+        response = await admin_client.delete(
+            f"/api/v1/developer/repositories/{test_repository.id}/"
+        )
         assert response.status_code == 204
 
     # Authorization

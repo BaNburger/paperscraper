@@ -41,7 +41,8 @@ def upgrade() -> None:
 
     # Populate organization_id from papers via paper_authors join
     # Each author gets the organization_id from their first associated paper
-    op.execute("""
+    op.execute(
+        """
         UPDATE authors
         SET organization_id = subq.org_id
         FROM (
@@ -53,15 +54,18 @@ def upgrade() -> None:
             ORDER BY pa.author_id, p.created_at ASC
         ) AS subq
         WHERE authors.id = subq.author_id
-    """)
+    """
+    )
 
     # For any orphan authors (no papers), assign to the first organization
     # This handles edge cases during data migration
-    op.execute("""
+    op.execute(
+        """
         UPDATE authors
         SET organization_id = (SELECT id FROM organizations LIMIT 1)
         WHERE organization_id IS NULL
-    """)
+    """
+    )
 
     # Now make the column NOT NULL
     op.alter_column(
@@ -101,29 +105,35 @@ def upgrade() -> None:
         pass  # Constraint may not exist
 
     # Add partial unique indexes scoped to organization
-    op.execute("""
+    op.execute(
+        """
         CREATE UNIQUE INDEX ix_authors_org_orcid
         ON authors (organization_id, orcid)
         WHERE orcid IS NOT NULL
-    """)
+    """
+    )
 
-    op.execute("""
+    op.execute(
+        """
         CREATE UNIQUE INDEX ix_authors_org_openalex
         ON authors (organization_id, openalex_id)
         WHERE openalex_id IS NOT NULL
-    """)
+    """
+    )
 
     # =========================================================================
     # 2. Add HNSW index for author embeddings
     # =========================================================================
 
     # Note: This requires pgvector extension to be installed
-    op.execute("""
+    op.execute(
+        """
         CREATE INDEX IF NOT EXISTS ix_authors_embedding_hnsw
         ON authors
         USING hnsw (embedding vector_cosine_ops)
         WITH (m = 16, ef_construction = 64)
-    """)
+    """
+    )
 
     # =========================================================================
     # 3. Add organization_id to paper_notes table
@@ -136,19 +146,23 @@ def upgrade() -> None:
     )
 
     # Populate from the associated paper's organization
-    op.execute("""
+    op.execute(
+        """
         UPDATE paper_notes
         SET organization_id = papers.organization_id
         FROM papers
         WHERE paper_notes.paper_id = papers.id
-    """)
+    """
+    )
 
     # For any orphan notes, assign to first organization
-    op.execute("""
+    op.execute(
+        """
         UPDATE paper_notes
         SET organization_id = (SELECT id FROM organizations LIMIT 1)
         WHERE organization_id IS NULL
-    """)
+    """
+    )
 
     # Make NOT NULL
     op.alter_column(

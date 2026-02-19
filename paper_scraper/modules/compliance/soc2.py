@@ -313,29 +313,33 @@ def get_soc2_status() -> dict:
     for code, category in SOC2_CONTROLS.items():
         controls = []
         for control in category["controls"]:
-            controls.append({
-                "id": control["id"],
-                "description": control["description"],
-                "status": control["status"],
-                "evidence_url": control.get("evidence_url"),
-                "notes": control.get("notes"),
-                "last_reviewed": None,  # Would be tracked in database in production
-            })
+            controls.append(
+                {
+                    "id": control["id"],
+                    "description": control["description"],
+                    "status": control["status"],
+                    "evidence_url": control.get("evidence_url"),
+                    "notes": control.get("notes"),
+                    "last_reviewed": None,  # Would be tracked in database in production
+                }
+            )
             total_controls += 1
             status_counts[control["status"]] += 1
 
-        categories.append({
-            "code": code,
-            "name": category["name"],
-            "controls": controls,
-        })
+        categories.append(
+            {
+                "code": code,
+                "name": category["name"],
+                "controls": controls,
+            }
+        )
 
     summary = {
         "total_controls": total_controls,
         "status_counts": status_counts,
-        "compliance_percentage": round(
-            (status_counts["implemented"] / total_controls) * 100, 1
-        ) if total_controls > 0 else 0,
+        "compliance_percentage": round((status_counts["implemented"] / total_controls) * 100, 1)
+        if total_controls > 0
+        else 0,
         "last_updated": datetime.now(UTC).isoformat(),
     }
 

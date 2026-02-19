@@ -130,9 +130,7 @@ class TestSearchEndpoints:
         test_user: User,
     ):
         """Test semantic search GET endpoint (requires PostgreSQL with pgvector)."""
-        with patch(
-            "paper_scraper.modules.search.service.EmbeddingClient"
-        ) as mock_client:
+        with patch("paper_scraper.modules.search.service.EmbeddingClient") as mock_client:
             mock_instance = MagicMock()
             mock_instance.embed_text = AsyncMock(return_value=[0.1] * 1536)
             mock_client.return_value = mock_instance
@@ -258,9 +256,7 @@ class TestSearchService:
         base_query = select(PaperModel).where(
             PaperModel.organization_id == test_user.organization_id
         )
-        filtered_query = service._apply_filters(
-            base_query, filters, test_user.organization_id
-        )
+        filtered_query = service._apply_filters(base_query, filters, test_user.organization_id)
 
         result = await db_session.execute(filtered_query)
         papers = list(result.scalars().all())
@@ -303,9 +299,7 @@ class TestSearchService:
         base_query = select(PaperModel).where(
             PaperModel.organization_id == test_user.organization_id
         )
-        filtered_query = service._apply_filters(
-            base_query, filters, test_user.organization_id
-        )
+        filtered_query = service._apply_filters(base_query, filters, test_user.organization_id)
 
         result = await db_session.execute(filtered_query)
         papers = list(result.scalars().all())
@@ -348,9 +342,7 @@ class TestSearchService:
         base_query = select(PaperModel).where(
             PaperModel.organization_id == test_user.organization_id
         )
-        filtered_query = service._apply_filters(
-            base_query, filters, test_user.organization_id
-        )
+        filtered_query = service._apply_filters(base_query, filters, test_user.organization_id)
 
         result = await db_session.execute(filtered_query)
         papers = list(result.scalars().all())
@@ -405,9 +397,7 @@ class TestSearchService:
             db_session.add(paper)
         await db_session.flush()
 
-        count = await service.count_papers_without_embeddings(
-            test_user.organization_id
-        )
+        count = await service.count_papers_without_embeddings(test_user.organization_id)
         assert count == 5
 
     @pytest.mark.asyncio
@@ -450,9 +440,7 @@ class TestSearchService:
         await db_session.flush()
 
         # Fetch scores
-        scores_map = await service._get_latest_scores(
-            [paper.id], test_user.organization_id
-        )
+        scores_map = await service._get_latest_scores([paper.id], test_user.organization_id)
 
         assert paper.id in scores_map
         assert scores_map[paper.id].overall_score == 5.0
@@ -590,9 +578,7 @@ class TestHybridSearchRRF:
 
         # This is a conceptual test - actual ranking would require
         # PostgreSQL with pgvector and pg_trgm extensions
-        request_text_only = SearchRequest(
-            query="test", mode=SearchMode.HYBRID, semantic_weight=0.0
-        )
+        request_text_only = SearchRequest(query="test", mode=SearchMode.HYBRID, semantic_weight=0.0)
         assert request_text_only.semantic_weight == 0.0
 
         request_semantic_only = SearchRequest(
@@ -600,9 +586,7 @@ class TestHybridSearchRRF:
         )
         assert request_semantic_only.semantic_weight == 1.0
 
-        request_balanced = SearchRequest(
-            query="test", mode=SearchMode.HYBRID, semantic_weight=0.5
-        )
+        request_balanced = SearchRequest(query="test", mode=SearchMode.HYBRID, semantic_weight=0.5)
         assert request_balanced.semantic_weight == 0.5
 
 

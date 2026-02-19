@@ -184,9 +184,7 @@ class TestBadgeService:
         test_organization: Organization,
     ):
         """Test user stats when no activity exists."""
-        stats = await badge_service.get_user_stats(
-            test_user.id, test_organization.id
-        )
+        stats = await badge_service.get_user_stats(test_user.id, test_organization.id)
         assert stats.papers_imported == 0
         assert stats.papers_scored == 0
         assert stats.projects_created == 0
@@ -205,9 +203,7 @@ class TestBadgeService:
         papers_for_stats: list[Paper],
     ):
         """Test user stats with some papers imported."""
-        stats = await badge_service.get_user_stats(
-            test_user.id, test_organization.id
-        )
+        stats = await badge_service.get_user_stats(test_user.id, test_organization.id)
         assert stats.papers_imported == 3
 
     async def test_get_user_stats_level_calculation(
@@ -241,9 +237,7 @@ class TestBadgeService:
         db_session.add(ub)
         await db_session.flush()
 
-        stats = await badge_service.get_user_stats(
-            test_user.id, test_organization.id
-        )
+        stats = await badge_service.get_user_stats(test_user.id, test_organization.id)
         assert stats.total_points == 250
         # 250 // 100 + 1 = 3
         assert stats.level == 3
@@ -257,9 +251,7 @@ class TestBadgeService:
         test_organization: Organization,
     ):
         """Test badge checking when user has no progress."""
-        awarded = await badge_service.check_and_award_badges(
-            test_user.id, test_organization.id
-        )
+        awarded = await badge_service.check_and_award_badges(test_user.id, test_organization.id)
         # No papers, so no import badges earned
         assert len(awarded) == 0
 
@@ -271,9 +263,7 @@ class TestBadgeService:
         papers_for_stats: list[Paper],
     ):
         """Test that importing papers triggers import badges."""
-        awarded = await badge_service.check_and_award_badges(
-            test_user.id, test_organization.id
-        )
+        awarded = await badge_service.check_and_award_badges(test_user.id, test_organization.id)
         # Should earn "First Import" (threshold=1)
         badge_names = [b.name for b in awarded]
         assert "First Import" in badge_names
@@ -286,9 +276,7 @@ class TestBadgeService:
         papers_for_stats: list[Paper],
     ):
         """Test that already-earned badges are not re-awarded."""
-        await badge_service.check_and_award_badges(
-            test_user.id, test_organization.id
-        )
+        await badge_service.check_and_award_badges(test_user.id, test_organization.id)
         second_award = await badge_service.check_and_award_badges(
             test_user.id, test_organization.id
         )

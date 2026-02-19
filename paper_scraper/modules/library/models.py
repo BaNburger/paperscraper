@@ -87,9 +87,7 @@ class LibraryCollection(Base):
         cascade="all, delete-orphan",
     )
 
-    __table_args__ = (
-        Index("ix_library_collections_org_parent", "organization_id", "parent_id"),
-    )
+    __table_args__ = (Index("ix_library_collections_org_parent", "organization_id", "parent_id"),)
 
 
 class LibraryCollectionItem(Base):

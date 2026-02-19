@@ -62,4 +62,3 @@ def test_valid_allowlist_entry_is_applied(tmp_path: Path) -> None:
         message="Legacy 'ResearchGroup' naming is forbidden.",
     )
     assert is_allowlisted(finding, entries)
-

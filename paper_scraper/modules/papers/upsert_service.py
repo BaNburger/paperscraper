@@ -64,9 +64,7 @@ class PaperUpsertService:
             return []
 
         doi_keys = {
-            doi
-            for bundle in bundles
-            if (doi := self._normalize_doi(bundle.doi)) is not None
+            doi for bundle in bundles if (doi := self._normalize_doi(bundle.doi)) is not None
         }
         source_keys = {
             key
@@ -172,9 +170,7 @@ class PaperUpsertService:
         )
         papers = list(result.scalars().all())
         return {
-            key: paper
-            for paper in papers
-            if (key := self._normalize_doi(paper.doi)) is not None
+            key: paper for paper in papers if (key := self._normalize_doi(paper.doi)) is not None
         }
 
     async def _prefetch_by_source_id(
@@ -390,18 +386,24 @@ class PaperUpsertService:
             paper.pages = metadata.get("pages")
             merged = True
 
-        new_keywords = self._merge_string_lists(paper.keywords or [], metadata.get("keywords") or [])
+        new_keywords = self._merge_string_lists(
+            paper.keywords or [], metadata.get("keywords") or []
+        )
         if new_keywords != (paper.keywords or []):
             paper.keywords = new_keywords
             merged = True
 
-        new_mesh = self._merge_string_lists(paper.mesh_terms or [], metadata.get("mesh_terms") or [])
+        new_mesh = self._merge_string_lists(
+            paper.mesh_terms or [], metadata.get("mesh_terms") or []
+        )
         if new_mesh != (paper.mesh_terms or []):
             paper.mesh_terms = new_mesh
             merged = True
 
         new_refs = metadata.get("references_count")
-        if isinstance(new_refs, int) and (paper.references_count is None or new_refs > paper.references_count):
+        if isinstance(new_refs, int) and (
+            paper.references_count is None or new_refs > paper.references_count
+        ):
             paper.references_count = new_refs
             merged = True
 
@@ -438,7 +440,7 @@ class PaperUpsertService:
             return None
         for prefix in _DOI_PREFIXES:
             if normalized.startswith(prefix):
-                normalized = normalized[len(prefix):]
+                normalized = normalized[len(prefix) :]
         return normalized or None
 
     def _normalize_title(self, title: str | None) -> str:

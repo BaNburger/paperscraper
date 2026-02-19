@@ -23,7 +23,9 @@ def upgrade() -> None:
     """Create researcher_groups and group_members tables."""
     # Create GroupType enum (create_type=False since we create it manually with checkfirst)
     group_type_enum = postgresql.ENUM(
-        "custom", "mailing_list", "speaker_pool",
+        "custom",
+        "mailing_list",
+        "speaker_pool",
         name="grouptype",
         create_type=False,
     )
@@ -57,12 +59,8 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.ForeignKeyConstraint(
-            ["organization_id"], ["organizations.id"], ondelete="CASCADE"
-        ),
-        sa.ForeignKeyConstraint(
-            ["created_by"], ["users.id"], ondelete="SET NULL"
-        ),
+        sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["created_by"], ["users.id"], ondelete="SET NULL"),
     )
 
     # Create indexes for researcher_groups
@@ -85,15 +83,9 @@ def upgrade() -> None:
         ),
         sa.Column("added_by", postgresql.UUID(as_uuid=True), nullable=True),
         sa.PrimaryKeyConstraint("group_id", "researcher_id"),
-        sa.ForeignKeyConstraint(
-            ["group_id"], ["researcher_groups.id"], ondelete="CASCADE"
-        ),
-        sa.ForeignKeyConstraint(
-            ["researcher_id"], ["authors.id"], ondelete="CASCADE"
-        ),
-        sa.ForeignKeyConstraint(
-            ["added_by"], ["users.id"], ondelete="SET NULL"
-        ),
+        sa.ForeignKeyConstraint(["group_id"], ["researcher_groups.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["researcher_id"], ["authors.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["added_by"], ["users.id"], ondelete="SET NULL"),
     )
 
 
@@ -105,7 +97,9 @@ def downgrade() -> None:
 
     # Drop enum type
     group_type_enum = postgresql.ENUM(
-        "custom", "mailing_list", "speaker_pool",
+        "custom",
+        "mailing_list",
+        "speaker_pool",
         name="grouptype",
     )
     group_type_enum.drop(op.get_bind(), checkfirst=True)

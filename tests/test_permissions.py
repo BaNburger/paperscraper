@@ -164,9 +164,7 @@ class TestPermissionEndpoints:
 
     async def test_viewer_permissions(self, client: AsyncClient, viewer_user: User):
         """Viewer should have limited permissions."""
-        resp = await client.get(
-            "/api/v1/auth/permissions", headers=_auth_headers(viewer_user)
-        )
+        resp = await client.get("/api/v1/auth/permissions", headers=_auth_headers(viewer_user))
         assert resp.status_code == 200
         data = resp.json()
         assert data["role"] == "viewer"
@@ -175,9 +173,7 @@ class TestPermissionEndpoints:
 
     async def test_viewer_cannot_access_roles(self, client: AsyncClient, viewer_user: User):
         """Viewer should not access the full role-permission matrix."""
-        resp = await client.get(
-            "/api/v1/auth/roles", headers=_auth_headers(viewer_user)
-        )
+        resp = await client.get("/api/v1/auth/roles", headers=_auth_headers(viewer_user))
         assert resp.status_code == 403
 
 
@@ -189,9 +185,7 @@ class TestRBACEnforcement:
         """Viewer lacks papers:delete and should get 403."""
         from uuid import uuid4
 
-        resp = await client.delete(
-            f"/api/v1/papers/{uuid4()}", headers=_auth_headers(viewer_user)
-        )
+        resp = await client.delete(f"/api/v1/papers/{uuid4()}", headers=_auth_headers(viewer_user))
         assert resp.status_code == 403
 
     async def test_viewer_cannot_create_group(self, client: AsyncClient, viewer_user: User):

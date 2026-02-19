@@ -57,18 +57,14 @@ class Project(Base):
 
     # Institution / researcher info
     institution_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    openalex_institution_id: Mapped[str | None] = mapped_column(
-        String(100), nullable=True
-    )
+    openalex_institution_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     pi_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     pi_author_id: Mapped[UUID | None] = mapped_column(
         Uuid,
         ForeignKey("authors.id", ondelete="SET NULL"),
         nullable=True,
     )
-    openalex_author_id: Mapped[str | None] = mapped_column(
-        String(100), nullable=True
-    )
+    openalex_author_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # Denormalized counts
     paper_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -78,9 +74,7 @@ class Project(Base):
     sync_status: Mapped[str] = mapped_column(
         String(20), nullable=False, default=SyncStatus.IDLE.value
     )
-    last_synced_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Extensible settings
     settings: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
@@ -137,9 +131,7 @@ class ProjectPaper(Base):
     project: Mapped["Project"] = relationship("Project", back_populates="papers")
     paper: Mapped["Paper"] = relationship("Paper")
 
-    __table_args__ = (
-        Index("ix_project_papers_paper_id", "paper_id"),
-    )
+    __table_args__ = (Index("ix_project_papers_paper_id", "paper_id"),)
 
     def __repr__(self) -> str:
         return f"<ProjectPaper project={self.project_id} paper={self.paper_id}>"
@@ -216,9 +208,7 @@ class ProjectClusterPaper(Base):
     )
     paper: Mapped["Paper"] = relationship("Paper")
 
-    __table_args__ = (
-        Index("ix_project_cluster_papers_paper_id", "paper_id"),
-    )
+    __table_args__ = (Index("ix_project_cluster_papers_paper_id", "paper_id"),)
 
     def __repr__(self) -> str:
         return f"<ProjectClusterPaper cluster={self.cluster_id} paper={self.paper_id}>"

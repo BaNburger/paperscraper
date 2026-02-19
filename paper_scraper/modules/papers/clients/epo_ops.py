@@ -58,7 +58,11 @@ class EPOOPSClient:
         if not self.key or not self.secret:
             raise ValueError("EPO_OPS_KEY and EPO_OPS_SECRET must be configured")
 
-        secret_value = self.secret.get_secret_value() if isinstance(self.secret, SecretStr) else str(self.secret)
+        secret_value = (
+            self.secret.get_secret_value()
+            if isinstance(self.secret, SecretStr)
+            else str(self.secret)
+        )
         credentials = base64.b64encode(f"{self.key}:{secret_value}".encode()).decode()
 
         response = await self.client.post(

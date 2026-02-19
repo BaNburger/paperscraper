@@ -458,9 +458,7 @@ class IPPotentialLLMResponse(BaseLLMScoringResponse):
 class MarketabilityLLMResponse(BaseLLMScoringResponse):
     """Schema for marketability dimension LLM response."""
 
-    target_industries: list[str] = Field(
-        default_factory=list, description="Target industries"
-    )
+    target_industries: list[str] = Field(default_factory=list, description="Target industries")
     market_size_estimate: str = Field(default="", description="Market size estimate")
     competitive_landscape: str = Field(default="", description="Competitive landscape analysis")
 
@@ -559,7 +557,7 @@ class PitchLLMResponse(BaseModel):
         if not isinstance(v, str):
             return ""
         # Remove quotes and common artifacts
-        pitch = v.strip().strip('"\'')
+        pitch = v.strip().strip("\"'")
         if pitch.startswith("- "):
             pitch = pitch[2:]
         return pitch[:150]  # Hard limit

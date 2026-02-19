@@ -125,9 +125,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         # HSTS only in production
         if settings.is_production:
-            headers["Strict-Transport-Security"] = (
-                "max-age=31536000; includeSubDomains; preload"
-            )
+            headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
 
         # Cache control for API responses
         if request.url.path.startswith("/api/"):

@@ -18,9 +18,21 @@ from paper_scraper.modules.auth.models import (
 
 # Common passwords to reject (top passwords from breach lists)
 COMMON_PASSWORDS = {
-    "password", "12345678", "123456789", "qwerty123", "password1",
-    "iloveyou", "sunshine", "princess", "football", "welcome1",
-    "shadow12", "superman", "michael1", "password123", "letmein1",
+    "password",
+    "12345678",
+    "123456789",
+    "qwerty123",
+    "password1",
+    "iloveyou",
+    "sunshine",
+    "princess",
+    "football",
+    "welcome1",
+    "shadow12",
+    "superman",
+    "michael1",
+    "password123",
+    "letmein1",
 }
 
 
@@ -383,9 +395,7 @@ class DeleteAccountRequest(BaseModel):
     """Schema for account deletion request."""
 
     password: str = Field(..., description="Current password for verification")
-    confirm_deletion: bool = Field(
-        ..., description="Must be true to confirm deletion"
-    )
+    confirm_deletion: bool = Field(..., description="Must be true to confirm deletion")
     delete_organization: bool = Field(
         default=False,
         description="If true and user is sole admin, delete entire organization",

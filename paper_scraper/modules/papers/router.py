@@ -273,9 +273,7 @@ async def generate_simplified_abstract(
     Uses LLM to create a simplified version of the abstract
     that is accessible to general audiences (max 150 words).
     """
-    paper = await paper_service.generate_simplified_abstract(
-        paper_id, current_user.organization_id
-    )
+    paper = await paper_service.generate_simplified_abstract(paper_id, current_user.organization_id)
     return paper  # type: ignore
 
 
@@ -474,13 +472,15 @@ async def get_citation_graph(
 
         if not ss_paper or not ss_paper.get("source_id"):
             return CitationGraphResponse(
-                nodes=[CitationNode(
-                    paper_id=str(paper_id),
-                    title=paper.title,
-                    year=paper.publication_date.year if paper.publication_date else None,
-                    citation_count=paper.citations_count,
-                    is_root=True,
-                )],
+                nodes=[
+                    CitationNode(
+                        paper_id=str(paper_id),
+                        title=paper.title,
+                        year=paper.publication_date.year if paper.publication_date else None,
+                        citation_count=paper.citations_count,
+                        is_root=True,
+                    )
+                ],
                 edges=[],
                 root_paper_id=str(paper_id),
             )
@@ -502,30 +502,38 @@ async def get_citation_graph(
     edges = []
 
     for cite in citations:
-        nodes.append(CitationNode(
-            paper_id=cite["paper_id"],
-            title=cite["title"],
-            year=cite.get("year"),
-            citation_count=cite.get("citation_count"),
-        ))
-        edges.append(CitationEdge(
-            source=cite["paper_id"],
-            target=str(paper_id),
-            type="cites",
-        ))
+        nodes.append(
+            CitationNode(
+                paper_id=cite["paper_id"],
+                title=cite["title"],
+                year=cite.get("year"),
+                citation_count=cite.get("citation_count"),
+            )
+        )
+        edges.append(
+            CitationEdge(
+                source=cite["paper_id"],
+                target=str(paper_id),
+                type="cites",
+            )
+        )
 
     for ref in references:
-        nodes.append(CitationNode(
-            paper_id=ref["paper_id"],
-            title=ref["title"],
-            year=ref.get("year"),
-            citation_count=ref.get("citation_count"),
-        ))
-        edges.append(CitationEdge(
-            source=str(paper_id),
-            target=ref["paper_id"],
-            type="cites",
-        ))
+        nodes.append(
+            CitationNode(
+                paper_id=ref["paper_id"],
+                title=ref["title"],
+                year=ref.get("year"),
+                citation_count=ref.get("citation_count"),
+            )
+        )
+        edges.append(
+            CitationEdge(
+                source=str(paper_id),
+                target=ref["paper_id"],
+                type="cites",
+            )
+        )
 
     return CitationGraphResponse(
         nodes=nodes,

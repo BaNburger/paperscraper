@@ -91,9 +91,7 @@ async def update_trend_topic(
     service: Annotated[TrendsService, Depends(get_trends_service)],
 ) -> TrendTopicResponse:
     """Update a trend topic."""
-    return await service.update_topic(
-        topic_id, data, current_user.organization_id
-    )
+    return await service.update_topic(topic_id, data, current_user.organization_id)
 
 
 @router.delete(
@@ -119,12 +117,8 @@ async def analyze_trend_topic(
     topic_id: UUID,
     current_user: CurrentUser,
     service: Annotated[TrendsService, Depends(get_trends_service)],
-    min_similarity: float = Query(
-        0.65, ge=0.0, le=1.0, description="Minimum similarity threshold"
-    ),
-    max_papers: int = Query(
-        100, ge=1, le=500, description="Maximum papers to match"
-    ),
+    min_similarity: float = Query(0.65, ge=0.0, le=1.0, description="Minimum similarity threshold"),
+    max_papers: int = Query(100, ge=1, le=500, description="Maximum papers to match"),
 ) -> TrendSnapshotResponse:
     """Trigger analysis for a trend topic.
 

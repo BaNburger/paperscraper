@@ -241,19 +241,21 @@ class TestSearchActivityModel:
     ) -> None:
         """A single user should be able to have many search activities."""
         for i in range(20):
-            db_session.add(SearchActivity(
-                user_id=user_alpha.id,
-                organization_id=org_alpha.id,
-                query=f"query number {i}",
-                mode="fulltext",
-                results_count=i,
-            ))
+            db_session.add(
+                SearchActivity(
+                    user_id=user_alpha.id,
+                    organization_id=org_alpha.id,
+                    query=f"query number {i}",
+                    mode="fulltext",
+                    results_count=i,
+                )
+            )
         await db_session.flush()
 
         result = await db_session.execute(
-            select(func.count()).select_from(SearchActivity).where(
-                SearchActivity.user_id == user_alpha.id
-            )
+            select(func.count())
+            .select_from(SearchActivity)
+            .where(SearchActivity.user_id == user_alpha.id)
         )
         count = result.scalar()
         assert count == 20
@@ -310,13 +312,15 @@ class TestSearchActivityBadgeIntegration:
         """All search modes (fulltext, semantic, hybrid) should be counted."""
         modes = ["fulltext", "semantic", "hybrid"]
         for mode in modes:
-            db_session.add(SearchActivity(
-                user_id=user_alpha.id,
-                organization_id=org_alpha.id,
-                query=f"{mode} search",
-                mode=mode,
-                results_count=10,
-            ))
+            db_session.add(
+                SearchActivity(
+                    user_id=user_alpha.id,
+                    organization_id=org_alpha.id,
+                    query=f"{mode} search",
+                    mode=mode,
+                    results_count=10,
+                )
+            )
         await db_session.flush()
 
         service = BadgeService(db_session)
@@ -361,15 +365,17 @@ class TestKnowledgePaginationComprehensive:
         """When total divides evenly by page_size, pages should be exact."""
         # Create exactly 10 sources
         for i in range(10):
-            db_session.add(KnowledgeSource(
-                organization_id=org_alpha.id,
-                user_id=user_alpha.id,
-                scope=KnowledgeScope.PERSONAL,
-                type=KnowledgeType.CUSTOM,
-                title=f"Source {i}",
-                content=f"Content {i}",
-                tags=[],
-            ))
+            db_session.add(
+                KnowledgeSource(
+                    organization_id=org_alpha.id,
+                    user_id=user_alpha.id,
+                    scope=KnowledgeScope.PERSONAL,
+                    type=KnowledgeType.CUSTOM,
+                    title=f"Source {i}",
+                    content=f"Content {i}",
+                    tags=[],
+                )
+            )
         await db_session.flush()
 
         service = KnowledgeService(db_session)
@@ -393,15 +399,17 @@ class TestKnowledgePaginationComprehensive:
         """When total does not divide evenly, pages should round up."""
         # Create 7 sources
         for i in range(7):
-            db_session.add(KnowledgeSource(
-                organization_id=org_alpha.id,
-                user_id=user_alpha.id,
-                scope=KnowledgeScope.PERSONAL,
-                type=KnowledgeType.CUSTOM,
-                title=f"Source {i}",
-                content=f"Content {i}",
-                tags=[],
-            ))
+            db_session.add(
+                KnowledgeSource(
+                    organization_id=org_alpha.id,
+                    user_id=user_alpha.id,
+                    scope=KnowledgeScope.PERSONAL,
+                    type=KnowledgeType.CUSTOM,
+                    title=f"Source {i}",
+                    content=f"Content {i}",
+                    tags=[],
+                )
+            )
         await db_session.flush()
 
         service = KnowledgeService(db_session)
@@ -424,15 +432,17 @@ class TestKnowledgePaginationComprehensive:
     ) -> None:
         """The last page should contain only the remaining items."""
         for i in range(7):
-            db_session.add(KnowledgeSource(
-                organization_id=org_alpha.id,
-                user_id=user_alpha.id,
-                scope=KnowledgeScope.PERSONAL,
-                type=KnowledgeType.CUSTOM,
-                title=f"Source {i}",
-                content=f"Content {i}",
-                tags=[],
-            ))
+            db_session.add(
+                KnowledgeSource(
+                    organization_id=org_alpha.id,
+                    user_id=user_alpha.id,
+                    scope=KnowledgeScope.PERSONAL,
+                    type=KnowledgeType.CUSTOM,
+                    title=f"Source {i}",
+                    content=f"Content {i}",
+                    tags=[],
+                )
+            )
         await db_session.flush()
 
         service = KnowledgeService(db_session)
@@ -455,15 +465,17 @@ class TestKnowledgePaginationComprehensive:
     ) -> None:
         """Requesting a page beyond the data should return empty items."""
         for i in range(3):
-            db_session.add(KnowledgeSource(
-                organization_id=org_alpha.id,
-                user_id=user_alpha.id,
-                scope=KnowledgeScope.PERSONAL,
-                type=KnowledgeType.CUSTOM,
-                title=f"Source {i}",
-                content=f"Content {i}",
-                tags=[],
-            ))
+            db_session.add(
+                KnowledgeSource(
+                    organization_id=org_alpha.id,
+                    user_id=user_alpha.id,
+                    scope=KnowledgeScope.PERSONAL,
+                    type=KnowledgeType.CUSTOM,
+                    title=f"Source {i}",
+                    content=f"Content {i}",
+                    tags=[],
+                )
+            )
         await db_session.flush()
 
         service = KnowledgeService(db_session)
@@ -487,15 +499,17 @@ class TestKnowledgePaginationComprehensive:
     ) -> None:
         """page_size=1 should return exactly one item per page."""
         for i in range(3):
-            db_session.add(KnowledgeSource(
-                organization_id=org_alpha.id,
-                user_id=user_alpha.id,
-                scope=KnowledgeScope.PERSONAL,
-                type=KnowledgeType.CUSTOM,
-                title=f"Source {i}",
-                content=f"Content {i}",
-                tags=[],
-            ))
+            db_session.add(
+                KnowledgeSource(
+                    organization_id=org_alpha.id,
+                    user_id=user_alpha.id,
+                    scope=KnowledgeScope.PERSONAL,
+                    type=KnowledgeType.CUSTOM,
+                    title=f"Source {i}",
+                    content=f"Content {i}",
+                    tags=[],
+                )
+            )
         await db_session.flush()
 
         service = KnowledgeService(db_session)
@@ -520,26 +534,30 @@ class TestKnowledgePaginationComprehensive:
         """Organization sources should not include personal sources and vice versa."""
         # Add 3 personal sources
         for i in range(3):
-            db_session.add(KnowledgeSource(
-                organization_id=org_alpha.id,
-                user_id=user_alpha.id,
-                scope=KnowledgeScope.PERSONAL,
-                type=KnowledgeType.CUSTOM,
-                title=f"Personal {i}",
-                content=f"Personal content {i}",
-                tags=[],
-            ))
+            db_session.add(
+                KnowledgeSource(
+                    organization_id=org_alpha.id,
+                    user_id=user_alpha.id,
+                    scope=KnowledgeScope.PERSONAL,
+                    type=KnowledgeType.CUSTOM,
+                    title=f"Personal {i}",
+                    content=f"Personal content {i}",
+                    tags=[],
+                )
+            )
         # Add 2 organization sources
         for i in range(2):
-            db_session.add(KnowledgeSource(
-                organization_id=org_alpha.id,
-                user_id=None,
-                scope=KnowledgeScope.ORGANIZATION,
-                type=KnowledgeType.INDUSTRY_CONTEXT,
-                title=f"Org {i}",
-                content=f"Org content {i}",
-                tags=[],
-            ))
+            db_session.add(
+                KnowledgeSource(
+                    organization_id=org_alpha.id,
+                    user_id=None,
+                    scope=KnowledgeScope.ORGANIZATION,
+                    type=KnowledgeType.INDUSTRY_CONTEXT,
+                    title=f"Org {i}",
+                    content=f"Org content {i}",
+                    tags=[],
+                )
+            )
         await db_session.flush()
 
         service = KnowledgeService(db_session)
@@ -567,15 +585,17 @@ class TestKnowledgePaginationComprehensive:
         """Personal knowledge sources should be visible only to the owning user."""
         # user_alpha has 4 personal sources
         for i in range(4):
-            db_session.add(KnowledgeSource(
-                organization_id=org_alpha.id,
-                user_id=user_alpha.id,
-                scope=KnowledgeScope.PERSONAL,
-                type=KnowledgeType.CUSTOM,
-                title=f"Alpha personal {i}",
-                content=f"Content {i}",
-                tags=[],
-            ))
+            db_session.add(
+                KnowledgeSource(
+                    organization_id=org_alpha.id,
+                    user_id=user_alpha.id,
+                    scope=KnowledgeScope.PERSONAL,
+                    type=KnowledgeType.CUSTOM,
+                    title=f"Alpha personal {i}",
+                    content=f"Content {i}",
+                    tags=[],
+                )
+            )
         await db_session.flush()
 
         service = KnowledgeService(db_session)
@@ -601,24 +621,28 @@ class TestKnowledgePaginationComprehensive:
     ) -> None:
         """Organization knowledge sources should be org-scoped."""
         for i in range(3):
-            db_session.add(KnowledgeSource(
-                organization_id=org_alpha.id,
+            db_session.add(
+                KnowledgeSource(
+                    organization_id=org_alpha.id,
+                    user_id=None,
+                    scope=KnowledgeScope.ORGANIZATION,
+                    type=KnowledgeType.RESEARCH_FOCUS,
+                    title=f"Alpha org source {i}",
+                    content=f"Content {i}",
+                    tags=[],
+                )
+            )
+        db_session.add(
+            KnowledgeSource(
+                organization_id=org_beta.id,
                 user_id=None,
                 scope=KnowledgeScope.ORGANIZATION,
                 type=KnowledgeType.RESEARCH_FOCUS,
-                title=f"Alpha org source {i}",
-                content=f"Content {i}",
+                title="Beta org source",
+                content="Content",
                 tags=[],
-            ))
-        db_session.add(KnowledgeSource(
-            organization_id=org_beta.id,
-            user_id=None,
-            scope=KnowledgeScope.ORGANIZATION,
-            type=KnowledgeType.RESEARCH_FOCUS,
-            title="Beta org source",
-            content="Content",
-            tags=[],
-        ))
+            )
+        )
         await db_session.flush()
 
         service = KnowledgeService(db_session)
@@ -663,9 +687,7 @@ class TestRetentionPolicySearchActivities:
 
         # Manually update created_at to be old (bypass server_default)
         result = await db_session.execute(
-            select(SearchActivity).where(
-                SearchActivity.organization_id == org_alpha.id
-            )
+            select(SearchActivity).where(SearchActivity.organization_id == org_alpha.id)
         )
         activities = list(result.scalars().all())
         for a in activities:
@@ -684,9 +706,9 @@ class TestRetentionPolicySearchActivities:
 
         # Verify records still exist
         remaining = await db_session.execute(
-            select(func.count()).select_from(SearchActivity).where(
-                SearchActivity.organization_id == org_alpha.id
-            )
+            select(func.count())
+            .select_from(SearchActivity)
+            .where(SearchActivity.organization_id == org_alpha.id)
         )
         assert remaining.scalar() == 3
 
@@ -704,28 +726,30 @@ class TestRetentionPolicySearchActivities:
 
         # Create 3 old activities and 2 recent ones
         for i in range(3):
-            db_session.add(SearchActivity(
-                user_id=user_alpha.id,
-                organization_id=org_alpha.id,
-                query=f"old query {i}",
-                mode="fulltext",
-                results_count=0,
-            ))
+            db_session.add(
+                SearchActivity(
+                    user_id=user_alpha.id,
+                    organization_id=org_alpha.id,
+                    query=f"old query {i}",
+                    mode="fulltext",
+                    results_count=0,
+                )
+            )
         for i in range(2):
-            db_session.add(SearchActivity(
-                user_id=user_alpha.id,
-                organization_id=org_alpha.id,
-                query=f"recent query {i}",
-                mode="hybrid",
-                results_count=10,
-            ))
+            db_session.add(
+                SearchActivity(
+                    user_id=user_alpha.id,
+                    organization_id=org_alpha.id,
+                    query=f"recent query {i}",
+                    mode="hybrid",
+                    results_count=10,
+                )
+            )
         await db_session.flush()
 
         # Set timestamps
         result = await db_session.execute(
-            select(SearchActivity).where(
-                SearchActivity.organization_id == org_alpha.id
-            )
+            select(SearchActivity).where(SearchActivity.organization_id == org_alpha.id)
         )
         all_activities = list(result.scalars().all())
 
@@ -748,9 +772,9 @@ class TestRetentionPolicySearchActivities:
 
         # Verify only recent records remain
         remaining = await db_session.execute(
-            select(func.count()).select_from(SearchActivity).where(
-                SearchActivity.organization_id == org_alpha.id
-            )
+            select(func.count())
+            .select_from(SearchActivity)
+            .where(SearchActivity.organization_id == org_alpha.id)
         )
         assert remaining.scalar() == 2
 
@@ -788,21 +812,25 @@ class TestRetentionPolicySearchActivities:
 
         # Create old activities in both orgs
         for i in range(3):
-            db_session.add(SearchActivity(
-                user_id=user_alpha.id,
-                organization_id=org_alpha.id,
-                query=f"alpha old {i}",
-                mode="fulltext",
-                results_count=0,
-            ))
+            db_session.add(
+                SearchActivity(
+                    user_id=user_alpha.id,
+                    organization_id=org_alpha.id,
+                    query=f"alpha old {i}",
+                    mode="fulltext",
+                    results_count=0,
+                )
+            )
         for i in range(2):
-            db_session.add(SearchActivity(
-                user_id=user_beta.id,
-                organization_id=org_beta.id,
-                query=f"beta old {i}",
-                mode="fulltext",
-                results_count=0,
-            ))
+            db_session.add(
+                SearchActivity(
+                    user_id=user_beta.id,
+                    organization_id=org_beta.id,
+                    query=f"beta old {i}",
+                    mode="fulltext",
+                    results_count=0,
+                )
+            )
         await db_session.flush()
 
         # Make all activities old
@@ -824,9 +852,9 @@ class TestRetentionPolicySearchActivities:
 
         # org_beta's records should be untouched
         remaining_beta = await db_session.execute(
-            select(func.count()).select_from(SearchActivity).where(
-                SearchActivity.organization_id == org_beta.id
-            )
+            select(func.count())
+            .select_from(SearchActivity)
+            .where(SearchActivity.organization_id == org_beta.id)
         )
         assert remaining_beta.scalar() == 2
 
@@ -855,20 +883,20 @@ class TestRetentionPolicySearchActivities:
 
         # Create old activities
         for i in range(4):
-            db_session.add(SearchActivity(
-                user_id=user_alpha.id,
-                organization_id=org_alpha.id,
-                query=f"policy test query {i}",
-                mode="hybrid",
-                results_count=0,
-            ))
+            db_session.add(
+                SearchActivity(
+                    user_id=user_alpha.id,
+                    organization_id=org_alpha.id,
+                    query=f"policy test query {i}",
+                    mode="hybrid",
+                    results_count=0,
+                )
+            )
         await db_session.flush()
 
         # Make activities old
         result = await db_session.execute(
-            select(SearchActivity).where(
-                SearchActivity.organization_id == org_alpha.id
-            )
+            select(SearchActivity).where(SearchActivity.organization_id == org_alpha.id)
         )
         for a in result.scalars().all():
             a.created_at = old_time
@@ -910,20 +938,20 @@ class TestRetentionPolicySearchActivities:
 
         # Create old activities
         for i in range(3):
-            db_session.add(SearchActivity(
-                user_id=user_alpha.id,
-                organization_id=org_alpha.id,
-                query=f"inactive test {i}",
-                mode="fulltext",
-                results_count=0,
-            ))
+            db_session.add(
+                SearchActivity(
+                    user_id=user_alpha.id,
+                    organization_id=org_alpha.id,
+                    query=f"inactive test {i}",
+                    mode="fulltext",
+                    results_count=0,
+                )
+            )
         await db_session.flush()
 
         # Make activities old
         result = await db_session.execute(
-            select(SearchActivity).where(
-                SearchActivity.organization_id == org_alpha.id
-            )
+            select(SearchActivity).where(SearchActivity.organization_id == org_alpha.id)
         )
         for a in result.scalars().all():
             a.created_at = old_time
@@ -941,9 +969,9 @@ class TestRetentionPolicySearchActivities:
 
         # Records should still exist
         remaining = await db_session.execute(
-            select(func.count()).select_from(SearchActivity).where(
-                SearchActivity.organization_id == org_alpha.id
-            )
+            select(func.count())
+            .select_from(SearchActivity)
+            .where(SearchActivity.organization_id == org_alpha.id)
         )
         assert remaining.scalar() == 3
 
@@ -968,20 +996,20 @@ class TestRetentionPolicySearchActivities:
         )
         db_session.add(policy)
 
-        db_session.add(SearchActivity(
-            user_id=user_alpha.id,
-            organization_id=org_alpha.id,
-            query="to be logged",
-            mode="fulltext",
-            results_count=0,
-        ))
+        db_session.add(
+            SearchActivity(
+                user_id=user_alpha.id,
+                organization_id=org_alpha.id,
+                query="to be logged",
+                mode="fulltext",
+                results_count=0,
+            )
+        )
         await db_session.flush()
 
         # Make activity old
         result = await db_session.execute(
-            select(SearchActivity).where(
-                SearchActivity.organization_id == org_alpha.id
-            )
+            select(SearchActivity).where(SearchActivity.organization_id == org_alpha.id)
         )
         for a in result.scalars().all():
             a.created_at = old_time
@@ -1027,20 +1055,22 @@ class TestSearchActivityTenantIsolation:
         """Activities from one org should not appear in queries for another org."""
         # Create activities for org_alpha
         for i in range(5):
-            db_session.add(SearchActivity(
-                user_id=user_alpha.id,
-                organization_id=org_alpha.id,
-                query=f"alpha query {i}",
-                mode="fulltext",
-                results_count=0,
-            ))
+            db_session.add(
+                SearchActivity(
+                    user_id=user_alpha.id,
+                    organization_id=org_alpha.id,
+                    query=f"alpha query {i}",
+                    mode="fulltext",
+                    results_count=0,
+                )
+            )
         await db_session.flush()
 
         # Count for org_beta should be zero
         result = await db_session.execute(
-            select(func.count()).select_from(SearchActivity).where(
-                SearchActivity.organization_id == org_beta.id
-            )
+            select(func.count())
+            .select_from(SearchActivity)
+            .where(SearchActivity.organization_id == org_beta.id)
         )
         assert result.scalar() == 0
 
@@ -1056,22 +1086,26 @@ class TestSearchActivityTenantIsolation:
         """Badge stats searches_performed should be user-scoped."""
         # user_alpha has 10 searches
         for i in range(10):
-            db_session.add(SearchActivity(
-                user_id=user_alpha.id,
-                organization_id=org_alpha.id,
-                query=f"alpha search {i}",
-                mode="hybrid",
-                results_count=0,
-            ))
+            db_session.add(
+                SearchActivity(
+                    user_id=user_alpha.id,
+                    organization_id=org_alpha.id,
+                    query=f"alpha search {i}",
+                    mode="hybrid",
+                    results_count=0,
+                )
+            )
         # user_beta has 3 searches
         for i in range(3):
-            db_session.add(SearchActivity(
-                user_id=user_beta.id,
-                organization_id=org_beta.id,
-                query=f"beta search {i}",
-                mode="fulltext",
-                results_count=0,
-            ))
+            db_session.add(
+                SearchActivity(
+                    user_id=user_beta.id,
+                    organization_id=org_beta.id,
+                    query=f"beta search {i}",
+                    mode="fulltext",
+                    results_count=0,
+                )
+            )
         await db_session.flush()
 
         service = BadgeService(db_session)

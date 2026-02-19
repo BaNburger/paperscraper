@@ -30,9 +30,7 @@ async def sync_repository_source_task(
     """
     async with get_db_session() as db:
         try:
-            source = await dev_service.get_repository_source(
-                db, UUID(org_id), UUID(source_id)
-            )
+            source = await dev_service.get_repository_source(db, UUID(org_id), UUID(source_id))
         except Exception:
             return {
                 "status": "failed",

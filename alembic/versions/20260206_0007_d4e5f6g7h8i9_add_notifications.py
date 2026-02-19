@@ -23,7 +23,9 @@ def upgrade() -> None:
     """Create notifications table."""
     # Create notification type enum
     notification_type_enum = postgresql.ENUM(
-        "alert", "badge", "system",
+        "alert",
+        "badge",
+        "system",
         name="notificationtype",
     )
     notification_type_enum.create(op.get_bind(), checkfirst=True)

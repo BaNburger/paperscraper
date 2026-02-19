@@ -25,15 +25,9 @@ class SearchMode(str, Enum):
 class SearchFilters(BaseModel):
     """Filters for search queries."""
 
-    sources: list[PaperSource] | None = Field(
-        default=None, description="Filter by paper sources"
-    )
-    min_score: float | None = Field(
-        default=None, ge=0, le=10, description="Minimum overall score"
-    )
-    max_score: float | None = Field(
-        default=None, ge=0, le=10, description="Maximum overall score"
-    )
+    sources: list[PaperSource] | None = Field(default=None, description="Filter by paper sources")
+    min_score: float | None = Field(default=None, ge=0, le=10, description="Minimum overall score")
+    max_score: float | None = Field(default=None, ge=0, le=10, description="Maximum overall score")
     date_from: datetime | None = Field(
         default=None, description="Filter papers published after this date"
     )
@@ -46,32 +40,18 @@ class SearchFilters(BaseModel):
     ingested_to: datetime | None = Field(
         default=None, description="Filter papers ingested before this date"
     )
-    has_embedding: bool | None = Field(
-        default=None, description="Filter by embedding presence"
-    )
-    has_score: bool | None = Field(
-        default=None, description="Filter by score presence"
-    )
-    journals: list[str] | None = Field(
-        default=None, description="Filter by journal names"
-    )
-    keywords: list[str] | None = Field(
-        default=None, description="Filter by keywords (any match)"
-    )
+    has_embedding: bool | None = Field(default=None, description="Filter by embedding presence")
+    has_score: bool | None = Field(default=None, description="Filter by score presence")
+    journals: list[str] | None = Field(default=None, description="Filter by journal names")
+    keywords: list[str] | None = Field(default=None, description="Filter by keywords (any match)")
 
 
 class SearchRequest(BaseModel):
     """Search request schema."""
 
-    query: str = Field(
-        ..., min_length=1, max_length=1000, description="Search query text"
-    )
-    mode: SearchMode = Field(
-        default=SearchMode.HYBRID, description="Search mode to use"
-    )
-    filters: SearchFilters | None = Field(
-        default=None, description="Optional search filters"
-    )
+    query: str = Field(..., min_length=1, max_length=1000, description="Search query text")
+    mode: SearchMode = Field(default=SearchMode.HYBRID, description="Search mode to use")
+    filters: SearchFilters | None = Field(default=None, description="Optional search filters")
     page: int = Field(default=1, ge=1, description="Page number")
     page_size: int = Field(default=20, ge=1, le=100, description="Results per page")
     include_highlights: bool = Field(
@@ -96,9 +76,7 @@ class SimilarPapersRequest(BaseModel):
         le=1.0,
         description="Minimum similarity threshold (0-1)",
     )
-    filters: SearchFilters | None = Field(
-        default=None, description="Optional search filters"
-    )
+    filters: SearchFilters | None = Field(default=None, description="Optional search filters")
 
 
 class SemanticSearchRequest(BaseModel):
@@ -108,9 +86,7 @@ class SemanticSearchRequest(BaseModel):
         ..., min_length=1, max_length=5000, description="Query text to embed and search"
     )
     limit: int = Field(default=20, ge=1, le=100, description="Maximum papers to return")
-    filters: SearchFilters | None = Field(
-        default=None, description="Optional search filters"
-    )
+    filters: SearchFilters | None = Field(default=None, description="Optional search filters")
 
 
 # =============================================================================
@@ -154,21 +130,13 @@ class SearchResultItem(BaseModel):
     created_at: datetime
 
     # Search-specific fields
-    relevance_score: float = Field(
-        default=0.0, description="Combined relevance score (0-1)"
-    )
-    text_score: float | None = Field(
-        default=None, description="Full-text search score"
-    )
-    semantic_score: float | None = Field(
-        default=None, description="Semantic similarity score"
-    )
+    relevance_score: float = Field(default=0.0, description="Combined relevance score (0-1)")
+    text_score: float | None = Field(default=None, description="Full-text search score")
+    semantic_score: float | None = Field(default=None, description="Semantic similarity score")
     highlights: list[SearchHighlight] = Field(
         default_factory=list, description="Highlighted snippets"
     )
-    score: ScoreSummary | None = Field(
-        default=None, description="Paper scores if available"
-    )
+    score: ScoreSummary | None = Field(default=None, description="Paper scores if available")
 
 
 class SearchResponse(BaseModel):
@@ -198,9 +166,7 @@ class SimilarPaperItem(BaseModel):
     publication_date: datetime | None = None
     keywords: list[str] = Field(default_factory=list)
 
-    similarity_score: float = Field(
-        default=0.0, description="Cosine similarity score (0-1)"
-    )
+    similarity_score: float = Field(default=0.0, description="Cosine similarity score (0-1)")
 
 
 class SimilarPapersResponse(BaseModel):

@@ -100,8 +100,16 @@ async def other_org_member(db_session: AsyncSession) -> User:
 @pytest.mark.parametrize(
     ("path", "payload", "source"),
     [
-        ("/api/v1/ingestion/sources/openalex/runs", {"query": "ml", "max_results": 5, "filters": {}}, "openalex"),
-        ("/api/v1/ingestion/sources/pubmed/runs", {"query": "oncology", "max_results": 5}, "pubmed"),
+        (
+            "/api/v1/ingestion/sources/openalex/runs",
+            {"query": "ml", "max_results": 5, "filters": {}},
+            "openalex",
+        ),
+        (
+            "/api/v1/ingestion/sources/pubmed/runs",
+            {"query": "oncology", "max_results": 5},
+            "pubmed",
+        ),
         (
             "/api/v1/ingestion/sources/arxiv/runs",
             {"query": "transformer", "max_results": 5, "category": "cs.AI"},
@@ -123,7 +131,9 @@ async def test_async_ingest_endpoints_return_job_and_run_ids(
     db_session: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def fake_enqueue_job(job_name: str, *args, job_id: str | None = None, **kwargs) -> _FakeJob:
+    async def fake_enqueue_job(
+        job_name: str, *args, job_id: str | None = None, **kwargs
+    ) -> _FakeJob:
         assert job_name == "ingest_source_task"
         assert job_id is not None
         return _FakeJob(job_id)

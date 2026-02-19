@@ -220,8 +220,8 @@ class TestLibraryReaderAndTags:
     @pytest.mark.asyncio
     async def test_library_routes_require_authentication(self, client: AsyncClient):
         """Ensure new library routes enforce authentication."""
-        response = await client.get('/api/v1/library/collections')
+        response = await client.get("/api/v1/library/collections")
         assert response.status_code == 401
 
-        response = await client.get('/api/v1/library/tags')
+        response = await client.get("/api/v1/library/tags")
         assert response.status_code == 401

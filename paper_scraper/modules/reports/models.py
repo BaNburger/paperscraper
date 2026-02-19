@@ -84,9 +84,7 @@ class ScheduledReport(Base):
 
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    last_sent_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    last_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(

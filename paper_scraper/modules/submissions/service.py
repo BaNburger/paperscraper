@@ -104,9 +104,7 @@ class SubmissionService:
         Raises:
             NotFoundError: If submission not found.
         """
-        return await self._get_submission_with_relations(
-            submission_id, organization_id
-        )
+        return await self._get_submission_with_relations(submission_id, organization_id)
 
     async def list_my_submissions(
         self,
@@ -553,9 +551,7 @@ class SubmissionService:
         submission = await self._get_submission(submission_id, organization_id)
 
         if submission.status != SubmissionStatus.APPROVED:
-            raise ValidationError(
-                "Only approved submissions can be converted to papers"
-            )
+            raise ValidationError("Only approved submissions can be converted to papers")
 
         if submission.converted_paper_id:
             raise ValidationError("Submission has already been converted to a paper")

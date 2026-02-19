@@ -106,9 +106,7 @@ def _compute_centroid(embeddings: list[list[float]]) -> list[float]:
     return [c / n for c in centroid]
 
 
-def _batch_cosine_similarities(
-    embedding: list[float], centroids: list[list[float]]
-) -> list[float]:
+def _batch_cosine_similarities(embedding: list[float], centroids: list[list[float]]) -> list[float]:
     """Compute cosine similarity of one embedding against all centroids.
 
     Returns list of similarities, one per centroid.
@@ -198,9 +196,7 @@ def cluster_embeddings(
 
     # -- Phase 2: Merge small clusters into nearest larger cluster --
     num_clusters = len(centroids)
-    large_clusters = {
-        c for c in range(num_clusters) if len(cluster_members[c]) >= min_cluster_size
-    }
+    large_clusters = {c for c in range(num_clusters) if len(cluster_members[c]) >= min_cluster_size}
 
     if large_clusters:
         for c_idx in range(num_clusters):
@@ -224,17 +220,13 @@ def cluster_embeddings(
                 cluster_members[c_idx] = []
 
     # -- Phase 3: Compact cluster indices (remove gaps) --
-    active_clusters = sorted(
-        {assignments[i] for i in range(n) if cluster_members[assignments[i]]}
-    )
+    active_clusters = sorted({assignments[i] for i in range(n) if cluster_members[assignments[i]]})
     remap = {old: new for new, old in enumerate(active_clusters)}
 
     result_assignments: list[ClusterAssignment] = []
     for i in range(n):
         new_idx = remap[assignments[i]]
-        result_assignments.append(
-            ClusterAssignment(paper_ids[i], new_idx, similarities[i])
-        )
+        result_assignments.append(ClusterAssignment(paper_ids[i], new_idx, similarities[i]))
 
     final_centroids = [centroids[old] for old in active_clusters]
 
@@ -310,15 +302,16 @@ async def generate_cluster_labels_llm(
     cluster_summaries = []
     for c in clusters:
         titles = [
-            sanitize_text_for_prompt(t, max_length=150)
-            for t in c.get("paper_titles", [])[:5]
+            sanitize_text_for_prompt(t, max_length=150) for t in c.get("paper_titles", [])[:5]
         ]
         kws = c.get("keywords", [])[:5]
-        cluster_summaries.append({
-            "index": c["index"],
-            "keywords": kws,
-            "sample_titles": titles,
-        })
+        cluster_summaries.append(
+            {
+                "index": c["index"],
+                "keywords": kws,
+                "sample_titles": titles,
+            }
+        )
 
     prompt = f"""Given the following research paper clusters, generate a concise label (3-8 words) and a one-sentence description for each cluster.
 
@@ -351,11 +344,13 @@ Rules:
         validated: list[dict[str, Any]] = []
         for item in labeled:
             if isinstance(item, dict) and "index" in item and "label" in item:
-                validated.append({
-                    "index": item["index"],
-                    "label": str(item["label"])[:255],
-                    "description": str(item.get("description", ""))[:500] or None,
-                })
+                validated.append(
+                    {
+                        "index": item["index"],
+                        "label": str(item["label"])[:255],
+                        "description": str(item.get("description", ""))[:500] or None,
+                    }
+                )
 
         if len(validated) == len(clusters):
             logger.info("LLM generated labels for %d clusters", len(validated))

@@ -154,12 +154,14 @@ def _create_exception_handler(
     headers: dict[str, str] | None = None,
 ):
     """Create an exception handler for a given status code."""
+
     async def handler(request: Request, exc: PaperScraperException) -> JSONResponse:
         return JSONResponse(
             status_code=status_code,
             content=_build_error_content(exc),
             headers=headers,
         )
+
     return handler
 
 

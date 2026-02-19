@@ -23,7 +23,11 @@ def upgrade() -> None:
     """Create badges, user_badges, and knowledge_sources tables."""
     # Create BadgeCategory enum
     badge_category_enum = postgresql.ENUM(
-        "import", "scoring", "collaboration", "exploration", "milestone",
+        "import",
+        "scoring",
+        "collaboration",
+        "exploration",
+        "milestone",
         name="badgecategory",
         create_type=False,
     )
@@ -31,7 +35,10 @@ def upgrade() -> None:
 
     # Create BadgeTier enum
     badge_tier_enum = postgresql.ENUM(
-        "bronze", "silver", "gold", "platinum",
+        "bronze",
+        "silver",
+        "gold",
+        "platinum",
         name="badgetier",
         create_type=False,
     )
@@ -39,7 +46,8 @@ def upgrade() -> None:
 
     # Create KnowledgeScope enum
     knowledge_scope_enum = postgresql.ENUM(
-        "personal", "organization",
+        "personal",
+        "organization",
         name="knowledgescope",
         create_type=False,
     )
@@ -47,8 +55,11 @@ def upgrade() -> None:
 
     # Create KnowledgeType enum
     knowledge_type_enum = postgresql.ENUM(
-        "research_focus", "industry_context", "evaluation_criteria",
-        "domain_expertise", "custom",
+        "research_focus",
+        "industry_context",
+        "evaluation_criteria",
+        "domain_expertise",
+        "custom",
         name="knowledgetype",
         create_type=False,
     )
@@ -100,12 +111,8 @@ def upgrade() -> None:
             nullable=False,
             server_default="{}",
         ),
-        sa.ForeignKeyConstraint(
-            ["user_id"], ["users.id"], ondelete="CASCADE"
-        ),
-        sa.ForeignKeyConstraint(
-            ["badge_id"], ["badges.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["badge_id"], ["badges.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_user_badges_user_id", "user_badges", ["user_id"])
@@ -156,12 +163,8 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
-        sa.ForeignKeyConstraint(
-            ["organization_id"], ["organizations.id"], ondelete="CASCADE"
-        ),
-        sa.ForeignKeyConstraint(
-            ["user_id"], ["users.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(

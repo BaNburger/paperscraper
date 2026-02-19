@@ -134,14 +134,10 @@ class AuditLog(Base):
 
     __tablename__ = "audit_logs"
 
-    id: Mapped[UUID] = mapped_column(
-        PgUUID(as_uuid=True), primary_key=True, default=uuid4
-    )
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True, default=uuid4)
 
     # Actor information
-    user_id: Mapped[UUID | None] = mapped_column(
-        PgUUID(as_uuid=True), nullable=True, index=True
-    )
+    user_id: Mapped[UUID | None] = mapped_column(PgUUID(as_uuid=True), nullable=True, index=True)
     organization_id: Mapped[UUID | None] = mapped_column(
         PgUUID(as_uuid=True), nullable=True, index=True
     )
@@ -149,9 +145,7 @@ class AuditLog(Base):
     # Action details
     action: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     resource_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    resource_id: Mapped[UUID | None] = mapped_column(
-        PgUUID(as_uuid=True), nullable=True
-    )
+    resource_id: Mapped[UUID | None] = mapped_column(PgUUID(as_uuid=True), nullable=True)
 
     # Additional context
     details: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)

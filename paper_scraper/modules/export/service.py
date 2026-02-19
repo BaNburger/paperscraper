@@ -92,9 +92,7 @@ class ExportService:
 
         scores = {}
         if include_scores:
-            scores = await self._get_scores(
-                organization_id, [p.id for p in papers]
-            )
+            scores = await self._get_scores(organization_id, [p.id for p in papers])
 
         output = io.StringIO()
         writer = csv.writer(output)
@@ -113,14 +111,16 @@ class ExportService:
         if include_authors:
             headers.append("Authors")
         if include_scores:
-            headers.extend([
-                "Overall Score",
-                "Novelty",
-                "IP Potential",
-                "Marketability",
-                "Feasibility",
-                "Commercialization",
-            ])
+            headers.extend(
+                [
+                    "Overall Score",
+                    "Novelty",
+                    "IP Potential",
+                    "Marketability",
+                    "Feasibility",
+                    "Commercialization",
+                ]
+            )
         headers.extend(["Created At", "Has PDF", "Has Embedding"])
 
         writer.writerow(headers)
@@ -144,22 +144,26 @@ class ExportService:
             if include_scores:
                 score = scores.get(paper.id)
                 if score:
-                    row.extend([
-                        f"{score.overall_score:.2f}",
-                        f"{score.novelty:.2f}",
-                        f"{score.ip_potential:.2f}",
-                        f"{score.marketability:.2f}",
-                        f"{score.feasibility:.2f}",
-                        f"{score.commercialization:.2f}",
-                    ])
+                    row.extend(
+                        [
+                            f"{score.overall_score:.2f}",
+                            f"{score.novelty:.2f}",
+                            f"{score.ip_potential:.2f}",
+                            f"{score.marketability:.2f}",
+                            f"{score.feasibility:.2f}",
+                            f"{score.commercialization:.2f}",
+                        ]
+                    )
                 else:
                     row.extend([""] * 6)
 
-            row.extend([
-                paper.created_at.isoformat(),
-                "Yes" if paper.has_pdf else "No",
-                "Yes" if paper.has_embedding else "No",
-            ])
+            row.extend(
+                [
+                    paper.created_at.isoformat(),
+                    "Yes" if paper.has_pdf else "No",
+                    "Yes" if paper.has_embedding else "No",
+                ]
+            )
 
             writer.writerow(row)
 
@@ -388,9 +392,7 @@ class ExportService:
 
         scores = {}
         if include_scores:
-            scores = await self._get_scores(
-                organization_id, [p.id for p in papers]
-            )
+            scores = await self._get_scores(organization_id, [p.id for p in papers])
 
         # Generate PDF content using simple text format
         # In production, use ReportLab or WeasyPrint for proper PDF generation
@@ -421,10 +423,12 @@ class ExportService:
         ]
 
         for i, paper in enumerate(papers, 1):
-            lines.extend([
-                f"[{i}] {paper.title}",
-                "-" * 60,
-            ])
+            lines.extend(
+                [
+                    f"[{i}] {paper.title}",
+                    "-" * 60,
+                ]
+            )
 
             if paper.doi:
                 lines.append(f"DOI: {paper.doi}")
@@ -441,24 +445,28 @@ class ExportService:
             lines.append(f"Source: {paper.source.value}")
 
             if include_abstract and paper.abstract:
-                lines.extend([
-                    "",
-                    "Abstract:",
-                    paper.abstract[:500] + ("..." if len(paper.abstract) > 500 else ""),
-                ])
+                lines.extend(
+                    [
+                        "",
+                        "Abstract:",
+                        paper.abstract[:500] + ("..." if len(paper.abstract) > 500 else ""),
+                    ]
+                )
 
             score = scores.get(paper.id)
             if score:
-                lines.extend([
-                    "",
-                    "Scores:",
-                    f"  Overall: {score.overall_score:.1f}/10",
-                    f"  Novelty: {score.novelty:.1f}/10",
-                    f"  IP Potential: {score.ip_potential:.1f}/10",
-                    f"  Marketability: {score.marketability:.1f}/10",
-                    f"  Feasibility: {score.feasibility:.1f}/10",
-                    f"  Commercialization: {score.commercialization:.1f}/10",
-                ])
+                lines.extend(
+                    [
+                        "",
+                        "Scores:",
+                        f"  Overall: {score.overall_score:.1f}/10",
+                        f"  Novelty: {score.novelty:.1f}/10",
+                        f"  IP Potential: {score.ip_potential:.1f}/10",
+                        f"  Marketability: {score.marketability:.1f}/10",
+                        f"  Feasibility: {score.feasibility:.1f}/10",
+                        f"  Commercialization: {score.commercialization:.1f}/10",
+                    ]
+                )
 
             lines.extend(["", ""])
 

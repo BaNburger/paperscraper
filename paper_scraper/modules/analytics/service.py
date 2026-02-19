@@ -60,14 +60,10 @@ class AnalyticsService:
             select(func.count(Paper.id)).where(Paper.organization_id == organization_id)
         )
         total_scores = await self._count_records(
-            select(func.count(PaperScore.id)).where(
-                PaperScore.organization_id == organization_id
-            )
+            select(func.count(PaperScore.id)).where(PaperScore.organization_id == organization_id)
         )
         total_projects = await self._count_records(
-            select(func.count(Project.id)).where(
-                Project.organization_id == organization_id
-            )
+            select(func.count(Project.id)).where(Project.organization_id == organization_id)
         )
 
         # Active users based on paper imports and note activity
@@ -163,8 +159,7 @@ class AnalyticsService:
             .order_by(func.date(Paper.created_at))
         )
         daily_data = [
-            TimeSeriesDataPoint(date=row.date, count=row.count)
-            for row in daily_result.all()
+            TimeSeriesDataPoint(date=row.date, count=row.count) for row in daily_result.all()
         ]
 
         # Weekly aggregation
@@ -282,9 +277,7 @@ class AnalyticsService:
             score_distribution=score_distribution,
         )
 
-    async def _get_score_distribution(
-        self, organization_id: UUID
-    ) -> list[ScoreDistributionBucket]:
+    async def _get_score_distribution(self, organization_id: UUID) -> list[ScoreDistributionBucket]:
         """Get score distribution buckets for an organization."""
         bucket_ranges = {
             "0-2": (0.0, 2.0),
@@ -323,9 +316,7 @@ class AnalyticsService:
         """Round a score to 2 decimal places, or return None if value is None."""
         return round(value, 2) if value is not None else None
 
-    async def get_dashboard_summary(
-        self, organization_id: UUID
-    ) -> DashboardSummaryResponse:
+    async def get_dashboard_summary(self, organization_id: UUID) -> DashboardSummaryResponse:
         """Get dashboard summary with key metrics."""
         now = datetime.now(UTC)
         week_ago = now - timedelta(days=DAYS_IN_WEEK)
@@ -361,9 +352,7 @@ class AnalyticsService:
 
         # Projects (all are considered active as no is_active field exists)
         total_projects = await self._count_records(
-            select(func.count(Project.id)).where(
-                Project.organization_id == organization_id
-            )
+            select(func.count(Project.id)).where(Project.organization_id == organization_id)
         )
 
         # Users (all are considered active for now)
@@ -372,12 +361,8 @@ class AnalyticsService:
         )
 
         # Trends (last 30 days)
-        import_trend = await self._get_daily_trend(
-            Paper, organization_id, month_ago
-        )
-        scoring_trend = await self._get_daily_trend(
-            PaperScore, organization_id, month_ago
-        )
+        import_trend = await self._get_daily_trend(Paper, organization_id, month_ago)
+        scoring_trend = await self._get_daily_trend(PaperScore, organization_id, month_ago)
 
         return DashboardSummaryResponse(
             total_papers=total_papers,
@@ -412,10 +397,7 @@ class AnalyticsService:
             .group_by(func.date(model.created_at))
             .order_by(func.date(model.created_at))
         )
-        return [
-            TimeSeriesDataPoint(date=row.date, count=row.count)
-            for row in result.all()
-        ]
+        return [TimeSeriesDataPoint(date=row.date, count=row.count) for row in result.all()]
 
     def _aggregate_to_weekly(
         self, daily_data: list[TimeSeriesDataPoint]
@@ -430,10 +412,7 @@ class AnalyticsService:
             week_start = point.date - timedelta(days=point.date.weekday())
             weekly[week_start] = weekly.get(week_start, 0) + point.count
 
-        return [
-            TimeSeriesDataPoint(date=d, count=c)
-            for d, c in sorted(weekly.items())
-        ]
+        return [TimeSeriesDataPoint(date=d, count=c) for d, c in sorted(weekly.items())]
 
     def _aggregate_to_monthly(
         self, daily_data: list[TimeSeriesDataPoint]
@@ -448,10 +427,7 @@ class AnalyticsService:
             month_start = point.date.replace(day=1)
             monthly[month_start] = monthly.get(month_start, 0) + point.count
 
-        return [
-            TimeSeriesDataPoint(date=d, count=c)
-            for d, c in sorted(monthly.items())
-        ]
+        return [TimeSeriesDataPoint(date=d, count=c) for d, c in sorted(monthly.items())]
 
     async def get_funnel_analytics(
         self,
@@ -479,9 +455,13 @@ class AnalyticsService:
         # Base paper query with optional date filter
         paper_filters = [Paper.organization_id == organization_id]
         if start_date:
-            paper_filters.append(Paper.created_at >= datetime.combine(start_date, datetime.min.time()))
+            paper_filters.append(
+                Paper.created_at >= datetime.combine(start_date, datetime.min.time())
+            )
         if end_date:
-            paper_filters.append(Paper.created_at <= datetime.combine(end_date, datetime.max.time()))
+            paper_filters.append(
+                Paper.created_at <= datetime.combine(end_date, datetime.max.time())
+            )
 
         # 1. Total papers imported
         total_imported = await self._count_records(
@@ -496,17 +476,19 @@ class AnalyticsService:
             .where(PaperScore.organization_id == organization_id)
         )
         if start_date:
-            scored_query = scored_query.where(PaperScore.created_at >= datetime.combine(start_date, datetime.min.time()))
+            scored_query = scored_query.where(
+                PaperScore.created_at >= datetime.combine(start_date, datetime.min.time())
+            )
         if end_date:
-            scored_query = scored_query.where(PaperScore.created_at <= datetime.combine(end_date, datetime.max.time()))
+            scored_query = scored_query.where(
+                PaperScore.created_at <= datetime.combine(end_date, datetime.max.time())
+            )
         total_scored = await self._count_records(scored_query)
 
         # 3. Papers in research groups (via project_papers junction table)
         from paper_scraper.modules.projects.models import ProjectPaper
 
-        pipeline_query = (
-            select(func.count(func.distinct(ProjectPaper.paper_id)))
-        )
+        pipeline_query = select(func.count(func.distinct(ProjectPaper.paper_id)))
         if project_id:
             pipeline_query = pipeline_query.where(ProjectPaper.project_id == project_id)
         else:
@@ -549,35 +531,53 @@ class AnalyticsService:
                 stage="scored",
                 label="Scored",
                 count=total_scored,
-                percentage=round(total_scored / total_imported * 100, 1) if total_imported > 0 else 0.0,
+                percentage=round(total_scored / total_imported * 100, 1)
+                if total_imported > 0
+                else 0.0,
             ),
             FunnelStage(
                 stage="in_pipeline",
                 label="In Pipeline",
                 count=total_in_pipeline,
-                percentage=round(total_in_pipeline / total_imported * 100, 1) if total_imported > 0 else 0.0,
+                percentage=round(total_in_pipeline / total_imported * 100, 1)
+                if total_imported > 0
+                else 0.0,
             ),
             FunnelStage(
                 stage="contacted",
                 label="Contacted",
                 count=total_contacted,
-                percentage=round(total_contacted / total_imported * 100, 1) if total_imported > 0 else 0.0,
+                percentage=round(total_contacted / total_imported * 100, 1)
+                if total_imported > 0
+                else 0.0,
             ),
             FunnelStage(
                 stage="transferred",
                 label="Transferred",
                 count=total_transferred,
-                percentage=round(total_transferred / total_imported * 100, 1) if total_imported > 0 else 0.0,
+                percentage=round(total_transferred / total_imported * 100, 1)
+                if total_imported > 0
+                else 0.0,
             ),
         ]
 
         # Calculate conversion rates between stages
         conversion_rates = {
-            "imported_to_scored": round(total_scored / total_imported * 100, 1) if total_imported > 0 else 0.0,
-            "scored_to_pipeline": round(total_in_pipeline / total_scored * 100, 1) if total_scored > 0 else 0.0,
-            "pipeline_to_contacted": round(total_contacted / total_in_pipeline * 100, 1) if total_in_pipeline > 0 else 0.0,
-            "contacted_to_transferred": round(total_transferred / total_contacted * 100, 1) if total_contacted > 0 else 0.0,
-            "overall": round(total_transferred / total_imported * 100, 1) if total_imported > 0 else 0.0,
+            "imported_to_scored": round(total_scored / total_imported * 100, 1)
+            if total_imported > 0
+            else 0.0,
+            "scored_to_pipeline": round(total_in_pipeline / total_scored * 100, 1)
+            if total_scored > 0
+            else 0.0,
+            "pipeline_to_contacted": round(total_contacted / total_in_pipeline * 100, 1)
+            if total_in_pipeline > 0
+            else 0.0,
+            "contacted_to_transferred": round(total_transferred / total_contacted * 100, 1)
+            if total_contacted > 0
+            else 0.0,
+            "overall": round(total_transferred / total_imported * 100, 1)
+            if total_imported > 0
+            else 0.0,
         }
 
         return FunnelResponse(
@@ -622,19 +622,26 @@ class AnalyticsService:
                 PaperScore.organization_id == organization_id
             )
         )
-        org_scoring_rate = round(org_scored_papers / org_total_papers * 100, 1) if org_total_papers > 0 else 0.0
+        org_scoring_rate = (
+            round(org_scored_papers / org_total_papers * 100, 1) if org_total_papers > 0 else 0.0
+        )
 
         # Org pipeline conversion (papers in transfer conversations)
         org_contacted = await self._count_records(
-            select(func.count(func.distinct(TransferConversation.paper_id)))
-            .where(TransferConversation.organization_id == organization_id)
+            select(func.count(func.distinct(TransferConversation.paper_id))).where(
+                TransferConversation.organization_id == organization_id
+            )
         )
-        org_conversion_rate = round(org_contacted / org_total_papers * 100, 1) if org_total_papers > 0 else 0.0
+        org_conversion_rate = (
+            round(org_contacted / org_total_papers * 100, 1) if org_total_papers > 0 else 0.0
+        )
 
         # Platform-wide benchmarks (average per org)
         platform_papers_month_result = await self.db.execute(
-            select(func.count(Paper.id) / func.nullif(func.count(func.distinct(Paper.organization_id)), 0))
-            .where(Paper.created_at >= month_ago)
+            select(
+                func.count(Paper.id)
+                / func.nullif(func.count(func.distinct(Paper.organization_id)), 0)
+            ).where(Paper.created_at >= month_ago)
         )
         platform_papers_month = float(platform_papers_month_result.scalar() or 0)
 
@@ -647,7 +654,11 @@ class AnalyticsService:
             .outerjoin(PaperScore, Paper.id == PaperScore.paper_id)
         )
         platform_row = platform_scoring_result.one()
-        platform_scoring_rate = round(platform_row.scored / platform_row.total * 100, 1) if platform_row.total > 0 else 0.0
+        platform_scoring_rate = (
+            round(platform_row.scored / platform_row.total * 100, 1)
+            if platform_row.total > 0
+            else 0.0
+        )
 
         # Platform conversion rate (papers in any transfer conversation)
         platform_contacted_result = await self.db.execute(
@@ -655,7 +666,11 @@ class AnalyticsService:
         )
         platform_contacted = platform_contacted_result.scalar() or 0
         platform_total_papers = await self._count_records(select(func.count(Paper.id)))
-        platform_conversion_rate = round(platform_contacted / platform_total_papers * 100, 1) if platform_total_papers > 0 else 0.0
+        platform_conversion_rate = (
+            round(platform_contacted / platform_total_papers * 100, 1)
+            if platform_total_papers > 0
+            else 0.0
+        )
 
         # Build metrics list
         metrics = [
@@ -687,10 +702,7 @@ class AnalyticsService:
         # Calculate org percentile (simple ranking)
         # Count organizations that have fewer papers than the current org
         paper_counts_subquery = (
-            select(
-                Paper.organization_id.label("org_id"),
-                func.count(Paper.id).label("paper_count")
-            )
+            select(Paper.organization_id.label("org_id"), func.count(Paper.id).label("paper_count"))
             .group_by(Paper.organization_id)
             .subquery()
         )
@@ -700,7 +712,9 @@ class AnalyticsService:
             )
         )
         orgs_with_fewer_papers = orgs_with_fewer_result.scalar() or 0
-        org_percentile = round(orgs_with_fewer_papers / total_orgs * 100, 1) if total_orgs > 0 else 50.0
+        org_percentile = (
+            round(orgs_with_fewer_papers / total_orgs * 100, 1) if total_orgs > 0 else 50.0
+        )
 
         return BenchmarkResponse(
             metrics=metrics,

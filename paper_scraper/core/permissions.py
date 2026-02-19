@@ -85,6 +85,4 @@ def check_permission(role: str, *permissions: Permission) -> None:
     role_perms = get_permissions_for_role(role)
     missing = [p for p in permissions if p not in role_perms]
     if missing:
-        raise ForbiddenError(
-            "You don't have permission to perform this action"
-        )
+        raise ForbiddenError("You don't have permission to perform this action")

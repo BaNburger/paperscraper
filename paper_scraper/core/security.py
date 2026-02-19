@@ -203,9 +203,7 @@ def generate_invitation_token() -> tuple[str, datetime]:
     Returns:
         A tuple of (token, expires_at datetime).
     """
-    return _generate_token_with_expiry(
-        timedelta(days=settings.TEAM_INVITATION_TOKEN_EXPIRE_DAYS)
-    )
+    return _generate_token_with_expiry(timedelta(days=settings.TEAM_INVITATION_TOKEN_EXPIRE_DAYS))
 
 
 def is_token_expired(expires_at: datetime | None) -> bool:

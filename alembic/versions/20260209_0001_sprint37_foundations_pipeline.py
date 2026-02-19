@@ -71,9 +71,13 @@ def upgrade() -> None:
         sa.Column("stats_json", JSONB(), nullable=False, server_default=sa.text("'{}'::jsonb")),
         sa.Column("idempotency_key", sa.String(length=255), nullable=True),
         sa.Column("error_message", sa.Text(), nullable=True),
-        sa.Column("started_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "started_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.Column("completed_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["initiated_by_id"], ["users.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
@@ -97,9 +101,15 @@ def upgrade() -> None:
         sa.Column("content_hash", sa.String(length=128), nullable=False),
         sa.Column("organization_id", sa.Uuid(), nullable=True),
         sa.Column("ingest_run_id", sa.Uuid(), nullable=False),
-        sa.Column("raw_payload_json", JSONB(), nullable=False, server_default=sa.text("'{}'::jsonb")),
-        sa.Column("fetched_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "raw_payload_json", JSONB(), nullable=False, server_default=sa.text("'{}'::jsonb")
+        ),
+        sa.Column(
+            "fetched_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["ingest_run_id"], ["ingest_runs.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
@@ -120,8 +130,12 @@ def upgrade() -> None:
         sa.Column("source", sa.String(length=100), nullable=False),
         sa.Column("scope_key", sa.String(length=255), nullable=False),
         sa.Column("cursor_json", JSONB(), nullable=False, server_default=sa.text("'{}'::jsonb")),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.PrimaryKeyConstraint("source", "scope_key"),
     )
 
@@ -155,13 +169,21 @@ def upgrade() -> None:
         ),
         sa.Column("last_success_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("last_error", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_integration_connectors_organization_id", "integration_connectors", ["organization_id"])
-    op.create_index("ix_integration_connectors_connector_type", "integration_connectors", ["connector_type"])
+    op.create_index(
+        "ix_integration_connectors_organization_id", "integration_connectors", ["organization_id"]
+    )
+    op.create_index(
+        "ix_integration_connectors_connector_type", "integration_connectors", ["connector_type"]
+    )
     op.create_index(
         "ix_integration_connectors_org_type",
         "integration_connectors",
@@ -175,16 +197,26 @@ def upgrade() -> None:
         sa.Column("organization_id", sa.Uuid(), nullable=False),
         sa.Column("enrichment_version", sa.String(length=64), nullable=False),
         sa.Column("context_json", JSONB(), nullable=False, server_default=sa.text("'{}'::jsonb")),
-        sa.Column("freshness_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "freshness_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.ForeignKeyConstraint(["paper_id"], ["papers.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_paper_context_snapshots_paper_id", "paper_context_snapshots", ["paper_id"])
-    op.create_index("ix_paper_context_snapshots_organization_id", "paper_context_snapshots", ["organization_id"])
-    op.create_index("ix_paper_context_snapshots_freshness_at", "paper_context_snapshots", ["freshness_at"])
+    op.create_index(
+        "ix_paper_context_snapshots_organization_id", "paper_context_snapshots", ["organization_id"]
+    )
+    op.create_index(
+        "ix_paper_context_snapshots_freshness_at", "paper_context_snapshots", ["freshness_at"]
+    )
     op.create_index(
         "ix_paper_context_snapshots_org_paper_version",
         "paper_context_snapshots",
@@ -202,8 +234,12 @@ def upgrade() -> None:
         sa.Column("max_tokens", sa.Integer(), nullable=False, server_default=sa.text("4096")),
         sa.Column("secret_ref", sa.String(length=255), nullable=True),
         sa.Column("is_default", sa.Boolean(), nullable=False, server_default=sa.text("false")),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -226,7 +262,9 @@ def downgrade() -> None:
         table_name="paper_context_snapshots",
     )
     op.drop_index("ix_paper_context_snapshots_freshness_at", table_name="paper_context_snapshots")
-    op.drop_index("ix_paper_context_snapshots_organization_id", table_name="paper_context_snapshots")
+    op.drop_index(
+        "ix_paper_context_snapshots_organization_id", table_name="paper_context_snapshots"
+    )
     op.drop_index("ix_paper_context_snapshots_paper_id", table_name="paper_context_snapshots")
     op.drop_table("paper_context_snapshots")
 

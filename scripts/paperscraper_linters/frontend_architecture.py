@@ -42,7 +42,12 @@ def _line_number(text: str, match: re.Match[str]) -> int:
 
 
 def _is_test_file(path: str) -> bool:
-    return path.endswith(".test.ts") or path.endswith(".test.tsx") or path.endswith(".spec.ts") or path.endswith(".spec.tsx")
+    return (
+        path.endswith(".test.ts")
+        or path.endswith(".test.tsx")
+        or path.endswith(".spec.ts")
+        or path.endswith(".spec.tsx")
+    )
 
 
 def lint(repo: Path) -> list[Finding]:
@@ -127,7 +132,7 @@ def lint(repo: Path) -> list[Finding]:
 
         if rel_path.startswith("frontend/src/hooks/"):
             for match in QUERY_KEY_LITERAL_RE.finditer(text):
-                context = text[max(0, match.start() - 250):match.start()]
+                context = text[max(0, match.start() - 250) : match.start()]
                 if re.search(r"use(?:Infinite)?Query\s*\(\s*{", context):
                     findings.append(
                         Finding(
@@ -179,4 +184,3 @@ def lint(repo: Path) -> list[Finding]:
             )
 
     return findings
-

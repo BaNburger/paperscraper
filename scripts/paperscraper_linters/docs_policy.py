@@ -78,9 +78,7 @@ def lint(repo: Path) -> list[Finding]:
                     rule_id="PSD001",
                     path="CLAUDE.md",
                     line=1,
-                    message=(
-                        f"CLAUDE.md must contain a '{CLAUDE_RULES_HEADING}' section."
-                    ),
+                    message=(f"CLAUDE.md must contain a '{CLAUDE_RULES_HEADING}' section."),
                 )
             )
         _validate_doc_command_policy(
@@ -119,4 +117,3 @@ def lint(repo: Path) -> list[Finding]:
         )
 
     return findings
-

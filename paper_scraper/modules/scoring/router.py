@@ -32,16 +32,12 @@ from paper_scraper.modules.scoring.service import ScoringService
 router = APIRouter()
 
 
-def get_scoring_service(
-    db: Annotated[AsyncSession, Depends(get_db)]
-) -> ScoringService:
+def get_scoring_service(db: Annotated[AsyncSession, Depends(get_db)]) -> ScoringService:
     """Dependency to get scoring service instance."""
     return ScoringService(db)
 
 
-def get_classifier(
-    db: Annotated[AsyncSession, Depends(get_db)]
-) -> PaperClassifier:
+def get_classifier(db: Annotated[AsyncSession, Depends(get_db)]) -> PaperClassifier:
     """Dependency to get paper classifier instance."""
     return PaperClassifier(db)
 

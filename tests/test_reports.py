@@ -24,9 +24,7 @@ class TestScheduledReportsEndpoints:
         test_user: User,
     ):
         """Test listing reports when none exist."""
-        response = await client.get(
-            "/api/v1/reports/scheduled", headers=auth_headers
-        )
+        response = await client.get("/api/v1/reports/scheduled", headers=auth_headers)
         assert response.status_code == 200
         data = response.json()
         assert "items" in data
@@ -112,9 +110,7 @@ class TestScheduledReportsEndpoints:
         db_session.add(report)
         await db_session.flush()
 
-        response = await client.get(
-            f"/api/v1/reports/scheduled/{report.id}", headers=auth_headers
-        )
+        response = await client.get(f"/api/v1/reports/scheduled/{report.id}", headers=auth_headers)
         assert response.status_code == 200
         data = response.json()
         assert data["id"] == str(report.id)
@@ -131,9 +127,7 @@ class TestScheduledReportsEndpoints:
         import uuid
 
         fake_id = str(uuid.uuid4())
-        response = await client.get(
-            f"/api/v1/reports/scheduled/{fake_id}", headers=auth_headers
-        )
+        response = await client.get(f"/api/v1/reports/scheduled/{fake_id}", headers=auth_headers)
         assert response.status_code == 404
 
     @pytest.mark.asyncio
@@ -205,9 +199,7 @@ class TestScheduledReportsEndpoints:
         assert response.status_code == 204
 
         # Verify it's gone
-        response = await client.get(
-            f"/api/v1/reports/scheduled/{report.id}", headers=auth_headers
-        )
+        response = await client.get(f"/api/v1/reports/scheduled/{report.id}", headers=auth_headers)
         assert response.status_code == 404
 
     @pytest.mark.asyncio
@@ -233,9 +225,7 @@ class TestScheduledReportsEndpoints:
             db_session.add(report)
         await db_session.flush()
 
-        response = await client.get(
-            "/api/v1/reports/scheduled", headers=auth_headers
-        )
+        response = await client.get("/api/v1/reports/scheduled", headers=auth_headers)
         assert response.status_code == 200
         data = response.json()
         assert data["total"] == 3
@@ -310,9 +300,7 @@ class TestScheduledReportsEndpoints:
         await db_session.flush()
 
         # List should only show my report
-        response = await client.get(
-            "/api/v1/reports/scheduled", headers=auth_headers
-        )
+        response = await client.get("/api/v1/reports/scheduled", headers=auth_headers)
         assert response.status_code == 200
         data = response.json()
         assert data["total"] == 1

@@ -98,9 +98,7 @@ class TestStorageService:
         from botocore.exceptions import ClientError
 
         mock_client = MagicMock()
-        mock_client.head_object.side_effect = ClientError(
-            {"Error": {"Code": "404"}}, "HeadObject"
-        )
+        mock_client.head_object.side_effect = ClientError({"Error": {"Code": "404"}}, "HeadObject")
         service = StorageService.__new__(StorageService)
         service._client = mock_client
         service.bucket = "test-bucket"
@@ -112,9 +110,7 @@ class TestStorageService:
         from botocore.exceptions import ClientError
 
         mock_client = MagicMock()
-        mock_client.head_bucket.side_effect = ClientError(
-            {"Error": {"Code": "404"}}, "HeadBucket"
-        )
+        mock_client.head_bucket.side_effect = ClientError({"Error": {"Code": "404"}}, "HeadBucket")
         service = StorageService.__new__(StorageService)
         service._client = mock_client
         service.bucket = "test-bucket"
@@ -365,8 +361,7 @@ class TestSubmissionFileDownload:
     ):
         """Test that downloading a non-existent attachment returns 404."""
         response = await client.get(
-            f"/api/v1/submissions/{draft_submission.id}"
-            f"/attachments/{uuid4()}/download",
+            f"/api/v1/submissions/{draft_submission.id}" f"/attachments/{uuid4()}/download",
             headers=member_auth_headers,
             follow_redirects=False,
         )
@@ -582,8 +577,7 @@ class TestTransferResourceDownload:
     ):
         """Test that downloading a non-existent resource returns 404."""
         response = await authenticated_client.get(
-            f"/api/v1/transfer/{test_conversation.id}"
-            f"/resources/{uuid4()}/download",
+            f"/api/v1/transfer/{test_conversation.id}" f"/resources/{uuid4()}/download",
             follow_redirects=False,
         )
 

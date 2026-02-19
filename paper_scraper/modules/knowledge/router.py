@@ -46,8 +46,10 @@ async def list_personal_sources(
 ):
     """List current user's personal knowledge sources."""
     return await service.list_personal(
-        current_user.id, current_user.organization_id,
-        page=page, page_size=page_size,
+        current_user.id,
+        current_user.organization_id,
+        page=page,
+        page_size=page_size,
     )
 
 
@@ -62,9 +64,7 @@ async def create_personal_source(
     service: Annotated[KnowledgeService, Depends(get_knowledge_service)],
 ):
     """Create a personal knowledge source."""
-    source = await service.create_personal(
-        current_user.id, current_user.organization_id, data
-    )
+    source = await service.create_personal(current_user.id, current_user.organization_id, data)
     return KnowledgeSourceResponse.model_validate(source)
 
 
@@ -82,18 +82,14 @@ async def update_personal_source(
     return KnowledgeSourceResponse.model_validate(source)
 
 
-@router.delete(
-    "/personal/{source_id}", status_code=status.HTTP_204_NO_CONTENT
-)
+@router.delete("/personal/{source_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_personal_source(
     source_id: UUID,
     current_user: CurrentUser,
     service: Annotated[KnowledgeService, Depends(get_knowledge_service)],
 ):
     """Delete a personal knowledge source."""
-    await service.delete_personal(
-        source_id, current_user.id, current_user.organization_id
-    )
+    await service.delete_personal(source_id, current_user.id, current_user.organization_id)
 
 
 # --- Organization knowledge sources (admin only) ---
@@ -108,7 +104,9 @@ async def list_organization_sources(
 ):
     """List organization-level knowledge sources (admin only)."""
     return await service.list_organization(
-        current_user.organization_id, page=page, page_size=page_size,
+        current_user.organization_id,
+        page=page,
+        page_size=page_size,
     )
 
 
@@ -125,9 +123,7 @@ async def create_organization_source(
     audit: Annotated[AuditService, Depends(get_audit_service)],
 ):
     """Create an organization-level knowledge source (admin only)."""
-    source = await service.create_organization(
-        current_user.organization_id, data
-    )
+    source = await service.create_organization(current_user.organization_id, data)
     await audit.log(
         action=AuditAction.KNOWLEDGE_CREATE,
         user_id=current_user.id,
@@ -151,9 +147,7 @@ async def update_organization_source(
     service: Annotated[KnowledgeService, Depends(get_knowledge_service)],
 ):
     """Update an organization-level knowledge source (admin only)."""
-    source = await service.update_organization(
-        source_id, current_user.organization_id, data
-    )
+    source = await service.update_organization(source_id, current_user.organization_id, data)
     return KnowledgeSourceResponse.model_validate(source)
 
 
@@ -169,9 +163,7 @@ async def delete_organization_source(
     audit: Annotated[AuditService, Depends(get_audit_service)],
 ):
     """Delete an organization-level knowledge source (admin only)."""
-    await service.delete_organization(
-        source_id, current_user.organization_id
-    )
+    await service.delete_organization(source_id, current_user.organization_id)
     await audit.log(
         action=AuditAction.KNOWLEDGE_DELETE,
         user_id=current_user.id,

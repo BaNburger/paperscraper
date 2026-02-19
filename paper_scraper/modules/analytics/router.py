@@ -79,9 +79,7 @@ async def get_paper_analytics(
 
     Returns import trends, scoring distributions, and top papers.
     """
-    return await analytics_service.get_paper_analytics(
-        current_user.organization_id, days=days
-    )
+    return await analytics_service.get_paper_analytics(current_user.organization_id, days=days)
 
 
 @router.get(

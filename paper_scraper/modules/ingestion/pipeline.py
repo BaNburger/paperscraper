@@ -125,18 +125,22 @@ class IngestionPipeline:
                     stats["papers_failed"] = papers_failed
                     record_id = self._source_record_id(record)
                     errors.append(f"{record_id}: {exc}")
-                    resolution_updates.append({
-                        "id": source_record_id,
-                        "paper_id": None,
-                        "resolution_status": "failed",
-                        "matched_on": None,
-                        "resolution_error": str(exc)[:2000],
-                        "resolved_at": datetime.now(UTC),
-                    })
+                    resolution_updates.append(
+                        {
+                            "id": source_record_id,
+                            "paper_id": None,
+                            "resolution_status": "failed",
+                            "matched_on": None,
+                            "resolution_error": str(exc)[:2000],
+                            "resolved_at": datetime.now(UTC),
+                        }
+                    )
 
             if normalized_entries:
                 try:
-                    resolved = await resolver.resolve_many([entry[1] for entry in normalized_entries])
+                    resolved = await resolver.resolve_many(
+                        [entry[1] for entry in normalized_entries]
+                    )
                     for (source_record_id, _bundle), result in zip(
                         normalized_entries,
                         resolved,
@@ -149,14 +153,16 @@ class IngestionPipeline:
                             papers_matched += 1
                             resolution_status = "matched"
                         dedupe_matches[result.matched_on] += 1
-                        resolution_updates.append({
-                            "id": source_record_id,
-                            "paper_id": result.paper_id,
-                            "resolution_status": resolution_status,
-                            "matched_on": result.matched_on,
-                            "resolution_error": None,
-                            "resolved_at": datetime.now(UTC),
-                        })
+                        resolution_updates.append(
+                            {
+                                "id": source_record_id,
+                                "paper_id": result.paper_id,
+                                "resolution_status": resolution_status,
+                                "matched_on": result.matched_on,
+                                "resolution_error": None,
+                                "resolved_at": datetime.now(UTC),
+                            }
+                        )
                 except Exception:
                     # Fallback to single-record resolution to preserve per-record outcomes.
                     for source_record_id, bundle in normalized_entries:
@@ -169,26 +175,30 @@ class IngestionPipeline:
                                 papers_matched += 1
                                 resolution_status = "matched"
                             dedupe_matches[result.matched_on] += 1
-                            resolution_updates.append({
-                                "id": source_record_id,
-                                "paper_id": result.paper_id,
-                                "resolution_status": resolution_status,
-                                "matched_on": result.matched_on,
-                                "resolution_error": None,
-                                "resolved_at": datetime.now(UTC),
-                            })
+                            resolution_updates.append(
+                                {
+                                    "id": source_record_id,
+                                    "paper_id": result.paper_id,
+                                    "resolution_status": resolution_status,
+                                    "matched_on": result.matched_on,
+                                    "resolution_error": None,
+                                    "resolved_at": datetime.now(UTC),
+                                }
+                            )
                         except Exception as exc:
                             papers_failed = int(stats["papers_failed"]) + 1
                             stats["papers_failed"] = papers_failed
                             errors.append(f"{source_record_id}: {exc}")
-                            resolution_updates.append({
-                                "id": source_record_id,
-                                "paper_id": None,
-                                "resolution_status": "failed",
-                                "matched_on": None,
-                                "resolution_error": str(exc)[:2000],
-                                "resolved_at": datetime.now(UTC),
-                            })
+                            resolution_updates.append(
+                                {
+                                    "id": source_record_id,
+                                    "paper_id": None,
+                                    "resolution_status": "failed",
+                                    "matched_on": None,
+                                    "resolution_error": str(exc)[:2000],
+                                    "resolved_at": datetime.now(UTC),
+                                }
+                            )
 
             await self._apply_resolution_updates(resolution_updates)
 

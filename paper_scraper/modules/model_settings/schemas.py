@@ -14,14 +14,27 @@ from pydantic import BaseModel, Field
 class ModelConfigurationCreate(BaseModel):
     """Schema for creating a model configuration."""
 
-    provider: str = Field(..., min_length=1, max_length=50, description="LLM provider (openai, anthropic, azure, ollama, google)")
-    model_name: str = Field(..., min_length=1, max_length=200, description="Model name (e.g., gpt-5-mini)")
+    provider: str = Field(
+        ...,
+        min_length=1,
+        max_length=50,
+        description="LLM provider (openai, anthropic, azure, ollama, google)",
+    )
+    model_name: str = Field(
+        ..., min_length=1, max_length=200, description="Model name (e.g., gpt-5-mini)"
+    )
     is_default: bool = Field(default=False, description="Set as default model for organization")
     api_key: str | None = Field(default=None, description="API key (will be encrypted)")
-    hosting_info: dict[str, Any] = Field(default_factory=dict, description="Hosting/compliance details")
+    hosting_info: dict[str, Any] = Field(
+        default_factory=dict, description="Hosting/compliance details"
+    )
     max_tokens: int = Field(default=4096, ge=1, le=128000, description="Maximum tokens in response")
     temperature: float = Field(default=0.3, ge=0.0, le=2.0, description="Sampling temperature")
-    workflow: str | None = Field(default=None, max_length=50, description="AI workflow assignment (scoring, summary, classification, embedding)")
+    workflow: str | None = Field(
+        default=None,
+        max_length=50,
+        description="AI workflow assignment (scoring, summary, classification, embedding)",
+    )
 
 
 class ModelConfigurationUpdate(BaseModel):

@@ -41,4 +41,3 @@ def test_docs_policy_passes_with_required_sections(tmp_path: Path) -> None:
 
     findings = docs_policy.lint(tmp_path)
     assert findings == []
-

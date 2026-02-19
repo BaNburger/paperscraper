@@ -84,7 +84,10 @@ class TestLibraryHighlights:
         )
         assert all_list.status_code == 200
         all_items = all_list.json()["items"]
-        assert any(item["generation_id"] == first_generation_id and item["is_active"] is False for item in all_items)
+        assert any(
+            item["generation_id"] == first_generation_id and item["is_active"] is False
+            for item in all_items
+        )
 
     @pytest.mark.asyncio
     async def test_manual_highlight_crud(

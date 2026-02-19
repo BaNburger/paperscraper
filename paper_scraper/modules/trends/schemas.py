@@ -20,9 +20,7 @@ class TrendTopicCreate(BaseModel):
         max_length=5000,
         description="Semantic description for paper matching",
     )
-    color: str | None = Field(
-        None, pattern=r"^#[0-9A-Fa-f]{6}$", description="Hex color for UI"
-    )
+    color: str | None = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$", description="Hex color for UI")
 
 
 class TrendTopicUpdate(BaseModel):

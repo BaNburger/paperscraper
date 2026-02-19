@@ -135,4 +135,3 @@ def lint(repo: Path) -> list[Finding]:
             )
 
     return findings
-

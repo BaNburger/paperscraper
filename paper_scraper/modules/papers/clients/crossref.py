@@ -56,9 +56,7 @@ class CrossrefClient(BaseAPIClient):
             logger.warning("Crossref returned invalid JSON: %s", e)
             return []
 
-        return [
-            self.normalize(item) for item in data.get("message", {}).get("items", [])
-        ]
+        return [self.normalize(item) for item in data.get("message", {}).get("items", [])]
 
     async def get_by_id(self, doi: str) -> dict | None:
         """Get paper by DOI from Crossref.
@@ -105,9 +103,7 @@ class CrossrefClient(BaseAPIClient):
                     "name": name or "Unknown",
                     "orcid": author.get("ORCID"),
                     "affiliations": [
-                        aff.get("name")
-                        for aff in author.get("affiliation", [])
-                        if aff.get("name")
+                        aff.get("name") for aff in author.get("affiliation", []) if aff.get("name")
                     ],
                 }
             )

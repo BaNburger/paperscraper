@@ -64,8 +64,12 @@ class SanitizedPaperContext:
             id=str(paper.id),
             title=sanitize_text_for_prompt(paper.title, max_length=500),
             abstract=sanitize_text_for_prompt(paper.abstract, max_length=max_abstract_length),
-            keywords=[sanitize_text_for_prompt(k, max_length=100) for k in (paper.keywords or [])[:10]],
-            journal=sanitize_text_for_prompt(paper.journal, max_length=200) if paper.journal else "",
+            keywords=[
+                sanitize_text_for_prompt(k, max_length=100) for k in (paper.keywords or [])[:10]
+            ],
+            journal=sanitize_text_for_prompt(paper.journal, max_length=200)
+            if paper.journal
+            else "",
             publication_date=str(paper.publication_date) if paper.publication_date else "",
             doi=str(paper.doi) if paper.doi else "",
             citations_count=paper.citations_count,

@@ -112,9 +112,7 @@ class ResourceCreate(BaseModel):
     name: str = Field(max_length=255)
     url: str | None = Field(default=None, max_length=1000)
     file_path: str | None = Field(default=None, max_length=500)
-    resource_type: str = Field(
-        max_length=50, description="Type of resource: file, link, document"
-    )
+    resource_type: str = Field(max_length=50, description="Type of resource: file, link, document")
 
 
 class ResourceResponse(BaseModel):

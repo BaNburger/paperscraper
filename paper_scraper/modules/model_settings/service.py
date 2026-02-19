@@ -118,10 +118,12 @@ class ModelSettingsService:
     ) -> ModelConfiguration | None:
         """Get the model configuration assigned to a specific workflow."""
         result = await self.db.execute(
-            select(ModelConfiguration).where(
+            select(ModelConfiguration)
+            .where(
                 ModelConfiguration.organization_id == organization_id,
                 ModelConfiguration.workflow == workflow,
-            ).limit(1)
+            )
+            .limit(1)
         )
         return result.scalar_one_or_none()
 
@@ -171,7 +173,9 @@ class ModelSettingsService:
             if op not in by_operation:
                 by_operation[op] = {"requests": 0, "tokens": 0, "cost_usd": 0.0}
             by_operation[op]["requests"] = int(by_operation[op]["requests"]) + 1
-            by_operation[op]["tokens"] = int(by_operation[op]["tokens"]) + r.input_tokens + r.output_tokens
+            by_operation[op]["tokens"] = (
+                int(by_operation[op]["tokens"]) + r.input_tokens + r.output_tokens
+            )
             by_operation[op]["cost_usd"] = float(by_operation[op]["cost_usd"]) + r.cost_usd
 
             # By model
@@ -179,7 +183,9 @@ class ModelSettingsService:
             if model not in by_model:
                 by_model[model] = {"requests": 0, "tokens": 0, "cost_usd": 0.0}
             by_model[model]["requests"] = int(by_model[model]["requests"]) + 1
-            by_model[model]["tokens"] = int(by_model[model]["tokens"]) + r.input_tokens + r.output_tokens
+            by_model[model]["tokens"] = (
+                int(by_model[model]["tokens"]) + r.input_tokens + r.output_tokens
+            )
             by_model[model]["cost_usd"] = float(by_model[model]["cost_usd"]) + r.cost_usd
 
             # By day
@@ -187,7 +193,9 @@ class ModelSettingsService:
             if day not in by_day_dict:
                 by_day_dict[day] = {"date": day, "requests": 0, "tokens": 0, "cost_usd": 0.0}
             by_day_dict[day]["requests"] = int(by_day_dict[day]["requests"]) + 1
-            by_day_dict[day]["tokens"] = int(by_day_dict[day]["tokens"]) + r.input_tokens + r.output_tokens
+            by_day_dict[day]["tokens"] = (
+                int(by_day_dict[day]["tokens"]) + r.input_tokens + r.output_tokens
+            )
             by_day_dict[day]["cost_usd"] = float(by_day_dict[day]["cost_usd"]) + r.cost_usd
 
         by_day = sorted(by_day_dict.values(), key=lambda x: str(x["date"]))
@@ -287,8 +295,7 @@ class ModelSettingsService:
 
     @staticmethod
     def _decrypt_key(encrypted: str) -> str:
-        """Decrypt an API key from storage.
-        """
+        """Decrypt an API key from storage."""
         if not encrypted.startswith("enc:v1:"):
             raise ValueError("Unsupported encrypted key format")
         return decrypt_secret(encrypted.replace("enc:v1:", "", 1))

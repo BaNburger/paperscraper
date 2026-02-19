@@ -67,9 +67,7 @@ def upgrade() -> None:
     )
 
     # Use raw SQL for the vector column and HNSW index (pgvector)
-    op.execute(
-        "ALTER TABLE trend_topics ADD COLUMN IF NOT EXISTS embedding_vec vector(1536)"
-    )
+    op.execute("ALTER TABLE trend_topics ADD COLUMN IF NOT EXISTS embedding_vec vector(1536)")
     op.execute(
         "UPDATE trend_topics SET embedding_vec = embedding::vector WHERE embedding IS NOT NULL"
     )

@@ -140,9 +140,7 @@ class AuthService:
             The User with organization if found, None otherwise.
         """
         result = await self.db.execute(
-            select(User)
-            .options(selectinload(User.organization))
-            .where(User.id == user_id)
+            select(User).options(selectinload(User.organization)).where(User.id == user_id)
         )
         return result.scalar_one_or_none()
 
@@ -416,9 +414,7 @@ class AuthService:
         Raises:
             ValidationError: If token is invalid or expired.
         """
-        result = await self.db.execute(
-            select(User).where(User.email_verification_token == token)
-        )
+        result = await self.db.execute(select(User).where(User.email_verification_token == token))
         user = result.scalar_one_or_none()
 
         if not user:
@@ -487,9 +483,7 @@ class AuthService:
         Raises:
             ValidationError: If token is invalid or expired.
         """
-        result = await self.db.execute(
-            select(User).where(User.password_reset_token == token)
-        )
+        result = await self.db.execute(select(User).where(User.password_reset_token == token))
         user = result.scalar_one_or_none()
 
         if not user:
@@ -657,9 +651,7 @@ class AuthService:
             ValidationError: If invitation is expired or already used.
             DuplicateError: If user already exists.
         """
-        result = await self.db.execute(
-            select(TeamInvitation).where(TeamInvitation.token == token)
-        )
+        result = await self.db.execute(select(TeamInvitation).where(TeamInvitation.token == token))
         invitation = result.scalar_one_or_none()
 
         if not invitation:
@@ -826,9 +818,7 @@ class AuthService:
             )
             admin_count = admin_count_result.scalar() or 0
             if admin_count <= 1:
-                raise ForbiddenError(
-                    "Cannot remove the last admin from the organization"
-                )
+                raise ForbiddenError("Cannot remove the last admin from the organization")
 
         user.role = new_role
         await self.db.flush()

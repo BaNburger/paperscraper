@@ -443,9 +443,7 @@ class TestAuthorsRouter:
         test_author: Author,
     ):
         """Test searching authors via API."""
-        response = await authenticated_client.get(
-            "/api/v1/authors/", params={"search": "Jane"}
-        )
+        response = await authenticated_client.get("/api/v1/authors/", params={"search": "Jane"})
 
         assert response.status_code == 200
         data = response.json()
@@ -458,9 +456,7 @@ class TestAuthorsRouter:
         test_author: Author,
     ):
         """Test getting author profile via API."""
-        response = await authenticated_client.get(
-            f"/api/v1/authors/{test_author.id}"
-        )
+        response = await authenticated_client.get(f"/api/v1/authors/{test_author.id}")
 
         assert response.status_code == 200
         data = response.json()
@@ -473,9 +469,7 @@ class TestAuthorsRouter:
         authenticated_client: AsyncClient,
     ):
         """Test getting non-existent author returns 404."""
-        response = await authenticated_client.get(
-            f"/api/v1/authors/{uuid4()}"
-        )
+        response = await authenticated_client.get(f"/api/v1/authors/{uuid4()}")
 
         assert response.status_code == 404
 
@@ -486,9 +480,7 @@ class TestAuthorsRouter:
         paper_author_link: PaperAuthor,
     ):
         """Test getting full author detail via API."""
-        response = await authenticated_client.get(
-            f"/api/v1/authors/{test_author.id}/detail"
-        )
+        response = await authenticated_client.get(f"/api/v1/authors/{test_author.id}/detail")
 
         assert response.status_code == 200
         data = response.json()
@@ -605,9 +597,7 @@ class TestAuthorsRouter:
         test_author: Author,
     ):
         """Test that author response has correct structure."""
-        response = await authenticated_client.get(
-            f"/api/v1/authors/{test_author.id}"
-        )
+        response = await authenticated_client.get(f"/api/v1/authors/{test_author.id}")
 
         assert response.status_code == 200
         data = response.json()

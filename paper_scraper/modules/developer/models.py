@@ -65,9 +65,7 @@ class APIKey(Base):
     )
 
     # Relationships
-    organization: Mapped["Organization"] = relationship(
-        "Organization", back_populates="api_keys"
-    )
+    organization: Mapped["Organization"] = relationship("Organization", back_populates="api_keys")
     created_by: Mapped["User"] = relationship("User", back_populates="api_keys")
 
     def __repr__(self) -> str:
@@ -110,9 +108,7 @@ class Webhook(Base):
     )
 
     # Relationships
-    organization: Mapped["Organization"] = relationship(
-        "Organization", back_populates="webhooks"
-    )
+    organization: Mapped["Organization"] = relationship("Organization", back_populates="webhooks")
     created_by: Mapped["User"] = relationship("User", back_populates="webhooks")
 
     def __repr__(self) -> str:

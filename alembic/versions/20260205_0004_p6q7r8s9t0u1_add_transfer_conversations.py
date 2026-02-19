@@ -23,7 +23,11 @@ def upgrade() -> None:
     """Create transfer module tables."""
     # Create TransferType enum
     transfer_type_enum = postgresql.ENUM(
-        "patent", "licensing", "startup", "partnership", "other",
+        "patent",
+        "licensing",
+        "startup",
+        "partnership",
+        "other",
         name="transfertype",
         create_type=False,
     )
@@ -31,8 +35,12 @@ def upgrade() -> None:
 
     # Create TransferStage enum
     transfer_stage_enum = postgresql.ENUM(
-        "initial_contact", "discovery", "evaluation",
-        "negotiation", "closed_won", "closed_lost",
+        "initial_contact",
+        "discovery",
+        "evaluation",
+        "negotiation",
+        "closed_won",
+        "closed_lost",
         name="transferstage",
         create_type=False,
     )
@@ -66,18 +74,10 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
-        sa.ForeignKeyConstraint(
-            ["organization_id"], ["organizations.id"], ondelete="CASCADE"
-        ),
-        sa.ForeignKeyConstraint(
-            ["paper_id"], ["papers.id"], ondelete="SET NULL"
-        ),
-        sa.ForeignKeyConstraint(
-            ["researcher_id"], ["authors.id"], ondelete="SET NULL"
-        ),
-        sa.ForeignKeyConstraint(
-            ["created_by"], ["users.id"], ondelete="SET NULL"
-        ),
+        sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["paper_id"], ["papers.id"], ondelete="SET NULL"),
+        sa.ForeignKeyConstraint(["researcher_id"], ["authors.id"], ondelete="SET NULL"),
+        sa.ForeignKeyConstraint(["created_by"], ["users.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
@@ -125,9 +125,7 @@ def upgrade() -> None:
             ["transfer_conversations.id"],
             ondelete="CASCADE",
         ),
-        sa.ForeignKeyConstraint(
-            ["sender_id"], ["users.id"], ondelete="SET NULL"
-        ),
+        sa.ForeignKeyConstraint(["sender_id"], ["users.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
@@ -189,9 +187,7 @@ def upgrade() -> None:
             ["transfer_conversations.id"],
             ondelete="CASCADE",
         ),
-        sa.ForeignKeyConstraint(
-            ["changed_by"], ["users.id"], ondelete="SET NULL"
-        ),
+        sa.ForeignKeyConstraint(["changed_by"], ["users.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
@@ -215,9 +211,7 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
-        sa.ForeignKeyConstraint(
-            ["organization_id"], ["organizations.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
@@ -232,12 +226,14 @@ def upgrade() -> None:
     )
 
     # Create updated_at trigger for transfer_conversations
-    op.execute("""
+    op.execute(
+        """
         CREATE TRIGGER update_transfer_conversations_updated_at
             BEFORE UPDATE ON transfer_conversations
             FOR EACH ROW
             EXECUTE FUNCTION update_updated_at_column();
-    """)
+    """
+    )
 
 
 def downgrade() -> None:

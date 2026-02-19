@@ -70,12 +70,8 @@ class AuthorContact(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Outcome tracking
-    outcome: Mapped[ContactOutcome | None] = mapped_column(
-        Enum(ContactOutcome), nullable=True
-    )
-    follow_up_date: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    outcome: Mapped[ContactOutcome | None] = mapped_column(Enum(ContactOutcome), nullable=True)
+    follow_up_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Related paper (if contact is about a specific paper)
     paper_id: Mapped[UUID | None] = mapped_column(

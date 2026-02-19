@@ -41,9 +41,9 @@ async def _create_saved_search(client: AsyncClient) -> str:
             "mode": "fulltext",
         },
     )
-    assert response.status_code == 201, (
-        f"Failed to create saved search: {response.status_code} {response.text}"
-    )
+    assert (
+        response.status_code == 201
+    ), f"Failed to create saved search: {response.status_code} {response.text}"
     return response.json()["id"]
 
 
@@ -67,9 +67,9 @@ async def _create_alert(
             "min_results": min_results,
         },
     )
-    assert response.status_code == 201, (
-        f"Failed to create alert: {response.status_code} {response.text}"
-    )
+    assert (
+        response.status_code == 201
+    ), f"Failed to create alert: {response.status_code} {response.text}"
     return response.json()
 
 
@@ -367,12 +367,8 @@ class TestAlertList:
     ) -> None:
         """Listing alerts returns all alerts created by the current user."""
         # Create two alerts
-        await _create_alert(
-            authenticated_client, saved_search_id, name="Alert One"
-        )
-        await _create_alert(
-            authenticated_client, saved_search_id, name="Alert Two"
-        )
+        await _create_alert(authenticated_client, saved_search_id, name="Alert One")
+        await _create_alert(authenticated_client, saved_search_id, name="Alert Two")
 
         response = await authenticated_client.get("/api/v1/alerts")
 
@@ -392,9 +388,7 @@ class TestAlertList:
     ) -> None:
         """The active_only query parameter filters out inactive alerts."""
         # Create two alerts
-        await _create_alert(
-            authenticated_client, saved_search_id, name="Active Alert"
-        )
+        await _create_alert(authenticated_client, saved_search_id, name="Active Alert")
         inactive_alert = await _create_alert(
             authenticated_client, saved_search_id, name="Inactive Alert"
         )
@@ -426,9 +420,7 @@ class TestAlertList:
         """Pagination parameters (page, page_size) are respected."""
         # Create three alerts
         for i in range(3):
-            await _create_alert(
-                authenticated_client, saved_search_id, name=f"Alert {i}"
-            )
+            await _create_alert(authenticated_client, saved_search_id, name=f"Alert {i}")
 
         # Request page 1 with page_size 2
         response = await authenticated_client.get(
@@ -622,9 +614,7 @@ class TestAlertDelete:
         alert_id = alert_data["id"]
 
         # Delete
-        response = await authenticated_client.delete(
-            f"/api/v1/alerts/{alert_id}"
-        )
+        response = await authenticated_client.delete(f"/api/v1/alerts/{alert_id}")
         assert response.status_code == 204
 
         # Verify it is gone
@@ -639,9 +629,7 @@ class TestAlertDelete:
         """Deleting a nonexistent alert returns 404."""
         fake_id = str(uuid4())
 
-        response = await authenticated_client.delete(
-            f"/api/v1/alerts/{fake_id}"
-        )
+        response = await authenticated_client.delete(f"/api/v1/alerts/{fake_id}")
 
         assert response.status_code == 404
 
@@ -653,9 +641,7 @@ class TestAlertDelete:
     ) -> None:
         """After deletion the alert no longer appears in the list endpoint."""
         # Create and delete
-        alert = await _create_alert(
-            authenticated_client, saved_search_id, name="Ephemeral Alert"
-        )
+        alert = await _create_alert(authenticated_client, saved_search_id, name="Ephemeral Alert")
         await authenticated_client.delete(f"/api/v1/alerts/{alert['id']}")
 
         # Verify list is empty
@@ -683,9 +669,7 @@ class TestAlertResults:
         """A freshly created alert has no results history."""
         alert_id = alert_data["id"]
 
-        response = await authenticated_client.get(
-            f"/api/v1/alerts/{alert_id}/results"
-        )
+        response = await authenticated_client.get(f"/api/v1/alerts/{alert_id}/results")
 
         assert response.status_code == 200
         data = response.json()
@@ -702,9 +686,7 @@ class TestAlertResults:
         """Getting results for a nonexistent alert returns 404."""
         fake_id = str(uuid4())
 
-        response = await authenticated_client.get(
-            f"/api/v1/alerts/{fake_id}/results"
-        )
+        response = await authenticated_client.get(f"/api/v1/alerts/{fake_id}/results")
 
         assert response.status_code == 404
 
@@ -726,9 +708,7 @@ class TestAlertTestEndpoint:
         """Testing an alert returns a dry-run result without side effects."""
         alert_id = alert_data["id"]
 
-        response = await authenticated_client.post(
-            f"/api/v1/alerts/{alert_id}/test"
-        )
+        response = await authenticated_client.post(f"/api/v1/alerts/{alert_id}/test")
 
         assert response.status_code == 200
         data = response.json()
@@ -765,9 +745,7 @@ class TestAlertTestEndpoint:
         """Testing a nonexistent alert returns 404."""
         fake_id = str(uuid4())
 
-        response = await authenticated_client.post(
-            f"/api/v1/alerts/{fake_id}/test"
-        )
+        response = await authenticated_client.post(f"/api/v1/alerts/{fake_id}/test")
 
         assert response.status_code == 404
 
@@ -780,7 +758,9 @@ class TestAlertTestEndpoint:
 class TestAlertTrigger:
     """Tests for POST /api/v1/alerts/{alert_id}/trigger."""
 
-    @pytest.mark.xfail(reason="Pre-existing bug: offset-naive/aware datetime mismatch in alert trigger search")
+    @pytest.mark.xfail(
+        reason="Pre-existing bug: offset-naive/aware datetime mismatch in alert trigger search"
+    )
     @pytest.mark.asyncio
     async def test_trigger_alert_returns_result(
         self,
@@ -790,9 +770,7 @@ class TestAlertTrigger:
         """Manually triggering an alert returns an AlertResultResponse."""
         alert_id = alert_data["id"]
 
-        response = await authenticated_client.post(
-            f"/api/v1/alerts/{alert_id}/trigger"
-        )
+        response = await authenticated_client.post(f"/api/v1/alerts/{alert_id}/trigger")
 
         assert response.status_code == 200
         data = response.json()
@@ -812,9 +790,7 @@ class TestAlertTrigger:
         """Triggering a nonexistent alert returns 404."""
         fake_id = str(uuid4())
 
-        response = await authenticated_client.post(
-            f"/api/v1/alerts/{fake_id}/trigger"
-        )
+        response = await authenticated_client.post(f"/api/v1/alerts/{fake_id}/trigger")
 
         assert response.status_code == 404
 
@@ -1031,9 +1007,7 @@ class TestAlertTenantIsolation:
         assert response.status_code in (403, 404)
 
         # Verify the alert still exists for the original owner
-        verify_response = await authenticated_client.get(
-            f"/api/v1/alerts/{alert_id}"
-        )
+        verify_response = await authenticated_client.get(f"/api/v1/alerts/{alert_id}")
         assert verify_response.status_code == 200
 
 

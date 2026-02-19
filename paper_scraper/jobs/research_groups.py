@@ -227,15 +227,17 @@ async def sync_research_group_task(
 
                 centroid = centroids[c_idx] if c_idx < len(centroids) else None
 
-                cluster_data.append({
-                    "cluster_index": c_idx,
-                    "label": label,
-                    "description": None,
-                    "keywords": top_kws,
-                    "paper_ids": pids,
-                    "centroid": centroid,
-                    "similarities": cluster_similarities[c_idx],
-                })
+                cluster_data.append(
+                    {
+                        "cluster_index": c_idx,
+                        "label": label,
+                        "description": None,
+                        "keywords": top_kws,
+                        "paper_ids": pids,
+                        "centroid": centroid,
+                        "similarities": cluster_similarities[c_idx],
+                    }
+                )
 
             # 9b. Try LLM-generated labels (single call for all clusters)
             await _try_llm_labels(db, cluster_data)
@@ -275,15 +277,11 @@ async def sync_research_group_task(
             }
 
         except Exception as exc:
-            logger.exception(
-                "Research group sync failed for %s: %s", project_id, exc
-            )
+            logger.exception("Research group sync failed for %s: %s", project_id, exc)
             try:
                 await db.rollback()
                 project_service_err = ProjectService(db)
-                await project_service_err.update_sync_status(
-                    proj_uuid, org_uuid, SyncStatus.FAILED
-                )
+                await project_service_err.update_sync_status(proj_uuid, org_uuid, SyncStatus.FAILED)
                 await db.commit()
             except Exception:
                 logger.warning("Failed to update sync status to FAILED for %s", project_id)
@@ -343,15 +341,15 @@ async def _try_llm_labels(db: Any, cluster_data: list[dict]) -> None:
         llm_input = []
         for cdata in cluster_data:
             pids = cdata["paper_ids"]
-            title_result = await db.execute(
-                select(Paper.title).where(Paper.id.in_(pids)).limit(5)
-            )
+            title_result = await db.execute(select(Paper.title).where(Paper.id.in_(pids)).limit(5))
             titles = [row[0] or "Untitled" for row in title_result.all()]
-            llm_input.append({
-                "index": cdata["cluster_index"],
-                "keywords": cdata["keywords"],
-                "paper_titles": titles,
-            })
+            llm_input.append(
+                {
+                    "index": cdata["cluster_index"],
+                    "keywords": cdata["keywords"],
+                    "paper_titles": titles,
+                }
+            )
 
         llm_client = get_llm_client()
         llm_labels = await generate_cluster_labels_llm(llm_input, llm_client)

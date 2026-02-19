@@ -457,9 +457,7 @@ class AnthropicClient(BaseLLMClient):
         model: str | None = None,
     ):
         self.api_key = api_key or (
-            settings.ANTHROPIC_API_KEY.get_secret_value()
-            if settings.ANTHROPIC_API_KEY
-            else ""
+            settings.ANTHROPIC_API_KEY.get_secret_value() if settings.ANTHROPIC_API_KEY else ""
         )
         self.model = model or "claude-sonnet-4-20250514"
         self.base_url = "https://api.anthropic.com/v1"
@@ -500,7 +498,9 @@ class AnthropicClient(BaseLLMClient):
 
         actual_system = system
         if json_mode:
-            actual_system = (system or "") + "\n\nYou MUST respond with valid JSON only. No other text."
+            actual_system = (
+                system or ""
+            ) + "\n\nYou MUST respond with valid JSON only. No other text."
 
         payload: dict[str, Any] = {
             "model": self.model,
@@ -852,9 +852,7 @@ class GeminiClient(BaseLLMClient):
         model: str | None = None,
     ):
         self.api_key = api_key or (
-            settings.GOOGLE_API_KEY.get_secret_value()
-            if settings.GOOGLE_API_KEY
-            else ""
+            settings.GOOGLE_API_KEY.get_secret_value() if settings.GOOGLE_API_KEY else ""
         )
         self.model = model or "gemini-2.0-flash"
         self.base_url = "https://generativelanguage.googleapis.com/v1beta"

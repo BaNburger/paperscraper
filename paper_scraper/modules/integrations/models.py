@@ -118,7 +118,9 @@ class ZoteroConnection(Base):
     )
     user_id: Mapped[str] = mapped_column(String(64), nullable=False)
     api_key: Mapped[str] = mapped_column(Text, nullable=False)
-    base_url: Mapped[str] = mapped_column(String(255), nullable=False, default="https://api.zotero.org")
+    base_url: Mapped[str] = mapped_column(
+        String(255), nullable=False, default="https://api.zotero.org"
+    )
     library_type: Mapped[str] = mapped_column(String(16), nullable=False, default="users")
     status: Mapped[ZoteroConnectionStatus] = mapped_column(
         Enum(ZoteroConnectionStatus, values_callable=lambda x: [e.value for e in x]),

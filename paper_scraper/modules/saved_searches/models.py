@@ -55,9 +55,7 @@ class SavedSearch(Base):
     alert_frequency: Mapped[str | None] = mapped_column(
         String(50), nullable=True
     )  # daily, weekly, immediately
-    last_alert_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    last_alert_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Discovery / Auto-import configuration
     semantic_description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -67,15 +65,11 @@ class SavedSearch(Base):
         ForeignKey("projects.id", ondelete="SET NULL"),
         nullable=True,
     )
-    auto_import_enabled: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False
-    )
+    auto_import_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     import_sources: Mapped[list] = mapped_column(
         JSONB, nullable=False, default=list
     )  # e.g. ["openalex", "pubmed", "arxiv"]
-    max_import_per_run: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=20
-    )
+    max_import_per_run: Mapped[int] = mapped_column(Integer, nullable=False, default=20)
     discovery_frequency: Mapped[str | None] = mapped_column(
         String(50), nullable=True
     )  # daily, weekly
@@ -85,9 +79,7 @@ class SavedSearch(Base):
 
     # Usage tracking
     run_count: Mapped[int] = mapped_column(nullable=False, default=0)
-    last_run_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(

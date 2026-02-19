@@ -46,7 +46,9 @@ async def check_and_award_badges_task(
         user_uuid = UUID(user_id)
         org_uuid = UUID(organization_id)
     except ValueError:
-        logger.warning(f"Invalid UUID in badge check: user_id={user_id[:36] if len(user_id) > 36 else user_id}")
+        logger.warning(
+            f"Invalid UUID in badge check: user_id={user_id[:36] if len(user_id) > 36 else user_id}"
+        )
         return {
             "status": "error",
             "error": "Invalid UUID format",
@@ -93,8 +95,7 @@ async def check_and_award_badges_task(
                     "trigger_action": trigger_action,
                     "awarded_count": len(awarded),
                     "badges": [
-                        {"name": b.name, "tier": b.tier.value, "points": b.points}
-                        for b in awarded
+                        {"name": b.name, "tier": b.tier.value, "points": b.points} for b in awarded
                     ],
                 }
             else:
@@ -136,7 +137,9 @@ async def batch_check_badges_task(
     try:
         org_uuid = UUID(organization_id)
     except ValueError:
-        logger.warning(f"Invalid organization UUID in batch badge check: {organization_id[:36] if len(organization_id) > 36 else organization_id}")
+        logger.warning(
+            f"Invalid organization UUID in batch badge check: {organization_id[:36] if len(organization_id) > 36 else organization_id}"
+        )
         return {
             "status": "error",
             "error": "Invalid organization UUID format",
@@ -154,7 +157,9 @@ async def batch_check_badges_task(
                 try:
                     users_to_check.append(UUID(uid))
                 except ValueError:
-                    logger.warning(f"Skipping invalid user UUID: {uid[:36] if len(uid) > 36 else uid}")
+                    logger.warning(
+                        f"Skipping invalid user UUID: {uid[:36] if len(uid) > 36 else uid}"
+                    )
         else:
             # Get all active users in the organization
             result = await db.execute(
@@ -177,11 +182,13 @@ async def batch_check_badges_task(
                 )
                 if awarded:
                     total_awarded += len(awarded)
-                    user_results.append({
-                        "user_id": str(uid),
-                        "awarded_count": len(awarded),
-                        "badges": [b.name for b in awarded],
-                    })
+                    user_results.append(
+                        {
+                            "user_id": str(uid),
+                            "awarded_count": len(awarded),
+                            "badges": [b.name for b in awarded],
+                        }
+                    )
             except Exception as e:
                 logger.warning(f"Badge check failed for user {uid}: {e}")
 
@@ -197,6 +204,7 @@ async def batch_check_badges_task(
 # =============================================================================
 # Helper functions for triggering badge checks from other modules
 # =============================================================================
+
 
 async def trigger_badge_check(
     user_id: UUID,

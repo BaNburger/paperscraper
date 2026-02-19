@@ -41,9 +41,7 @@ class StorageService:
             "s3",
             endpoint_url=self.endpoint_url,
             aws_access_key_id=access_key or settings.S3_ACCESS_KEY,
-            aws_secret_access_key=(
-                secret_key or settings.S3_SECRET_KEY.get_secret_value()
-            ),
+            aws_secret_access_key=(secret_key or settings.S3_SECRET_KEY.get_secret_value()),
             region_name=region or settings.S3_REGION,
         )
 

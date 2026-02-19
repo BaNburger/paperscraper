@@ -66,9 +66,7 @@ class Badge(Base):
         nullable=False,
         default=BadgeTier.BRONZE,
     )
-    criteria: Mapped[dict] = mapped_column(
-        JSONB, nullable=False, default=dict
-    )
+    criteria: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     threshold: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     points: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
     created_at: Mapped[datetime] = mapped_column(
@@ -111,16 +109,12 @@ class UserBadge(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     progress: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    metadata_: Mapped[dict] = mapped_column(
-        "metadata", JSONB, nullable=False, default=dict
-    )
+    metadata_: Mapped[dict] = mapped_column("metadata", JSONB, nullable=False, default=dict)
 
     # Relationships
     badge: Mapped["Badge"] = relationship("Badge", back_populates="user_badges")
 
-    __table_args__ = (
-        UniqueConstraint("user_id", "badge_id", name="uq_user_badges_user_badge"),
-    )
+    __table_args__ = (UniqueConstraint("user_id", "badge_id", name="uq_user_badges_user_badge"),)
 
     def __repr__(self) -> str:
         return f"<UserBadge user={self.user_id} badge={self.badge_id}>"

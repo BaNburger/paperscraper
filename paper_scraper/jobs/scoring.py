@@ -137,9 +137,7 @@ async def cleanup_expired_score_cache_task(
     """
     async with get_db_session() as db:
         result = await db.execute(
-            delete(GlobalScoreCache).where(
-                GlobalScoreCache.expires_at <= datetime.now(UTC)
-            )
+            delete(GlobalScoreCache).where(GlobalScoreCache.expires_at <= datetime.now(UTC))
         )
         await db.commit()
         deleted = result.rowcount

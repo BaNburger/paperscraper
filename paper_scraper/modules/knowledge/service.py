@@ -126,9 +126,7 @@ class KnowledgeService:
         await self.db.refresh(source)
         return source
 
-    async def _get_source(
-        self, source_id: UUID, organization_id: UUID
-    ) -> KnowledgeSource:
+    async def _get_source(self, source_id: UUID, organization_id: UUID) -> KnowledgeSource:
         """Get a knowledge source by ID with tenant isolation."""
         result = await self.db.execute(
             select(KnowledgeSource).where(
@@ -307,7 +305,10 @@ class KnowledgeService:
             "ip_potential": [KnowledgeType.EVALUATION_CRITERIA, KnowledgeType.INDUSTRY_CONTEXT],
             "marketability": [KnowledgeType.INDUSTRY_CONTEXT, KnowledgeType.EVALUATION_CRITERIA],
             "feasibility": [KnowledgeType.DOMAIN_EXPERTISE, KnowledgeType.RESEARCH_FOCUS],
-            "commercialization": [KnowledgeType.INDUSTRY_CONTEXT, KnowledgeType.EVALUATION_CRITERIA],
+            "commercialization": [
+                KnowledgeType.INDUSTRY_CONTEXT,
+                KnowledgeType.EVALUATION_CRITERIA,
+            ],
             "team_readiness": [KnowledgeType.EVALUATION_CRITERIA, KnowledgeType.DOMAIN_EXPERTISE],
         }
 

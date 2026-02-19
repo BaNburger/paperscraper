@@ -161,9 +161,7 @@ async def _create_saved_search(
     """Helper to create a saved search and return the response data."""
     body = payload or VALID_SEARCH_PAYLOAD.copy()
     response = await client.post(BASE_URL, json=body)
-    assert response.status_code == 201, (
-        f"Expected 201, got {response.status_code}: {response.text}"
-    )
+    assert response.status_code == 201, f"Expected 201, got {response.status_code}: {response.text}"
     return response.json()
 
 
@@ -349,9 +347,7 @@ class TestSavedSearchCRUD:
             {"name": "Page 2", "query": "second"},
         )
 
-        response = await authenticated_client.get(
-            BASE_URL, params={"page": 1, "page_size": 1}
-        )
+        response = await authenticated_client.get(BASE_URL, params={"page": 1, "page_size": 1})
         assert response.status_code == 200
 
         data = response.json()
@@ -393,9 +389,7 @@ class TestSavedSearchCRUD:
             {"name": "Public Search", "query": "public query", "is_public": True},
         )
 
-        response = await authenticated_client.get(
-            BASE_URL, params={"include_public": False}
-        )
+        response = await authenticated_client.get(BASE_URL, params={"include_public": False})
         assert response.status_code == 200
 
         data = response.json()
@@ -536,9 +530,7 @@ class TestSavedSearchSharing:
         created = await _create_saved_search(authenticated_client)
         search_id = created["id"]
 
-        response = await authenticated_client.post(
-            f"{BASE_URL}/{search_id}/share"
-        )
+        response = await authenticated_client.post(f"{BASE_URL}/{search_id}/share")
         assert response.status_code == 200
 
         data = response.json()
@@ -559,9 +551,7 @@ class TestSavedSearchSharing:
         created = await _create_saved_search(authenticated_client)
         search_id = created["id"]
 
-        share_response = await authenticated_client.post(
-            f"{BASE_URL}/{search_id}/share"
-        )
+        share_response = await authenticated_client.post(f"{BASE_URL}/{search_id}/share")
         share_token = share_response.json()["share_token"]
 
         # Access via unauthenticated client
@@ -571,9 +561,7 @@ class TestSavedSearchSharing:
             base_url=str(client.base_url),
         )
         async with unauthenticated_client:
-            response = await unauthenticated_client.get(
-                f"{BASE_URL}/shared/{share_token}"
-            )
+            response = await unauthenticated_client.get(f"{BASE_URL}/shared/{share_token}")
             assert response.status_code == 200
 
             data = response.json()
@@ -587,9 +575,7 @@ class TestSavedSearchSharing:
         client: AsyncClient,
     ) -> None:
         """Accessing a shared search with an invalid token should return 404."""
-        response = await client.get(
-            f"{BASE_URL}/shared/nonexistent_token_abc123"
-        )
+        response = await client.get(f"{BASE_URL}/shared/nonexistent_token_abc123")
         assert response.status_code == 404
 
     @pytest.mark.asyncio
@@ -603,15 +589,11 @@ class TestSavedSearchSharing:
         created = await _create_saved_search(authenticated_client)
         search_id = created["id"]
 
-        share_response = await authenticated_client.post(
-            f"{BASE_URL}/{search_id}/share"
-        )
+        share_response = await authenticated_client.post(f"{BASE_URL}/{search_id}/share")
         share_token = share_response.json()["share_token"]
 
         # Revoke
-        revoke_response = await authenticated_client.delete(
-            f"{BASE_URL}/{search_id}/share"
-        )
+        revoke_response = await authenticated_client.delete(f"{BASE_URL}/{search_id}/share")
         assert revoke_response.status_code == 204
 
         # Token should no longer work
@@ -628,15 +610,11 @@ class TestSavedSearchSharing:
         search_id = created["id"]
 
         # First share
-        response1 = await authenticated_client.post(
-            f"{BASE_URL}/{search_id}/share"
-        )
+        response1 = await authenticated_client.post(f"{BASE_URL}/{search_id}/share")
         token1 = response1.json()["share_token"]
 
         # Second share
-        response2 = await authenticated_client.post(
-            f"{BASE_URL}/{search_id}/share"
-        )
+        response2 = await authenticated_client.post(f"{BASE_URL}/{search_id}/share")
         token2 = response2.json()["share_token"]
 
         assert token1 != token2
@@ -650,9 +628,7 @@ class TestSavedSearchSharing:
         created = await _create_saved_search(authenticated_client)
         search_id = created["id"]
 
-        share_response = await authenticated_client.post(
-            f"{BASE_URL}/{search_id}/share"
-        )
+        share_response = await authenticated_client.post(f"{BASE_URL}/{search_id}/share")
         share_token = share_response.json()["share_token"]
 
         get_response = await authenticated_client.get(f"{BASE_URL}/{search_id}")
@@ -670,7 +646,9 @@ class TestSavedSearchSharing:
 class TestSavedSearchRun:
     """Tests for executing a saved search."""
 
-    @pytest.mark.xfail(reason="Pre-existing bug: search service passes Select object instead of query string to _generate_highlights")
+    @pytest.mark.xfail(
+        reason="Pre-existing bug: search service passes Select object instead of query string to _generate_highlights"
+    )
     @pytest.mark.asyncio
     async def test_run_saved_search_returns_search_results(
         self,
@@ -774,9 +752,7 @@ class TestSavedSearchAuthentication:
     ) -> None:
         """Updating a saved search without auth should return 401."""
         fake_id = str(uuid4())
-        response = await client.patch(
-            f"{BASE_URL}/{fake_id}", json={"name": "Hacked"}
-        )
+        response = await client.patch(f"{BASE_URL}/{fake_id}", json={"name": "Hacked"})
         assert response.status_code == 401
 
     @pytest.mark.asyncio
@@ -978,9 +954,7 @@ class TestSavedSearchOwnership:
             json={"is_public": True},
         )
 
-        response = await second_user_client.post(
-            f"{BASE_URL}/{search_id}/share"
-        )
+        response = await second_user_client.post(f"{BASE_URL}/{search_id}/share")
         assert response.status_code == 403
 
     @pytest.mark.asyncio
@@ -1002,9 +976,7 @@ class TestSavedSearchOwnership:
             json={"is_public": True},
         )
 
-        response = await second_user_client.delete(
-            f"{BASE_URL}/{search_id}/share"
-        )
+        response = await second_user_client.delete(f"{BASE_URL}/{search_id}/share")
         assert response.status_code == 403
 
     @pytest.mark.asyncio

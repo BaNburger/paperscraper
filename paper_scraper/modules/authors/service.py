@@ -148,9 +148,7 @@ class AuthorService:
         # Get contact stats
         contact_stats = await self._get_contact_stats(author_id, organization_id)
 
-        profile = self._build_author_profile_response(
-            author, len(papers), contact_stats
-        )
+        profile = self._build_author_profile_response(author, len(papers), contact_stats)
         return AuthorDetailResponse(
             **profile.model_dump(),
             papers=papers,
@@ -215,9 +213,8 @@ class AuthorService:
         )
 
         # Single query with all stats
-        query = (
-            select(Author, paper_count_sq, recent_contacts_sq, last_contact_sq)
-            .where(Author.organization_id == organization_id)
+        query = select(Author, paper_count_sq, recent_contacts_sq, last_contact_sq).where(
+            Author.organization_id == organization_id
         )
         if search:
             search_filter = f"%{escape_like(search)}%"
@@ -366,9 +363,7 @@ class AuthorService:
             )
             .group_by(AuthorContact.outcome)
         )
-        contacts_by_outcome = {
-            row[0].value: row[1] for row in outcome_result.all() if row[0]
-        }
+        contacts_by_outcome = {row[0].value: row[1] for row in outcome_result.all() if row[0]}
 
         # Last contact date
         last_contact_result = await self.db.execute(
@@ -424,9 +419,7 @@ class AuthorService:
         elif source == "orcid":
             updated_fields = await self._enrich_from_orcid(author, force_update)
         elif source == "semantic_scholar":
-            updated_fields = await self._enrich_from_semantic_scholar(
-                author, force_update
-            )
+            updated_fields = await self._enrich_from_semantic_scholar(author, force_update)
         else:
             return EnrichmentResult(
                 author_id=author_id,
@@ -450,9 +443,7 @@ class AuthorService:
             else "No updates needed",
         )
 
-    async def _enrich_from_openalex(
-        self, author: Author, force_update: bool
-    ) -> list[str]:
+    async def _enrich_from_openalex(self, author: Author, force_update: bool) -> list[str]:
         """Enrich author from OpenAlex API."""
         import httpx
 
@@ -516,9 +507,7 @@ class AuthorService:
 
         return updated_fields
 
-    async def _enrich_from_orcid(
-        self, author: Author, force_update: bool
-    ) -> list[str]:
+    async def _enrich_from_orcid(self, author: Author, force_update: bool) -> list[str]:
         """Enrich author from ORCID API.
 
         Raises:
@@ -526,9 +515,7 @@ class AuthorService:
         """
         raise NotImplementedError("ORCID enrichment not yet implemented")
 
-    async def _enrich_from_semantic_scholar(
-        self, author: Author, force_update: bool
-    ) -> list[str]:
+    async def _enrich_from_semantic_scholar(self, author: Author, force_update: bool) -> list[str]:
         """Enrich author from Semantic Scholar API.
 
         Raises:
@@ -563,9 +550,7 @@ class AuthorService:
             last_contact_date=contact_stats.get("last_contact_date"),
         )
 
-    async def _get_contact_stats(
-        self, author_id: UUID, organization_id: UUID
-    ) -> dict:
+    async def _get_contact_stats(self, author_id: UUID, organization_id: UUID) -> dict:
         """Get basic contact stats for author profile."""
         # Recent contacts (last 30 days)
         thirty_days_ago = datetime.now(UTC) - timedelta(days=30)

@@ -280,9 +280,7 @@ class OpenAlexClient(BaseAPIClient):
             "issue": work.get("biblio", {}).get("issue"),
             "pages": self._format_pages(work.get("biblio", {})),
             "keywords": [
-                kw.get("display_name")
-                for kw in work.get("keywords", [])
-                if kw.get("display_name")
+                kw.get("display_name") for kw in work.get("keywords", []) if kw.get("display_name")
             ],
             "references_count": work.get("referenced_works_count"),
             "citations_count": work.get("cited_by_count"),
