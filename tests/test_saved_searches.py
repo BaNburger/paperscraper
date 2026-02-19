@@ -646,9 +646,6 @@ class TestSavedSearchSharing:
 class TestSavedSearchRun:
     """Tests for executing a saved search."""
 
-    @pytest.mark.xfail(
-        reason="Pre-existing bug: search service passes Select object instead of query string to _generate_highlights"
-    )
     @pytest.mark.asyncio
     async def test_run_saved_search_returns_search_results(
         self,

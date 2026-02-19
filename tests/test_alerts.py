@@ -758,9 +758,6 @@ class TestAlertTestEndpoint:
 class TestAlertTrigger:
     """Tests for POST /api/v1/alerts/{alert_id}/trigger."""
 
-    @pytest.mark.xfail(
-        reason="Pre-existing bug: offset-naive/aware datetime mismatch in alert trigger search"
-    )
     @pytest.mark.asyncio
     async def test_trigger_alert_returns_result(
         self,
