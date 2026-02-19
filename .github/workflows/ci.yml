@@ -119,28 +119,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Debug vitest config
-        run: |
-          echo "=== cwd ==="
-          pwd
-          echo "=== vitest.config.ts exists? ==="
-          ls -la vitest.config.ts
-          echo "=== src/lib/query.ts exists? ==="
-          ls -la src/lib/query.ts
-          echo "=== resolve alias via node ==="
-          node -e "
-            import('node:url').then(({fileURLToPath, URL}) => {
-              const alias = fileURLToPath(new URL('./src', import.meta.url));
-              console.log('Resolved @:', alias);
-              import('node:fs').then(fs => {
-                console.log('Exists:', fs.existsSync(alias));
-                console.log('lib/query.ts:', fs.existsSync(alias + '/lib/query.ts'));
-              });
-            });
-          "
-          echo "=== vitest version ==="
-          npx vitest --version
-
       - name: Run tests
         run: npm run test
 
