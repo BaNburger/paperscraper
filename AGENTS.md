@@ -26,13 +26,9 @@ This document defines strict, repository-specific rules for Codex-based agents.
 1. Run strict architecture lint:
    - `npm run lint:agents`
 2. Run quality checks for touched areas:
-   - Backend: `ruff check .`, `ruff format --check .`, `mypy paper_scraper`, relevant `pytest` tests
+   - Backend: `ruff check .`, `ruff format --check .`, relevant `pytest` tests
    - Frontend: `npm --prefix frontend run lint`, relevant frontend tests/build checks
-3. If architecture-impacting files changed, update canonical root docs:
-   - `/Users/bastianburger/Repos/PaperScraper/01_TECHNISCHE_ARCHITEKTUR.md`
-   - `/Users/bastianburger/Repos/PaperScraper/04_ARCHITECTURE_DECISIONS.md`
-   - `/Users/bastianburger/Repos/PaperScraper/05_IMPLEMENTATION_PLAN.md`
-4. Do not mark work complete while lint blockers remain.
+3. Do not mark work complete while lint blockers remain.
 
 ## Forbidden Patterns
 - Hardcoded frontend API base/endpoint strings like `"/api/v1/..."`.

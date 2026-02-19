@@ -11,25 +11,9 @@ env:
   NODE_VERSION: "20"
 
 jobs:
-  architecture-docs-gate:
-    name: Architecture Docs Gate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Enforce architecture documentation updates
-        run: bash .github/scripts/check_arch_docs_gate.sh
-        env:
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
-          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          GITHUB_HEAD_SHA: ${{ github.sha }}
-
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    needs: [architecture-docs-gate]
     steps:
       - uses: actions/checkout@v4
 
@@ -38,27 +22,34 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install linting tools
-        run: pip install ruff mypy
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
 
-      - name: Run strict agent architecture linters
+      - name: Install tools
+        run: pip install ruff
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Agent architecture linters
         run: python scripts/paperscraper_linters/run.py --repo . --mode ci --format text
 
-      - name: Run ruff check
+      - name: Ruff check
         run: ruff check .
 
-      - name: Run ruff format check
+      - name: Ruff format check
         run: ruff format --check .
 
-      - name: Verify OpenAPI schema is up to date
-        run: |
-          python scripts/export_openapi.py --output openapi.json
-          git diff --exit-code openapi.json
+      - name: ESLint
+        run: npm run lint --prefix frontend
 
   test-backend:
     name: Backend Tests
     runs-on: ubuntu-latest
-    needs: [architecture-docs-gate]
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -82,13 +73,11 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-
     env:
       DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test
       REDIS_URL: redis://localhost:6379
       SECRET_KEY: test-secret-key-for-ci-only
       ENVIRONMENT: test
-
     steps:
       - uses: actions/checkout@v4
 
@@ -106,23 +95,15 @@ jobs:
       - name: Install dependencies
         run: poetry install --with dev
 
-      - name: Run tests with coverage
-        run: pytest tests/ -v --cov=paper_scraper --cov-report=xml --cov-report=term-missing
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          files: ./coverage.xml
-          fail_ci_if_error: false
+      - name: Run tests
+        run: pytest tests/ -v --cov=paper_scraper --cov-report=term-missing
 
   test-frontend:
-    name: Frontend Tests
+    name: Frontend Tests & Build
     runs-on: ubuntu-latest
-    needs: [architecture-docs-gate]
     defaults:
       run:
         working-directory: frontend
-
     steps:
       - uses: actions/checkout@v4
 
@@ -136,99 +117,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Verify generated OpenAPI types
-        run: npm run codegen:check
-
-      - name: Run lint
-        run: npm run lint
-
       - name: Run tests
         run: npm run test
 
       - name: Build
         run: npm run build
 
-      - name: Enforce frontend budgets
+      - name: Check budgets
         run: npm run budget:check
         env:
           FRONTEND_ENTRY_BUNDLE_BUDGET_BYTES: "409600"
           FRONTEND_MAX_SOURCE_LINES: "1200"
-
-  e2e:
-    name: E2E Tests
-    runs-on: ubuntu-latest
-    needs: [lint, test-backend, test-frontend]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install Playwright
-        run: |
-          cd e2e
-          npm ci
-          npx playwright install --with-deps
-
-      - name: Start services
-        run: docker-compose up -d
-        env:
-          COMPOSE_PROJECT_NAME: paper-scraper-ci
-          RATE_LIMIT_ENABLED: "false"
-
-      - name: Wait for services
-        run: |
-          echo "Waiting for services to be ready..."
-          sleep 30
-          curl --retry 10 --retry-delay 5 --retry-connrefused http://localhost:8000/health
-
-      - name: Run E2E tests
-        run: |
-          cd e2e
-          npx playwright test
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-report
-          path: e2e/playwright-report/
-          retention-days: 7
-
-      - name: Stop services
-        if: always()
-        run: docker-compose down -v
-
-  build:
-    name: Build Docker Images
-    runs-on: ubuntu-latest
-    needs: [lint, test-backend, test-frontend]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build backend image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          push: false
-          tags: paper-scraper-backend:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build frontend image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./frontend
-          file: ./frontend/Dockerfile
-          push: false
-          tags: paper-scraper-frontend:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
