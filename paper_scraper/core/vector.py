@@ -49,8 +49,7 @@ class VectorService:
         """
         if len(embedding) != EMBEDDING_DIM:
             raise ValueError(
-                f"Embedding dimension mismatch: expected {EMBEDDING_DIM}, "
-                f"got {len(embedding)}"
+                f"Embedding dimension mismatch: expected {EMBEDDING_DIM}, " f"got {len(embedding)}"
             )
 
         from paper_scraper.modules.papers.models import Paper
@@ -142,16 +141,13 @@ class VectorService:
         # Convert to similarity: similarity = 1 - distance
         distance_expr = Paper.embedding.cosine_distance(query_vector)
 
-        query = (
-            select(
-                Paper.id,
-                Paper.doi,
-                Paper.title,
-                Paper.source,
-                distance_expr.label("distance"),
-            )
-            .where(Paper.embedding.isnot(None))
-        )
+        query = select(
+            Paper.id,
+            Paper.doi,
+            Paper.title,
+            Paper.source,
+            distance_expr.label("distance"),
+        ).where(Paper.embedding.isnot(None))
 
         if organization_id is not None:
             query = query.join(
@@ -204,9 +200,7 @@ class VectorService:
         from paper_scraper.modules.papers.models import Paper
 
         # Fetch the reference paper's embedding
-        ref = await db.execute(
-            select(Paper.embedding).where(Paper.id == paper_id)
-        )
+        ref = await db.execute(select(Paper.embedding).where(Paper.id == paper_id))
         ref_row = ref.scalar_one_or_none()
         if ref_row is None:
             return []
@@ -236,9 +230,7 @@ class VectorService:
         from paper_scraper.modules.papers.models import Paper
 
         await db.execute(
-            update(Paper)
-            .where(Paper.id == paper_id)
-            .values(embedding=None, has_embedding=False)
+            update(Paper).where(Paper.id == paper_id).values(embedding=None, has_embedding=False)
         )
         await db.flush()
 
@@ -255,8 +247,10 @@ class VectorService:
         """Count papers with embeddings."""
         from paper_scraper.modules.papers.models import OrganizationPaper, Paper
 
-        query = select(text("count(*)")).select_from(Paper.__table__).where(
-            Paper.has_embedding.is_(True)
+        query = (
+            select(text("count(*)"))
+            .select_from(Paper.__table__)
+            .where(Paper.has_embedding.is_(True))
         )
 
         if organization_id is not None:
@@ -278,9 +272,7 @@ class VectorService:
         """Check if a paper has an embedding."""
         from paper_scraper.modules.papers.models import Paper
 
-        result = await db.execute(
-            select(Paper.has_embedding).where(Paper.id == paper_id)
-        )
+        result = await db.execute(select(Paper.has_embedding).where(Paper.id == paper_id))
         return bool(result.scalar_one_or_none())
 
     async def set_ef_search(self, db: AsyncSession, ef_search: int = 100) -> None:

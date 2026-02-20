@@ -164,9 +164,7 @@ class CatalogService:
         """
         # Total papers
         total = (
-            await self.db.execute(
-                select(func.count()).where(Paper.is_global.is_(True))
-            )
+            await self.db.execute(select(func.count()).where(Paper.is_global.is_(True)))
         ).scalar() or 0
 
         # Papers with embeddings

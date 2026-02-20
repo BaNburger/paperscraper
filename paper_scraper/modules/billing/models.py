@@ -41,8 +41,11 @@ class OrganizationUsage(Base):
 
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
-
-    __table_args__ = (
-        UniqueConstraint("organization_id", "period", name="uq_org_usage_period"),
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
+
+    __table_args__ = (UniqueConstraint("organization_id", "period", name="uq_org_usage_period"),)

@@ -28,12 +28,18 @@ def _classify_sync_error(exc: Exception, service: str, entity: str, entity_id: A
     if isinstance(exc, _TRANSIENT_ERRORS):
         logger.warning(
             "Transient %s sync failure for %s %s: %s",
-            service, entity, entity_id, exc,
+            service,
+            entity,
+            entity_id,
+            exc,
         )
     else:
         logger.error(
             "%s sync failed for %s %s: %s",
-            service, entity, entity_id, exc,
+            service,
+            entity,
+            entity_id,
+            exc,
             exc_info=True,
         )
 
@@ -173,9 +179,7 @@ class SyncService:
                 )
                 errors += len(search_docs) - documents_synced
             except Exception as exc:
-                _classify_sync_error(
-                    exc, "Typesense", "bulk_papers", f"{len(search_docs)} docs"
-                )
+                _classify_sync_error(exc, "Typesense", "bulk_papers", f"{len(search_docs)} docs")
                 errors += len(search_docs)
 
         return {

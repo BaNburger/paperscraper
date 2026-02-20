@@ -274,9 +274,7 @@ class SearchEngineService:
             for s in searches:
                 existing = s.get("filter_by", "")
                 if org_filter not in existing:
-                    s["filter_by"] = (
-                        f"{existing} && {org_filter}" if existing else org_filter
-                    )
+                    s["filter_by"] = f"{existing} && {org_filter}" if existing else org_filter
 
         return self._client.multi_search.perform(
             {"searches": searches},

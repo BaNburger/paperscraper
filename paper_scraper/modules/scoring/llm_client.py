@@ -1002,6 +1002,7 @@ class GeminiClient(BaseLLMClient):
 # Factory Function
 # =============================================================================
 
+
 # Lazy import to avoid boto3 import at module level when not needed
 def _get_bedrock_class() -> type[BaseLLMClient]:
     from paper_scraper.modules.scoring.bedrock_client import BedrockClient

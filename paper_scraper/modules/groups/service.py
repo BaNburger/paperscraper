@@ -261,9 +261,7 @@ class GroupService:
         try:
             embedding_client = EmbeddingClient()
             # Use the smaller 768d embedding model for authors
-            keywords_embedding = await embedding_client.embed_text(
-                f"Research expertise: {keywords_text}"
-            )
+            await embedding_client.embed_text(f"Research expertise: {keywords_text}")
             # Note: Author embeddings are 768d, paper embeddings are 1536d
             # For now, we'll use 1536d and truncate, or fall back to text matching
         except Exception as e:

@@ -184,7 +184,11 @@ class LensClient:
         applicants = record.get("applicant", [])
         authors = []
         for app in applicants[:20]:
-            name = app.get("extracted_name", {}).get("value", "") if isinstance(app, dict) else str(app)
+            name = (
+                app.get("extracted_name", {}).get("value", "")
+                if isinstance(app, dict)
+                else str(app)
+            )
             if name:
                 authors.append({"name": name, "orcid": None, "affiliations": []})
 

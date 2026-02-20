@@ -319,7 +319,9 @@ async def poll_bedrock_batch_results_task(
         Prefix=output_key_prefix,
     )
 
-    output_files = [obj["Key"] for obj in list_response.get("Contents", []) if obj["Key"].endswith(".jsonl")]
+    output_files = [
+        obj["Key"] for obj in list_response.get("Contents", []) if obj["Key"].endswith(".jsonl")
+    ]
 
     if not output_files:
         return {"status": "error", "message": "No output files found"}
@@ -350,7 +352,9 @@ async def poll_bedrock_batch_results_task(
 
                 # Extract the LLM response text
                 model_output = record.get("modelOutput", {})
-                output_content = model_output.get("output", {}).get("message", {}).get("content", [])
+                output_content = (
+                    model_output.get("output", {}).get("message", {}).get("content", [])
+                )
                 response_text = ""
                 for block in output_content:
                     if "text" in block:

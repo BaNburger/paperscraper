@@ -22,8 +22,15 @@ depends_on: tuple[str, ...] | None = None
 def upgrade() -> None:
     op.create_table(
         "organization_usage",
-        sa.Column("id", UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
-        sa.Column("organization_id", UUID(as_uuid=True), sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "id", UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")
+        ),
+        sa.Column(
+            "organization_id",
+            UUID(as_uuid=True),
+            sa.ForeignKey("organizations.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("period", sa.String(7), nullable=False),
         sa.Column("papers_imported", sa.Integer, nullable=False, server_default="0"),
         sa.Column("papers_scored", sa.Integer, nullable=False, server_default="0"),

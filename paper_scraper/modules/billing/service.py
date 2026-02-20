@@ -72,23 +72,29 @@ class BillingService:
         """
         period = datetime.now(UTC).strftime("%Y-%m")
 
-        stmt = pg_insert(OrganizationUsage).values(
-            organization_id=organization_id,
-            period=period,
-            papers_scored=papers_scored,
-            llm_input_tokens=input_tokens,
-            llm_output_tokens=output_tokens,
-            estimated_cost_usd=cost_usd,
-        ).on_conflict_do_update(
-            constraint="uq_org_usage_period",
-            set_={
-                "papers_scored": OrganizationUsage.papers_scored + papers_scored,
-                "llm_input_tokens": OrganizationUsage.llm_input_tokens + input_tokens,
-                "llm_output_tokens": OrganizationUsage.llm_output_tokens + output_tokens,
-                "estimated_cost_usd": OrganizationUsage.estimated_cost_usd + Decimal(str(cost_usd)),
-                "updated_at": datetime.now(UTC),
-            },
-        ).returning(OrganizationUsage)
+        stmt = (
+            pg_insert(OrganizationUsage)
+            .values(
+                organization_id=organization_id,
+                period=period,
+                papers_scored=papers_scored,
+                llm_input_tokens=input_tokens,
+                llm_output_tokens=output_tokens,
+                estimated_cost_usd=cost_usd,
+            )
+            .on_conflict_do_update(
+                constraint="uq_org_usage_period",
+                set_={
+                    "papers_scored": OrganizationUsage.papers_scored + papers_scored,
+                    "llm_input_tokens": OrganizationUsage.llm_input_tokens + input_tokens,
+                    "llm_output_tokens": OrganizationUsage.llm_output_tokens + output_tokens,
+                    "estimated_cost_usd": OrganizationUsage.estimated_cost_usd
+                    + Decimal(str(cost_usd)),
+                    "updated_at": datetime.now(UTC),
+                },
+            )
+            .returning(OrganizationUsage)
+        )
 
         result = await self.db.execute(stmt)
         return result.scalar_one()
@@ -109,17 +115,22 @@ class BillingService:
         """
         period = datetime.now(UTC).strftime("%Y-%m")
 
-        stmt = pg_insert(OrganizationUsage).values(
-            organization_id=organization_id,
-            period=period,
-            papers_imported=papers_imported,
-        ).on_conflict_do_update(
-            constraint="uq_org_usage_period",
-            set_={
-                "papers_imported": OrganizationUsage.papers_imported + papers_imported,
-                "updated_at": datetime.now(UTC),
-            },
-        ).returning(OrganizationUsage)
+        stmt = (
+            pg_insert(OrganizationUsage)
+            .values(
+                organization_id=organization_id,
+                period=period,
+                papers_imported=papers_imported,
+            )
+            .on_conflict_do_update(
+                constraint="uq_org_usage_period",
+                set_={
+                    "papers_imported": OrganizationUsage.papers_imported + papers_imported,
+                    "updated_at": datetime.now(UTC),
+                },
+            )
+            .returning(OrganizationUsage)
+        )
 
         result = await self.db.execute(stmt)
         return result.scalar_one()
@@ -142,19 +153,25 @@ class BillingService:
         """
         period = datetime.now(UTC).strftime("%Y-%m")
 
-        stmt = pg_insert(OrganizationUsage).values(
-            organization_id=organization_id,
-            period=period,
-            embedding_tokens=embedding_tokens,
-            estimated_cost_usd=cost_usd,
-        ).on_conflict_do_update(
-            constraint="uq_org_usage_period",
-            set_={
-                "embedding_tokens": OrganizationUsage.embedding_tokens + embedding_tokens,
-                "estimated_cost_usd": OrganizationUsage.estimated_cost_usd + Decimal(str(cost_usd)),
-                "updated_at": datetime.now(UTC),
-            },
-        ).returning(OrganizationUsage)
+        stmt = (
+            pg_insert(OrganizationUsage)
+            .values(
+                organization_id=organization_id,
+                period=period,
+                embedding_tokens=embedding_tokens,
+                estimated_cost_usd=cost_usd,
+            )
+            .on_conflict_do_update(
+                constraint="uq_org_usage_period",
+                set_={
+                    "embedding_tokens": OrganizationUsage.embedding_tokens + embedding_tokens,
+                    "estimated_cost_usd": OrganizationUsage.estimated_cost_usd
+                    + Decimal(str(cost_usd)),
+                    "updated_at": datetime.now(UTC),
+                },
+            )
+            .returning(OrganizationUsage)
+        )
 
         result = await self.db.execute(stmt)
         return result.scalar_one()

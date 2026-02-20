@@ -8,7 +8,7 @@ These tests use the testcontainers PostgreSQL fixture for real pgvector queries.
 
 from __future__ import annotations
 
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 import pytest_asyncio
@@ -17,7 +17,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from paper_scraper.core.vector import EMBEDDING_DIM, VectorService
 from paper_scraper.modules.auth.models import Organization
 from paper_scraper.modules.papers.models import OrganizationPaper, Paper
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -112,9 +111,7 @@ class TestUpsertEmbedding:
         service = VectorService()
 
         with pytest.raises(ValueError, match="dimension mismatch"):
-            await service.upsert_embedding(
-                db_session, paper_without_embedding.id, [0.1] * 768
-            )
+            await service.upsert_embedding(db_session, paper_without_embedding.id, [0.1] * 768)
 
 
 class TestUpsertBatch:
@@ -214,9 +211,7 @@ class TestSearchByPaperId:
         result_ids = {r["id"] for r in results}
         assert str(paper_with_embedding.id) not in result_ids
 
-    async def test_search_by_nonexistent_paper(
-        self, db_session: AsyncSession
-    ) -> None:
+    async def test_search_by_nonexistent_paper(self, db_session: AsyncSession) -> None:
         """Searching by a non-existent paper ID should return empty list."""
         service = VectorService()
         results = await service.search_by_paper_id(db_session, uuid4())

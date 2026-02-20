@@ -3,12 +3,12 @@
 from fastapi import APIRouter
 
 from paper_scraper.modules.alerts.router import router as alerts_router
-from paper_scraper.modules.catalog.router import router as catalog_router
 from paper_scraper.modules.analytics.router import router as analytics_router
 from paper_scraper.modules.audit.router import router as audit_router
 from paper_scraper.modules.auth.router import router as auth_router
 from paper_scraper.modules.authors.router import router as authors_router
 from paper_scraper.modules.badges.router import router as badges_router
+from paper_scraper.modules.catalog.router import router as catalog_router
 from paper_scraper.modules.compliance.router import router as compliance_router
 from paper_scraper.modules.developer.router import router as developer_router
 from paper_scraper.modules.discovery.router import router as discovery_router

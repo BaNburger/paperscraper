@@ -33,6 +33,7 @@ from paper_scraper.modules.alerts.models import Alert, AlertResult  # noqa: F401
 from paper_scraper.modules.audit.models import AuditLog  # noqa: F401
 from paper_scraper.modules.auth.models import Organization, User, UserRole
 from paper_scraper.modules.badges.models import Badge, UserBadge  # noqa: F401
+from paper_scraper.modules.billing.models import OrganizationUsage  # noqa: F401
 from paper_scraper.modules.compliance.models import RetentionLog, RetentionPolicy  # noqa: F401
 from paper_scraper.modules.developer.models import APIKey, RepositorySource, Webhook  # noqa: F401
 from paper_scraper.modules.discovery.models import DiscoveryRun  # noqa: F401
@@ -92,7 +93,6 @@ from paper_scraper.modules.transfer.models import (  # noqa: F401
     StageChange,
     TransferConversation,
 )
-from paper_scraper.modules.billing.models import OrganizationUsage  # noqa: F401
 from paper_scraper.modules.trends.models import TrendPaper, TrendSnapshot, TrendTopic  # noqa: F401
 
 _fake_redis: fakeredis.aioredis.FakeRedis | None = None

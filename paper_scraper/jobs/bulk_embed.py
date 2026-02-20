@@ -148,9 +148,8 @@ async def _fetch_unembedded_papers(
         List of (paper_id, title, abstract, keywords) tuples.
     """
     async with get_db_session() as db:
-        query = (
-            select(Paper.id, Paper.title, Paper.abstract, Paper.keywords)
-            .where(Paper.embedding.is_(None))
+        query = select(Paper.id, Paper.title, Paper.abstract, Paper.keywords).where(
+            Paper.embedding.is_(None)
         )
 
         if global_only:
