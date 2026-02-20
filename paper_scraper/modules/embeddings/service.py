@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from uuid import UUID
 
@@ -9,9 +10,12 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.core.exceptions import NotFoundError
+from paper_scraper.core.sync import SyncService
 from paper_scraper.modules.papers.models import Paper
 from paper_scraper.modules.projects.models import ProjectPaper
 from paper_scraper.modules.scoring.embeddings import EmbeddingClient
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -40,6 +44,7 @@ class EmbeddingService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
         self.embedding_client = EmbeddingClient()
+        self.sync = SyncService()
 
     async def generate_for_paper(
         self,
@@ -58,12 +63,30 @@ class EmbeddingService:
         if paper is None:
             raise NotFoundError("Paper", str(paper_id))
 
-        if paper.embedding is not None and not force_regenerate:
+        if paper.has_embedding and not force_regenerate:
             return False
 
         embedding = await self.embedding_client.embed_text(self._paper_to_text(paper))
-        paper.embedding = embedding
+        paper.has_embedding = True
         await self.db.flush()
+
+        # Sync to Qdrant + Typesense
+        await self.sync.sync_paper(
+            paper_id=paper.id,
+            organization_id=paper.organization_id,
+            title=paper.title,
+            abstract=paper.abstract,
+            doi=paper.doi,
+            source=paper.source.value if paper.source else None,
+            journal=paper.journal,
+            paper_type=paper.paper_type.value if paper.paper_type else None,
+            keywords=paper.keywords,
+            citations_count=paper.citations_count,
+            publication_date=paper.publication_date,
+            created_at=paper.created_at,
+            embedding=embedding,
+        )
+
         return True
 
     async def count_without_embeddings(
@@ -76,7 +99,7 @@ class EmbeddingService:
             .select_from(Paper)
             .where(
                 Paper.organization_id == organization_id,
-                Paper.embedding.is_(None),
+                Paper.has_embedding.is_(False),
             )
         )
         return int(result.scalar() or 0)
@@ -88,7 +111,7 @@ class EmbeddingService:
             .select_from(Paper)
             .where(
                 Paper.organization_id == organization_id,
-                Paper.embedding.is_not(None),
+                Paper.has_embedding.is_(True),
             )
         )
         without_embedding_result = await self.db.execute(
@@ -96,7 +119,7 @@ class EmbeddingService:
             .select_from(Paper)
             .where(
                 Paper.organization_id == organization_id,
-                Paper.embedding.is_(None),
+                Paper.has_embedding.is_(False),
             )
         )
 
@@ -123,7 +146,7 @@ class EmbeddingService:
             select(Paper)
             .where(
                 Paper.organization_id == organization_id,
-                Paper.embedding.is_(None),
+                Paper.has_embedding.is_(False),
             )
             .order_by(Paper.created_at.desc())
         )
@@ -148,7 +171,7 @@ class EmbeddingService:
             .where(
                 Paper.organization_id == organization_id,
                 ProjectPaper.project_id == project_id,
-                Paper.embedding.is_(None),
+                Paper.has_embedding.is_(False),
             )
             .order_by(Paper.created_at.desc())
         )
@@ -183,7 +206,8 @@ class EmbeddingService:
             try:
                 embeddings = await self.embedding_client.embed_texts(texts)
                 for paper, embedding in zip(chunk, embeddings, strict=False):
-                    paper.embedding = embedding
+                    paper.has_embedding = True
+                    await self._sync_paper_to_external(paper, embedding)
                     succeeded += 1
                 await self.db.commit()
                 continue
@@ -193,9 +217,11 @@ class EmbeddingService:
             # Fallback to per-paper embedding when batch call fails.
             for paper in chunk:
                 try:
-                    paper.embedding = await self.embedding_client.embed_text(
+                    embedding = await self.embedding_client.embed_text(
                         self._paper_to_text(paper)
                     )
+                    paper.has_embedding = True
+                    await self._sync_paper_to_external(paper, embedding)
                     succeeded += 1
                 except Exception as exc:
                     failed += 1
@@ -208,6 +234,38 @@ class EmbeddingService:
             papers_failed=failed,
             errors=errors[:20],
         )
+
+    async def _sync_paper_to_external(
+        self,
+        paper: Paper,
+        embedding: list[float],
+    ) -> None:
+        """Sync a paper's embedding to Qdrant + Typesense via SyncService.
+
+        Failures are logged but never raised — the PostgreSQL write is the
+        authoritative operation and must not be blocked by external service
+        errors.
+        """
+        try:
+            await self.sync.sync_paper(
+                paper_id=paper.id,
+                organization_id=paper.organization_id,
+                title=paper.title,
+                abstract=paper.abstract,
+                doi=paper.doi,
+                source=paper.source.value if paper.source else None,
+                journal=paper.journal,
+                paper_type=paper.paper_type.value if paper.paper_type else None,
+                keywords=paper.keywords,
+                citations_count=paper.citations_count,
+                publication_date=paper.publication_date,
+                created_at=paper.created_at,
+                embedding=embedding,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to sync paper %s to external services", paper.id
+            )
 
     def _paper_to_text(self, paper: Paper) -> str:
         parts = [f"Title: {paper.title}"]

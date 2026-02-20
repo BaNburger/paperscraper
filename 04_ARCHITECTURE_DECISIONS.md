@@ -79,3 +79,17 @@ Dieses Dokument ist die kanonische ADR-Sammlung für v2.0.
 - Consequences:
   - `docs/INDEX.md` and `docs/implementation/STATUS.md` reference root canonical docs.
   - Architecture-impacting PRs must keep these root docs in sync.
+
+## ADR-032: Three-Tier Data Architecture (PostgreSQL + Qdrant + Typesense)
+- Status: Accepted (supersedes ADR-002 pgvector-only decision)
+- Date: 2026-02-20
+- Decision: Replace pgvector embedding columns with dedicated Qdrant vector database for all similarity search, and add Typesense for full-text search. PostgreSQL remains source of truth for relational data.
+- Rationale: pgvector performance degrades beyond ~10M vectors due to shared WAL/vacuum pressure with relational workloads. Separating concerns allows each engine to scale independently: Qdrant handles HNSW vector search with scalar quantization (INT8, ~4x memory savings), Typesense provides BM25 full-text search with typo tolerance. Hybrid search uses Reciprocal Rank Fusion (RRF, K=60) to combine results.
+- Consequences:
+  - Qdrant manages 5 collections: papers (1536d), authors (768d), clusters (1536d), searches (1536d), trends (1536d).
+  - Typesense manages 1 collection: papers (full-text on title, abstract, keywords).
+  - `SyncService` in `paper_scraper/core/sync.py` provides dual-write orchestration; PostgreSQL write is authoritative; Qdrant/Typesense failures are logged but never raised.
+  - `VectorService` in `paper_scraper/core/vector.py` abstracts all Qdrant operations with tenant isolation via `organization_id` payload filtering.
+  - `SearchEngineService` in `paper_scraper/core/search_engine.py` abstracts Typesense operations.
+  - Migration `qdrant_typesense_v1` drops all pgvector columns/HNSW indexes, adds `papers.has_embedding` boolean flag.
+  - Docker Compose adds Qdrant (port 6333) and Typesense (port 8108) services.

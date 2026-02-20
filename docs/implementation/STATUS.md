@@ -2,7 +2,7 @@
 
 [← Back to INDEX](../INDEX.md)
 
-Last updated: 2026-02-17
+Last updated: 2026-02-20
 
 ## Current State
 - Target architecture: v2.0 streamlined monolith with contract-first API and hardened browser auth.
@@ -19,6 +19,7 @@ Last updated: 2026-02-17
 - Storage/uploads: shared storage abstraction usage + centralized upload validation/sanitization.
 - Secrets: encrypted model key envelope format (`enc:v1`) with migration path for legacy stored values.
 - Frontend architecture: centralized route registry used by router wiring, command palette, keyboard shortcuts, and prefetch.
+- **Data architecture (ADR-032)**: Three-tier split — PostgreSQL (relational), Qdrant (vector search), Typesense (full-text search). All pgvector columns dropped; `SyncService` provides dual-write orchestration. Migration: `qdrant_typesense_v1`.
 
 ## Quality Snapshot
 - Backend regression baseline suite: passes (`835 passed, 3 skipped, 2 xpassed`).

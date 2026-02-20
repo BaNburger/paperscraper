@@ -19,7 +19,13 @@ sqlalchemy = {extras = ["asyncio"], version = "^2.0.25"}
 asyncpg = "^0.29.0"
 psycopg2-binary = "^2.9.9"  # Sync driver for Alembic migrations
 alembic = "^1.13.0"
-pgvector = "^0.2.4"
+pgvector = "^0.2.4"  # Retained for migration compatibility
+
+# Vector Search (Qdrant)
+qdrant-client = "^1.13.0"
+
+# Full-Text Search (Typesense)
+typesense = "^0.21.0"
 
 # Settings & Validation
 pydantic = {extras = ["email"], version = "^2.5.0"}

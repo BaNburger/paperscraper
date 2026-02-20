@@ -47,7 +47,7 @@ Wir starten mit einem **modularen Monolith** (FastAPI Backend) und migrieren ers
 ## ADR-002: PostgreSQL + pgvector statt separater Vector-DB
 
 ### Status
-**Akzeptiert** - 2024-01
+**Ersetzt** durch ADR-032 (2026-02-20) - Qdrant + Typesense ersetzen pgvector
 
 ### Kontext
 Für semantische Suche benötigen wir Vector-Embeddings. Die Optionen sind:

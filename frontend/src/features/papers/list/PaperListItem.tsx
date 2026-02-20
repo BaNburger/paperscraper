@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/Badge'
@@ -9,12 +10,12 @@ type PaperListItemProps = {
   paper: Paper
 }
 
-export function PaperListItem({ paper }: PaperListItemProps) {
+export const PaperListItem = memo(function PaperListItem({ paper }: PaperListItemProps) {
   const { t } = useTranslation()
 
   return (
     <Link key={paper.id} to={`/papers/${paper.id}`} data-testid={`paper-list-item-${paper.id}`}>
-      <Card className="hover:bg-muted/50 transition-colors">
+      <Card variant="interactive" className="hover:bg-muted/50">
         <CardContent className="py-4">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
@@ -50,4 +51,4 @@ export function PaperListItem({ paper }: PaperListItemProps) {
       </Card>
     </Link>
   )
-}
+})

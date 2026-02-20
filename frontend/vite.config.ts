@@ -41,6 +41,14 @@ function manualChunks(id: string): string | undefined {
     return 'vendor-sanitize'
   }
 
+  if (id.includes('i18next')) {
+    return 'vendor-i18n'
+  }
+
+  if (id.includes('cmdk')) {
+    return 'vendor-cmdk'
+  }
+
   return undefined
 }
 

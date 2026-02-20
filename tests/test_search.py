@@ -351,32 +351,6 @@ class TestSearchService:
         assert papers[0].journal == "Nature"
 
     @pytest.mark.asyncio
-    async def test_generate_highlights(
-        self,
-        db_session: AsyncSession,
-        test_user: User,
-    ):
-        """Test highlight generation for search results."""
-        from paper_scraper.modules.search.service import SearchService
-
-        service = SearchService(db_session)
-
-        paper = Paper(
-            organization_id=test_user.organization_id,
-            title="Machine Learning for Healthcare",
-            abstract="This paper explores machine learning techniques for medical diagnosis.",
-            source=PaperSource.MANUAL,
-        )
-
-        highlights = service._generate_highlights(paper, "machine learning")
-
-        assert len(highlights) >= 1
-        # Should have at least a title highlight
-        title_highlights = [h for h in highlights if h.field == "title"]
-        assert len(title_highlights) == 1
-        assert "Machine" in title_highlights[0].snippet
-
-    @pytest.mark.asyncio
     async def test_count_papers_without_embeddings(
         self,
         db_session: AsyncSession,

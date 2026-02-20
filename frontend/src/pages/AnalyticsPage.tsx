@@ -94,7 +94,7 @@ function OverviewTab({
   return (
     <div className="space-y-8">
       {/* Summary Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4" data-testid="analytics-summary-cards">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 stagger-list" data-testid="analytics-summary-cards">
         <Card data-testid="analytics-card-total-papers">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">

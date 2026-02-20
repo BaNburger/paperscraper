@@ -38,7 +38,9 @@ flowchart LR
   end
 
   subgraph DATA["Data plane"]
-    PG[("PostgreSQL")]
+    PG[("PostgreSQL\n(relational + ACID)")]
+    QDRANT[("Qdrant\n(vector search)")]
+    TS[("Typesense\n(full-text search)")]
     REDIS[("Redis")]
     S3[("S3/MinIO")]
   end
@@ -62,6 +64,11 @@ flowchart LR
   LIB --> PG
   SCORE --> PG
   OTH --> PG
+
+  SCORE --> QDRANT
+  PAP --> QDRANT
+  LIB --> TS
+  OTH --> QDRANT
 
   ING --> REDIS
   W1 --> REDIS
@@ -123,6 +130,14 @@ flowchart LR
 
 ### 6.4 Rate Limiting
 - Rate limit keying prefers authenticated user identity; falls back to remote address.
+
+## 6.5 Three-Tier Data Architecture (ADR-032)
+PostgreSQL remains the ACID source of truth for relational data. Vector search and full-text search are offloaded to dedicated engines:
+
+- **Qdrant** (vector search): 5 collections — papers (1536d), authors (768d), clusters (1536d), searches (1536d), trends (1536d). Scalar INT8 quantization for ~4x memory savings. Tenant-isolated via `organization_id` payload filtering.
+- **Typesense** (full-text search): BM25 ranking with typo tolerance. Papers collection with weighted search on title (3x), abstract (1x), keywords (2x). Faceted filtering by source, journal, paper_type.
+- **SyncService** (`paper_scraper/core/sync.py`): Dual-write orchestration. PostgreSQL write is authoritative; Qdrant/Typesense failures are logged but never raised.
+- **Hybrid search**: Reciprocal Rank Fusion (RRF, K=60) combines Typesense fulltext + Qdrant semantic results.
 
 ## 7. Daten- und Jobfluss
 

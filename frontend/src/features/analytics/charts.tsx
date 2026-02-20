@@ -1,7 +1,15 @@
+import type React from 'react'
 import { ArrowRight } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import type { BenchmarkMetric, FunnelStage } from '@/types'
+
+function getComparisonColor(metric: BenchmarkMetric): string {
+  const isBetter = metric.higher_is_better
+    ? metric.org_value >= metric.benchmark_value
+    : metric.org_value <= metric.benchmark_value
+  return isBetter ? 'bg-green-500' : 'bg-orange-500'
+}
 
 export function SimpleBarChart({
   data,
@@ -15,18 +23,20 @@ export function SimpleBarChart({
   const maxValue = Math.max(...data.map((d) => d.value), 1)
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" role="img" aria-label={label ?? 'Bar chart'}>
       {label && <p className="text-sm text-muted-foreground mb-4">{label}</p>}
       <div className="flex items-end gap-2" style={{ height }}>
         {data.map((item, index) => (
           <div key={index} className="flex-1 flex flex-col items-center gap-1">
             <span className="text-xs font-medium">{item.value}</span>
             <div
-              className="w-full bg-primary/80 rounded-t transition-all hover:bg-primary"
+              className="w-full bg-primary/80 rounded-t transition-all hover:bg-primary animate-grow-up"
               style={{
                 height: `${(item.value / maxValue) * (height - 40)}px`,
                 minHeight: item.value > 0 ? '4px' : '0px',
-              }}
+                '--stagger-delay': `${index * 50}ms`,
+              } as React.CSSProperties}
+              title={`${item.name}: ${item.value}`}
             />
             <span className="text-xs text-muted-foreground truncate w-full text-center">
               {item.name}
@@ -42,7 +52,7 @@ export function ComparisonBarChart({ data }: { data: BenchmarkMetric[] }) {
   const maxValue = Math.max(...data.flatMap((d) => [d.org_value, d.benchmark_value]), 1)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" role="img" aria-label="Comparison chart">
       {data.map((metric, index) => (
         <div key={index} className="space-y-2">
           <div className="flex justify-between text-sm">
@@ -55,23 +65,16 @@ export function ComparisonBarChart({ data }: { data: BenchmarkMetric[] }) {
           <div className="flex gap-2" style={{ height: 24 }}>
             <div className="flex-1 bg-muted rounded overflow-hidden">
               <div
-                className={cn(
-                  'h-full transition-all',
-                  metric.higher_is_better
-                    ? metric.org_value >= metric.benchmark_value
-                      ? 'bg-green-500'
-                      : 'bg-orange-500'
-                    : metric.org_value <= metric.benchmark_value
-                      ? 'bg-green-500'
-                      : 'bg-orange-500'
-                )}
+                className={cn('h-full transition-all', getComparisonColor(metric))}
                 style={{ width: `${(metric.org_value / maxValue) * 100}%` }}
+                title={`Your org: ${metric.org_value.toFixed(1)}${metric.unit}`}
               />
             </div>
             <div className="flex-1 bg-muted rounded overflow-hidden">
               <div
                 className="h-full bg-blue-500/50"
                 style={{ width: `${(metric.benchmark_value / maxValue) * 100}%` }}
+                title={`Platform avg: ${metric.benchmark_value.toFixed(1)}${metric.unit}`}
               />
             </div>
           </div>
@@ -118,7 +121,13 @@ export function SimpleLineChart({
 
   return (
     <div className="relative" style={{ height }}>
-      <svg viewBox="0 0 100 100" className="w-full h-full" preserveAspectRatio="none">
+      <svg
+        viewBox="0 0 100 100"
+        className="w-full h-full"
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={`Line chart from ${data[0]?.date} to ${data[data.length - 1]?.date}`}
+      >
         <line x1="0" y1="25" x2="100" y2="25" stroke="currentColor" strokeOpacity="0.1" />
         <line x1="0" y1="50" x2="100" y2="50" stroke="currentColor" strokeOpacity="0.1" />
         <line x1="0" y1="75" x2="100" y2="75" stroke="currentColor" strokeOpacity="0.1" />
@@ -129,6 +138,7 @@ export function SimpleLineChart({
           stroke="hsl(var(--primary))"
           strokeWidth="2"
           vectorEffect="non-scaling-stroke"
+          className="animate-draw-line"
         />
 
         <path d={`${pathD} L 100 100 L 0 100 Z`} fill="hsl(var(--primary))" fillOpacity="0.1" />
@@ -141,7 +151,9 @@ export function SimpleLineChart({
             r="2"
             fill="hsl(var(--primary))"
             vectorEffect="non-scaling-stroke"
-          />
+          >
+            <title>{`${p.date}: ${p.value}`}</title>
+          </circle>
         ))}
       </svg>
       <div className="flex justify-between text-xs text-muted-foreground mt-2">
@@ -172,7 +184,13 @@ export function SimpleDonutChart({
 
   return (
     <div className="flex items-center gap-4">
-      <svg width={size} height={size} viewBox="0 0 100 100">
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 100 100"
+        role="img"
+        aria-label={`Donut chart: ${data.map(d => `${d.name} ${d.value}`).join(', ')}`}
+      >
         {data.map((item, index) => {
           const angle = (item.value / total) * 360
           const startAngle = currentAngle
@@ -190,12 +208,14 @@ export function SimpleDonutChart({
               key={index}
               d={`M 50 50 L ${x1} ${y1} A 40 40 0 ${largeArcFlag} 1 ${x2} ${y2} Z`}
               fill={item.color}
-              stroke="white"
+              stroke="var(--color-card)"
               strokeWidth="1"
-            />
+            >
+              <title>{`${item.name}: ${item.value}`}</title>
+            </path>
           )
         })}
-        <circle cx="50" cy="50" r="25" fill="white" />
+        <circle cx="50" cy="50" r="25" fill="var(--color-card)" />
         <text x="50" y="50" textAnchor="middle" dominantBaseline="middle" className="text-lg font-bold" fill="currentColor">
           {total}
         </text>
@@ -218,7 +238,7 @@ export function FunnelChart({ stages }: { stages: FunnelStage[] }) {
   const colors = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981']
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" role="img" aria-label="Funnel chart">
       {stages.map((stage, index) => (
         <div key={stage.stage} className="relative">
           <div className="flex items-center gap-4">
@@ -230,6 +250,7 @@ export function FunnelChart({ stages }: { stages: FunnelStage[] }) {
                   width: `${Math.max((stage.count / maxCount) * 100, 10)}%`,
                   backgroundColor: colors[index % colors.length],
                 }}
+                title={`${stage.label}: ${stage.count} (${stage.percentage.toFixed(1)}%)`}
               >
                 <span className="text-white font-bold text-sm">{stage.count}</span>
               </div>

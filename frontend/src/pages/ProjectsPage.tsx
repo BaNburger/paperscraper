@@ -90,7 +90,7 @@ function ResearchGroupCard({
   const { t } = useTranslation()
 
   return (
-    <Card className="group relative">
+    <Card className="group relative hover:shadow-md transition-all duration-200">
       <Link to={`/projects/${group.id}`}>
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
@@ -607,7 +607,7 @@ export function ProjectsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 stagger-list">
           {groups.items.map((group) => (
             <ResearchGroupCard
               key={group.id}

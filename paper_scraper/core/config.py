@@ -46,6 +46,20 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
 
     # ==========================================================================
+    # Qdrant (Vector search engine)
+    # ==========================================================================
+    QDRANT_URL: str = "http://localhost:6333"
+    QDRANT_API_KEY: str | None = None
+    QDRANT_COLLECTION_PREFIX: str = ""  # Prefix for collection names (e.g., "test_")
+
+    # ==========================================================================
+    # Typesense (Full-text search engine)
+    # ==========================================================================
+    TYPESENSE_URL: str = "http://localhost:8108"
+    TYPESENSE_API_KEY: str = "paperscraper_dev_key"
+    TYPESENSE_COLLECTION_PREFIX: str = ""  # Prefix for collection names (e.g., "test_")
+
+    # ==========================================================================
     # JWT Authentication
     # IMPORTANT: JWT_SECRET_KEY MUST be set in production!
     # Generate with: openssl rand -hex 32

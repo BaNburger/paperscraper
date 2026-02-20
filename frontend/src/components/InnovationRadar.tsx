@@ -37,6 +37,10 @@ function polarToCartesian(
   }
 }
 
+function getScore(scores: RadarScores, key: typeof DIMENSIONS[number]['key']): number {
+  return scores[key] || 0
+}
+
 export function InnovationRadar({ scores, size = 200, className }: InnovationRadarProps) {
   const cx = size / 2
   const cy = size / 2
@@ -46,8 +50,7 @@ export function InnovationRadar({ scores, size = 200, className }: InnovationRad
 
   // Build polygon path for scores
   const scorePoints = DIMENSIONS.map((dim, i) => {
-    const value = scores[dim.key as keyof RadarScores] || 0
-    const radius = (value / 10) * maxRadius
+    const radius = (getScore(scores, dim.key) / 10) * maxRadius
     return polarToCartesian(cx, cy, radius, i * angleStep)
   })
   const scorePath = scorePoints.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ') + 'Z'
@@ -59,7 +62,7 @@ export function InnovationRadar({ scores, size = 200, className }: InnovationRad
         height={size}
         viewBox={`0 0 ${size} ${size}`}
         role="img"
-        aria-label={`Innovation radar: ${DIMENSIONS.map(d => `${d.label} ${(scores[d.key as keyof RadarScores] || 0).toFixed(1)}`).join(', ')}`}
+        aria-label={`Innovation radar: ${DIMENSIONS.map(d => `${d.label} ${getScore(scores, d.key).toFixed(1)}`).join(', ')}`}
       >
         {/* Grid levels */}
         {levels.map((level) => {
@@ -101,6 +104,8 @@ export function InnovationRadar({ scores, size = 200, className }: InnovationRad
           fill="hsl(var(--primary) / 0.15)"
           stroke="hsl(var(--primary))"
           strokeWidth={2}
+          className="animate-scale-in"
+          style={{ transformOrigin: `${cx}px ${cy}px` }}
         />
 
         {/* Score dots */}
@@ -113,14 +118,14 @@ export function InnovationRadar({ scores, size = 200, className }: InnovationRad
             fill={DIMENSIONS[i].color}
             stroke="white"
             strokeWidth={1}
-          />
+          >
+            <title>{`${DIMENSIONS[i].label}: ${getScore(scores, DIMENSIONS[i].key).toFixed(1)}`}</title>
+          </circle>
         ))}
 
         {/* Labels */}
         {DIMENSIONS.map((dim, i) => {
-          const labelRadius = maxRadius + 18
-          const pos = polarToCartesian(cx, cy, labelRadius, i * angleStep)
-          const value = scores[dim.key as keyof RadarScores] || 0
+          const pos = polarToCartesian(cx, cy, maxRadius + 18, i * angleStep)
           return (
             <text
               key={dim.key}
@@ -134,7 +139,7 @@ export function InnovationRadar({ scores, size = 200, className }: InnovationRad
             >
               <tspan x={pos.x} dy="-0.4em">{dim.label}</tspan>
               <tspan x={pos.x} dy="1.2em" fontSize={7} fontWeight={700} fill={dim.color}>
-                {value.toFixed(1)}
+                {getScore(scores, dim.key).toFixed(1)}
               </tspan>
             </text>
           )

@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/contexts/AuthContext'
@@ -32,7 +33,7 @@ interface WorkflowLaneProps {
   isLoading?: boolean
 }
 
-function WorkflowLane({
+const WorkflowLane = memo(function WorkflowLane({
   icon: Icon,
   iconColor,
   iconBg,
@@ -102,7 +103,7 @@ function WorkflowLane({
       </CardContent>
     </Card>
   )
-}
+})
 
 export function DashboardPage() {
   const { t } = useTranslation()
@@ -164,7 +165,7 @@ export function DashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-3 stagger-list">
         {topStats.map((stat) => (
           <Card key={stat.title}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">

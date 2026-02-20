@@ -60,7 +60,7 @@ def sample_paper(sample_organization: Organization) -> Paper:
         abstract="This paper presents innovative ML techniques for accelerating drug discovery pipelines.",
         source=PaperSource.OPENALEX,
         keywords=["machine learning", "drug discovery", "AI", "pharmaceuticals"],
-        embedding=[0.1] * 1536,  # Mock embedding
+        has_embedding=True,  # Embedding stored in Qdrant
     )
 
 

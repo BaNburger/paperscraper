@@ -271,27 +271,33 @@ class GroupService:
             # Fall back to basic text matching
             return await self._suggest_members_fallback(organization_id, keywords, target_size)
 
-        # Find authors with similar research profiles using pgvector
-        # Authors have 768d embeddings, but we generated 1536d - need to handle this
-        # Truncate embedding to 768d and convert to list for pgvector compatibility
+        # Find authors with similar research profiles using Qdrant
+        # Authors have 768d embeddings in Qdrant — truncate query embedding
+        from paper_scraper.core.vector import VectorService
+
         truncated_embedding = (
             list(keywords_embedding[:768])
             if len(keywords_embedding) > 768
             else list(keywords_embedding)
         )
-        query = (
-            select(Author)
-            .where(
-                Author.organization_id == organization_id,
-                Author.embedding.is_not(None),
-            )
-            .order_by(Author.embedding.cosine_distance(truncated_embedding))
-            .limit(target_size * 2)  # Get extra for filtering
-        )
 
         try:
-            result = await self.db.execute(query)
-            authors_with_embeddings = list(result.scalars().all())
+            vector_service = VectorService()
+            qdrant_results = await vector_service.search(
+                collection="authors",
+                query_vector=truncated_embedding,
+                organization_id=organization_id,
+                limit=target_size * 2,
+            )
+
+            if qdrant_results:
+                author_ids = [UUID(r["id"]) for r in qdrant_results]
+                result = await self.db.execute(
+                    select(Author).where(Author.id.in_(author_ids))
+                )
+                authors_with_embeddings = list(result.scalars().all())
+            else:
+                authors_with_embeddings = []
         except Exception as e:
             logger.warning(f"Embedding search failed, falling back to text: {e}")
             return await self._suggest_members_fallback(organization_id, keywords, target_size)

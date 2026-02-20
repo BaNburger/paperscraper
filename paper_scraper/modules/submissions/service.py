@@ -503,6 +503,8 @@ class SubmissionService:
         try:
             from paper_scraper.modules.scoring.embeddings import generate_paper_embedding
 
+            from paper_scraper.core.vector import VectorService
+
             # Generate embedding for submission
             embedding = await generate_paper_embedding(
                 title=submission.title,
@@ -510,17 +512,24 @@ class SubmissionService:
                 keywords=submission.keywords,
             )
 
-            # Find similar papers using pgvector cosine distance
-            result = await self.db.execute(
-                select(Paper)
-                .where(
-                    Paper.organization_id == organization_id,
-                    Paper.embedding.is_not(None),
-                )
-                .order_by(Paper.embedding.cosine_distance(embedding))
-                .limit(limit)
+            # Find similar papers using Qdrant vector search
+            vector_service = VectorService()
+            results = await vector_service.search(
+                collection="papers",
+                query_vector=embedding,
+                organization_id=organization_id,
+                limit=limit,
             )
-            return list(result.scalars().all())
+
+            if not results:
+                return []
+
+            # Hydrate full Paper objects from PostgreSQL
+            paper_ids = [UUID(r["id"]) for r in results]
+            db_result = await self.db.execute(
+                select(Paper).where(Paper.id.in_(paper_ids))
+            )
+            return list(db_result.scalars().all())
 
         except Exception as e:
             logger.warning(f"Failed to find similar papers for submission: {e}")

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { authApi } from '@/api'
 import type { User, LoginRequest, RegisterRequest } from '@/types'
@@ -34,19 +34,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuth()
   }, [])
 
-  const login = async (data: LoginRequest) => {
+  const login = useCallback(async (data: LoginRequest) => {
     await authApi.login(data)
     const userData = await authApi.getMe()
     setUser(userData)
-  }
+  }, [])
 
-  const register = async (data: RegisterRequest) => {
+  const register = useCallback(async (data: RegisterRequest) => {
     await authApi.register(data)
     const userData = await authApi.getMe()
     setUser(userData)
-  }
+  }, [])
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await authApi.logout()
     } catch {
@@ -54,25 +54,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setUser(null)
     queryClient.clear()
-  }
+  }, [queryClient])
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     const userData = await authApi.getMe()
     setUser(userData)
-  }
+  }, [])
+
+  const value = useMemo<AuthContextType>(() => ({
+    user,
+    isLoading,
+    isAuthenticated: !!user,
+    login,
+    register,
+    logout,
+    refreshUser,
+  }), [user, isLoading, login, register, logout, refreshUser])
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isLoading,
-        isAuthenticated: !!user,
-        login,
-        register,
-        logout,
-        refreshUser,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   )

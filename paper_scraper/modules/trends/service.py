@@ -7,6 +7,8 @@ from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.core.exceptions import NotFoundError
+from paper_scraper.core.sync import SyncService
+from paper_scraper.core.vector import VectorService
 from paper_scraper.modules.papers.models import Paper
 from paper_scraper.modules.scoring.embeddings import EmbeddingClient
 from paper_scraper.modules.scoring.models import PaperScore
@@ -43,20 +45,26 @@ class TrendsService:
         user_id: UUID,
     ) -> TrendTopicResponse:
         """Create a new trend topic and embed its description."""
-        # Generate embedding for the description
-        embedding = await self._embed_description(data.description)
-
         topic = TrendTopic(
             organization_id=organization_id,
             created_by_id=user_id,
             name=data.name,
             description=data.description,
-            embedding=embedding,
             color=data.color,
         )
         self.db.add(topic)
         await self.db.flush()
         await self.db.refresh(topic)
+
+        # Generate embedding and sync to Qdrant
+        embedding = await self._embed_description(data.description)
+        if embedding is not None:
+            sync = SyncService()
+            await sync.sync_trend(
+                trend_id=topic.id,
+                organization_id=organization_id,
+                embedding=embedding,
+            )
 
         return self._build_topic_response(topic, snapshot=None)
 
@@ -106,7 +114,12 @@ class TrendsService:
             topic.description = data.description
             embedding = await self._embed_description(data.description)
             if embedding is not None:
-                topic.embedding = embedding
+                sync = SyncService()
+                await sync.sync_trend(
+                    trend_id=topic.id,
+                    organization_id=topic.organization_id,
+                    embedding=embedding,
+                )
         if data.color is not None:
             topic.color = data.color
         if data.is_active is not None:
@@ -125,6 +138,11 @@ class TrendsService:
     ) -> None:
         """Delete a trend topic and all associated data."""
         topic = await self._get_topic(topic_id, organization_id)
+
+        # Clean up Qdrant vector
+        vector = VectorService()
+        await vector.delete("trends", str(topic.id))
+
         await self.db.delete(topic)
         await self.db.flush()
 
@@ -142,10 +160,18 @@ class TrendsService:
         """Run analysis pipeline for a trend topic."""
         topic = await self._get_topic(topic_id, organization_id)
 
-        # Ensure embedding exists
-        if topic.embedding is None:
-            topic.embedding = await self._embed_description(topic.description)
-            await self.db.flush()
+        # Ensure embedding exists in Qdrant
+        vector = VectorService()
+        has_vector = await vector.has_vector("trends", topic.id)
+        if not has_vector:
+            embedding = await self._embed_description(topic.description)
+            if embedding is not None:
+                sync = SyncService()
+                await sync.sync_trend(
+                    trend_id=topic.id,
+                    organization_id=organization_id,
+                    embedding=embedding,
+                )
 
         analyzer = TrendAnalyzer(self.db)
         snapshot = await analyzer.analyze(

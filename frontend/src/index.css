@@ -2,7 +2,7 @@
 
 /* Light theme CSS variables (default) */
 :root {
-  --font-sans: 'Manrope', 'Avenir Next', 'SF Pro Text', 'Segoe UI', sans-serif;
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --theme-primary: #2563eb;
   --theme-primary-foreground: #ffffff;
   --theme-secondary: #6b7280;
@@ -26,11 +26,22 @@
   --surface-subtle: #f8fafc;
   --focus-ring: color-mix(in srgb, var(--theme-primary) 55%, white);
   --content-max-width: 84rem;
+
+  /* Semantic shadows */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.03);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.07);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.08);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.08), 0 8px 10px -6px rgb(0 0 0 / 0.08);
+
+  /* Semantic borders */
+  --border-strong: #d1d5db;
+  --border-medium: var(--theme-border);
+  --border-light: #f3f4f6;
 }
 
 /* Dark theme CSS variables */
 .dark {
-  --font-sans: 'Manrope', 'Avenir Next', 'SF Pro Text', 'Segoe UI', sans-serif;
   --theme-primary: #3b82f6;
   --theme-primary-foreground: #ffffff;
   --theme-secondary: #9ca3af;
@@ -53,6 +64,18 @@
   --surface-elevated: #1f2937;
   --surface-subtle: #111827;
   --focus-ring: color-mix(in srgb, var(--theme-primary) 55%, #111827);
+
+  /* Semantic shadows (darker for dark mode) */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.15);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.25), 0 1px 2px -1px rgb(0 0 0 / 0.25);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.35), 0 4px 6px -4px rgb(0 0 0 / 0.35);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.35), 0 8px 10px -6px rgb(0 0 0 / 0.35);
+
+  /* Semantic borders */
+  --border-strong: #4b5563;
+  --border-medium: var(--theme-border);
+  --border-light: #1f2937;
 }
 
 @theme {
@@ -87,8 +110,18 @@
   --color-destructive: var(--theme-destructive);
   --color-destructive-foreground: var(--theme-destructive-foreground);
   --color-border: var(--theme-border);
+  --color-border-strong: var(--border-strong);
+  --color-border-medium: var(--border-medium);
+  --color-border-light: var(--border-light);
   --color-input: var(--theme-input);
   --color-ring: var(--theme-ring);
+
+  /* Shadows */
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
 }
 
 /* Base styles */
@@ -155,6 +188,61 @@ a:hover {
     transform: translateY(0);
   }
 }
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+
+@keyframes grow-up {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+@keyframes draw-line {
+  to { stroke-dashoffset: 0; }
+}
+
+/* Chart animation classes — covered by prefers-reduced-motion below */
+.animate-grow-up {
+  transform-origin: bottom;
+  animation: grow-up 400ms ease-out both;
+  animation-delay: var(--stagger-delay, 0ms);
+}
+
+.animate-draw-line {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: draw-line 800ms ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scale-in 500ms ease-out both;
+}
+
+.stagger-list > * {
+  animation: fade-in-up 300ms ease-out both;
+}
+.stagger-list > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-list > *:nth-child(2) { animation-delay: 40ms; }
+.stagger-list > *:nth-child(3) { animation-delay: 80ms; }
+.stagger-list > *:nth-child(4) { animation-delay: 120ms; }
+.stagger-list > *:nth-child(5) { animation-delay: 160ms; }
+.stagger-list > *:nth-child(6) { animation-delay: 200ms; }
+.stagger-list > *:nth-child(7) { animation-delay: 240ms; }
+.stagger-list > *:nth-child(8) { animation-delay: 280ms; }
+.stagger-list > *:nth-child(9) { animation-delay: 320ms; }
+.stagger-list > *:nth-child(n+10) { animation-delay: 360ms; }
 
 @media (prefers-reduced-motion: reduce) {
   *,

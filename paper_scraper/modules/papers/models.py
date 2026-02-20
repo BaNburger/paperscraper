@@ -5,7 +5,6 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Boolean,
     DateTime,
@@ -101,8 +100,10 @@ class Paper(Base):
     pdf_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     full_text: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    # Vector embedding (1536d for OpenAI text-embedding-3-small)
-    embedding: Mapped[list | None] = mapped_column(Vector(1536), nullable=True)
+    # Whether this paper has a vector embedding stored in Qdrant
+    has_embedding: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
 
     # Raw API response for debugging
     raw_metadata: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
@@ -164,11 +165,6 @@ class Paper(Base):
         """Check if paper has PDF stored."""
         return self.pdf_path is not None
 
-    @property
-    def has_embedding(self) -> bool:
-        """Check if paper has embedding vector."""
-        return self.embedding is not None
-
     def __repr__(self) -> str:
         return f"<Paper {self.doi or self.id} - {self.title[:50]}>"
 
@@ -200,9 +196,6 @@ class Author(Base):
     h_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
     citation_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     works_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
-
-    # Vector embedding for author similarity (768d)
-    embedding: Mapped[list | None] = mapped_column(Vector(768), nullable=True)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
@@ -238,14 +231,6 @@ class Author(Base):
             "openalex_id",
             unique=True,
             postgresql_where="openalex_id IS NOT NULL",
-        ),
-        # HNSW index for author embedding similarity search
-        Index(
-            "ix_authors_embedding_hnsw",
-            "embedding",
-            postgresql_using="hnsw",
-            postgresql_with={"m": 16, "ef_construction": 64},
-            postgresql_ops={"embedding": "vector_cosine_ops"},
         ),
     )
 

@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from paper_scraper.core.exceptions import NotFoundError
 from paper_scraper.core.secrets import decrypt_secret
+from paper_scraper.core.vector import VectorService
 from paper_scraper.modules.embeddings.service import EmbeddingService
 from paper_scraper.modules.model_settings.models import ModelConfiguration, ModelUsage
 from paper_scraper.modules.papers.models import Paper, PaperAuthor
@@ -99,7 +100,7 @@ class ScoringService:
                 return await self._create_score_from_cache(paper, organization_id, cached, weights)
 
         # Ensure paper has embedding for similar paper lookup
-        if not paper.embedding:
+        if not paper.has_embedding:
             await self.generate_embedding(paper_id, organization_id)
             await self.db.refresh(paper)
 
@@ -568,22 +569,27 @@ class ScoringService:
         organization_id: UUID,
         limit: int = 5,
     ) -> list[Paper]:
-        """Find similar papers using embedding similarity."""
-        if not paper.embedding:
+        """Find similar papers using Qdrant vector search."""
+        if not paper.has_embedding:
             return []
 
-        # Use pgvector cosine distance for similarity search
-        result = await self.db.execute(
-            select(Paper)
-            .where(
-                Paper.organization_id == organization_id,
-                Paper.id != paper.id,
-                Paper.embedding.is_not(None),
-            )
-            .order_by(Paper.embedding.cosine_distance(paper.embedding))
-            .limit(limit)
+        vector_service = VectorService()
+        results = await vector_service.search_by_id(
+            collection="papers",
+            point_id=paper.id,
+            organization_id=organization_id,
+            limit=limit,
         )
-        return list(result.scalars().all())
+
+        if not results:
+            return []
+
+        # Hydrate full Paper objects from PostgreSQL
+        paper_ids = [UUID(r["id"]) for r in results]
+        db_result = await self.db.execute(
+            select(Paper).where(Paper.id.in_(paper_ids))
+        )
+        return list(db_result.scalars().all())
 
     async def _save_score(
         self,

@@ -165,14 +165,18 @@ async def sync_research_group_task(
             await project_service.update_sync_status(proj_uuid, org_uuid, SyncStatus.CLUSTERING)
             await db.commit()
 
-            # 7. Get all project paper embeddings
-            paper_result = await db.execute(
-                select(Paper.id, Paper.embedding, Paper.keywords)
+            # 7. Get all project paper IDs and their embeddings from Qdrant
+            from qdrant_client import models as qdrant_models
+
+            from paper_scraper.core.vector import VectorService, _collection_name, get_qdrant_client
+
+            paper_id_result = await db.execute(
+                select(Paper.id, Paper.keywords)
                 .join(ProjectPaper, ProjectPaper.paper_id == Paper.id)
                 .where(ProjectPaper.project_id == proj_uuid)
-                .where(Paper.embedding.is_not(None))
+                .where(Paper.has_embedding.is_(True))
             )
-            paper_rows = paper_result.all()
+            paper_rows_db = paper_id_result.all()
 
             total_papers_in_project = await db.scalar(
                 select(func.count())
@@ -180,10 +184,10 @@ async def sync_research_group_task(
                 .where(ProjectPaper.project_id == proj_uuid)
             )
 
-            if len(paper_rows) < 2:
+            if len(paper_rows_db) < 2:
                 logger.info(
                     "Not enough papers with embeddings (%d) to cluster for %s",
-                    len(paper_rows),
+                    len(paper_rows_db),
                     project.name,
                 )
                 await project_service.update_sync_status(
@@ -203,10 +207,20 @@ async def sync_research_group_task(
                     "message": "Not enough embeddings to cluster",
                 }
 
-            # 8. Run clustering
-            paper_ids = [row[0] for row in paper_rows]
-            embeddings = [list(row[1]) for row in paper_rows]
-            keywords_map = {row[0]: row[2] or [] for row in paper_rows}
+            # Fetch embeddings from Qdrant
+            qdrant = await get_qdrant_client()
+            point_ids = [str(row[0]) for row in paper_rows_db]
+            keywords_map = {row[0]: row[1] or [] for row in paper_rows_db}
+            retrieved = await qdrant.retrieve(
+                collection_name=_collection_name("papers"),
+                ids=point_ids,
+                with_vectors=True,
+                with_payload=False,
+            )
+
+            # Build paper_ids and embeddings arrays in matching order
+            paper_ids = [UUID(p.id) for p in retrieved]
+            embeddings = [list(p.vector) for p in retrieved]
 
             assignments, centroids = cluster_embeddings(paper_ids, embeddings)
 

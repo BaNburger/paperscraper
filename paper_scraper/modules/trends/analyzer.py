@@ -11,6 +11,7 @@ from uuid import UUID
 from sqlalchemy import and_, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from paper_scraper.core.vector import VectorService
 from paper_scraper.modules.papers.clients.epo_ops import EPOOPSClient
 from paper_scraper.modules.papers.models import Paper
 from paper_scraper.modules.scoring.models import PaperScore
@@ -24,6 +25,7 @@ class TrendAnalyzer:
 
     def __init__(self, db: AsyncSession):
         self.db = db
+        self.vector = VectorService()
 
     async def analyze(
         self,
@@ -111,30 +113,28 @@ class TrendAnalyzer:
         min_similarity: float,
         max_papers: int,
     ) -> list[tuple[UUID, float]]:
-        """Find papers semantically similar to trend description."""
-        if topic.embedding is None:
+        """Find papers semantically similar to trend description via Qdrant.
+
+        Fetches the topic embedding from the Qdrant 'trends' collection,
+        then uses it to search the 'papers' collection for similar papers.
+        """
+        # Retrieve the topic's embedding from Qdrant
+        point = await self.vector.get_point("trends", topic.id, with_vector=True)
+        if point is None or "vector" not in point:
+            logger.warning("No embedding found in Qdrant for trend topic %s", topic.id)
             return []
 
-        # cosine_distance returns 0..2 where 0 = identical
-        # similarity = 1 - distance, so distance <= 1 - min_similarity
-        max_distance = 1 - min_similarity
+        query_vector = point["vector"]
 
-        query = (
-            select(
-                Paper.id,
-                (1 - Paper.embedding.cosine_distance(topic.embedding)).label("similarity"),
-            )
-            .where(
-                Paper.organization_id == topic.organization_id,
-                Paper.embedding.is_not(None),
-                Paper.embedding.cosine_distance(topic.embedding) <= max_distance,
-            )
-            .order_by(Paper.embedding.cosine_distance(topic.embedding))
-            .limit(max_papers)
+        results = await self.vector.search(
+            collection="papers",
+            query_vector=query_vector,
+            organization_id=topic.organization_id,
+            limit=max_papers,
+            min_score=min_similarity,
         )
 
-        result = await self.db.execute(query)
-        return [(row[0], float(row[1])) for row in result.all()]
+        return [(UUID(r["id"]), r["score"]) for r in results]
 
     async def _store_matched_papers(
         self,

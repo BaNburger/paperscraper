@@ -3,7 +3,7 @@
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import case, func, select
+from sqlalchemy import Integer, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from paper_scraper.modules.analytics.schemas import (
@@ -210,11 +210,11 @@ class AnalyticsService:
             for row in top_papers_result.all()
         ]
 
-        # Embedding coverage
+        # Embedding coverage (has_embedding is a boolean column)
         embedding_result = await self.db.execute(
             select(
                 func.count(Paper.id).label("total"),
-                func.count(Paper.embedding).label("with_embedding"),
+                func.sum(func.cast(Paper.has_embedding, Integer)).label("with_embedding"),
             ).where(Paper.organization_id == organization_id)
         )
         embedding_row = embedding_result.one()

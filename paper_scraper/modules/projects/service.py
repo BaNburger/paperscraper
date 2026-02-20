@@ -293,6 +293,9 @@ class ProjectService:
         await self.db.execute(delete(ProjectCluster).where(ProjectCluster.project_id == project_id))
         await self.db.flush()
 
+        from paper_scraper.core.sync import SyncService
+
+        sync = SyncService()
         created = 0
         for cdata in cluster_data:
             cluster = ProjectCluster(
@@ -302,11 +305,20 @@ class ProjectService:
                 description=cdata.get("description"),
                 keywords=cdata.get("keywords", []),
                 paper_count=len(cdata.get("paper_ids", [])),
-                centroid=cdata.get("centroid"),
             )
             self.db.add(cluster)
             # Flush to generate cluster.id for paper associations
             await self.db.flush()
+
+            # Sync centroid to Qdrant
+            centroid = cdata.get("centroid")
+            if centroid:
+                await sync.sync_cluster(
+                    cluster_id=cluster.id,
+                    organization_id=organization_id,
+                    project_id=project_id,
+                    centroid=centroid,
+                )
 
             paper_ids = cdata.get("paper_ids", [])
             similarities = cdata.get("similarities", {})

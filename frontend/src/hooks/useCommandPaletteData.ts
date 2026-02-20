@@ -32,11 +32,11 @@ export function useCommandPaletteData({
 
   const { data: projectsData } = useProjects({
     enabled: canQuery,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
   })
   const { data: groupsData } = useGroups(undefined, {
     enabled: canQuery,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
   })
 
   const projects = useMemo(() => {

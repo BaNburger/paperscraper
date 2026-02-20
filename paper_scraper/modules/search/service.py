@@ -1,13 +1,23 @@
-"""Service layer for search module."""
+"""Service layer for search module.
 
+Uses Qdrant for vector/semantic search and Typesense for full-text search,
+replacing the previous pgvector + PostgreSQL trigram approach.
+PostgreSQL is still used for paper hydration and score lookups.
+"""
+
+import logging
 import time
+from datetime import datetime
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, exists, func, literal, or_, select
+from sqlalchemy import and_, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from paper_scraper.core.exceptions import NotFoundError
+from paper_scraper.core.search_engine import SearchEngineService
+from paper_scraper.core.vector import VectorService
 from paper_scraper.modules.embeddings.service import EmbeddingService
 from paper_scraper.modules.papers.models import Paper
 from paper_scraper.modules.scoring.embeddings import EmbeddingClient
@@ -27,17 +37,31 @@ from paper_scraper.modules.search.schemas import (
     SimilarPapersResponse,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class SearchService:
-    """Service for paper search operations."""
+    """Service for paper search operations.
+
+    Uses Qdrant for semantic/vector search and Typesense for full-text
+    search. Paper metadata is hydrated from PostgreSQL after external
+    search backends return matching IDs.
+    """
 
     # RRF constant (typically 60 is used)
     RRF_K = 60
 
-    def __init__(self, db: AsyncSession):
+    def __init__(
+        self,
+        db: AsyncSession,
+        vector: VectorService | None = None,
+        search_engine: SearchEngineService | None = None,
+    ) -> None:
         self.db = db
         self.embedding_client = EmbeddingClient()
         self.embedding_service = EmbeddingService(db)
+        self.vector = vector or VectorService()
+        self.search_engine = search_engine or SearchEngineService()
 
     # =========================================================================
     # Main Search Methods
@@ -49,15 +73,15 @@ class SearchService:
         organization_id: UUID,
         user_id: UUID | None = None,
     ) -> SearchResponse:
-        """
-        Execute a search query based on the specified mode.
+        """Execute a search query based on the specified mode.
 
         Args:
-            request: Search request with query, mode, filters
-            organization_id: Organization ID for tenant isolation
+            request: Search request with query, mode, filters.
+            organization_id: Organization ID for tenant isolation.
+            user_id: Optional user ID for activity tracking.
 
         Returns:
-            SearchResponse with paginated results
+            SearchResponse with paginated results.
         """
         start_time = time.time()
 
@@ -123,60 +147,74 @@ class SearchService:
         min_similarity: float = 0.0,
         filters: SearchFilters | None = None,
     ) -> SimilarPapersResponse:
-        """
-        Find papers similar to a given paper using embedding similarity.
+        """Find papers similar to a given paper using Qdrant vector similarity.
 
         Args:
-            paper_id: ID of the reference paper
-            organization_id: Organization ID
-            limit: Maximum results
-            min_similarity: Minimum similarity threshold (0-1)
-            filters: Optional filters
+            paper_id: ID of the reference paper.
+            organization_id: Organization ID.
+            limit: Maximum results.
+            min_similarity: Minimum similarity threshold (0-1).
+            filters: Optional filters.
 
         Returns:
-            SimilarPapersResponse with similar papers
+            SimilarPapersResponse with similar papers.
         """
-        # Get the reference paper
+        # Verify the paper exists in PostgreSQL
         paper = await self._get_paper(paper_id, organization_id)
         if not paper:
             raise NotFoundError("Paper", paper_id)
 
-        if not paper.embedding:
+        # Check if the paper has a vector in Qdrant
+        has_vector = await self.vector.has_vector("papers", paper_id)
+        if not has_vector:
             return SimilarPapersResponse(
                 paper_id=paper_id,
                 similar_papers=[],
                 total_found=0,
             )
 
-        # Build base query for similar papers
-        query = select(
-            Paper,
-            (1 - Paper.embedding.cosine_distance(paper.embedding)).label("similarity"),
-        ).where(
-            Paper.organization_id == organization_id,
-            Paper.id != paper_id,
-            Paper.embedding.is_not(None),
+        # Search Qdrant for similar vectors by point ID
+        qdrant_results = await self.vector.search_by_id(
+            collection="papers",
+            point_id=paper_id,
+            organization_id=organization_id,
+            limit=limit,
+            min_score=min_similarity if min_similarity > 0 else None,
         )
 
-        # Apply filters
-        query = self._apply_filters(query, filters, organization_id)
+        if not qdrant_results:
+            return SimilarPapersResponse(
+                paper_id=paper_id,
+                similar_papers=[],
+                total_found=0,
+            )
 
-        # Filter by minimum similarity (cosine distance < 1 - min_similarity)
-        if min_similarity > 0:
-            max_distance = 1 - min_similarity
-            query = query.where(Paper.embedding.cosine_distance(paper.embedding) <= max_distance)
+        # Build a map of Qdrant ID -> similarity score
+        qdrant_score_map: dict[UUID, float] = {}
+        qdrant_ids: list[UUID] = []
+        for result in qdrant_results:
+            rid = UUID(result["id"])
+            qdrant_ids.append(rid)
+            qdrant_score_map[rid] = result["score"]
 
-        # Order by similarity (lowest distance = highest similarity)
-        query = query.order_by(Paper.embedding.cosine_distance(paper.embedding))
-        query = query.limit(limit)
+        # Hydrate paper metadata from PostgreSQL
+        hydrated_papers = await self._hydrate_papers(qdrant_ids, organization_id)
 
-        result = await self.db.execute(query)
-        rows = result.all()
+        # Apply PostgreSQL-side filters (score filters that need joins)
+        if filters:
+            filtered_ids = await self._apply_pg_score_filter(
+                list(hydrated_papers.keys()), filters, organization_id
+            )
+            hydrated_papers = {
+                pid: p for pid, p in hydrated_papers.items() if pid in filtered_ids
+            }
 
-        similar_papers = []
-        for row in rows:
-            p = row[0]
-            similarity = row[1]
+        # Build similar paper items, preserving Qdrant ranking order
+        similar_papers: list[SimilarPaperItem] = []
+        for rid in qdrant_ids:
+            if rid not in hydrated_papers:
+                continue
+            p = hydrated_papers[rid]
             similar_papers.append(
                 SimilarPaperItem(
                     id=p.id,
@@ -187,7 +225,7 @@ class SearchService:
                     journal=p.journal,
                     publication_date=p.publication_date,
                     keywords=p.keywords or [],
-                    similarity_score=round(similarity, 4),
+                    similarity_score=round(qdrant_score_map[rid], 4),
                 )
             )
 
@@ -204,19 +242,17 @@ class SearchService:
         limit: int = 20,
         filters: SearchFilters | None = None,
     ) -> list[SearchResultItem]:
-        """
-        Perform semantic search by embedding the query text.
+        """Perform semantic search by embedding the query text.
 
         Args:
-            query: Query text to embed
-            organization_id: Organization ID
-            limit: Maximum results
-            filters: Optional filters
+            query: Query text to embed.
+            organization_id: Organization ID.
+            limit: Maximum results.
+            filters: Optional filters.
 
         Returns:
-            List of search results sorted by semantic similarity
+            List of search results sorted by semantic similarity.
         """
-        # Generate query embedding
         query_embedding = await self.embedding_client.embed_text(query)
 
         results, _ = await self._semantic_search(
@@ -257,16 +293,15 @@ class SearchService:
         batch_size: int = 100,
         max_papers: int | None = None,
     ) -> EmbeddingBackfillResult:
-        """
-        Generate embeddings for papers that don't have them.
+        """Generate embeddings for papers that don't have them.
 
         Args:
-            organization_id: Organization ID
-            batch_size: Papers to process per batch
-            max_papers: Maximum papers to process (None = all)
+            organization_id: Organization ID.
+            batch_size: Papers to process per batch.
+            max_papers: Maximum papers to process (None = all).
 
         Returns:
-            EmbeddingBackfillResult with statistics
+            EmbeddingBackfillResult with statistics.
         """
         summary = await self.embedding_service.backfill_for_organization(
             organization_id=organization_id,
@@ -293,59 +328,82 @@ class SearchService:
         page_size: int,
         include_highlights: bool = True,
     ) -> tuple[list[SearchResultItem], int]:
+        """Perform full-text search using Typesense.
+
+        Uses Typesense BM25 ranking with typo tolerance.
         """
-        Perform full-text search using PostgreSQL trigram similarity.
+        # Build Typesense filter string from SearchFilters
+        ts_filter = self._build_typesense_filter(filters, organization_id)
 
-        Uses pg_trgm for fuzzy matching on title and abstract.
-        """
-        # Calculate trigram similarity for title and abstract
-        # Higher weight for title matches
-        title_similarity = func.similarity(Paper.title, query).label("title_sim")
-        abstract_similarity = func.coalesce(
-            func.similarity(Paper.abstract, query), literal(0.0)
-        ).label("abstract_sim")
-
-        # Combined score with title weighted higher
-        text_score = (title_similarity * 0.7 + abstract_similarity * 0.3).label("text_score")
-
-        # Build base query
-        base_query = select(Paper, text_score).where(
-            Paper.organization_id == organization_id,
-            # Match either title or abstract with minimum similarity
-            or_(
-                func.similarity(Paper.title, query) > 0.1,
-                func.similarity(Paper.abstract, query) > 0.1,
-            ),
+        # Execute Typesense search
+        ts_result = self.search_engine.search_papers(
+            query=query,
+            organization_id=organization_id,
+            page=page,
+            page_size=page_size,
+            filter_by=ts_filter,
         )
 
-        # Apply filters
-        base_query = self._apply_filters(base_query, filters, organization_id)
+        total: int = ts_result.get("found", 0)
+        hits: list[dict[str, Any]] = ts_result.get("hits", [])
 
-        # Count total
-        count_query = select(func.count()).select_from(base_query.subquery())
-        total = (await self.db.execute(count_query)).scalar() or 0
+        if not hits:
+            return [], total
 
-        # Order by score and paginate
-        paginated_query = (
-            base_query.order_by(text_score.desc()).offset((page - 1) * page_size).limit(page_size)
-        )
+        # Extract paper IDs and Typesense metadata (scores, highlights)
+        ts_paper_ids: list[UUID] = []
+        ts_meta: dict[UUID, dict[str, Any]] = {}
+        for hit in hits:
+            doc = hit.get("document", {})
+            paper_id_str = doc.get("paper_id") or doc.get("id")
+            if not paper_id_str:
+                continue
+            try:
+                pid = UUID(paper_id_str)
+            except (ValueError, AttributeError):
+                continue
+            ts_paper_ids.append(pid)
+            ts_meta[pid] = {
+                "text_score": hit.get("text_match_info", {}).get("score", 0),
+                "highlights": hit.get("highlights", []),
+                "has_embedding": doc.get("has_embedding", False),
+            }
 
-        result = await self.db.execute(paginated_query)
-        rows = result.all()
+        # Hydrate paper metadata from PostgreSQL
+        hydrated_papers = await self._hydrate_papers(ts_paper_ids, organization_id)
+
+        # Apply PostgreSQL-side score filters
+        if filters and self._needs_pg_score_filter(filters):
+            filtered_ids = await self._apply_pg_score_filter(
+                list(hydrated_papers.keys()), filters, organization_id
+            )
+            hydrated_papers = {
+                pid: p for pid, p in hydrated_papers.items() if pid in filtered_ids
+            }
 
         # Fetch scores for matched papers
-        paper_ids = [row[0].id for row in rows]
-        scores_map = await self._get_latest_scores(paper_ids, organization_id)
+        scores_map = await self._get_latest_scores(
+            list(hydrated_papers.keys()), organization_id
+        )
 
-        # Build results
-        items = []
-        for row in rows:
-            paper = row[0]
-            score = row[1]
+        # Build result items preserving Typesense ranking order
+        items: list[SearchResultItem] = []
+        for pid in ts_paper_ids:
+            if pid not in hydrated_papers:
+                continue
+            paper = hydrated_papers[pid]
+            meta = ts_meta.get(pid, {})
+            text_score = meta.get("text_score", 0)
 
-            highlights = []
+            # Normalize Typesense text_match score to 0-1 range
+            # Typesense scores are large integers; normalize by dividing
+            normalized_score = self._normalize_typesense_score(text_score)
+
+            highlights: list[SearchHighlight] = []
             if include_highlights:
-                highlights = self._generate_highlights(paper, query)
+                highlights = self._extract_typesense_highlights(
+                    meta.get("highlights", [])
+                )
 
             items.append(
                 SearchResultItem(
@@ -358,10 +416,10 @@ class SearchService:
                     publication_date=paper.publication_date,
                     keywords=paper.keywords or [],
                     citations_count=paper.citations_count,
-                    has_embedding=paper.has_embedding,
+                    has_embedding=meta.get("has_embedding", False),
                     created_at=paper.created_at,
-                    relevance_score=round(score, 4),
-                    text_score=round(score, 4),
+                    relevance_score=round(normalized_score, 4),
+                    text_score=round(normalized_score, 4),
                     semantic_score=None,
                     highlights=highlights,
                     score=scores_map.get(paper.id),
@@ -379,52 +437,68 @@ class SearchService:
         page_size: int,
         query_embedding: list[float] | None = None,
     ) -> tuple[list[SearchResultItem], int]:
-        """
-        Perform semantic search using vector embeddings.
+        """Perform semantic search using Qdrant vector embeddings.
 
-        Uses pgvector cosine distance for similarity.
+        Uses Qdrant cosine similarity for ranking.
         """
         # Generate query embedding if not provided
         if query_embedding is None:
             query_embedding = await self.embedding_client.embed_text(query)
 
-        # Calculate cosine similarity (1 - distance)
-        cosine_similarity = (1 - Paper.embedding.cosine_distance(query_embedding)).label(
-            "semantic_score"
+        # Calculate how many results to fetch from Qdrant
+        # We need to skip (page-1)*page_size and take page_size,
+        # but Qdrant doesn't support offset natively, so fetch page*page_size
+        fetch_limit = page * page_size
+
+        # Execute Qdrant search
+        qdrant_results = await self.vector.search(
+            collection="papers",
+            query_vector=query_embedding,
+            organization_id=organization_id,
+            limit=fetch_limit,
         )
 
-        # Build base query - only papers with embeddings
-        base_query = select(Paper, cosine_similarity).where(
-            Paper.organization_id == organization_id,
-            Paper.embedding.is_not(None),
-        )
+        total = len(qdrant_results)
 
-        # Apply filters
-        base_query = self._apply_filters(base_query, filters, organization_id)
+        # Apply pagination by slicing
+        start = (page - 1) * page_size
+        paginated_results = qdrant_results[start:start + page_size]
 
-        # Count total
-        count_query = select(func.count()).select_from(base_query.subquery())
-        total = (await self.db.execute(count_query)).scalar() or 0
+        if not paginated_results:
+            return [], total
 
-        # Order by similarity (highest first) and paginate
-        query_stmt = (
-            base_query.order_by(Paper.embedding.cosine_distance(query_embedding))
-            .offset((page - 1) * page_size)
-            .limit(page_size)
-        )
+        # Build Qdrant ID -> score map
+        qdrant_ids: list[UUID] = []
+        qdrant_score_map: dict[UUID, float] = {}
+        for result in paginated_results:
+            rid = UUID(result["id"])
+            qdrant_ids.append(rid)
+            qdrant_score_map[rid] = result["score"]
 
-        result = await self.db.execute(query_stmt)
-        rows = result.all()
+        # Hydrate paper metadata from PostgreSQL
+        hydrated_papers = await self._hydrate_papers(qdrant_ids, organization_id)
+
+        # Apply PostgreSQL-side score filters
+        if filters and self._needs_pg_score_filter(filters):
+            filtered_ids = await self._apply_pg_score_filter(
+                list(hydrated_papers.keys()), filters, organization_id
+            )
+            hydrated_papers = {
+                pid: p for pid, p in hydrated_papers.items() if pid in filtered_ids
+            }
 
         # Fetch scores
-        paper_ids = [row[0].id for row in rows]
-        scores_map = await self._get_latest_scores(paper_ids, organization_id)
+        scores_map = await self._get_latest_scores(
+            list(hydrated_papers.keys()), organization_id
+        )
 
-        # Build results
-        items = []
-        for row in rows:
-            paper = row[0]
-            similarity = row[1]
+        # Build results preserving Qdrant ranking order
+        items: list[SearchResultItem] = []
+        for rid in qdrant_ids:
+            if rid not in hydrated_papers:
+                continue
+            paper = hydrated_papers[rid]
+            similarity = qdrant_score_map.get(rid, 0.0)
 
             items.append(
                 SearchResultItem(
@@ -437,7 +511,7 @@ class SearchService:
                     publication_date=paper.publication_date,
                     keywords=paper.keywords or [],
                     citations_count=paper.citations_count,
-                    has_embedding=paper.has_embedding,
+                    has_embedding=True,
                     created_at=paper.created_at,
                     relevance_score=round(similarity, 4),
                     text_score=None,
@@ -459,11 +533,10 @@ class SearchService:
         semantic_weight: float = 0.5,
         include_highlights: bool = True,
     ) -> tuple[list[SearchResultItem], int]:
-        """
-        Perform hybrid search combining full-text and semantic results.
+        """Perform hybrid search combining Typesense and Qdrant results.
 
         Uses Reciprocal Rank Fusion (RRF) to combine rankings:
-        RRF_score = 1/(k + rank_text) + 1/(k + rank_semantic)
+        RRF_score = text_weight/(k + rank_text) + semantic_weight/(k + rank_semantic)
         """
         # Generate query embedding
         query_embedding = await self.embedding_client.embed_text(query)
@@ -471,7 +544,7 @@ class SearchService:
         # Fetch more results than needed for RRF merging
         fetch_limit = page_size * 5
 
-        # Get full-text results with ranks
+        # Get full-text results from Typesense
         text_results, text_total = await self._fulltext_search(
             query=query,
             organization_id=organization_id,
@@ -481,7 +554,7 @@ class SearchService:
             include_highlights=include_highlights,
         )
 
-        # Get semantic results with ranks
+        # Get semantic results from Qdrant
         semantic_results, semantic_total = await self._semantic_search(
             query=query,
             organization_id=organization_id,
@@ -492,7 +565,9 @@ class SearchService:
         )
 
         # Create rank mappings
-        text_ranks: dict[UUID, int] = {item.id: rank + 1 for rank, item in enumerate(text_results)}
+        text_ranks: dict[UUID, int] = {
+            item.id: rank + 1 for rank, item in enumerate(text_results)
+        }
         semantic_ranks: dict[UUID, int] = {
             item.id: rank + 1 for rank, item in enumerate(semantic_results)
         }
@@ -515,7 +590,9 @@ class SearchService:
             rrf_scores[paper_id] = text_rrf + semantic_rrf
 
         # Sort by RRF score
-        sorted_ids = sorted(rrf_scores.keys(), key=lambda x: rrf_scores[x], reverse=True)
+        sorted_ids = sorted(
+            rrf_scores.keys(), key=lambda x: rrf_scores[x], reverse=True
+        )
 
         # Build result items from text or semantic results
         text_items_map = {item.id: item for item in text_results}
@@ -527,7 +604,7 @@ class SearchService:
         end = start + page_size
         paginated_ids = sorted_ids[start:end]
 
-        items = []
+        items: list[SearchResultItem] = []
         for paper_id in paginated_ids:
             # Prefer text result (has highlights), fall back to semantic
             if paper_id in text_items_map:
@@ -545,16 +622,162 @@ class SearchService:
         return items, total
 
     # =========================================================================
-    # Helper Methods
+    # Typesense Filter Builder
     # =========================================================================
+
+    @staticmethod
+    def _build_typesense_filter(
+        filters: SearchFilters | None,
+        organization_id: UUID,
+    ) -> str | None:
+        """Convert SearchFilters to a Typesense filter_by string.
+
+        The organization_id filter is applied separately by SearchEngineService,
+        so this method only builds additional filter conditions.
+
+        Args:
+            filters: Search filter criteria.
+            organization_id: Tenant ID (not used here, handled by SearchEngineService).
+
+        Returns:
+            Typesense filter_by string or None if no filters.
+        """
+        if not filters:
+            return None
+
+        parts: list[str] = []
+
+        # Source filter
+        if filters.sources:
+            source_values = ",".join(s.value for s in filters.sources)
+            parts.append(f"source:[{source_values}]")
+
+        # Date filters (Typesense stores dates as epoch int64)
+        if filters.date_from:
+            epoch = int(filters.date_from.timestamp())
+            parts.append(f"publication_date:>={epoch}")
+        if filters.date_to:
+            epoch = int(filters.date_to.timestamp())
+            parts.append(f"publication_date:<={epoch}")
+
+        # Ingested date filters
+        if filters.ingested_from:
+            epoch = int(filters.ingested_from.timestamp())
+            parts.append(f"created_at:>={epoch}")
+        if filters.ingested_to:
+            epoch = int(filters.ingested_to.timestamp())
+            parts.append(f"created_at:<={epoch}")
+
+        # Score filters (overall_score is indexed in Typesense)
+        if filters.min_score is not None:
+            parts.append(f"overall_score:>={filters.min_score}")
+        if filters.max_score is not None:
+            parts.append(f"overall_score:<={filters.max_score}")
+
+        # Embedding filter
+        if filters.has_embedding is True:
+            parts.append("has_embedding:true")
+        elif filters.has_embedding is False:
+            parts.append("has_embedding:false")
+
+        # Journal filter
+        if filters.journals:
+            escaped = ",".join(f"`{j}`" for j in filters.journals)
+            parts.append(f"journal:[{escaped}]")
+
+        # Keyword filter (Typesense string[] supports array search)
+        if filters.keywords:
+            escaped = ",".join(f"`{kw}`" for kw in filters.keywords)
+            parts.append(f"keywords:[{escaped}]")
+
+        if not parts:
+            return None
+
+        return " && ".join(parts)
+
+    # =========================================================================
+    # PostgreSQL Filter Helpers (for score filters that need joins)
+    # =========================================================================
+
+    @staticmethod
+    def _needs_pg_score_filter(filters: SearchFilters) -> bool:
+        """Check if filters require PostgreSQL-side score filtering.
+
+        has_score requires checking the PaperScore table existence which
+        is not indexed in Typesense. min_score/max_score are also checked
+        here for precise latest-score filtering when needed.
+        """
+        return filters.has_score is not None
+
+    async def _apply_pg_score_filter(
+        self,
+        paper_ids: list[UUID],
+        filters: SearchFilters,
+        organization_id: UUID,
+    ) -> set[UUID]:
+        """Apply score existence filters via PostgreSQL and return matching IDs.
+
+        Args:
+            paper_ids: Paper IDs to check.
+            filters: Filters containing has_score criteria.
+            organization_id: Tenant ID.
+
+        Returns:
+            Set of paper IDs that pass the filter.
+        """
+        if not paper_ids:
+            return set()
+
+        if filters.has_score is None:
+            return set(paper_ids)
+
+        score_alias = aliased(PaperScore)
+
+        if filters.has_score is True:
+            # Return papers that HAVE at least one score
+            query = (
+                select(Paper.id)
+                .where(
+                    Paper.id.in_(paper_ids),
+                    Paper.organization_id == organization_id,
+                    exists(
+                        select(score_alias.id).where(
+                            score_alias.paper_id == Paper.id,
+                            score_alias.organization_id == organization_id,
+                        )
+                    ),
+                )
+            )
+        else:
+            # Return papers that DO NOT have any score
+            query = (
+                select(Paper.id)
+                .where(
+                    Paper.id.in_(paper_ids),
+                    Paper.organization_id == organization_id,
+                    ~exists(
+                        select(score_alias.id).where(
+                            score_alias.paper_id == Paper.id,
+                            score_alias.organization_id == organization_id,
+                        )
+                    ),
+                )
+            )
+
+        result = await self.db.execute(query)
+        return {row[0] for row in result.all()}
 
     def _apply_filters(
         self,
-        query,
+        query: Any,
         filters: SearchFilters | None,
         organization_id: UUID,
-    ):
-        """Apply search filters to a query."""
+    ) -> Any:
+        """Apply search filters to a SQLAlchemy query.
+
+        Kept for PostgreSQL-side hydration queries that still
+        need basic + score filtering (e.g., backfill operations).
+        """
         if not filters:
             return query
 
@@ -563,8 +786,8 @@ class SearchService:
 
         return query
 
-    def _apply_basic_filters(self, query, filters: SearchFilters):
-        """Apply basic paper field filters."""
+    def _apply_basic_filters(self, query: Any, filters: SearchFilters) -> Any:
+        """Apply basic paper field filters to a SQLAlchemy query."""
         if filters.sources:
             query = query.where(Paper.source.in_(filters.sources))
 
@@ -577,13 +800,10 @@ class SearchService:
         if filters.ingested_to:
             query = query.where(Paper.created_at <= filters.ingested_to)
 
-        if filters.has_embedding is True:
-            query = query.where(Paper.embedding.is_not(None))
-        elif filters.has_embedding is False:
-            query = query.where(Paper.embedding.is_(None))
-
         if filters.journals:
             query = query.where(Paper.journal.in_(filters.journals))
+
+        from sqlalchemy import or_
 
         if filters.keywords:
             keyword_conditions = [Paper.keywords.contains([kw]) for kw in filters.keywords]
@@ -593,10 +813,10 @@ class SearchService:
 
     def _apply_score_filters(
         self,
-        query,
+        query: Any,
         filters: SearchFilters,
         organization_id: UUID,
-    ):
+    ) -> Any:
         """Apply score-related filters requiring PaperScore join."""
         needs_score_filter = (
             filters.min_score is not None
@@ -655,6 +875,98 @@ class SearchService:
                 query = query.where(score_alias.overall_score <= filters.max_score)
 
         return query
+
+    # =========================================================================
+    # Typesense Highlight Extraction
+    # =========================================================================
+
+    @staticmethod
+    def _extract_typesense_highlights(
+        highlights: list[dict[str, Any]],
+    ) -> list[SearchHighlight]:
+        """Convert Typesense highlight objects to SearchHighlight schema.
+
+        Typesense highlights have the structure:
+        [{"field": "title", "snippet": "<mark>neural</mark> network...", ...}]
+
+        Args:
+            highlights: List of Typesense highlight dicts.
+
+        Returns:
+            List of SearchHighlight objects.
+        """
+        result: list[SearchHighlight] = []
+        for hl in highlights:
+            field = hl.get("field", "")
+            snippet = hl.get("snippet", "")
+            if not snippet:
+                # Fall back to matched_tokens joined
+                matched = hl.get("matched_tokens", [])
+                if matched:
+                    snippet = " ".join(str(t) for t in matched)
+            if field and snippet:
+                result.append(SearchHighlight(field=field, snippet=snippet))
+        return result
+
+    @staticmethod
+    def _normalize_typesense_score(raw_score: int | float) -> float:
+        """Normalize Typesense text_match score to a 0-1 range.
+
+        Typesense text_match scores are large integers based on a bucketed
+        scoring system. We apply a simple sigmoid-like normalization.
+
+        Args:
+            raw_score: Raw Typesense text_match score.
+
+        Returns:
+            Normalized score between 0 and 1.
+        """
+        if raw_score <= 0:
+            return 0.0
+        # Typesense text_match_info scores are typically in the range
+        # of millions. We use log-based normalization to compress to 0-1.
+        import math
+
+        # log10(1_000_000) = 6, log10(100_000_000_000) ~ 11
+        # Normalize so score of 1M -> ~0.4, 100B -> ~0.9
+        log_score = math.log10(max(raw_score, 1))
+        # Scale to 0-1 with max around log10(1e12) = 12
+        normalized = min(log_score / 12.0, 1.0)
+        return normalized
+
+    # =========================================================================
+    # Paper Hydration from PostgreSQL
+    # =========================================================================
+
+    async def _hydrate_papers(
+        self,
+        paper_ids: list[UUID],
+        organization_id: UUID,
+    ) -> dict[UUID, Paper]:
+        """Load paper metadata from PostgreSQL for a list of IDs.
+
+        Args:
+            paper_ids: Paper IDs to hydrate.
+            organization_id: Tenant isolation.
+
+        Returns:
+            Dict mapping paper ID to Paper ORM object.
+        """
+        if not paper_ids:
+            return {}
+
+        result = await self.db.execute(
+            select(Paper).where(
+                Paper.id.in_(paper_ids),
+                Paper.organization_id == organization_id,
+            )
+        )
+        papers = result.scalars().all()
+        return {p.id: p for p in papers}
+
+    # =========================================================================
+    # Helper Methods
+    # =========================================================================
 
     async def _get_latest_scores(
         self,
@@ -715,53 +1027,3 @@ class SearchService:
             )
         )
         return result.scalar_one_or_none()
-
-    def _generate_highlights(
-        self,
-        paper: Paper,
-        query: str,
-    ) -> list[SearchHighlight]:
-        """Generate text highlights showing where query matches."""
-        query_words = query.lower().split()
-        highlights: list[SearchHighlight] = []
-
-        # Title uses smaller context window (30 chars), abstract uses larger (50 chars)
-        title_highlight = self._find_highlight(paper.title, query_words, "title", 30)
-        if title_highlight:
-            highlights.append(title_highlight)
-
-        abstract_highlight = self._find_highlight(paper.abstract, query_words, "abstract", 50)
-        if abstract_highlight:
-            highlights.append(abstract_highlight)
-
-        return highlights
-
-    def _find_highlight(
-        self,
-        text: str | None,
-        query_words: list[str],
-        field: str,
-        context_size: int,
-    ) -> SearchHighlight | None:
-        """Find a highlight snippet in text for query words."""
-        if not text:
-            return None
-
-        text_lower = text.lower()
-        for word in query_words:
-            if word not in text_lower:
-                continue
-
-            idx = text_lower.find(word)
-            start = max(0, idx - context_size)
-            end = min(len(text), idx + len(word) + context_size)
-
-            snippet = text[start:end]
-            if start > 0:
-                snippet = "..." + snippet
-            if end < len(text):
-                snippet = snippet + "..."
-
-            return SearchHighlight(field=field, snippet=snippet)
-
-        return None

@@ -119,6 +119,55 @@ tb_module.token_blacklist._get_redis = _patched_get_redis  # type: ignore[assign
 
 
 # ---------------------------------------------------------------------------
+# Mock Qdrant + Typesense: prevent tests from connecting to real servers
+# ---------------------------------------------------------------------------
+from unittest.mock import AsyncMock, MagicMock
+
+from paper_scraper.core import search_engine as _se_module
+from paper_scraper.core import vector as _vec_module
+
+
+def _get_mock_typesense_client() -> MagicMock:
+    """Return a MagicMock that mimics the typesense.Client interface."""
+    mock = MagicMock()
+    # search_papers calls self._client.collections[name].documents.search(...)
+    mock.collections.__getitem__.return_value.documents.search.return_value = {
+        "found": 0,
+        "hits": [],
+    }
+    mock.collections.__getitem__.return_value.documents.create.return_value = {}
+    mock.collections.__getitem__.return_value.documents.__getitem__.return_value.update.return_value = {}
+    mock.collections.__getitem__.return_value.documents.__getitem__.return_value.delete.return_value = {}
+    mock.collections.retrieve.return_value = []
+    mock.collections.create.return_value = {}
+    return mock
+
+
+# Patch the singleton factory so SearchEngineService never connects to Typesense
+_se_module._client = _get_mock_typesense_client()  # type: ignore[assignment]
+_se_module.get_typesense_client = lambda: _se_module._client  # type: ignore[assignment]
+
+
+# Patch the Qdrant singleton factory so VectorService never connects to Qdrant
+_mock_qdrant = AsyncMock()
+_mock_qdrant.get_collections.return_value = MagicMock(collections=[])
+_mock_qdrant.query_points.return_value = MagicMock(points=[])
+_mock_qdrant.retrieve.return_value = []
+_mock_qdrant.count.return_value = MagicMock(count=0)
+_mock_qdrant.upsert.return_value = None
+_mock_qdrant.delete.return_value = None
+_mock_qdrant.close.return_value = None
+
+
+async def _patched_get_qdrant() -> AsyncMock:
+    return _mock_qdrant
+
+
+_vec_module._client = _mock_qdrant  # type: ignore[assignment]
+_vec_module.get_qdrant_client = _patched_get_qdrant  # type: ignore[assignment]
+
+
+# ---------------------------------------------------------------------------
 # testcontainers: PostgreSQL with pgvector
 # ---------------------------------------------------------------------------
 # Use pgvector/pgvector:pg16 image to match production and have the vector

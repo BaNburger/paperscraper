@@ -4,7 +4,6 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from pgvector.sqlalchemy import Vector
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, Uuid, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -59,7 +58,7 @@ class SavedSearch(Base):
 
     # Discovery / Auto-import configuration
     semantic_description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
+    # Embedding stored in Qdrant "searches" collection (keyed by saved_search.id)
     target_project_id: Mapped[UUID | None] = mapped_column(
         Uuid,
         ForeignKey("projects.id", ondelete="SET NULL"),

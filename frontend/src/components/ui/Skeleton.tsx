@@ -7,7 +7,10 @@ interface SkeletonProps {
 export function Skeleton({ className }: SkeletonProps) {
   return (
     <div
-      className={cn('animate-pulse rounded-md bg-muted', className)}
+      className={cn(
+        'rounded-md bg-muted bg-gradient-to-r from-muted via-muted-foreground/5 to-muted bg-[length:200%_100%] animate-[shimmer_1.5s_ease-in-out_infinite]',
+        className
+      )}
     />
   )
 }
@@ -25,7 +28,6 @@ export function SkeletonCard({ className }: SkeletonProps) {
     </div>
   )
 }
-
 
 export function SkeletonStats() {
   return (

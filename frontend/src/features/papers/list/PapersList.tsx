@@ -84,7 +84,7 @@ export function PapersList({
 
   return (
     <>
-      <div className="space-y-4" data-testid="papers-list">
+      <div className="space-y-4 stagger-list" data-testid="papers-list">
         {data.items.map((paper) => (
           <PaperListItem key={paper.id} paper={paper} />
         ))}
