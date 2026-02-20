@@ -192,6 +192,7 @@ coverage/
 frontend/coverage/
 frontend/.vite/
 frontend/.eslintcache
+frontend/storybook-static/
 *.trace
 *.har
 *.webm
