@@ -3,9 +3,11 @@
 from paper_scraper.modules.papers.clients.arxiv import ArxivClient
 from paper_scraper.modules.papers.clients.crossref import CrossrefClient
 from paper_scraper.modules.papers.clients.epo_ops import EPOOPSClient as EpoOpsClient
+from paper_scraper.modules.papers.clients.lens import LensClient
 from paper_scraper.modules.papers.clients.openalex import OpenAlexClient
 from paper_scraper.modules.papers.clients.pubmed import PubMedClient
 from paper_scraper.modules.papers.clients.semantic_scholar import SemanticScholarClient
+from paper_scraper.modules.papers.clients.uspto import USPTOClient
 
 __all__ = [
     "OpenAlexClient",
@@ -13,5 +15,7 @@ __all__ = [
     "PubMedClient",
     "ArxivClient",
     "EpoOpsClient",
+    "LensClient",
     "SemanticScholarClient",
+    "USPTOClient",
 ]

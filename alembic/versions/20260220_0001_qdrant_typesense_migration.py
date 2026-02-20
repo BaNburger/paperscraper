@@ -73,6 +73,12 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # ⚠️  WARNING: This downgrade re-creates vector columns but ALL embedding
+    # data that was moved to Qdrant will be LOST. After downgrade, vector
+    # columns will exist but be NULL. A full re-embedding of all papers,
+    # authors, and trend topics is required after downgrade.
+    # Estimated re-embedding cost depends on corpus size and LLM provider.
+
     # Remove has_embedding index and column
     op.drop_index("ix_papers_has_embedding", "papers")
     op.drop_column("papers", "has_embedding")

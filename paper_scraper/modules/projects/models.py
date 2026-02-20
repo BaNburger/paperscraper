@@ -159,7 +159,7 @@ class ProjectCluster(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     keywords: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     paper_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    # Centroid embedding stored in Qdrant "clusters" collection (keyed by cluster.id)
+    # Centroid embedding stored in-memory during clustering (not persisted)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(

@@ -67,25 +67,14 @@ class EmbeddingService:
             return False
 
         embedding = await self.embedding_client.embed_text(self._paper_to_text(paper))
+
+        # Store embedding directly on the paper row (pgvector)
+        paper.embedding = embedding
         paper.has_embedding = True
         await self.db.flush()
 
-        # Sync to Qdrant + Typesense
-        await self.sync.sync_paper(
-            paper_id=paper.id,
-            organization_id=paper.organization_id,
-            title=paper.title,
-            abstract=paper.abstract,
-            doi=paper.doi,
-            source=paper.source.value if paper.source else None,
-            journal=paper.journal,
-            paper_type=paper.paper_type.value if paper.paper_type else None,
-            keywords=paper.keywords,
-            citations_count=paper.citations_count,
-            publication_date=paper.publication_date,
-            created_at=paper.created_at,
-            embedding=embedding,
-        )
+        # Sync metadata to Typesense (embedding stored in pgvector, not Typesense)
+        self._sync_paper_metadata(paper)
 
         return True
 
@@ -238,14 +227,25 @@ class EmbeddingService:
         paper: Paper,
         embedding: list[float],
     ) -> None:
-        """Sync a paper's embedding to Qdrant + Typesense via SyncService.
+        """Store embedding on paper row (pgvector) and sync metadata to Typesense.
 
         Failures are logged but never raised — the PostgreSQL write is the
         authoritative operation and must not be blocked by external service
         errors.
         """
         try:
-            await self.sync.sync_paper(
+            # Store embedding directly on paper row (pgvector)
+            paper.embedding = embedding
+            paper.has_embedding = True
+            # Sync metadata to Typesense
+            self._sync_paper_metadata(paper)
+        except Exception:
+            logger.exception("Failed to sync paper %s to external services", paper.id)
+
+    def _sync_paper_metadata(self, paper: Paper) -> None:
+        """Sync paper metadata to Typesense (no embedding — that's in pgvector)."""
+        try:
+            self.sync.sync_paper(
                 paper_id=paper.id,
                 organization_id=paper.organization_id,
                 title=paper.title,
@@ -256,12 +256,13 @@ class EmbeddingService:
                 paper_type=paper.paper_type.value if paper.paper_type else None,
                 keywords=paper.keywords,
                 citations_count=paper.citations_count,
+                has_embedding=paper.has_embedding,
+                is_global=getattr(paper, "is_global", False),
                 publication_date=paper.publication_date,
                 created_at=paper.created_at,
-                embedding=embedding,
             )
         except Exception:
-            logger.exception("Failed to sync paper %s to external services", paper.id)
+            logger.exception("Failed to sync paper %s to Typesense", paper.id)
 
     def _paper_to_text(self, paper: Paper) -> str:
         parts = [f"Title: {paper.title}"]

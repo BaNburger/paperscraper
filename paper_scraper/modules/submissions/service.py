@@ -511,10 +511,10 @@ class SubmissionService:
                 keywords=submission.keywords,
             )
 
-            # Find similar papers using Qdrant vector search
+            # Find similar papers using pgvector cosine search
             vector_service = VectorService()
-            results = await vector_service.search(
-                collection="papers",
+            results = await vector_service.search_similar(
+                db=self.db,
                 query_vector=embedding,
                 organization_id=organization_id,
                 limit=limit,
@@ -523,9 +523,14 @@ class SubmissionService:
             if not results:
                 return []
 
-            # Hydrate full Paper objects from PostgreSQL
+            # Hydrate full Paper objects from PostgreSQL (with tenant isolation)
             paper_ids = [UUID(r["id"]) for r in results]
-            db_result = await self.db.execute(select(Paper).where(Paper.id.in_(paper_ids)))
+            db_result = await self.db.execute(
+                select(Paper).where(
+                    Paper.id.in_(paper_ids),
+                    Paper.organization_id == organization_id,
+                )
+            )
             return list(db_result.scalars().all())
 
         except Exception as e:

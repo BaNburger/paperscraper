@@ -271,34 +271,9 @@ class GroupService:
             # Fall back to basic text matching
             return await self._suggest_members_fallback(organization_id, keywords, target_size)
 
-        # Find authors with similar research profiles using Qdrant
-        # Authors have 768d embeddings in Qdrant — truncate query embedding
-        from paper_scraper.core.vector import VectorService
-
-        truncated_embedding = (
-            list(keywords_embedding[:768])
-            if len(keywords_embedding) > 768
-            else list(keywords_embedding)
-        )
-
-        try:
-            vector_service = VectorService()
-            qdrant_results = await vector_service.search(
-                collection="authors",
-                query_vector=truncated_embedding,
-                organization_id=organization_id,
-                limit=target_size * 2,
-            )
-
-            if qdrant_results:
-                author_ids = [UUID(r["id"]) for r in qdrant_results]
-                result = await self.db.execute(select(Author).where(Author.id.in_(author_ids)))
-                authors_with_embeddings = list(result.scalars().all())
-            else:
-                authors_with_embeddings = []
-        except Exception as e:
-            logger.warning(f"Embedding search failed, falling back to text: {e}")
-            return await self._suggest_members_fallback(organization_id, keywords, target_size)
+        # Author embeddings are not yet stored in pgvector (future migration).
+        # Fall back to text-based matching for now.
+        authors_with_embeddings: list[Author] = []
 
         # If we don't have enough authors with embeddings, supplement with others
         if len(authors_with_embeddings) < target_size:

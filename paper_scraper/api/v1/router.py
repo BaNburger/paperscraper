@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from paper_scraper.modules.alerts.router import router as alerts_router
+from paper_scraper.modules.catalog.router import router as catalog_router
 from paper_scraper.modules.analytics.router import router as analytics_router
 from paper_scraper.modules.audit.router import router as audit_router
 from paper_scraper.modules.auth.router import router as auth_router
@@ -58,3 +59,4 @@ api_router.include_router(integrations_router, prefix="/integrations", tags=["In
 api_router.include_router(library_router, prefix="/library", tags=["Library"])
 api_router.include_router(trends_router, prefix="/trends", tags=["Trends"])
 api_router.include_router(discovery_router, prefix="/discovery", tags=["Discovery"])
+api_router.include_router(catalog_router, prefix="/catalog", tags=["Catalog"])

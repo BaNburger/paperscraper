@@ -45,7 +45,7 @@ class TrendTopic(Base):
 
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
-    # Embedding stored in Qdrant "trends" collection (keyed by trend_topic.id)
+    # Embedding computed on-the-fly from description via EmbeddingClient
     color: Mapped[str | None] = mapped_column(String(7), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
 

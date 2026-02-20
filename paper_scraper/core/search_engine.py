@@ -31,7 +31,7 @@ SCHEMA_VERSION = 1
 PAPERS_SCHEMA: dict[str, Any] = {
     "fields": [
         {"name": "paper_id", "type": "string"},
-        {"name": "organization_id", "type": "string", "facet": True},
+        {"name": "organization_id", "type": "string", "optional": True, "facet": True},
         {"name": "title", "type": "string"},
         {"name": "abstract", "type": "string", "optional": True},
         {"name": "doi", "type": "string", "optional": True},
@@ -42,6 +42,7 @@ PAPERS_SCHEMA: dict[str, Any] = {
         {"name": "overall_score", "type": "float", "optional": True},
         {"name": "citations_count", "type": "int32", "optional": True},
         {"name": "has_embedding", "type": "bool", "optional": True},
+        {"name": "is_global", "type": "bool", "optional": True, "facet": True},
         {"name": "publication_date", "type": "int64", "optional": True},
         {"name": "created_at", "type": "int64"},
     ],
@@ -66,7 +67,7 @@ def get_typesense_client() -> typesense.Client:
 
         _client = typesense.Client(
             {
-                "api_key": settings.TYPESENSE_API_KEY,
+                "api_key": settings.TYPESENSE_API_KEY.get_secret_value(),
                 "nodes": [
                     {
                         "host": host,
@@ -204,25 +205,30 @@ class SearchEngineService:
         filter_by: str | None = None,
         sort_by: str | None = None,
         facet_by: str | None = None,
+        scope: str = "library",
     ) -> dict[str, Any]:
-        """Full-text search for papers within a tenant.
+        """Full-text search for papers.
 
         Args:
             query: Search query text
-            organization_id: Tenant isolation filter
+            organization_id: Tenant isolation filter (used when scope='library')
             page: Page number (1-indexed)
             page_size: Results per page
             filter_by: Additional Typesense filter expression
             sort_by: Sort expression (e.g., "created_at:desc")
             facet_by: Facet fields (e.g., "source,paper_type")
+            scope: 'library' for org-scoped search, 'catalog' for global
 
         Returns:
             Typesense search result with hits, found count, facets, etc.
         """
         full_name = _collection_name("papers")
 
-        # Build filter: always include org isolation
-        filters = [f"organization_id:={organization_id}"]
+        # Build filter based on scope
+        if scope == "catalog":
+            filters = ["is_global:=true"]
+        else:
+            filters = [f"organization_id:={organization_id}"]
         if filter_by:
             filters.append(filter_by)
         filter_str = " && ".join(filters)
@@ -251,15 +257,27 @@ class SearchEngineService:
     def multi_search(
         self,
         searches: list[dict[str, Any]],
+        organization_id: UUID | None = None,
     ) -> dict[str, Any]:
         """Execute multiple searches in a single request.
 
         Args:
             searches: List of search parameter dicts
+            organization_id: If provided, enforces tenant isolation on all
+                sub-searches by injecting an organization_id filter.
 
         Returns:
             Combined results
         """
+        if organization_id is not None:
+            org_filter = f"organization_id:={organization_id}"
+            for s in searches:
+                existing = s.get("filter_by", "")
+                if org_filter not in existing:
+                    s["filter_by"] = (
+                        f"{existing} && {org_filter}" if existing else org_filter
+                    )
+
         return self._client.multi_search.perform(
             {"searches": searches},
             {},
@@ -272,7 +290,7 @@ class SearchEngineService:
     @staticmethod
     def paper_to_document(
         paper_id: UUID,
-        organization_id: UUID,
+        organization_id: UUID | None,
         title: str,
         abstract: str | None = None,
         doi: str | None = None,
@@ -283,6 +301,7 @@ class SearchEngineService:
         overall_score: float | None = None,
         citations_count: int | None = None,
         has_embedding: bool = False,
+        is_global: bool = False,
         publication_date: datetime | None = None,
         created_at: datetime | None = None,
     ) -> dict[str, Any]:
@@ -293,11 +312,12 @@ class SearchEngineService:
         doc: dict[str, Any] = {
             "id": str(paper_id),
             "paper_id": str(paper_id),
-            "organization_id": str(organization_id),
             "title": title,
             "created_at": _datetime_to_epoch(created_at) or 0,
         }
 
+        if organization_id is not None:
+            doc["organization_id"] = str(organization_id)
         if abstract is not None:
             doc["abstract"] = abstract
         if doi is not None:
@@ -316,6 +336,8 @@ class SearchEngineService:
             doc["citations_count"] = citations_count
         if has_embedding:
             doc["has_embedding"] = has_embedding
+        if is_global:
+            doc["is_global"] = is_global
         if publication_date is not None:
             doc["publication_date"] = _datetime_to_epoch(publication_date)
 

@@ -47,3 +47,17 @@
   reason: Alerts router still calls a legacy private service helper pending API cleanup.
   owner: backend-platform
   expires_on: 2026-12-31
+
+- rule_id: PSA003
+  path: paper_scraper/modules/scoring/bedrock_client.py
+  match: Direct storage SDK usage
+  reason: AWS Bedrock Runtime API requires boto3/aiobotocore — this is LLM inference, not file storage.
+  owner: backend-platform
+  expires_on: 2027-02-20
+
+- rule_id: PSA003
+  path: paper_scraper/jobs/bedrock_batch.py
+  match: Direct storage SDK usage
+  reason: Bedrock Batch API requires S3 for JSONL input/output and boto3 for batch job management. Wrapping in core/storage.py is not appropriate since these are Bedrock-specific workflows.
+  owner: backend-platform
+  expires_on: 2027-02-20

@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from paper_scraper.core.vector import VectorService
 from paper_scraper.modules.papers.clients.epo_ops import EPOOPSClient
 from paper_scraper.modules.papers.models import Paper
+from paper_scraper.modules.scoring.embeddings import EmbeddingClient
 from paper_scraper.modules.scoring.models import PaperScore
 from paper_scraper.modules.trends.models import TrendPaper, TrendSnapshot, TrendTopic
 
@@ -26,6 +27,7 @@ class TrendAnalyzer:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.vector = VectorService()
+        self.embedding_client = EmbeddingClient()
 
     async def analyze(
         self,
@@ -113,21 +115,19 @@ class TrendAnalyzer:
         min_similarity: float,
         max_papers: int,
     ) -> list[tuple[UUID, float]]:
-        """Find papers semantically similar to trend description via Qdrant.
+        """Find papers semantically similar to trend description via pgvector.
 
-        Fetches the topic embedding from the Qdrant 'trends' collection,
-        then uses it to search the 'papers' collection for similar papers.
+        Embeds the topic description on-the-fly and searches the papers table
+        for similar embeddings using pgvector cosine distance.
         """
-        # Retrieve the topic's embedding from Qdrant
-        point = await self.vector.get_point("trends", topic.id, with_vector=True)
-        if point is None or "vector" not in point:
-            logger.warning("No embedding found in Qdrant for trend topic %s", topic.id)
+        try:
+            query_vector = await self.embedding_client.embed_text(topic.description)
+        except Exception as exc:
+            logger.warning("Failed to embed trend description for %s: %s", topic.id, exc)
             return []
 
-        query_vector = point["vector"]
-
-        results = await self.vector.search(
-            collection="papers",
+        results = await self.vector.search_similar(
+            db=self.db,
             query_vector=query_vector,
             organization_id=topic.organization_id,
             limit=max_papers,

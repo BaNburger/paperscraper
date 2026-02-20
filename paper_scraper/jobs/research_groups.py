@@ -165,15 +165,14 @@ async def sync_research_group_task(
             await project_service.update_sync_status(proj_uuid, org_uuid, SyncStatus.CLUSTERING)
             await db.commit()
 
-            # 7. Get all project paper IDs and their embeddings from Qdrant
-
-            from paper_scraper.core.vector import _collection_name, get_qdrant_client
+            # 7. Get all project paper IDs and their embeddings from pgvector
 
             paper_id_result = await db.execute(
-                select(Paper.id, Paper.keywords)
+                select(Paper.id, Paper.keywords, Paper.embedding)
                 .join(ProjectPaper, ProjectPaper.paper_id == Paper.id)
                 .where(ProjectPaper.project_id == proj_uuid)
                 .where(Paper.has_embedding.is_(True))
+                .where(Paper.embedding.isnot(None))
             )
             paper_rows_db = paper_id_result.all()
 
@@ -206,20 +205,10 @@ async def sync_research_group_task(
                     "message": "Not enough embeddings to cluster",
                 }
 
-            # Fetch embeddings from Qdrant
-            qdrant = await get_qdrant_client()
-            point_ids = [str(row[0]) for row in paper_rows_db]
+            # Build paper_ids and embeddings arrays from pgvector column
+            paper_ids = [row[0] for row in paper_rows_db]
             keywords_map = {row[0]: row[1] or [] for row in paper_rows_db}
-            retrieved = await qdrant.retrieve(
-                collection_name=_collection_name("papers"),
-                ids=point_ids,
-                with_vectors=True,
-                with_payload=False,
-            )
-
-            # Build paper_ids and embeddings arrays in matching order
-            paper_ids = [UUID(p.id) for p in retrieved]
-            embeddings = [list(p.vector) for p in retrieved]
+            embeddings = [list(row[2]) for row in paper_rows_db]
 
             assignments, centroids = cluster_embeddings(paper_ids, embeddings)
 

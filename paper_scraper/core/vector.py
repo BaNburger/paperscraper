@@ -1,14 +1,11 @@
-"""Qdrant vector search client for paper and author embeddings.
+"""pgvector-based vector search for paper semantic similarity.
 
-Replaces pgvector for all vector similarity operations. Provides tenant-isolated
-filtered search, batch upsert, and collection management.
+Uses PostgreSQL HNSW indexes for all vector operations. Replaces Qdrant
+to consolidate infrastructure and reduce costs at scale (15-25M papers).
 
-Collections:
-    - papers: 1536d embeddings for paper semantic search
-    - authors: 768d embeddings for author similarity
-    - clusters: 1536d centroids for project clusters
-    - searches: 1536d embeddings for saved searches
-    - trends: 1536d embeddings for trend topics
+The embedding column lives on the papers table directly. Tenant isolation
+is handled via JOIN to organization_papers (for "my library" searches) or
+via the is_global flag (for catalog browsing).
 """
 
 from __future__ import annotations
@@ -17,402 +14,279 @@ import logging
 from typing import Any
 from uuid import UUID
 
-from qdrant_client import AsyncQdrantClient, models
-
-from paper_scraper.core.config import settings
+from sqlalchemy import select, text, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
-# Collection definitions: name -> vector dimension
-COLLECTIONS: dict[str, int] = {
-    "papers": 1536,
-    "authors": 768,
-    "clusters": 1536,
-    "searches": 1536,
-    "trends": 1536,
-}
-
-# Singleton client instance
-_client: AsyncQdrantClient | None = None
-
-
-async def get_qdrant_client() -> AsyncQdrantClient:
-    """Get or create the async Qdrant client singleton."""
-    global _client
-    if _client is None:
-        _client = AsyncQdrantClient(
-            url=settings.QDRANT_URL,
-            api_key=settings.QDRANT_API_KEY or None,
-            timeout=30,
-        )
-    return _client
-
-
-async def close_qdrant_client() -> None:
-    """Close the Qdrant client connection."""
-    global _client
-    if _client is not None:
-        await _client.close()
-        _client = None
-
-
-def _collection_name(name: str) -> str:
-    """Get the full collection name with optional prefix."""
-    return f"{settings.QDRANT_COLLECTION_PREFIX}{name}"
+# Embedding dimension (text-embedding-3-small)
+EMBEDDING_DIM = 1536
 
 
 class VectorService:
-    """High-level vector search operations backed by Qdrant.
+    """pgvector-backed vector search for paper embeddings.
 
-    All methods are tenant-isolated via organization_id payload filtering.
+    All search methods accept an optional organization_id for tenant-scoped
+    queries, or operate globally for catalog searches.
     """
 
-    def __init__(self, client: AsyncQdrantClient | None = None) -> None:
-        self._client = client
-
-    async def _get_client(self) -> AsyncQdrantClient:
-        if self._client is not None:
-            return self._client
-        return await get_qdrant_client()
-
-    # =========================================================================
-    # Collection Management
-    # =========================================================================
-
-    async def ensure_collections(self) -> None:
-        """Create all vector collections if they don't exist."""
-        client = await self._get_client()
-        existing = {c.name for c in (await client.get_collections()).collections}
-
-        for name, dimension in COLLECTIONS.items():
-            full_name = _collection_name(name)
-            if full_name in existing:
-                continue
-
-            await client.create_collection(
-                collection_name=full_name,
-                vectors_config=models.VectorParams(
-                    size=dimension,
-                    distance=models.Distance.COSINE,
-                ),
-                # Scalar quantization for ~4x memory savings at scale
-                quantization_config=models.ScalarQuantization(
-                    scalar=models.ScalarQuantizationConfig(
-                        type=models.ScalarType.INT8,
-                        quantile=0.99,
-                        always_ram=True,
-                    ),
-                ),
-            )
-
-            # Create payload indexes for filtered search
-            await client.create_payload_index(
-                collection_name=full_name,
-                field_name="organization_id",
-                field_schema=models.PayloadSchemaType.KEYWORD,
-            )
-
-            logger.info("Created Qdrant collection: %s (dim=%d)", full_name, dimension)
-
-    async def delete_collections(self) -> None:
-        """Delete all managed collections. Used in testing."""
-        client = await self._get_client()
-        for name in COLLECTIONS:
-            full_name = _collection_name(name)
-            try:
-                await client.delete_collection(full_name)
-            except Exception:
-                pass
-
-    # =========================================================================
+    # ------------------------------------------------------------------
     # Upsert Operations
-    # =========================================================================
+    # ------------------------------------------------------------------
 
-    async def upsert(
+    async def upsert_embedding(
         self,
-        collection: str,
-        point_id: UUID,
-        vector: list[float],
-        payload: dict[str, Any],
+        db: AsyncSession,
+        paper_id: UUID,
+        embedding: list[float],
     ) -> None:
-        """Upsert a single vector point.
+        """Store or update the embedding for a single paper.
 
         Args:
-            collection: Collection name (e.g., "papers", "authors")
-            point_id: Unique point ID (typically the entity's UUID)
-            vector: Embedding vector
-            payload: Metadata payload (must include organization_id)
+            db: Database session
+            paper_id: Paper UUID
+            embedding: 1536-dim float vector
         """
-        client = await self._get_client()
-        await client.upsert(
-            collection_name=_collection_name(collection),
-            points=[
-                models.PointStruct(
-                    id=str(point_id),
-                    vector=vector,
-                    payload=payload,
-                )
-            ],
+        if len(embedding) != EMBEDDING_DIM:
+            raise ValueError(
+                f"Embedding dimension mismatch: expected {EMBEDDING_DIM}, "
+                f"got {len(embedding)}"
+            )
+
+        from paper_scraper.modules.papers.models import Paper
+
+        await db.execute(
+            update(Paper)
+            .where(Paper.id == paper_id)
+            .values(embedding=embedding, has_embedding=True)
         )
+        await db.flush()
 
     async def upsert_batch(
         self,
-        collection: str,
-        points: list[dict[str, Any]],
-        batch_size: int = 100,
+        db: AsyncSession,
+        papers_with_embeddings: list[dict[str, Any]],
     ) -> int:
-        """Batch upsert vector points.
+        """Batch upsert embeddings for multiple papers.
 
         Args:
-            collection: Collection name
-            points: List of dicts with keys: id (UUID), vector (list[float]), payload (dict)
-            batch_size: Points per batch
+            db: Database session
+            papers_with_embeddings: List of dicts with keys:
+                - paper_id (UUID)
+                - embedding (list[float])
 
         Returns:
-            Number of points upserted
+            Number of papers updated
         """
-        client = await self._get_client()
-        full_name = _collection_name(collection)
-        total = 0
+        if not papers_with_embeddings:
+            return 0
 
-        for start in range(0, len(points), batch_size):
-            chunk = points[start : start + batch_size]
-            qdrant_points = [
-                models.PointStruct(
-                    id=str(p["id"]),
-                    vector=p["vector"],
-                    payload=p["payload"],
+        from paper_scraper.modules.papers.models import Paper
+
+        count = 0
+        for item in papers_with_embeddings:
+            embedding = item["embedding"]
+            if len(embedding) != EMBEDDING_DIM:
+                logger.warning(
+                    "Skipping paper %s: dimension mismatch (%d != %d)",
+                    item["paper_id"],
+                    len(embedding),
+                    EMBEDDING_DIM,
                 )
-                for p in chunk
-            ]
-            await client.upsert(
-                collection_name=full_name,
-                points=qdrant_points,
+                continue
+
+            await db.execute(
+                update(Paper)
+                .where(Paper.id == item["paper_id"])
+                .values(embedding=embedding, has_embedding=True)
             )
-            total += len(chunk)
+            count += 1
 
-        return total
+        await db.flush()
+        return count
 
-    # =========================================================================
+    # ------------------------------------------------------------------
     # Search Operations
-    # =========================================================================
+    # ------------------------------------------------------------------
 
-    async def search(
+    async def search_similar(
         self,
-        collection: str,
+        db: AsyncSession,
         query_vector: list[float],
-        organization_id: UUID,
+        organization_id: UUID | None = None,
         limit: int = 20,
         min_score: float | None = None,
-        extra_filters: list[models.Condition] | None = None,
     ) -> list[dict[str, Any]]:
-        """Search for similar vectors within a tenant.
+        """Find papers similar to a query vector.
+
+        When organization_id is provided, searches only papers claimed by
+        that organization (via organization_papers join). Otherwise searches
+        the full global catalog.
 
         Args:
-            collection: Collection name
-            query_vector: Query embedding
-            organization_id: Tenant isolation filter
-            limit: Max results
-            min_score: Minimum similarity score (0-1)
-            extra_filters: Additional Qdrant filter conditions
+            db: Database session
+            query_vector: 1536-dim query embedding
+            organization_id: Tenant isolation (None = global catalog)
+            limit: Max results (capped at 1000)
+            min_score: Minimum cosine similarity (0-1). Note: pgvector uses
+                distance, so we convert: distance < (1 - min_score).
 
         Returns:
-            List of dicts with keys: id, score, payload
+            List of dicts: {id, score, paper_id, doi, title}
         """
-        client = await self._get_client()
+        limit = min(limit, 1000)
 
-        must_conditions: list[models.Condition] = [
-            models.FieldCondition(
-                key="organization_id",
-                match=models.MatchValue(value=str(organization_id)),
-            ),
-        ]
-        if extra_filters:
-            must_conditions.extend(extra_filters)
+        from paper_scraper.modules.papers.models import OrganizationPaper, Paper
 
-        results = await client.query_points(
-            collection_name=_collection_name(collection),
-            query=query_vector,
-            query_filter=models.Filter(must=must_conditions),
-            limit=limit,
-            score_threshold=min_score,
-            with_payload=True,
+        # pgvector cosine distance: 0 = identical, 2 = opposite
+        # Convert to similarity: similarity = 1 - distance
+        distance_expr = Paper.embedding.cosine_distance(query_vector)
+
+        query = (
+            select(
+                Paper.id,
+                Paper.doi,
+                Paper.title,
+                Paper.source,
+                distance_expr.label("distance"),
+            )
+            .where(Paper.embedding.isnot(None))
         )
+
+        if organization_id is not None:
+            query = query.join(
+                OrganizationPaper,
+                OrganizationPaper.paper_id == Paper.id,
+            ).where(OrganizationPaper.organization_id == organization_id)
+        else:
+            query = query.where(Paper.is_global.is_(True))
+
+        if min_score is not None:
+            max_distance = 1.0 - min_score
+            query = query.where(distance_expr <= max_distance)
+
+        query = query.order_by(distance_expr).limit(limit)
+
+        result = await db.execute(query)
+        rows = result.all()
 
         return [
             {
-                "id": point.id,
-                "score": point.score,
-                "payload": point.payload or {},
+                "id": str(row.id),
+                "score": round(1.0 - float(row.distance), 4),
+                "paper_id": str(row.id),
+                "doi": row.doi,
+                "title": row.title,
+                "source": row.source,
             }
-            for point in results.points
+            for row in rows
         ]
 
-    async def search_by_id(
+    async def search_by_paper_id(
         self,
-        collection: str,
-        point_id: UUID,
-        organization_id: UUID,
+        db: AsyncSession,
+        paper_id: UUID,
+        organization_id: UUID | None = None,
         limit: int = 10,
         min_score: float | None = None,
     ) -> list[dict[str, Any]]:
-        """Find similar vectors to an existing point.
+        """Find papers similar to an existing paper's embedding.
 
         Args:
-            collection: Collection name
-            point_id: ID of the reference point
-            organization_id: Tenant isolation filter
+            paper_id: Reference paper UUID
+            organization_id: Tenant scope (None = global)
             limit: Max results
-            min_score: Minimum similarity score
+            min_score: Minimum cosine similarity
 
         Returns:
-            List of similar points (excluding the reference point)
+            List of similar papers (excluding the reference paper)
         """
-        client = await self._get_client()
+        from paper_scraper.modules.papers.models import Paper
 
-        must_conditions: list[models.Condition] = [
-            models.FieldCondition(
-                key="organization_id",
-                match=models.MatchValue(value=str(organization_id)),
-            ),
-        ]
+        # Fetch the reference paper's embedding
+        ref = await db.execute(
+            select(Paper.embedding).where(Paper.id == paper_id)
+        )
+        ref_row = ref.scalar_one_or_none()
+        if ref_row is None:
+            return []
 
-        # Exclude the reference point itself
-        must_not: list[models.Condition] = [
-            models.HasIdCondition(has_id=[str(point_id)]),
-        ]
-
-        results = await client.query_points(
-            collection_name=_collection_name(collection),
-            query=str(point_id),
-            using=None,
-            query_filter=models.Filter(must=must_conditions, must_not=must_not),
-            limit=limit,
-            score_threshold=min_score,
-            with_payload=True,
+        # Search with the reference embedding, excluding the paper itself
+        results = await self.search_similar(
+            db=db,
+            query_vector=list(ref_row),
+            organization_id=organization_id,
+            limit=limit + 1,
+            min_score=min_score,
         )
 
-        return [
-            {
-                "id": point.id,
-                "score": point.score,
-                "payload": point.payload or {},
-            }
-            for point in results.points
-        ]
+        # Filter out the reference paper
+        return [r for r in results if r["id"] != str(paper_id)][:limit]
 
-    # =========================================================================
+    # ------------------------------------------------------------------
     # Delete Operations
-    # =========================================================================
+    # ------------------------------------------------------------------
 
-    async def delete(self, collection: str, point_id: UUID) -> None:
-        """Delete a single point by ID."""
-        client = await self._get_client()
-        await client.delete(
-            collection_name=_collection_name(collection),
-            points_selector=models.PointIdsList(
-                points=[str(point_id)],
-            ),
+    async def delete_embedding(
+        self,
+        db: AsyncSession,
+        paper_id: UUID,
+    ) -> None:
+        """Remove the embedding from a paper."""
+        from paper_scraper.modules.papers.models import Paper
+
+        await db.execute(
+            update(Paper)
+            .where(Paper.id == paper_id)
+            .values(embedding=None, has_embedding=False)
         )
+        await db.flush()
 
-    async def delete_by_org(self, collection: str, organization_id: UUID) -> None:
-        """Delete all points for an organization (tenant cleanup)."""
-        client = await self._get_client()
-        await client.delete(
-            collection_name=_collection_name(collection),
-            points_selector=models.FilterSelector(
-                filter=models.Filter(
-                    must=[
-                        models.FieldCondition(
-                            key="organization_id",
-                            match=models.MatchValue(value=str(organization_id)),
-                        ),
-                    ]
-                )
-            ),
-        )
-
-    # =========================================================================
+    # ------------------------------------------------------------------
     # Utility
-    # =========================================================================
+    # ------------------------------------------------------------------
 
-    async def count(
+    async def count_embeddings(
         self,
-        collection: str,
+        db: AsyncSession,
         organization_id: UUID | None = None,
+        global_only: bool = False,
     ) -> int:
-        """Count points in a collection, optionally filtered by org."""
-        client = await self._get_client()
-        full_name = _collection_name(collection)
+        """Count papers with embeddings."""
+        from paper_scraper.modules.papers.models import OrganizationPaper, Paper
 
-        if organization_id:
-            result = await client.count(
-                collection_name=full_name,
-                count_filter=models.Filter(
-                    must=[
-                        models.FieldCondition(
-                            key="organization_id",
-                            match=models.MatchValue(value=str(organization_id)),
-                        ),
-                    ]
-                ),
-            )
-        else:
-            result = await client.count(collection_name=full_name)
+        query = select(text("count(*)")).select_from(Paper.__table__).where(
+            Paper.has_embedding.is_(True)
+        )
 
-        return result.count
+        if organization_id is not None:
+            query = query.join(
+                OrganizationPaper.__table__,
+                OrganizationPaper.paper_id == Paper.id,
+            ).where(OrganizationPaper.organization_id == organization_id)
+        elif global_only:
+            query = query.where(Paper.is_global.is_(True))
 
-    async def get_point(
-        self,
-        collection: str,
-        point_id: UUID,
-        with_vector: bool = False,
-    ) -> dict[str, Any] | None:
-        """Retrieve a single point by ID.
-
-        Args:
-            collection: Collection name
-            point_id: Point UUID
-            with_vector: Whether to include the vector in the result
-
-        Returns:
-            Dict with id, payload, and optionally vector. None if not found.
-        """
-        client = await self._get_client()
-        try:
-            results = await client.retrieve(
-                collection_name=_collection_name(collection),
-                ids=[str(point_id)],
-                with_vectors=with_vector,
-                with_payload=True,
-            )
-            if results:
-                point = results[0]
-                result: dict[str, Any] = {
-                    "id": point.id,
-                    "payload": point.payload or {},
-                }
-                if with_vector and point.vector is not None:
-                    result["vector"] = point.vector
-                return result
-        except Exception:
-            pass
-        return None
+        result = await db.execute(query)
+        return result.scalar() or 0
 
     async def has_vector(
         self,
-        collection: str,
-        point_id: UUID,
+        db: AsyncSession,
+        paper_id: UUID,
     ) -> bool:
-        """Check if a point exists in a collection."""
-        client = await self._get_client()
-        try:
-            results = await client.retrieve(
-                collection_name=_collection_name(collection),
-                ids=[str(point_id)],
-                with_vectors=False,
-                with_payload=False,
-            )
-            return len(results) > 0
-        except Exception:
-            return False
+        """Check if a paper has an embedding."""
+        from paper_scraper.modules.papers.models import Paper
+
+        result = await db.execute(
+            select(Paper.has_embedding).where(Paper.id == paper_id)
+        )
+        return bool(result.scalar_one_or_none())
+
+    async def set_ef_search(self, db: AsyncSession, ef_search: int = 100) -> None:
+        """Tune the HNSW ef_search parameter for the current session.
+
+        Higher values improve recall at the cost of latency.
+        Default PostgreSQL value is 40; we recommend 100 for production.
+        """
+        await db.execute(text(f"SET hnsw.ef_search = {ef_search}"))

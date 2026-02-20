@@ -330,6 +330,30 @@ class ScoringJobCreateRequest(BaseModel):
     weights: ScoringWeightsSchema | None = None
 
 
+class BedrockBatchScoreRequest(BaseModel):
+    """Request to submit a Bedrock Batch scoring job for bulk papers."""
+
+    paper_ids: list[UUID] = Field(
+        ...,
+        min_length=1,
+        max_length=10000,
+        description="Paper IDs to score via Bedrock Batch API (up to 10,000).",
+    )
+    model_id: str | None = Field(
+        default=None,
+        description="Bedrock model ID override (default: AWS_BEDROCK_MODEL config).",
+    )
+
+
+class BedrockBatchScoreResponse(BaseModel):
+    """Response from submitting a Bedrock batch scoring job."""
+
+    job_id: UUID
+    status: str
+    papers_count: int
+    message: str
+
+
 # =============================================================================
 # Embedding Schemas
 # =============================================================================

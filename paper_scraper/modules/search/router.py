@@ -18,6 +18,7 @@ from paper_scraper.modules.search.schemas import (
     SearchMode,
     SearchRequest,
     SearchResponse,
+    SearchScope,
     SimilarPapersRequest,
     SimilarPapersResponse,
 )
@@ -81,16 +82,17 @@ async def fulltext_search(
     q: str = Query(..., min_length=1, max_length=500, description="Search query"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
+    scope: SearchScope = Query(default=SearchScope.LIBRARY, description="Search scope"),
 ) -> SearchResponse:
     """
-    Perform full-text search using PostgreSQL trigram similarity.
+    Perform full-text search using Typesense BM25 ranking.
 
-    This is faster than semantic search but doesn't understand meaning,
-    only matches based on character similarity.
+    Use scope='catalog' to search the global paper catalog instead of your library.
     """
     request = SearchRequest(
         query=q,
         mode=SearchMode.FULLTEXT,
+        scope=scope,
         page=page,
         page_size=page_size,
     )
@@ -114,16 +116,19 @@ async def semantic_search(
     q: str = Query(..., min_length=1, max_length=1000, description="Search query"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
+    scope: SearchScope = Query(default=SearchScope.LIBRARY, description="Search scope"),
 ) -> SearchResponse:
     """
     Perform semantic search using vector embeddings.
 
     The query is embedded and compared to paper embeddings using
     cosine similarity. Only papers with embeddings are returned.
+    Use scope='catalog' to search the global paper catalog.
     """
     request = SearchRequest(
         query=q,
         mode=SearchMode.SEMANTIC,
+        scope=scope,
         page=page,
         page_size=page_size,
     )

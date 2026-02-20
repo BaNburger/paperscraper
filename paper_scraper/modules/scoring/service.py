@@ -569,14 +569,14 @@ class ScoringService:
         organization_id: UUID,
         limit: int = 5,
     ) -> list[Paper]:
-        """Find similar papers using Qdrant vector search."""
+        """Find similar papers using pgvector cosine similarity."""
         if not paper.has_embedding:
             return []
 
         vector_service = VectorService()
-        results = await vector_service.search_by_id(
-            collection="papers",
-            point_id=paper.id,
+        results = await vector_service.search_by_paper_id(
+            db=self.db,
+            paper_id=paper.id,
             organization_id=organization_id,
             limit=limit,
         )
@@ -584,9 +584,14 @@ class ScoringService:
         if not results:
             return []
 
-        # Hydrate full Paper objects from PostgreSQL
+        # Hydrate full Paper objects from PostgreSQL (with tenant isolation)
         paper_ids = [UUID(r["id"]) for r in results]
-        db_result = await self.db.execute(select(Paper).where(Paper.id.in_(paper_ids)))
+        db_result = await self.db.execute(
+            select(Paper).where(
+                Paper.id.in_(paper_ids),
+                Paper.organization_id == organization_id,
+            )
+        )
         return list(db_result.scalars().all())
 
     async def _save_score(

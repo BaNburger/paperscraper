@@ -17,6 +17,8 @@ from paper_scraper.jobs.payloads import BatchScoringJobPayload
 from paper_scraper.jobs.worker import enqueue_job
 from paper_scraper.modules.scoring.classifier import PaperClassifier
 from paper_scraper.modules.scoring.schemas import (
+    BedrockBatchScoreRequest,
+    BedrockBatchScoreResponse,
     ClassificationResponse,
     EmbeddingResponse,
     GenerateEmbeddingRequest,
@@ -245,6 +247,45 @@ async def get_job(
     if not job:
         raise NotFoundError("ScoringJob", job_id)
     return ScoringJobResponse.model_validate(job)
+
+
+@router.post(
+    "/jobs/bedrock-batch",
+    response_model=BedrockBatchScoreResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Submit Bedrock batch scoring job",
+    dependencies=[Depends(require_permission(Permission.SCORING_TRIGGER))],
+)
+async def create_bedrock_batch_job(
+    request: BedrockBatchScoreRequest,
+    current_user: CurrentUser,
+    scoring_service: Annotated[ScoringService, Depends(get_scoring_service)],
+) -> BedrockBatchScoreResponse:
+    """Submit a bulk scoring job via AWS Bedrock Batch API (50% cost savings).
+
+    Creates a scoring job, uploads prompts to S3 as JSONL, and submits
+    a Bedrock batch invocation job. Results are polled asynchronously.
+    """
+    job = await scoring_service.create_batch_job(
+        paper_ids=request.paper_ids,
+        organization_id=current_user.organization_id,
+        job_type="bedrock_batch",
+    )
+
+    await enqueue_job(
+        "submit_bedrock_batch_scoring_task",
+        str(job.id),
+        str(current_user.organization_id),
+        [str(pid) for pid in request.paper_ids],
+        request.model_id,
+    )
+
+    return BedrockBatchScoreResponse(
+        job_id=job.id,
+        status="pending",
+        papers_count=len(request.paper_ids),
+        message=f"Bedrock batch job submitted for {len(request.paper_ids)} papers.",
+    )
 
 
 # =============================================================================

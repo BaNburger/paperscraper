@@ -11,7 +11,12 @@ from paper_scraper.core.database import Base
 
 # Import all models here to ensure they're registered with Base.metadata
 from paper_scraper.modules.auth.models import Organization, User  # noqa: F401
-from paper_scraper.modules.papers.models import Author, Paper, PaperAuthor  # noqa: F401
+from paper_scraper.modules.papers.models import (  # noqa: F401
+    Author,
+    OrganizationPaper,
+    Paper,
+    PaperAuthor,
+)
 
 # Import additional models
 try:
@@ -153,6 +158,11 @@ except ImportError:
 
 try:
     from paper_scraper.modules.discovery.models import DiscoveryRun  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    from paper_scraper.modules.billing.models import OrganizationUsage  # noqa: F401
 except ImportError:
     pass
 

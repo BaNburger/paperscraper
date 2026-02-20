@@ -58,7 +58,7 @@ class SavedSearch(Base):
 
     # Discovery / Auto-import configuration
     semantic_description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # Embedding stored in Qdrant "searches" collection (keyed by saved_search.id)
+    # Embedding computed on-the-fly from semantic_description for discovery runs
     target_project_id: Mapped[UUID | None] = mapped_column(
         Uuid,
         ForeignKey("projects.id", ondelete="SET NULL"),

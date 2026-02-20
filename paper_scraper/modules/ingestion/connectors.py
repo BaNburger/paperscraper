@@ -8,9 +8,12 @@ from typing import Any
 from paper_scraper.modules.ingestion.interfaces import ConnectorBatch, SourceConnector
 from paper_scraper.modules.papers.clients.arxiv import ArxivClient
 from paper_scraper.modules.papers.clients.crossref import CrossrefClient
+from paper_scraper.modules.papers.clients.epo_ops import EPOOPSClient
+from paper_scraper.modules.papers.clients.lens import LensClient
 from paper_scraper.modules.papers.clients.openalex import OpenAlexClient
 from paper_scraper.modules.papers.clients.pubmed import PubMedClient
 from paper_scraper.modules.papers.clients.semantic_scholar import SemanticScholarClient
+from paper_scraper.modules.papers.clients.uspto import USPTOClient
 
 
 def _require_query(filters: dict[str, Any] | None) -> str:
@@ -271,6 +274,128 @@ class SemanticScholarSourceConnector(SourceConnector):
         )
 
 
+class LensSourceConnector(SourceConnector):
+    """Lens.org connector with offset pagination for patent data."""
+
+    async def fetch(
+        self,
+        cursor: dict[str, Any] | None,
+        filters: dict[str, Any] | None,
+        limit: int,
+    ) -> ConnectorBatch:
+        query = _require_query(filters)
+        offset = _as_int((cursor or {}).get("offset"), 0)
+        per_page = min(max(limit, 1), 1000)
+
+        async with LensClient() as client:
+            response = await client.search_patents(
+                query=query,
+                max_results=per_page,
+                offset=offset,
+            )
+            raw_records = response.get("data", [])
+            records = [client.normalize_patent(r) for r in raw_records]
+            total_results = _as_int(response.get("total"), 0)
+
+        next_offset = offset + len(records)
+        has_more = bool(records and next_offset < total_results)
+        return ConnectorBatch(
+            records=records,
+            cursor_before={"offset": offset},
+            cursor_after={"offset": next_offset},
+            has_more=has_more,
+        )
+
+
+class EPOSourceConnector(SourceConnector):
+    """EPO OPS connector with range-based pagination for patent data."""
+
+    async def fetch(
+        self,
+        cursor: dict[str, Any] | None,
+        filters: dict[str, Any] | None,
+        limit: int,
+    ) -> ConnectorBatch:
+        query = _require_query(filters)
+        start = _as_int((cursor or {}).get("start"), 1)
+        per_page = min(max(limit, 1), 100)
+
+        async with EPOOPSClient() as client:
+            patents = await client.search_patents(
+                query=query,
+                max_results=per_page,
+            )
+
+        # EPO client returns pre-parsed patent dicts; normalize to pipeline format
+        records = [
+            {
+                "source": "epo",
+                "source_id": p.get("patent_number"),
+                "doi": None,
+                "title": p.get("title", "Untitled"),
+                "abstract": p.get("abstract"),
+                "publication_date": p.get("publication_date"),
+                "journal": None,
+                "keywords": [],
+                "authors": (
+                    [{"name": p["applicant"], "orcid": None, "affiliations": []}]
+                    if p.get("applicant")
+                    else []
+                ),
+                "citations_count": None,
+                "raw_metadata": {
+                    "patent_number": p.get("patent_number"),
+                    "filing_date": p.get("filing_date"),
+                    "espacenet_url": p.get("espacenet_url"),
+                    "paper_type": "patent",
+                },
+            }
+            for p in patents
+        ]
+
+        next_start = start + len(records)
+        has_more = len(records) >= per_page
+        return ConnectorBatch(
+            records=records,
+            cursor_before={"start": start},
+            cursor_after={"start": next_start},
+            has_more=has_more,
+        )
+
+
+class USPTOSourceConnector(SourceConnector):
+    """USPTO PatentsView connector with offset pagination."""
+
+    async def fetch(
+        self,
+        cursor: dict[str, Any] | None,
+        filters: dict[str, Any] | None,
+        limit: int,
+    ) -> ConnectorBatch:
+        query = _require_query(filters)
+        offset = _as_int((cursor or {}).get("offset"), 0)
+        per_page = min(max(limit, 1), 1000)
+
+        async with USPTOClient() as client:
+            response = await client.search_patents(
+                query=query,
+                max_results=per_page,
+                offset=offset,
+            )
+            raw_records = response.get("patents", []) or []
+            records = [client.normalize(r) for r in raw_records]
+            total_results = _as_int(response.get("total_patent_count"), 0)
+
+        next_offset = offset + len(records)
+        has_more = bool(records and next_offset < total_results)
+        return ConnectorBatch(
+            records=records,
+            cursor_before={"offset": offset},
+            cursor_after={"offset": next_offset},
+            has_more=has_more,
+        )
+
+
 def get_source_connector(source: str) -> SourceConnector:
     """Return a source connector for a known source key."""
     registry: dict[str, SourceConnector] = {
@@ -279,6 +404,9 @@ def get_source_connector(source: str) -> SourceConnector:
         "arxiv": ArxivSourceConnector(),
         "pubmed": PubMedSourceConnector(),
         "semantic_scholar": SemanticScholarSourceConnector(),
+        "lens": LensSourceConnector(),
+        "epo": EPOSourceConnector(),
+        "uspto": USPTOSourceConnector(),
     }
     connector = registry.get(source)
     if connector is None:

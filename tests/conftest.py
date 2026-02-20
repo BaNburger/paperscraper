@@ -59,7 +59,12 @@ from paper_scraper.modules.library.models import (  # noqa: F401
 from paper_scraper.modules.model_settings.models import ModelConfiguration, ModelUsage  # noqa: F401
 from paper_scraper.modules.notifications.models import Notification  # noqa: F401
 from paper_scraper.modules.papers.context_models import PaperContextSnapshot  # noqa: F401
-from paper_scraper.modules.papers.models import Author, Paper, PaperAuthor  # noqa: F401
+from paper_scraper.modules.papers.models import (  # noqa: F401
+    Author,
+    OrganizationPaper,
+    Paper,
+    PaperAuthor,
+)
 from paper_scraper.modules.papers.notes import PaperNote  # noqa: F401
 from paper_scraper.modules.projects.models import (  # noqa: F401
     Project,
@@ -87,6 +92,7 @@ from paper_scraper.modules.transfer.models import (  # noqa: F401
     StageChange,
     TransferConversation,
 )
+from paper_scraper.modules.billing.models import OrganizationUsage  # noqa: F401
 from paper_scraper.modules.trends.models import TrendPaper, TrendSnapshot, TrendTopic  # noqa: F401
 
 _fake_redis: fakeredis.aioredis.FakeRedis | None = None
@@ -119,12 +125,11 @@ tb_module.token_blacklist._get_redis = _patched_get_redis  # type: ignore[assign
 
 
 # ---------------------------------------------------------------------------
-# Mock Qdrant + Typesense: prevent tests from connecting to real servers
+# Mock Typesense: prevent tests from connecting to real Typesense server
 # ---------------------------------------------------------------------------
-from unittest.mock import AsyncMock, MagicMock  # noqa: E402
+from unittest.mock import MagicMock  # noqa: E402
 
 from paper_scraper.core import search_engine as _se_module  # noqa: E402
-from paper_scraper.core import vector as _vec_module  # noqa: E402
 
 
 def _get_mock_typesense_client() -> MagicMock:
@@ -147,24 +152,8 @@ def _get_mock_typesense_client() -> MagicMock:
 _se_module._client = _get_mock_typesense_client()  # type: ignore[assignment]
 _se_module.get_typesense_client = lambda: _se_module._client  # type: ignore[assignment]
 
-
-# Patch the Qdrant singleton factory so VectorService never connects to Qdrant
-_mock_qdrant = AsyncMock()
-_mock_qdrant.get_collections.return_value = MagicMock(collections=[])
-_mock_qdrant.query_points.return_value = MagicMock(points=[])
-_mock_qdrant.retrieve.return_value = []
-_mock_qdrant.count.return_value = MagicMock(count=0)
-_mock_qdrant.upsert.return_value = None
-_mock_qdrant.delete.return_value = None
-_mock_qdrant.close.return_value = None
-
-
-async def _patched_get_qdrant() -> AsyncMock:
-    return _mock_qdrant
-
-
-_vec_module._client = _mock_qdrant  # type: ignore[assignment]
-_vec_module.get_qdrant_client = _patched_get_qdrant  # type: ignore[assignment]
+# Note: VectorService (pgvector) uses the test database directly via db_session
+# fixture — no separate mock needed. Embeddings live on the papers table.
 
 
 # ---------------------------------------------------------------------------

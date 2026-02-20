@@ -1,8 +1,7 @@
 """Service layer for search module.
 
-Uses Qdrant for vector/semantic search and Typesense for full-text search,
-replacing the previous pgvector + PostgreSQL trigram approach.
-PostgreSQL is still used for paper hydration and score lookups.
+Uses pgvector (PostgreSQL HNSW) for semantic search and Typesense for
+full-text search. PostgreSQL is used for paper hydration and score lookups.
 """
 
 import logging
@@ -32,6 +31,7 @@ from paper_scraper.modules.search.schemas import (
     SearchRequest,
     SearchResponse,
     SearchResultItem,
+    SearchScope,
     SimilarPaperItem,
     SimilarPapersResponse,
 )
@@ -42,8 +42,8 @@ logger = logging.getLogger(__name__)
 class SearchService:
     """Service for paper search operations.
 
-    Uses Qdrant for semantic/vector search and Typesense for full-text
-    search. Paper metadata is hydrated from PostgreSQL after external
+    Uses pgvector (PostgreSQL HNSW) for semantic search and Typesense for
+    full-text search. Paper metadata is hydrated from PostgreSQL after
     search backends return matching IDs.
     """
 
@@ -83,6 +83,7 @@ class SearchService:
             SearchResponse with paginated results.
         """
         start_time = time.time()
+        scope = request.scope if hasattr(request, "scope") else SearchScope.LIBRARY
 
         if request.mode == SearchMode.FULLTEXT:
             results, total = await self._fulltext_search(
@@ -92,6 +93,7 @@ class SearchService:
                 page=request.page,
                 page_size=request.page_size,
                 include_highlights=request.include_highlights,
+                scope=scope,
             )
         elif request.mode == SearchMode.SEMANTIC:
             results, total = await self._semantic_search(
@@ -100,6 +102,7 @@ class SearchService:
                 filters=request.filters,
                 page=request.page,
                 page_size=request.page_size,
+                scope=scope,
             )
         else:  # HYBRID
             results, total = await self._hybrid_search(
@@ -110,6 +113,7 @@ class SearchService:
                 page_size=request.page_size,
                 semantic_weight=request.semantic_weight,
                 include_highlights=request.include_highlights,
+                scope=scope,
             )
 
         search_time_ms = (time.time() - start_time) * 1000
@@ -146,7 +150,7 @@ class SearchService:
         min_similarity: float = 0.0,
         filters: SearchFilters | None = None,
     ) -> SimilarPapersResponse:
-        """Find papers similar to a given paper using Qdrant vector similarity.
+        """Find papers similar to a given paper using pgvector cosine similarity.
 
         Args:
             paper_id: ID of the reference paper.
@@ -163,41 +167,41 @@ class SearchService:
         if not paper:
             raise NotFoundError("Paper", paper_id)
 
-        # Check if the paper has a vector in Qdrant
-        has_vector = await self.vector.has_vector("papers", paper_id)
-        if not has_vector:
+        # Check if the paper has an embedding
+        has_vec = await self.vector.has_vector(db=self.db, paper_id=paper_id)
+        if not has_vec:
             return SimilarPapersResponse(
                 paper_id=paper_id,
                 similar_papers=[],
                 total_found=0,
             )
 
-        # Search Qdrant for similar vectors by point ID
-        qdrant_results = await self.vector.search_by_id(
-            collection="papers",
-            point_id=paper_id,
+        # Search for similar papers via pgvector
+        vector_results = await self.vector.search_by_paper_id(
+            db=self.db,
+            paper_id=paper_id,
             organization_id=organization_id,
             limit=limit,
             min_score=min_similarity if min_similarity > 0 else None,
         )
 
-        if not qdrant_results:
+        if not vector_results:
             return SimilarPapersResponse(
                 paper_id=paper_id,
                 similar_papers=[],
                 total_found=0,
             )
 
-        # Build a map of Qdrant ID -> similarity score
-        qdrant_score_map: dict[UUID, float] = {}
-        qdrant_ids: list[UUID] = []
-        for result in qdrant_results:
+        # Build a map of ID -> similarity score
+        score_map: dict[UUID, float] = {}
+        result_ids: list[UUID] = []
+        for result in vector_results:
             rid = UUID(result["id"])
-            qdrant_ids.append(rid)
-            qdrant_score_map[rid] = result["score"]
+            result_ids.append(rid)
+            score_map[rid] = result["score"]
 
         # Hydrate paper metadata from PostgreSQL
-        hydrated_papers = await self._hydrate_papers(qdrant_ids, organization_id)
+        hydrated_papers = await self._hydrate_papers(result_ids, organization_id)
 
         # Apply PostgreSQL-side filters (score filters that need joins)
         if filters:
@@ -206,9 +210,9 @@ class SearchService:
             )
             hydrated_papers = {pid: p for pid, p in hydrated_papers.items() if pid in filtered_ids}
 
-        # Build similar paper items, preserving Qdrant ranking order
+        # Build similar paper items, preserving ranking order
         similar_papers: list[SimilarPaperItem] = []
-        for rid in qdrant_ids:
+        for rid in result_ids:
             if rid not in hydrated_papers:
                 continue
             p = hydrated_papers[rid]
@@ -222,7 +226,7 @@ class SearchService:
                     journal=p.journal,
                     publication_date=p.publication_date,
                     keywords=p.keywords or [],
-                    similarity_score=round(qdrant_score_map[rid], 4),
+                    similarity_score=round(score_map[rid], 4),
                 )
             )
 
@@ -324,6 +328,7 @@ class SearchService:
         page: int,
         page_size: int,
         include_highlights: bool = True,
+        scope: SearchScope = SearchScope.LIBRARY,
     ) -> tuple[list[SearchResultItem], int]:
         """Perform full-text search using Typesense.
 
@@ -339,6 +344,7 @@ class SearchService:
             page=page,
             page_size=page_size,
             filter_by=ts_filter,
+            scope=scope.value,
         )
 
         total: int = ts_result.get("found", 0)
@@ -367,7 +373,7 @@ class SearchService:
             }
 
         # Hydrate paper metadata from PostgreSQL
-        hydrated_papers = await self._hydrate_papers(ts_paper_ids, organization_id)
+        hydrated_papers = await self._hydrate_papers(ts_paper_ids, organization_id, scope=scope)
 
         # Apply PostgreSQL-side score filters
         if filters and self._needs_pg_score_filter(filters):
@@ -376,7 +382,7 @@ class SearchService:
             )
             hydrated_papers = {pid: p for pid, p in hydrated_papers.items() if pid in filtered_ids}
 
-        # Fetch scores for matched papers
+        # Fetch scores for matched papers (scores are always org-scoped)
         scores_map = await self._get_latest_scores(list(hydrated_papers.keys()), organization_id)
 
         # Build result items preserving Typesense ranking order
@@ -427,47 +433,47 @@ class SearchService:
         page: int,
         page_size: int,
         query_embedding: list[float] | None = None,
+        scope: SearchScope = SearchScope.LIBRARY,
     ) -> tuple[list[SearchResultItem], int]:
-        """Perform semantic search using Qdrant vector embeddings.
+        """Perform semantic search using pgvector HNSW embeddings.
 
-        Uses Qdrant cosine similarity for ranking.
+        Uses pgvector cosine similarity for ranking.
         """
         # Generate query embedding if not provided
         if query_embedding is None:
             query_embedding = await self.embedding_client.embed_text(query)
 
-        # Calculate how many results to fetch from Qdrant
-        # We need to skip (page-1)*page_size and take page_size,
-        # but Qdrant doesn't support offset natively, so fetch page*page_size
-        fetch_limit = page * page_size
+        # pgvector supports ORDER BY + LIMIT natively, so fetch page*page_size
+        fetch_limit = min(page * page_size, 10_000)
 
-        # Execute Qdrant search
-        qdrant_results = await self.vector.search(
-            collection="papers",
+        # Execute pgvector search — pass None org_id for catalog scope
+        vector_org_id = organization_id if scope == SearchScope.LIBRARY else None
+        vector_results = await self.vector.search_similar(
+            db=self.db,
             query_vector=query_embedding,
-            organization_id=organization_id,
+            organization_id=vector_org_id,
             limit=fetch_limit,
         )
 
-        total = len(qdrant_results)
+        total = len(vector_results)
 
         # Apply pagination by slicing
         start = (page - 1) * page_size
-        paginated_results = qdrant_results[start : start + page_size]
+        paginated_results = vector_results[start : start + page_size]
 
         if not paginated_results:
             return [], total
 
-        # Build Qdrant ID -> score map
-        qdrant_ids: list[UUID] = []
-        qdrant_score_map: dict[UUID, float] = {}
+        # Build ID -> score map
+        result_ids: list[UUID] = []
+        score_map: dict[UUID, float] = {}
         for result in paginated_results:
             rid = UUID(result["id"])
-            qdrant_ids.append(rid)
-            qdrant_score_map[rid] = result["score"]
+            result_ids.append(rid)
+            score_map[rid] = result["score"]
 
         # Hydrate paper metadata from PostgreSQL
-        hydrated_papers = await self._hydrate_papers(qdrant_ids, organization_id)
+        hydrated_papers = await self._hydrate_papers(result_ids, organization_id, scope=scope)
 
         # Apply PostgreSQL-side score filters
         if filters and self._needs_pg_score_filter(filters):
@@ -476,16 +482,16 @@ class SearchService:
             )
             hydrated_papers = {pid: p for pid, p in hydrated_papers.items() if pid in filtered_ids}
 
-        # Fetch scores
+        # Fetch scores (scores are always org-scoped)
         scores_map = await self._get_latest_scores(list(hydrated_papers.keys()), organization_id)
 
-        # Build results preserving Qdrant ranking order
+        # Build results preserving ranking order
         items: list[SearchResultItem] = []
-        for rid in qdrant_ids:
+        for rid in result_ids:
             if rid not in hydrated_papers:
                 continue
             paper = hydrated_papers[rid]
-            similarity = qdrant_score_map.get(rid, 0.0)
+            similarity = score_map.get(rid, 0.0)
 
             items.append(
                 SearchResultItem(
@@ -519,8 +525,9 @@ class SearchService:
         page_size: int,
         semantic_weight: float = 0.5,
         include_highlights: bool = True,
+        scope: SearchScope = SearchScope.LIBRARY,
     ) -> tuple[list[SearchResultItem], int]:
-        """Perform hybrid search combining Typesense and Qdrant results.
+        """Perform hybrid search combining Typesense and pgvector results.
 
         Uses Reciprocal Rank Fusion (RRF) to combine rankings:
         RRF_score = text_weight/(k + rank_text) + semantic_weight/(k + rank_semantic)
@@ -539,9 +546,10 @@ class SearchService:
             page=1,
             page_size=fetch_limit,
             include_highlights=include_highlights,
+            scope=scope,
         )
 
-        # Get semantic results from Qdrant
+        # Get semantic results from pgvector
         semantic_results, semantic_total = await self._semantic_search(
             query=query,
             organization_id=organization_id,
@@ -549,6 +557,7 @@ class SearchService:
             page=1,
             page_size=fetch_limit,
             query_embedding=query_embedding,
+            scope=scope,
         )
 
         # Create rank mappings
@@ -609,6 +618,17 @@ class SearchService:
     # =========================================================================
 
     @staticmethod
+    def _sanitize_typesense_value(value: str) -> str:
+        """Sanitize a string value for use in Typesense filter_by expressions.
+
+        Strips backticks and filter operators to prevent injection into
+        backtick-delimited Typesense filter values.
+        """
+        # Remove backticks (used as delimiters) and characters that could
+        # alter filter semantics
+        return value.replace("`", "").replace("&&", "").replace("||", "")
+
+    @staticmethod
     def _build_typesense_filter(
         filters: SearchFilters | None,
         organization_id: UUID,
@@ -663,14 +683,18 @@ class SearchService:
         elif filters.has_embedding is False:
             parts.append("has_embedding:false")
 
-        # Journal filter
+        # Journal filter (sanitize to prevent filter injection)
         if filters.journals:
-            escaped = ",".join(f"`{j}`" for j in filters.journals)
+            escaped = ",".join(
+                f"`{SearchService._sanitize_typesense_value(j)}`" for j in filters.journals
+            )
             parts.append(f"journal:[{escaped}]")
 
-        # Keyword filter (Typesense string[] supports array search)
+        # Keyword filter (sanitize to prevent filter injection)
         if filters.keywords:
-            escaped = ",".join(f"`{kw}`" for kw in filters.keywords)
+            escaped = ",".join(
+                f"`{SearchService._sanitize_typesense_value(kw)}`" for kw in filters.keywords
+            )
             parts.append(f"keywords:[{escaped}]")
 
         if not parts:
@@ -858,6 +882,29 @@ class SearchService:
     # =========================================================================
 
     @staticmethod
+    def _sanitize_highlight(snippet: str) -> str:
+        """Strip all HTML tags except <mark> from a highlight snippet.
+
+        Typesense wraps matched tokens with <mark>...</mark>. Any other
+        HTML in the indexed content must be stripped to prevent XSS.
+        """
+        import html
+        import re
+
+        # Temporarily replace <mark> and </mark> with placeholders
+        snippet = snippet.replace("<mark>", "\x00MARK_OPEN\x00")
+        snippet = snippet.replace("</mark>", "\x00MARK_CLOSE\x00")
+        # Strip all remaining HTML tags
+        snippet = re.sub(r"<[^>]+>", "", snippet)
+        # Escape remaining special characters for safety (html.escape
+        # handles &amp; correctly without double-escaping)
+        snippet = html.escape(snippet, quote=False)
+        # Restore mark tags
+        snippet = snippet.replace("\x00MARK_OPEN\x00", "<mark>")
+        snippet = snippet.replace("\x00MARK_CLOSE\x00", "</mark>")
+        return snippet
+
+    @staticmethod
     def _extract_typesense_highlights(
         highlights: list[dict[str, Any]],
     ) -> list[SearchHighlight]:
@@ -882,6 +929,7 @@ class SearchService:
                 if matched:
                     snippet = " ".join(str(t) for t in matched)
             if field and snippet:
+                snippet = SearchService._sanitize_highlight(snippet)
                 result.append(SearchHighlight(field=field, snippet=snippet))
         return result
 
@@ -919,12 +967,14 @@ class SearchService:
         self,
         paper_ids: list[UUID],
         organization_id: UUID,
+        scope: SearchScope = SearchScope.LIBRARY,
     ) -> dict[UUID, Paper]:
         """Load paper metadata from PostgreSQL for a list of IDs.
 
         Args:
             paper_ids: Paper IDs to hydrate.
-            organization_id: Tenant isolation.
+            organization_id: Tenant isolation (used when scope='library').
+            scope: Search scope — 'library' filters by org, 'catalog' by is_global.
 
         Returns:
             Dict mapping paper ID to Paper ORM object.
@@ -932,12 +982,14 @@ class SearchService:
         if not paper_ids:
             return {}
 
-        result = await self.db.execute(
-            select(Paper).where(
-                Paper.id.in_(paper_ids),
-                Paper.organization_id == organization_id,
-            )
-        )
+        query = select(Paper).where(Paper.id.in_(paper_ids))
+
+        if scope == SearchScope.CATALOG:
+            query = query.where(Paper.is_global.is_(True))
+        else:
+            query = query.where(Paper.organization_id == organization_id)
+
+        result = await self.db.execute(query)
         papers = result.scalars().all()
         return {p.id: p for p in papers}
 

@@ -56,6 +56,12 @@ class TokenUsage:
             "claude-3-haiku": {"input": 0.25, "output": 1.25},
             "gemini-2.0-flash": {"input": 0.10, "output": 0.40},
             "gemini-2.0-pro": {"input": 1.25, "output": 5.00},
+            # AWS Bedrock models
+            "amazon.nova-micro-v1:0": {"input": 0.035, "output": 0.14},
+            "amazon.nova-lite-v1:0": {"input": 0.06, "output": 0.24},
+            "amazon.nova-pro-v1:0": {"input": 0.80, "output": 3.20},
+            "anthropic.claude-3-5-haiku-20241022-v1:0": {"input": 0.80, "output": 4.00},
+            "anthropic.claude-3-5-sonnet-20241022-v2:0": {"input": 3.00, "output": 15.00},
         }
         model_pricing = pricing.get(self.model, {"input": 1.0, "output": 3.0})
         return (
@@ -996,13 +1002,21 @@ class GeminiClient(BaseLLMClient):
 # Factory Function
 # =============================================================================
 
+# Lazy import to avoid boto3 import at module level when not needed
+def _get_bedrock_class() -> type[BaseLLMClient]:
+    from paper_scraper.modules.scoring.bedrock_client import BedrockClient
+
+    return BedrockClient
+
+
 # Registry of available LLM providers
-_LLM_PROVIDERS: dict[str, type[BaseLLMClient]] = {
+_LLM_PROVIDERS: dict[str, type[BaseLLMClient] | str] = {
     "openai": OpenAIClient,
     "anthropic": AnthropicClient,
     "ollama": OllamaClient,
     "azure": AzureOpenAIClient,
     "google": GeminiClient,
+    "bedrock": "bedrock",  # Sentinel — resolved in factory
 }
 
 
@@ -1044,6 +1058,9 @@ def get_llm_client(
         )
     if provider == "google":
         return GeminiClient(api_key=api_key, model=model)
+    if provider == "bedrock":
+        bedrock_cls = _get_bedrock_class()
+        return bedrock_cls(model=model)
 
     # Defensive fallback for static analyzers.
     raise ValueError(f"Unknown LLM provider: {provider}")

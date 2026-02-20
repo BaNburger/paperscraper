@@ -17,6 +17,13 @@ class SearchMode(str, Enum):
     HYBRID = "hybrid"
 
 
+class SearchScope(str, Enum):
+    """Scope for search queries."""
+
+    LIBRARY = "library"
+    CATALOG = "catalog"
+
+
 # =============================================================================
 # Search Request Schemas
 # =============================================================================
@@ -51,8 +58,12 @@ class SearchRequest(BaseModel):
 
     query: str = Field(..., min_length=1, max_length=1000, description="Search query text")
     mode: SearchMode = Field(default=SearchMode.HYBRID, description="Search mode to use")
+    scope: SearchScope = Field(
+        default=SearchScope.LIBRARY,
+        description="Search scope: 'library' (org papers) or 'catalog' (global papers)",
+    )
     filters: SearchFilters | None = Field(default=None, description="Optional search filters")
-    page: int = Field(default=1, ge=1, description="Page number")
+    page: int = Field(default=1, ge=1, le=100, description="Page number")
     page_size: int = Field(default=20, ge=1, le=100, description="Results per page")
     include_highlights: bool = Field(
         default=True, description="Include text highlights for fulltext search"

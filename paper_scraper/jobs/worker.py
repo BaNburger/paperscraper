@@ -16,6 +16,13 @@ from paper_scraper.jobs.badges import (
     batch_check_badges_task,
     check_and_award_badges_task,
 )
+from paper_scraper.jobs.bedrock_batch import (
+    poll_bedrock_batch_results_task,
+    submit_bedrock_batch_scoring_task,
+)
+from paper_scraper.jobs.bulk_embed import bulk_embed_papers_task
+from paper_scraper.jobs.bulk_ingest import bulk_ingest_task
+from paper_scraper.jobs.bulk_score import score_papers_parallel_task, shard_scoring_job_task
 from paper_scraper.jobs.discovery import (
     process_discovery_daily_task,
     process_discovery_weekly_task,
@@ -104,6 +111,12 @@ class WorkerSettings:
         run_discovery_task,
         cleanup_expired_score_cache_task,
         sync_research_group_task,
+        submit_bedrock_batch_scoring_task,
+        poll_bedrock_batch_results_task,
+        bulk_ingest_task,
+        bulk_embed_papers_task,
+        score_papers_parallel_task,
+        shard_scoring_job_task,
     ]
 
     # Cron jobs for scheduled tasks
@@ -138,8 +151,8 @@ class WorkerSettings:
     on_shutdown = shutdown
 
     # Worker configuration
-    max_jobs = 10
-    job_timeout = 600  # 10 minutes
+    max_jobs = 50  # Increased for bulk scoring shards
+    job_timeout = 1800  # 30 minutes for bulk operations
     keep_result = 3600  # Keep results for 1 hour
     poll_delay = 0.5  # Poll every 500ms
     queue_name = "paperscraper:queue"

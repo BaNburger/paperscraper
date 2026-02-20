@@ -36,9 +36,9 @@ class Settings(BaseSettings):
     # ==========================================================================
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/paperscraper"
     DATABASE_URL_SYNC: str = "postgresql://postgres:postgres@localhost:5432/paperscraper"
-    DB_POOL_SIZE: int = 5
-    DB_MAX_OVERFLOW: int = 10
-    DB_POOL_TIMEOUT: int = 30
+    DB_POOL_SIZE: int = 20
+    DB_MAX_OVERFLOW: int = 30
+    DB_POOL_TIMEOUT: int = 60
 
     # ==========================================================================
     # Redis (arq job queue + caching)
@@ -46,17 +46,22 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
 
     # ==========================================================================
-    # Qdrant (Vector search engine)
+    # pgvector (Vector search — built into PostgreSQL)
     # ==========================================================================
-    QDRANT_URL: str = "http://localhost:6333"
-    QDRANT_API_KEY: str | None = None
-    QDRANT_COLLECTION_PREFIX: str = ""  # Prefix for collection names (e.g., "test_")
+    PGVECTOR_HNSW_EF_SEARCH: int = 100  # Search quality (default 40, higher = better recall)
+
+    # ==========================================================================
+    # AWS Bedrock (LLM inference via AWS credits)
+    # ==========================================================================
+    AWS_REGION: str = "eu-central-1"
+    AWS_BEDROCK_MODEL: str = "amazon.nova-lite-v1:0"  # Default scoring model
+    AWS_BEDROCK_BATCH_S3_BUCKET: str = ""  # S3 bucket for Bedrock batch I/O
 
     # ==========================================================================
     # Typesense (Full-text search engine)
     # ==========================================================================
     TYPESENSE_URL: str = "http://localhost:8108"
-    TYPESENSE_API_KEY: str = "paperscraper_dev_key"
+    TYPESENSE_API_KEY: SecretStr = SecretStr("paperscraper_dev_key")
     TYPESENSE_COLLECTION_PREFIX: str = ""  # Prefix for collection names (e.g., "test_")
 
     # ==========================================================================
@@ -131,6 +136,14 @@ class Settings(BaseSettings):
     EPO_OPS_KEY: str | None = None
     EPO_OPS_SECRET: SecretStr | None = None
     EPO_OPS_BASE_URL: str = "https://ops.epo.org/3.2"
+
+    # Lens.org - Scholarly + patent data
+    LENS_API_KEY: str | None = None
+    LENS_BASE_URL: str = "https://api.lens.org"
+
+    # USPTO PatentsView - US patents (free)
+    USPTO_API_KEY: str | None = None
+    USPTO_BASE_URL: str = "https://api.patentsview.org"
 
     # arXiv - Preprints (free, no key required)
     ARXIV_BASE_URL: str = "http://export.arxiv.org/api"
@@ -299,6 +312,25 @@ class Settings(BaseSettings):
                 errors.append(
                     f"CORS_ORIGINS contains localhost URLs which should not "
                     f"be allowed in production: {localhost_origins}"
+                )
+
+        # Typesense API key must not be the dev default in production
+        ts_key = self.TYPESENSE_API_KEY.get_secret_value()
+        if self.APP_ENV == "production" and ts_key in (
+            "paperscraper_dev_key",
+            "",
+        ):
+            errors.append(
+                "TYPESENSE_API_KEY must be changed from the default in production. "
+                "Generate with: openssl rand -hex 32"
+            )
+
+        # TLS enforcement for external services in production
+        if self.APP_ENV == "production":
+            if self.TYPESENSE_URL.startswith("http://"):
+                logger.warning(
+                    "TYPESENSE_URL uses plain HTTP — TLS (https://) is strongly "
+                    "recommended in production"
                 )
 
         return errors

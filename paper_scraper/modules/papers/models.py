@@ -20,6 +20,11 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+try:
+    from pgvector.sqlalchemy import Vector
+except ImportError:
+    Vector = None  # type: ignore[assignment,misc]
+
 from paper_scraper.core.database import Base
 
 if TYPE_CHECKING:
@@ -39,6 +44,9 @@ class PaperSource(str, enum.Enum):
     SEMANTIC_SCHOLAR = "semantic_scholar"
     MANUAL = "manual"
     PDF = "pdf"
+    LENS = "lens"
+    EPO = "epo"
+    USPTO = "uspto"
 
 
 class PaperType(str, enum.Enum):
@@ -51,6 +59,8 @@ class PaperType(str, enum.Enum):
     THEORETICAL = "theoretical"
     COMMENTARY = "commentary"
     PREPRINT = "preprint"
+    PATENT = "patent"
+    PATENT_APPLICATION = "patent_application"
     OTHER = "other"
 
 
@@ -60,10 +70,10 @@ class Paper(Base):
     __tablename__ = "papers"
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    organization_id: Mapped[UUID] = mapped_column(
+    organization_id: Mapped[UUID | None] = mapped_column(
         Uuid,
         ForeignKey("organizations.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
     created_by_id: Mapped[UUID | None] = mapped_column(
@@ -71,6 +81,11 @@ class Paper(Base):
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
+    )
+
+    # Global catalog flag: True = shared across all tenants, org_id is NULL
+    is_global: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
     )
 
     # Identifiers
@@ -100,7 +115,10 @@ class Paper(Base):
     pdf_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     full_text: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    # Whether this paper has a vector embedding stored in Qdrant
+    # Vector embedding (pgvector, 1536d from text-embedding-3-small)
+    embedding = mapped_column(Vector(1536) if Vector else Text, nullable=True)
+
+    # Whether this paper has a vector embedding
     has_embedding: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
 
     # Raw API response for debugging
@@ -129,13 +147,16 @@ class Paper(Base):
     )
 
     # Relationships
-    organization: Mapped["Organization"] = relationship("Organization")
+    organization: Mapped["Organization | None"] = relationship("Organization")
     creator: Mapped["User | None"] = relationship("User", foreign_keys=[created_by_id])
     authors: Mapped[list["PaperAuthor"]] = relationship(
         "PaperAuthor", back_populates="paper", cascade="all, delete-orphan"
     )
     notes: Mapped[list["PaperNote"]] = relationship(
         "PaperNote", back_populates="paper", cascade="all, delete-orphan"
+    )
+    claiming_orgs: Mapped[list["OrganizationPaper"]] = relationship(
+        "OrganizationPaper", back_populates="paper", cascade="all, delete-orphan"
     )
 
     __table_args__ = (
@@ -156,6 +177,24 @@ class Paper(Base):
             unique=True,
             postgresql_where=source_id.is_not(None),
         ),
+        # Global catalog indexes
+        Index(
+            "ix_papers_global_created",
+            "created_at",
+            postgresql_where="is_global = true",
+        ),
+        Index(
+            "uq_papers_global_doi",
+            func.lower(doi),
+            unique=True,
+            postgresql_where="is_global = true AND doi IS NOT NULL",
+        ),
+        Index(
+            "ix_papers_global_source",
+            "source",
+            "created_at",
+            postgresql_where="is_global = true",
+        ),
     )
 
     @property
@@ -174,15 +213,20 @@ class Author(Base):
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
 
-    # Multi-tenancy: Authors are scoped to organizations
-    organization_id: Mapped[UUID] = mapped_column(
+    # Multi-tenancy: Authors scoped to organizations, or NULL for global catalog
+    organization_id: Mapped[UUID | None] = mapped_column(
         Uuid,
         ForeignKey("organizations.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
 
-    # Identifiers - unique within organization, not globally
+    # Global catalog flag
+    is_global: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
+
+    # Identifiers - unique within organization or globally
     orcid: Mapped[str | None] = mapped_column(String(50), nullable=True)
     openalex_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
@@ -207,7 +251,7 @@ class Author(Base):
     )
 
     # Relationships
-    organization: Mapped["Organization"] = relationship("Organization")
+    organization: Mapped["Organization | None"] = relationship("Organization")
     papers: Mapped[list["PaperAuthor"]] = relationship("PaperAuthor", back_populates="author")
     contacts: Mapped[list["AuthorContact"]] = relationship(
         "AuthorContact", back_populates="author", cascade="all, delete-orphan"
@@ -229,6 +273,19 @@ class Author(Base):
             "openalex_id",
             unique=True,
             postgresql_where="openalex_id IS NOT NULL",
+        ),
+        # Global catalog unique indexes
+        Index(
+            "uq_authors_global_orcid",
+            "orcid",
+            unique=True,
+            postgresql_where="is_global = true AND orcid IS NOT NULL",
+        ),
+        Index(
+            "uq_authors_global_openalex",
+            "openalex_id",
+            unique=True,
+            postgresql_where="is_global = true AND openalex_id IS NOT NULL",
         ),
     )
 
@@ -256,3 +313,53 @@ class PaperAuthor(Base):
 
     def __repr__(self) -> str:
         return f"<PaperAuthor paper={self.paper_id} author={self.author_id}>"
+
+
+class OrganizationPaper(Base):
+    """Junction table: which organizations have claimed a global paper.
+
+    When a tenant 'adds to library' from the global catalog, a row is
+    created here. This avoids copying the paper row per tenant.
+    """
+
+    __tablename__ = "organization_papers"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(
+        Uuid,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    paper_id: Mapped[UUID] = mapped_column(
+        Uuid,
+        ForeignKey("papers.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    added_by_id: Mapped[UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    source: Mapped[str] = mapped_column(
+        String(50), nullable=False, server_default="catalog"
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    # Relationships
+    organization: Mapped["Organization"] = relationship("Organization")
+    paper: Mapped["Paper"] = relationship("Paper", back_populates="claiming_orgs")
+    added_by: Mapped["User | None"] = relationship("User")
+
+    __table_args__ = (
+        Index(
+            "uq_org_papers_org_paper",
+            "organization_id",
+            "paper_id",
+            unique=True,
+        ),
+        Index("ix_org_papers_org_id", "organization_id"),
+        Index("ix_org_papers_paper_id", "paper_id"),
+    )
