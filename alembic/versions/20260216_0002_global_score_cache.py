@@ -5,7 +5,6 @@ Revises: discovery_profiles_v1
 Create Date: 2026-02-16 14:00:00.000000
 """
 
-
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 

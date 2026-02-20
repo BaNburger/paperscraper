@@ -168,9 +168,7 @@ class SearchEngineService:
             return []
 
         full_name = _collection_name("papers")
-        results = self._client.collections[full_name].documents.import_(
-            papers, {"action": action}
-        )
+        results = self._client.collections[full_name].documents.import_(papers, {"action": action})
         return results
 
     def delete_paper(self, paper_id: str) -> None:

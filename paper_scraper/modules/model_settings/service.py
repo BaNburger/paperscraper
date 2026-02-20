@@ -1,4 +1,5 @@
 """Service layer for model settings module."""
+
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 

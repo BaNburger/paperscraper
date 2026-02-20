@@ -5,7 +5,6 @@ Revises: paper_text_chunks_v2
 Create Date: 2026-02-14 09:20:00.000000
 """
 
-
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 

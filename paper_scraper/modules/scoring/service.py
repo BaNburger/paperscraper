@@ -586,9 +586,7 @@ class ScoringService:
 
         # Hydrate full Paper objects from PostgreSQL
         paper_ids = [UUID(r["id"]) for r in results]
-        db_result = await self.db.execute(
-            select(Paper).where(Paper.id.in_(paper_ids))
-        )
+        db_result = await self.db.execute(select(Paper).where(Paper.id.in_(paper_ids)))
         return list(db_result.scalars().all())
 
     async def _save_score(

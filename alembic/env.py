@@ -1,4 +1,5 @@
 """Alembic migration environment configuration."""
+
 from logging.config import fileConfig
 
 from sqlalchemy import create_engine, pool

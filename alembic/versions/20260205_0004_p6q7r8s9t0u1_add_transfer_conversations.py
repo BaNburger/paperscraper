@@ -5,6 +5,7 @@ Revises: o5p6q7r8s9t0
 Create Date: 2026-02-05
 
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -239,8 +240,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Drop transfer module tables and enums."""
     op.execute(
-        "DROP TRIGGER IF EXISTS update_transfer_conversations_updated_at "
-        "ON transfer_conversations"
+        "DROP TRIGGER IF EXISTS update_transfer_conversations_updated_at ON transfer_conversations"
     )
     op.drop_table("message_templates")
     op.drop_table("stage_changes")

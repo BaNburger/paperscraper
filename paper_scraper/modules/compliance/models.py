@@ -134,6 +134,4 @@ class RetentionLog(Base):
 
     def __repr__(self) -> str:
         """String representation of retention log."""
-        return (
-            f"<RetentionLog {self.entity_type} {self.action} " f"records={self.records_affected}>"
-        )
+        return f"<RetentionLog {self.entity_type} {self.action} records={self.records_affected}>"

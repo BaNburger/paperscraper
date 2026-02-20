@@ -640,12 +640,15 @@ class TestBackfillEmbeddings:
                 raise Exception("Single API error")
             return [0.1] * 1536
 
-        with patch(
-            "paper_scraper.modules.embeddings.service.EmbeddingClient.embed_texts",
-            side_effect=failing_batch,
-        ), patch(
-            "paper_scraper.modules.embeddings.service.EmbeddingClient.embed_text",
-            side_effect=partial_single,
+        with (
+            patch(
+                "paper_scraper.modules.embeddings.service.EmbeddingClient.embed_texts",
+                side_effect=failing_batch,
+            ),
+            patch(
+                "paper_scraper.modules.embeddings.service.EmbeddingClient.embed_text",
+                side_effect=partial_single,
+            ),
         ):
             result = await service.backfill_embeddings(
                 organization_id=test_user.organization_id,

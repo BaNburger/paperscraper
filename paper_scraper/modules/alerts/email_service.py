@@ -101,14 +101,14 @@ class EmailService:
             paper_items += f"""
             <tr>
                 <td style="padding: 12px; border-bottom: 1px solid #eee;">
-                    <a href="{settings.FRONTEND_URL}/papers/{paper.get('id')}"
+                    <a href="{settings.FRONTEND_URL}/papers/{paper.get("id")}"
                        style="color: #2563eb; text-decoration: none; font-weight: 500;">
-                        {paper.get('title', 'Untitled')}
+                        {paper.get("title", "Untitled")}
                     </a>
                     <br>
                     <span style="color: #6b7280; font-size: 14px;">
-                        {paper.get('journal', 'Unknown Journal')}
-                        {' - ' + paper.get('publication_date', '')[:10] if paper.get('publication_date') else ''}
+                        {paper.get("journal", "Unknown Journal")}
+                        {" - " + paper.get("publication_date", "")[:10] if paper.get("publication_date") else ""}
                     </span>
                 </td>
             </tr>
@@ -145,7 +145,7 @@ class EmailService:
                     </tbody>
                 </table>
 
-                {f'<p style="color: #6b7280; font-size: 14px;">...and {new_papers_count - 10} more papers</p>' if new_papers_count > 10 else ''}
+                {f'<p style="color: #6b7280; font-size: 14px;">...and {new_papers_count - 10} more papers</p>' if new_papers_count > 10 else ""}
 
                 <div style="text-align: center; margin-top: 24px;">
                     <a href="{view_url}"

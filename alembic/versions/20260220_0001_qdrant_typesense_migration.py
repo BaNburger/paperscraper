@@ -51,9 +51,7 @@ def upgrade() -> None:
         ),
     )
     # Backfill: mark papers that currently have embeddings
-    op.execute(
-        "UPDATE papers SET has_embedding = true WHERE embedding IS NOT NULL"
-    )
+    op.execute("UPDATE papers SET has_embedding = true WHERE embedding IS NOT NULL")
 
     # ------------------------------------------------------------------
     # 3. Drop vector columns
@@ -80,18 +78,10 @@ def downgrade() -> None:
     op.drop_column("papers", "has_embedding")
 
     # Re-add vector columns (data is NOT recoverable from Qdrant in downgrade)
-    op.execute(
-        "ALTER TABLE papers ADD COLUMN embedding vector(1536)"
-    )
-    op.execute(
-        "ALTER TABLE authors ADD COLUMN embedding vector(768)"
-    )
-    op.execute(
-        "ALTER TABLE trend_topics ADD COLUMN embedding vector(1536)"
-    )
-    op.execute(
-        "ALTER TABLE project_clusters ADD COLUMN centroid vector(1536)"
-    )
+    op.execute("ALTER TABLE papers ADD COLUMN embedding vector(1536)")
+    op.execute("ALTER TABLE authors ADD COLUMN embedding vector(768)")
+    op.execute("ALTER TABLE trend_topics ADD COLUMN embedding vector(1536)")
+    op.execute("ALTER TABLE project_clusters ADD COLUMN centroid vector(1536)")
 
     # Re-create HNSW indexes
     op.execute(

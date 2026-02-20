@@ -5,7 +5,6 @@ Revises: library_core_v2
 Create Date: 2026-02-14 09:10:00.000000
 """
 
-
 import sqlalchemy as sa
 
 from alembic import op

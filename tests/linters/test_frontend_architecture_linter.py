@@ -38,7 +38,7 @@ def test_psf003_flags_domain_import_from_types_index(tmp_path: Path) -> None:
 def test_psf004_flags_hardcoded_route_literals_in_infra_file(tmp_path: Path) -> None:
     _write(
         tmp_path / "frontend/src/hooks/useKeyboardShortcuts.ts",
-        "import { NAVIGATION_SHORTCUTS } from '@/config/routes'\n" "navigate('/papers')\n",
+        "import { NAVIGATION_SHORTCUTS } from '@/config/routes'\nnavigate('/papers')\n",
     )
     findings = frontend_architecture.lint(tmp_path)
     assert _has_rule(findings, "PSF004")

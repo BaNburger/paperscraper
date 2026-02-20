@@ -23,8 +23,7 @@ class SourceConnector(Protocol):
         cursor: dict[str, Any] | None,
         filters: dict[str, Any] | None,
         limit: int,
-    ) -> ConnectorBatch:
-        ...
+    ) -> ConnectorBatch: ...
 
 
 @dataclass
@@ -54,8 +53,7 @@ class NormalizedPaperBundle:
 class Normalizer(Protocol):
     """Protocol for normalizing raw source records."""
 
-    def normalize(self, record: dict[str, Any]) -> NormalizedPaperBundle:
-        ...
+    def normalize(self, record: dict[str, Any]) -> NormalizedPaperBundle: ...
 
 
 @dataclass
@@ -71,8 +69,7 @@ class CanonicalPaperResult:
 class EntityResolver(Protocol):
     """Protocol for entity resolution/upsert logic."""
 
-    async def resolve(self, bundle: NormalizedPaperBundle) -> CanonicalPaperResult:
-        ...
+    async def resolve(self, bundle: NormalizedPaperBundle) -> CanonicalPaperResult: ...
 
 
 @dataclass
@@ -92,8 +89,7 @@ class EnrichmentProvider(Protocol):
         self,
         paper_id: UUID,
         _context_hints: dict[str, Any] | None = None,
-    ) -> EnrichmentFragment:
-        ...
+    ) -> EnrichmentFragment: ...
 
 
 @dataclass
@@ -115,5 +111,4 @@ class ScoreContextAssembler(Protocol):
         paper_id: UUID,
         organization_id: UUID,
         user_id: UUID | None = None,
-    ) -> ScoreContext:
-        ...
+    ) -> ScoreContext: ...

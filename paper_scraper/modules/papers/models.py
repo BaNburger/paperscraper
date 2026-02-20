@@ -101,9 +101,7 @@ class Paper(Base):
     full_text: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Whether this paper has a vector embedding stored in Qdrant
-    has_embedding: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, server_default="false"
-    )
+    has_embedding: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
 
     # Raw API response for debugging
     raw_metadata: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)

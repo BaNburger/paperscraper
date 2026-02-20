@@ -294,12 +294,12 @@ Data from our paper library:
 - Related patents found: {patent_count}
 - Top keywords: {keywords_str}
 - Average scores (0-10 scale):
-  - Novelty: {score_stats.get('avg_novelty', 'N/A')}
-  - IP Potential: {score_stats.get('avg_ip_potential', 'N/A')}
-  - Marketability: {score_stats.get('avg_marketability', 'N/A')}
-  - Feasibility: {score_stats.get('avg_feasibility', 'N/A')}
-  - Commercialization: {score_stats.get('avg_commercialization', 'N/A')}
-  - Team Readiness: {score_stats.get('avg_team_readiness', 'N/A')}
+  - Novelty: {score_stats.get("avg_novelty", "N/A")}
+  - IP Potential: {score_stats.get("avg_ip_potential", "N/A")}
+  - Marketability: {score_stats.get("avg_marketability", "N/A")}
+  - Feasibility: {score_stats.get("avg_feasibility", "N/A")}
+  - Commercialization: {score_stats.get("avg_commercialization", "N/A")}
+  - Team Readiness: {score_stats.get("avg_team_readiness", "N/A")}
 
 Generate:
 1. A 2-3 sentence executive summary of this research trend

@@ -1,6 +1,5 @@
 """Tests for CSV injection protection."""
 
-
 from paper_scraper.core.csv_utils import sanitize_csv_field
 
 

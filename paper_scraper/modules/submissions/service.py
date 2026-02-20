@@ -501,9 +501,8 @@ class SubmissionService:
             return []
 
         try:
-            from paper_scraper.modules.scoring.embeddings import generate_paper_embedding
-
             from paper_scraper.core.vector import VectorService
+            from paper_scraper.modules.scoring.embeddings import generate_paper_embedding
 
             # Generate embedding for submission
             embedding = await generate_paper_embedding(
@@ -526,9 +525,7 @@ class SubmissionService:
 
             # Hydrate full Paper objects from PostgreSQL
             paper_ids = [UUID(r["id"]) for r in results]
-            db_result = await self.db.execute(
-                select(Paper).where(Paper.id.in_(paper_ids))
-            )
+            db_result = await self.db.execute(select(Paper).where(Paper.id.in_(paper_ids)))
             return list(db_result.scalars().all())
 
         except Exception as e:

@@ -7,7 +7,6 @@ Covers:
 - Search activity tracking for gamification
 """
 
-
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient

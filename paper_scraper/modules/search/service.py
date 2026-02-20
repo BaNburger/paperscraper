@@ -7,7 +7,6 @@ PostgreSQL is still used for paper hydration and score lookups.
 
 import logging
 import time
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -205,9 +204,7 @@ class SearchService:
             filtered_ids = await self._apply_pg_score_filter(
                 list(hydrated_papers.keys()), filters, organization_id
             )
-            hydrated_papers = {
-                pid: p for pid, p in hydrated_papers.items() if pid in filtered_ids
-            }
+            hydrated_papers = {pid: p for pid, p in hydrated_papers.items() if pid in filtered_ids}
 
         # Build similar paper items, preserving Qdrant ranking order
         similar_papers: list[SimilarPaperItem] = []
@@ -377,14 +374,10 @@ class SearchService:
             filtered_ids = await self._apply_pg_score_filter(
                 list(hydrated_papers.keys()), filters, organization_id
             )
-            hydrated_papers = {
-                pid: p for pid, p in hydrated_papers.items() if pid in filtered_ids
-            }
+            hydrated_papers = {pid: p for pid, p in hydrated_papers.items() if pid in filtered_ids}
 
         # Fetch scores for matched papers
-        scores_map = await self._get_latest_scores(
-            list(hydrated_papers.keys()), organization_id
-        )
+        scores_map = await self._get_latest_scores(list(hydrated_papers.keys()), organization_id)
 
         # Build result items preserving Typesense ranking order
         items: list[SearchResultItem] = []
@@ -401,9 +394,7 @@ class SearchService:
 
             highlights: list[SearchHighlight] = []
             if include_highlights:
-                highlights = self._extract_typesense_highlights(
-                    meta.get("highlights", [])
-                )
+                highlights = self._extract_typesense_highlights(meta.get("highlights", []))
 
             items.append(
                 SearchResultItem(
@@ -462,7 +453,7 @@ class SearchService:
 
         # Apply pagination by slicing
         start = (page - 1) * page_size
-        paginated_results = qdrant_results[start:start + page_size]
+        paginated_results = qdrant_results[start : start + page_size]
 
         if not paginated_results:
             return [], total
@@ -483,14 +474,10 @@ class SearchService:
             filtered_ids = await self._apply_pg_score_filter(
                 list(hydrated_papers.keys()), filters, organization_id
             )
-            hydrated_papers = {
-                pid: p for pid, p in hydrated_papers.items() if pid in filtered_ids
-            }
+            hydrated_papers = {pid: p for pid, p in hydrated_papers.items() if pid in filtered_ids}
 
         # Fetch scores
-        scores_map = await self._get_latest_scores(
-            list(hydrated_papers.keys()), organization_id
-        )
+        scores_map = await self._get_latest_scores(list(hydrated_papers.keys()), organization_id)
 
         # Build results preserving Qdrant ranking order
         items: list[SearchResultItem] = []
@@ -565,9 +552,7 @@ class SearchService:
         )
 
         # Create rank mappings
-        text_ranks: dict[UUID, int] = {
-            item.id: rank + 1 for rank, item in enumerate(text_results)
-        }
+        text_ranks: dict[UUID, int] = {item.id: rank + 1 for rank, item in enumerate(text_results)}
         semantic_ranks: dict[UUID, int] = {
             item.id: rank + 1 for rank, item in enumerate(semantic_results)
         }
@@ -590,9 +575,7 @@ class SearchService:
             rrf_scores[paper_id] = text_rrf + semantic_rrf
 
         # Sort by RRF score
-        sorted_ids = sorted(
-            rrf_scores.keys(), key=lambda x: rrf_scores[x], reverse=True
-        )
+        sorted_ids = sorted(rrf_scores.keys(), key=lambda x: rrf_scores[x], reverse=True)
 
         # Build result items from text or semantic results
         text_items_map = {item.id: item for item in text_results}
@@ -735,33 +718,27 @@ class SearchService:
 
         if filters.has_score is True:
             # Return papers that HAVE at least one score
-            query = (
-                select(Paper.id)
-                .where(
-                    Paper.id.in_(paper_ids),
-                    Paper.organization_id == organization_id,
-                    exists(
-                        select(score_alias.id).where(
-                            score_alias.paper_id == Paper.id,
-                            score_alias.organization_id == organization_id,
-                        )
-                    ),
-                )
+            query = select(Paper.id).where(
+                Paper.id.in_(paper_ids),
+                Paper.organization_id == organization_id,
+                exists(
+                    select(score_alias.id).where(
+                        score_alias.paper_id == Paper.id,
+                        score_alias.organization_id == organization_id,
+                    )
+                ),
             )
         else:
             # Return papers that DO NOT have any score
-            query = (
-                select(Paper.id)
-                .where(
-                    Paper.id.in_(paper_ids),
-                    Paper.organization_id == organization_id,
-                    ~exists(
-                        select(score_alias.id).where(
-                            score_alias.paper_id == Paper.id,
-                            score_alias.organization_id == organization_id,
-                        )
-                    ),
-                )
+            query = select(Paper.id).where(
+                Paper.id.in_(paper_ids),
+                Paper.organization_id == organization_id,
+                ~exists(
+                    select(score_alias.id).where(
+                        score_alias.paper_id == Paper.id,
+                        score_alias.organization_id == organization_id,
+                    )
+                ),
             )
 
         result = await self.db.execute(query)

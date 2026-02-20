@@ -217,9 +217,7 @@ class EmbeddingService:
             # Fallback to per-paper embedding when batch call fails.
             for paper in chunk:
                 try:
-                    embedding = await self.embedding_client.embed_text(
-                        self._paper_to_text(paper)
-                    )
+                    embedding = await self.embedding_client.embed_text(self._paper_to_text(paper))
                     paper.has_embedding = True
                     await self._sync_paper_to_external(paper, embedding)
                     succeeded += 1
@@ -263,9 +261,7 @@ class EmbeddingService:
                 embedding=embedding,
             )
         except Exception:
-            logger.exception(
-                "Failed to sync paper %s to external services", paper.id
-            )
+            logger.exception("Failed to sync paper %s to external services", paper.id)
 
     def _paper_to_text(self, paper: Paper) -> str:
         parts = [f"Title: {paper.title}"]

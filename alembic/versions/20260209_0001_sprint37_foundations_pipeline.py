@@ -5,7 +5,6 @@ Revises: sprint36_notifications
 Create Date: 2026-02-09
 """
 
-
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import JSONB

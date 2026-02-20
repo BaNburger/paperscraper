@@ -8,7 +8,6 @@ Revises: research_groups_v1
 Create Date: 2026-02-17 14:00:00.000000
 """
 
-
 from alembic import op
 
 revision: str = "research_groups_indexes_v1"

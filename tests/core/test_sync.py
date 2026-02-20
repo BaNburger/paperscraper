@@ -7,13 +7,10 @@ the SyncService correctly delegates writes and handles errors gracefully.
 from __future__ import annotations
 
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
-import pytest
-
 from paper_scraper.core.sync import SyncService
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -434,9 +431,7 @@ class TestDeleteOrgData:
 
         # Qdrant: delete_by_org for all 5 collections
         assert mock_vector.delete_by_org.await_count == 5
-        deleted_collections = [
-            call.args[0] for call in mock_vector.delete_by_org.await_args_list
-        ]
+        deleted_collections = [call.args[0] for call in mock_vector.delete_by_org.await_args_list]
         assert "papers" in deleted_collections
         assert "authors" in deleted_collections
         assert "clusters" in deleted_collections

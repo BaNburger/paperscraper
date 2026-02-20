@@ -5,7 +5,6 @@ Revises: sprint38_workflow_assignment
 Create Date: 2026-02-14 09:00:00.000000
 """
 
-
 import sqlalchemy as sa
 
 from alembic import op

@@ -5,19 +5,15 @@ All tests mock the typesense.Client so no real Typesense instance is needed.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
-import pytest
-
 from paper_scraper.core.search_engine import (
-    PAPERS_SCHEMA,
     SearchEngineService,
     _collection_name,
     _datetime_to_epoch,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -45,9 +41,7 @@ class TestEnsureCollections:
         mock_client = MagicMock()
         # Simulate ObjectNotFound on retrieve
         mock_collection = MagicMock()
-        mock_collection.retrieve.side_effect = typesense.exceptions.ObjectNotFound(
-            "Not found"
-        )
+        mock_collection.retrieve.side_effect = typesense.exceptions.ObjectNotFound("Not found")
         mock_client.collections.__getitem__.return_value = mock_collection
 
         service = _make_service(mock_client)
@@ -135,9 +129,7 @@ class TestIndexPaper:
         doc = {"id": "test", "title": "Test", "created_at": 0}
         service.index_paper(doc)
 
-        mock_client.collections.__getitem__.assert_called_with(
-            _collection_name("papers")
-        )
+        mock_client.collections.__getitem__.assert_called_with(_collection_name("papers"))
 
 
 class TestIndexPapersBatch:
@@ -200,7 +192,9 @@ class TestDeletePaper:
         """delete_paper should call documents[paper_id].delete()."""
         mock_client = MagicMock()
         mock_doc = MagicMock()
-        mock_client.collections.__getitem__.return_value.documents.__getitem__.return_value = mock_doc
+        mock_client.collections.__getitem__.return_value.documents.__getitem__.return_value = (
+            mock_doc
+        )
 
         service = _make_service(mock_client)
         paper_id = str(uuid4())
@@ -218,7 +212,9 @@ class TestDeletePaper:
         mock_client = MagicMock()
         mock_doc = MagicMock()
         mock_doc.delete.side_effect = typesense.exceptions.ObjectNotFound("Not found")
-        mock_client.collections.__getitem__.return_value.documents.__getitem__.return_value = mock_doc
+        mock_client.collections.__getitem__.return_value.documents.__getitem__.return_value = (
+            mock_doc
+        )
 
         service = _make_service(mock_client)
         # Should not raise
@@ -263,7 +259,7 @@ class TestSearchPapers:
         service = _make_service(mock_client)
         org_id = uuid4()
 
-        result = service.search_papers(
+        service.search_papers(
             query="machine learning",
             organization_id=org_id,
             page=1,
@@ -502,7 +498,7 @@ class TestMultiSearch:
             {"q": "test2", "collection": "papers"},
         ]
 
-        result = service.multi_search(searches)
+        service.multi_search(searches)
 
         mock_multi.perform.assert_called_once()
         call_args = mock_multi.perform.call_args[0]

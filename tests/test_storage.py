@@ -343,8 +343,7 @@ class TestSubmissionFileDownload:
         mock_get_storage.return_value = mock_storage
 
         response = await client.get(
-            f"/api/v1/submissions/{draft_submission.id}"
-            f"/attachments/{test_attachment.id}/download",
+            f"/api/v1/submissions/{draft_submission.id}/attachments/{test_attachment.id}/download",
             headers=member_auth_headers,
             follow_redirects=False,
         )
@@ -361,7 +360,7 @@ class TestSubmissionFileDownload:
     ):
         """Test that downloading a non-existent attachment returns 404."""
         response = await client.get(
-            f"/api/v1/submissions/{draft_submission.id}" f"/attachments/{uuid4()}/download",
+            f"/api/v1/submissions/{draft_submission.id}/attachments/{uuid4()}/download",
             headers=member_auth_headers,
             follow_redirects=False,
         )
@@ -577,7 +576,7 @@ class TestTransferResourceDownload:
     ):
         """Test that downloading a non-existent resource returns 404."""
         response = await authenticated_client.get(
-            f"/api/v1/transfer/{test_conversation.id}" f"/resources/{uuid4()}/download",
+            f"/api/v1/transfer/{test_conversation.id}/resources/{uuid4()}/download",
             follow_redirects=False,
         )
 

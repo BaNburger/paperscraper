@@ -166,9 +166,8 @@ async def sync_research_group_task(
             await db.commit()
 
             # 7. Get all project paper IDs and their embeddings from Qdrant
-            from qdrant_client import models as qdrant_models
 
-            from paper_scraper.core.vector import VectorService, _collection_name, get_qdrant_client
+            from paper_scraper.core.vector import _collection_name, get_qdrant_client
 
             paper_id_result = await db.execute(
                 select(Paper.id, Paper.keywords)
@@ -229,9 +228,9 @@ async def sync_research_group_task(
             cluster_similarities: dict[int, dict[UUID, float]] = defaultdict(dict)
             for assignment in assignments:
                 cluster_papers[assignment.cluster_index].append(assignment.paper_id)
-                cluster_similarities[assignment.cluster_index][
-                    assignment.paper_id
-                ] = assignment.similarity_score
+                cluster_similarities[assignment.cluster_index][assignment.paper_id] = (
+                    assignment.similarity_score
+                )
 
             cluster_data = []
             for c_idx in sorted(cluster_papers.keys()):

@@ -39,7 +39,7 @@ async def generate_report_content(
         summary = await analytics_service.get_dashboard_summary(report.organization_id)
         return f"""
         <h2>Dashboard Summary Report</h2>
-        <p>Generated: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}</p>
+        <p>Generated: {datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")}</p>
 
         <h3>Key Metrics</h3>
         <ul>
@@ -61,7 +61,7 @@ async def generate_report_content(
         )
         return f"""
         <h2>Paper Trends Report</h2>
-        <p>Generated: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}</p>
+        <p>Generated: {datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")}</p>
 
         <h3>Import Statistics (Last 30 Days)</h3>
         <ul>
@@ -82,7 +82,7 @@ async def generate_report_content(
         )
         return f"""
         <h2>Team Activity Report</h2>
-        <p>Generated: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}</p>
+        <p>Generated: {datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")}</p>
 
         <h3>Team Overview</h3>
         <ul>

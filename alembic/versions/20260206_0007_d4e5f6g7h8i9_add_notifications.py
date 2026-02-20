@@ -5,7 +5,6 @@ Revises: sprint30_search_badges
 Create Date: 2026-02-06
 """
 
-
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import JSONB

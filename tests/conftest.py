@@ -121,10 +121,10 @@ tb_module.token_blacklist._get_redis = _patched_get_redis  # type: ignore[assign
 # ---------------------------------------------------------------------------
 # Mock Qdrant + Typesense: prevent tests from connecting to real servers
 # ---------------------------------------------------------------------------
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock  # noqa: E402
 
-from paper_scraper.core import search_engine as _se_module
-from paper_scraper.core import vector as _vec_module
+from paper_scraper.core import search_engine as _se_module  # noqa: E402
+from paper_scraper.core import vector as _vec_module  # noqa: E402
 
 
 def _get_mock_typesense_client() -> MagicMock:

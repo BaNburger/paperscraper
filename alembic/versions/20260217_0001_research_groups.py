@@ -8,7 +8,6 @@ Revises: global_score_cache_v1
 Create Date: 2026-02-17 10:00:00.000000
 """
 
-
 import sqlalchemy as sa
 from pgvector.sqlalchemy import Vector
 from sqlalchemy.dialects import postgresql

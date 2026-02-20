@@ -5,6 +5,7 @@ Revises: scheduled_reports
 Create Date: 2026-02-06
 
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa

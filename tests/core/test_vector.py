@@ -8,15 +8,14 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
-import pytest
 from qdrant_client import models
 
 from paper_scraper.core.vector import COLLECTIONS, VectorService, _collection_name
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _fake_collection(name: str) -> MagicMock:
     """Return a mock collection description with the given name."""
@@ -60,8 +59,7 @@ class TestEnsureCollections:
 
         # Verify each collection was created with its correct dimension
         created_names = [
-            call.kwargs["collection_name"]
-            for call in mock_client.create_collection.await_args_list
+            call.kwargs["collection_name"] for call in mock_client.create_collection.await_args_list
         ]
         for name in COLLECTIONS:
             assert _collection_name(name) in created_names

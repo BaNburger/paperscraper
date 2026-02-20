@@ -4,6 +4,7 @@ Revision ID: q6r7s8t9u0v1
 Revises: p6q7r8s9t0u1
 Create Date: 2026-02-05
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -124,7 +125,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.execute(
-        "DROP TRIGGER IF EXISTS update_model_configurations_updated_at " "ON model_configurations"
+        "DROP TRIGGER IF EXISTS update_model_configurations_updated_at ON model_configurations"
     )
     op.drop_table("model_usage")
     op.drop_table("model_configurations")

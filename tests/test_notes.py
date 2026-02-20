@@ -164,8 +164,7 @@ class TestExtractMentions:
     def test_extract_multiple_mentions(self):
         """Test extracting multiple @mentions."""
         content = (
-            "CC @{550e8400-e29b-41d4-a716-446655440001} and "
-            "@{550e8400-e29b-41d4-a716-446655440002}"
+            "CC @{550e8400-e29b-41d4-a716-446655440001} and @{550e8400-e29b-41d4-a716-446655440002}"
         )
         mentions = extract_mentions(content)
 

@@ -292,9 +292,7 @@ class GroupService:
 
             if qdrant_results:
                 author_ids = [UUID(r["id"]) for r in qdrant_results]
-                result = await self.db.execute(
-                    select(Author).where(Author.id.in_(author_ids))
-                )
+                result = await self.db.execute(select(Author).where(Author.id.in_(author_ids)))
                 authors_with_embeddings = list(result.scalars().all())
             else:
                 authors_with_embeddings = []
