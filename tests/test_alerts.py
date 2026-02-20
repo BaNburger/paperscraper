@@ -41,9 +41,9 @@ async def _create_saved_search(client: AsyncClient) -> str:
             "mode": "fulltext",
         },
     )
-    assert response.status_code == 201, (
-        f"Failed to create saved search: {response.status_code} {response.text}"
-    )
+    assert (
+        response.status_code == 201
+    ), f"Failed to create saved search: {response.status_code} {response.text}"
     return response.json()["id"]
 
 
@@ -67,9 +67,9 @@ async def _create_alert(
             "min_results": min_results,
         },
     )
-    assert response.status_code == 201, (
-        f"Failed to create alert: {response.status_code} {response.text}"
-    )
+    assert (
+        response.status_code == 201
+    ), f"Failed to create alert: {response.status_code} {response.text}"
     return response.json()
 
 

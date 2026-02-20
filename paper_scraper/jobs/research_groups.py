@@ -228,9 +228,9 @@ async def sync_research_group_task(
             cluster_similarities: dict[int, dict[UUID, float]] = defaultdict(dict)
             for assignment in assignments:
                 cluster_papers[assignment.cluster_index].append(assignment.paper_id)
-                cluster_similarities[assignment.cluster_index][assignment.paper_id] = (
-                    assignment.similarity_score
-                )
+                cluster_similarities[assignment.cluster_index][
+                    assignment.paper_id
+                ] = assignment.similarity_score
 
             cluster_data = []
             for c_idx in sorted(cluster_papers.keys()):
