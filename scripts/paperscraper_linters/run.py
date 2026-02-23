@@ -13,6 +13,7 @@ if __package__ in {None, ""}:
     from paperscraper_linters import (  # type: ignore[import-not-found]
         docs_policy,
         frontend_architecture,
+        next_lean_architecture,
         python_architecture,
         security_contracts,
     )
@@ -23,7 +24,13 @@ if __package__ in {None, ""}:
         load_allowlist,
     )
 else:
-    from . import docs_policy, frontend_architecture, python_architecture, security_contracts
+    from . import (
+        docs_policy,
+        frontend_architecture,
+        next_lean_architecture,
+        python_architecture,
+        security_contracts,
+    )
     from .common import AllowlistEntry, Finding, is_allowlisted, load_allowlist
 
 
@@ -37,6 +44,7 @@ def collect_findings(repo: Path) -> tuple[list[Finding], list[AllowlistEntry]]:
     findings.extend(allowlist_findings)
     findings.extend(python_architecture.lint(repo))
     findings.extend(frontend_architecture.lint(repo))
+    findings.extend(next_lean_architecture.lint(repo))
     findings.extend(security_contracts.lint(repo))
     findings.extend(docs_policy.lint(repo))
 

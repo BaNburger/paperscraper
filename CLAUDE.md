@@ -111,6 +111,18 @@ npm run lint:all
 | `PSD001` | `CLAUDE.md` must include this linter policy section |
 | `PSD002` | `AGENTS.md` must exist with required Codex sections |
 | `PSD003` | `CLAUDE.md` + `AGENTS.md` must document lint command and exception workflow |
+| `PSN001` | In v2 workspace, no ad hoc network calls outside API/adapter/provider boundaries |
+| `PSN002` | In v2 workspace, routers must not use direct DB/raw SQL access (engine APIs only) |
+| `PSN003` | In v2 workspace, engine modules must not import other engines directly |
+| `PSN004` | In v2 workspace, dependencies must not be unused or single-use (unless allowlisted) |
+| `PSN005` | In v2 workspace, shared components must be reused (single-use components are forbidden) |
+| `PSN006` | In v2 workspace, ad hoc helper/util files must be reused or removed |
+| `PSN007` | In v2 workspace, source files must stay compact (line-count caps enforced) |
+| `PSN008` | In v2 workspace, unsafe execution/security primitives are forbidden |
+| `PSN009` | In v2 workspace, performance guardrails apply (no `SELECT *`, worker concurrency/retries required) |
+| `PSN010` | In v2 workspace, function sprawl is forbidden (max functions per file enforced) |
+
+`PSN*` rules apply to the separate PaperScraper Next workspace (for example `paper-scraper-next/` when present).
 
 ### Required Pre-Completion Checklist
 - Run `npm run lint:agents`.
